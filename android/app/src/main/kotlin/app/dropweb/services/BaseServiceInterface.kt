@@ -9,6 +9,8 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
+import android.net.VpnService
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import app.dropweb.GlobalState
@@ -83,10 +85,19 @@ fun Service.startForeground(notification: Notification) {
     }
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        // VpnService subclasses must use SYSTEM_EXEMPTED so they are not
+        // killed by the Android 15+ dataSync 6h cumulative FGS timeout
+        // (ForegroundServiceDidNotStopInTimeException). Plain background
+        // services keep DATA_SYNC. The chosen type MUST match the
+        // foregroundServiceType declared in AndroidManifest.xml for the
+        // concrete service class.
+        val fgsType = if (this is VpnService) {
+            FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
+        } else {
+            FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        }
         try {
-            startForeground(
-                GlobalState.NOTIFICATION_ID, notification, FOREGROUND_SERVICE_TYPE_DATA_SYNC
-            )
+            startForeground(GlobalState.NOTIFICATION_ID, notification, fgsType)
         } catch (_: Exception) {
             startForeground(GlobalState.NOTIFICATION_ID, notification)
         }

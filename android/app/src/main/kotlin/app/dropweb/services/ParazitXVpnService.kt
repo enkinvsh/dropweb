@@ -583,10 +583,14 @@ class ParazitXVpnService : VpnService() {
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // SYSTEM_EXEMPTED matches the manifest's foregroundServiceType
+            // for this VpnService subclass and avoids the Android 15+
+            // dataSync 6h cumulative FGS timeout. Mismatch with the manifest
+            // throws ForegroundServiceTypeException at startForeground.
             startForeground(
                 NOTIFICATION_ID,
                 notification,
-                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED,
             )
         } else {
             startForeground(NOTIFICATION_ID, notification)
