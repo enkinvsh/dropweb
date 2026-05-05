@@ -99,6 +99,20 @@ class ErrorMapper {
       ru: 'Сервер подписки временно недоступен. Попробуйте позже.',
       en: 'Subscription server is temporarily unavailable. Try later.',
     ),
+    // YAML unmarshal errors — provider returned wrong format (e.g. raw VLESS instead of Mihomo YAML)
+    _ErrorPattern(
+      RegExp(r'yaml:\s*unmarshal errors|cannot unmarshal !!str',
+          caseSensitive: false),
+      ru: 'Ваш провайдер не поддерживает это приложение. Обратитесь к провайдеру или используйте другую ссылку на подписку.',
+      en: 'Your provider does not support this app. Contact your provider or use a different subscription link.',
+    ),
+    // YAML token parse error — same cause: wrong subscription format
+    _ErrorPattern(
+      RegExp(r'yaml:\s*found character that cannot start any token',
+          caseSensitive: false),
+      ru: 'Ваш провайдер не поддерживает это приложение. Обратитесь к провайдеру или используйте другую ссылку на подписку.',
+      en: 'Your provider does not support this app. Contact your provider or use a different subscription link.',
+    ),
     // DioException bad response (generic — catches what above didn't)
     _ErrorPattern(
       RegExp(r'DioException.*bad response|DioException.*status code',
