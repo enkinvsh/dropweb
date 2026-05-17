@@ -1,21 +1,26 @@
 import 'dart:io';
 
 import 'package:dropweb/common/common.dart';
-import 'package:dropweb/views/about.dart' show startFileTransferGame;
-import 'package:dropweb/views/dashboard/widgets/magic_rings.dart';
-import 'package:dropweb/views/dashboard/widgets/start_button.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/views/about.dart' show startFileTransferGame;
+import 'package:dropweb/views/dashboard/widgets/magic_rings.dart';
+import 'package:dropweb/views/dashboard/widgets/start_button.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
 typedef OnSelected = void Function(int index);
+
+String _navigationLabel(PageLabel label) => switch (label) {
+      PageLabel.cabinet => 'Кабинет',
+      _ => Intl.message(label.name),
+    };
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -38,30 +43,34 @@ class HomePage extends StatelessWidget {
               currentIndex: currentIndex,
             );
             final bottomNavigationBar = viewMode == ViewMode.mobile
-                ? _BottomBarWithConnect(navigationBar: navigationBar)
+                ? _BottomBarWithConnect(
+                    navigationBar: navigationBar,
+                    navigationItemCount: navigationItems.length,
+                  )
                 : null;
             final sideNavigationBar =
                 viewMode != ViewMode.mobile ? navigationBar : null;
             return CommonScaffold(
               key: globalState.homeScaffoldKey,
-              title: pageLabel == PageLabel.dashboard
+              title: viewMode == ViewMode.mobile ||
+                      pageLabel == PageLabel.dashboard
                   ? ''
-                  : Intl.message(pageLabel.name),
+                  : _navigationLabel(pageLabel),
               sideNavigationBar: sideNavigationBar,
               body: child!,
               bottomNavigationBar: bottomNavigationBar,
             );
           },
-          child: _HomePageView(),
+          child: const _HomePageView(),
         ),
-      );
+    );
 }
 
 class _HomePageView extends ConsumerStatefulWidget {
   const _HomePageView();
 
   @override
-  ConsumerState createState() => _HomePageViewState();
+  ConsumerState<_HomePageView> createState() => _HomePageViewState();
 }
 
 class _HomePageViewState extends ConsumerState<_HomePageView> {
@@ -74,26 +83,31 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
       initialPage: _pageIndex,
       keepPage: true,
     );
-    ref.listenManual(currentPageLabelProvider, (prev, next) {
-      if (prev != next) {
-        _toPage(next);
-      }
-    });
-    ref.listenManual(currentNavigationsStateProvider, (prev, next) {
-      if (prev?.value.length != next.value.length) {
-        _updatePageController();
-      }
-    });
+    ref
+      ..listenManual(currentPageLabelProvider, (prev, next) {
+        if (prev != next) {
+          _toPage(next);
+        }
+      })
+      ..listenManual(currentNavigationsStateProvider, (prev, next) {
+        if (prev?.value != next.value) {
+          _updatePageController();
+        }
+      });
   }
 
   int get _pageIndex {
     final navigationItems = ref.read(currentNavigationsStateProvider).value;
-    return navigationItems.indexWhere(
+    final index = navigationItems.indexWhere(
       (item) => item.label == globalState.appState.pageLabel,
     );
+    return index == -1 ? 0 : index;
   }
 
-  _toPage(PageLabel pageLabel, [bool ignoreAnimateTo = false]) async {
+  Future<void> _toPage(
+    PageLabel pageLabel, [
+    bool ignoreAnimateTo = false,
+  ]) async {
     if (!mounted) {
       return;
     }
@@ -115,8 +129,17 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
     }
   }
 
-  _updatePageController() {
+  void _updatePageController() {
     final pageLabel = globalState.appState.pageLabel;
+    final navigationItems = ref.read(currentNavigationsStateProvider).value;
+    final hasPage = navigationItems.any((item) => item.label == pageLabel);
+    if (!hasPage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        globalState.appController.toPage(PageLabel.dashboard);
+      });
+      return;
+    }
     _toPage(pageLabel, true);
   }
 
@@ -167,14 +190,19 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
 }
 
 class _BottomBarWithConnect extends ConsumerWidget {
-  final Widget navigationBar;
+  const _BottomBarWithConnect({
+    required this.navigationBar,
+    required this.navigationItemCount,
+  });
 
-  const _BottomBarWithConnect({required this.navigationBar});
+  final Widget navigationBar;
+  final int navigationItemCount;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hasProfile =
         ref.watch(profilesProvider.select((state) => state.isNotEmpty));
+    final navigationWidth = navigationItemCount <= 2 ? 140.0 : 204.0;
 
     return Container(
       color: Colors.transparent,
@@ -188,11 +216,11 @@ class _BottomBarWithConnect extends ConsumerWidget {
         children: [
           if (hasProfile)
             SizedBox(
-              width: 140,
+              width: navigationWidth,
               child: navigationBar,
             ),
           const Spacer(),
-          _ConnectCircle(),
+          const _ConnectCircle(),
         ],
       ),
     );
@@ -392,10 +420,6 @@ void _handleDevTap(BuildContext context, WidgetRef ref) {
 }
 
 class CommonNavigationBar extends ConsumerWidget {
-  final ViewMode viewMode;
-  final List<NavigationItem> navigationItems;
-  final int currentIndex;
-
   const CommonNavigationBar({
     super.key,
     required this.viewMode,
@@ -403,7 +427,12 @@ class CommonNavigationBar extends ConsumerWidget {
     required this.currentIndex,
   });
 
+  final ViewMode viewMode;
+  final List<NavigationItem> navigationItems;
+  final int currentIndex;
+
   static const _icons = <PageLabel, (IconData, IconData)>{
+    PageLabel.cabinet: (Icons.account_circle_outlined, Icons.account_circle),
     PageLabel.dashboard: (Icons.dashboard_outlined, Icons.dashboard_rounded),
     PageLabel.tools: (Icons.settings_outlined, Icons.settings_rounded),
   };
@@ -419,8 +448,7 @@ class CommonNavigationBar extends ConsumerWidget {
     ColorScheme colorScheme,
     bool isDark,
     WidgetRef ref,
-  ) {
-    return Container(
+  ) => Container(
       height: 64,
       decoration: BoxDecoration(
         color: isDark
@@ -482,10 +510,9 @@ class CommonNavigationBar extends ConsumerWidget {
         ),
       ),
     );
-  }
 
   @override
-  Widget build(BuildContext context, ref) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (viewMode == ViewMode.mobile) {
       final colorScheme = Theme.of(context).colorScheme;
       final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -578,7 +605,7 @@ class CommonNavigationBar extends ConsumerWidget {
                           (e) => NavigationRailDestination(
                             icon: e.icon,
                             label: Text(
-                              Intl.message(e.label.name),
+                              _navigationLabel(e.label),
                             ),
                           ),
                         )
@@ -608,7 +635,7 @@ class CommonNavigationBar extends ConsumerWidget {
                     ),
                   );
             },
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu01, size: 24),
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedMenu01, size: 24),
           ),
           const SizedBox(
             height: 16,
@@ -619,61 +646,10 @@ class CommonNavigationBar extends ConsumerWidget {
   }
 }
 
-class _NavigationBarDefaultsM3 extends NavigationBarThemeData {
-  _NavigationBarDefaultsM3(this.context)
-      : super(
-          height: 80.0,
-          elevation: 3.0,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        );
-
-  final BuildContext context;
-  late final ColorScheme _colors = Theme.of(context).colorScheme;
-  late final TextTheme _textTheme = Theme.of(context).textTheme;
-
-  @override
-  Color? get backgroundColor => _colors.surfaceContainer;
-
-  @override
-  Color? get shadowColor => Colors.transparent;
-
-  @override
-  Color? get surfaceTintColor => Colors.transparent;
-
-  @override
-  WidgetStateProperty<IconThemeData?>? get iconTheme =>
-      WidgetStateProperty.resolveWith(
-          (Set<WidgetState> states) => IconThemeData(
-                size: 24.0,
-                color: states.contains(WidgetState.disabled)
-                    ? _colors.onSurfaceVariant.opacity38
-                    : states.contains(WidgetState.selected)
-                        ? _colors.onSecondaryContainer
-                        : _colors.onSurfaceVariant,
-              ));
-
-  @override
-  Color? get indicatorColor => _colors.secondaryContainer;
-
-  @override
-  ShapeBorder? get indicatorShape => const StadiumBorder();
-
-  @override
-  WidgetStateProperty<TextStyle?>? get labelTextStyle =>
-      WidgetStateProperty.resolveWith(
-          (Set<WidgetState> states) => _textTheme.labelMedium!.apply(
-              overflow: TextOverflow.ellipsis,
-              color: states.contains(WidgetState.disabled)
-                  ? _colors.onSurfaceVariant.opacity38
-                  : states.contains(WidgetState.selected)
-                      ? _colors.onSurface
-                      : _colors.onSurfaceVariant));
-}
-
 class HomeBackScope extends StatelessWidget {
-  final Widget child;
-
   const HomeBackScope({super.key, required this.child});
+
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {

@@ -1,8 +1,8 @@
-import 'package:dynamic_color/dynamic_color.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/state.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -70,10 +70,14 @@ NavigationItemsState navigationsState(Ref ref) {
       ref.watch(appSettingProvider.select((state) => state.openLogs));
   final hasProxies = ref.watch(
       currentGroupsStateProvider.select((state) => state.value.isNotEmpty));
+  final hasCabinetMarker = ref.watch(
+    currentProfileProvider.select(profileHasCabinetMarker),
+  );
   return NavigationItemsState(
     value: navigation.getItems(
       openLogs: openLogs,
       hasProxies: hasProxies,
+      hasCabinetMarker: hasCabinetMarker,
     ),
   );
 }
@@ -475,6 +479,27 @@ Profile? currentProfile(Ref ref) {
   final profileId = ref.watch(currentProfileIdProvider);
   return ref
       .watch(profilesProvider.select((state) => state.getProfile(profileId)));
+}
+
+const _cabinetTruthyValues = {'true', '1', 'yes', 'enabled', 'cabinet'};
+
+bool _isCabinetHeaderTruthy(String? value) {
+  if (value == null) return false;
+  final normalized = value.trim().toLowerCase();
+  if (normalized.isEmpty) return false;
+  if (_cabinetTruthyValues.contains(normalized)) return true;
+  // Legacy fallback: accept any value containing the Cyrillic marker.
+  return normalized.contains('кабинет');
+}
+
+bool profileHasCabinetMarker(Profile? profile) {
+  final headers = profile?.providerHeaders;
+  if (headers == null) return false;
+  if (_isCabinetHeaderTruthy(headers['dropweb-cabinet'])) return true;
+  // Legacy fallback: older profiles may carry the Cyrillic marker in any header.
+  return headers.values.any(
+    (value) => value.toLowerCase().contains('кабинет'),
+  );
 }
 
 @riverpod

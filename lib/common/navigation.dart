@@ -1,5 +1,6 @@
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
+import 'package:dropweb/views/cabinet/native_cabinet_home.dart';
 import 'package:dropweb/views/views.dart';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -16,8 +17,18 @@ class Navigation {
   List<NavigationItem> getItems({
     bool openLogs = false,
     bool hasProxies = false,
+    bool hasCabinetMarker = false,
   }) =>
       [
+        if (hasCabinetMarker)
+          NavigationItem(
+            keep: true,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedUserAccount, size: 24),
+            label: PageLabel.cabinet,
+            view: const NativeCabinetHome(
+              key: GlobalObjectKey(PageLabel.cabinet),
+            ),
+          ),
         NavigationItem(
           keep: true, // keep alive to avoid rebuild lag on return
           icon: HugeIcon(

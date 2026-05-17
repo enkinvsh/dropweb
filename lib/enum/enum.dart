@@ -446,6 +446,7 @@ enum GeodataLoader {
 }
 
 enum PageLabel {
+  cabinet,
   dashboard,
   proxies,
   profiles,
