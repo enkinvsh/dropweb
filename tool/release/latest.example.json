@@ -1,0 +1,20 @@
+{
+  "platform": "android",
+  "channel": "direct",
+  "version": "0.7.0",
+  "build": 2026051701,
+  "apkUrl": "https://dropweb.org/releases/dropweb-0.7.0.apk",
+  "sha256": "REPLACE_WITH_APK_SHA256",
+  "signingCertSha256": "REPLACE_WITH_CERT_SHA256",
+  "sourceUrl": "https://github.com/enkinvsh/dropweb/tree/REPLACE_WITH_COMMIT",
+  "sourceArchiveUrl": "https://dropweb.org/releases/dropweb-0.7.0-source.tar.gz",
+  "cabinetSourceUrl": "https://github.com/enkinvsh/zencab/tree/REPLACE_WITH_COMMIT",
+  "license": "GPL-3.0",
+  "abi": ["arm64-v8a"],
+  "minAndroid": 23,
+  "changelog": [
+    "Встроенный кабинет Dropweb",
+    "Подключение подписки в один тап",
+    "Улучшенный первый запуск"
+  ]
+}

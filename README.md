@@ -37,6 +37,10 @@
 - [Windows](https://github.com/enkinvsh/dropweb/releases) — Portable/Setup, 10+
 - [macOS](https://github.com/enkinvsh/dropweb/releases) — DMG, 11+ (Intel и Apple Silicon)
 
+### Source availability gate for direct APK releases
+
+Direct APK download links must not be published until exact-version source links are live for the shipped APK. Release metadata should include `sourceUrl`, `sourceArchiveUrl`, `license`, and, when the APK depends on the served cabinet flow, `cabinetSourceUrl`.
+
 ## Фичи
 
 - **Протоколы:** VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, WireGuard (Xray-core совместимые)
