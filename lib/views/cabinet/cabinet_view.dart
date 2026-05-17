@@ -7,6 +7,16 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 /// main frame, run JavaScript, and call native bridge handlers.
 const String _zencabHost = 'cab.dropweb.org';
 
+/// Stable user-agent marker that keeps zencab in app mode after internal
+/// navigations that lose the `?surface=dropweb_android` query parameter.
+/// Detector on the zencab side recognises this token; do not rename.
+const String _dropwebUaMarker = 'DropwebApp/Android';
+
+/// Required query parameter that initially flips zencab into app mode.
+/// Caller-supplied query parameters MUST NOT override this.
+const String _surfaceParam = 'surface';
+const String _surfaceValue = 'dropweb_android';
+
 /// Reusable hardened WebView container for zencab pages.
 ///
 /// Use cases (opened internally from native flows, never as a top tab):
@@ -83,21 +93,27 @@ class _CabinetWebViewState extends State<CabinetWebView> {
     final path = isSafeCabinetPath(widget.initialPath)
         ? widget.initialPath
         : '/login';
+    // Spread caller-supplied parameters FIRST so the required surface
+    // marker always wins. Callers must not be able to switch the WebView
+    // out of app mode by passing `surface: 'web'` or similar.
     final qp = <String, String>{
-      'surface': 'dropweb_android',
       ...?widget.queryParameters,
+      _surfaceParam: _surfaceValue,
     };
     final uri = Uri.https(_zencabHost, path, qp);
     return WebUri.uri(uri);
   }
 
-  String? _resolveUserAgent() {
+  String _resolveUserAgent() {
+    // App-mode detection on the zencab side falls back to the UA marker
+    // whenever the `?surface` query gets dropped by an internal redirect,
+    // so the marker must always be present — never null.
     try {
       // packageInfo is initialised in GlobalState.init(); guard so the
       // WebView never throws if it somehow opens before app init.
-      return globalState.packageInfo.ua;
+      return '${globalState.packageInfo.ua} $_dropwebUaMarker';
     } catch (_) {
-      return null;
+      return _dropwebUaMarker;
     }
   }
 
@@ -129,11 +145,15 @@ class _CabinetWebViewState extends State<CabinetWebView> {
     }
     if (!isTrustedBridgeOrigin(current)) return false;
 
-    final url = args.isNotEmpty ? args.first as String? : null;
-    if (!isSafeImportUrl(url)) return false;
+    // Defensive arg handling — JS can pass anything (null, numbers,
+    // objects). Bridge misuse must resolve `false`, never throw.
+    if (args.isEmpty) return false;
+    final first = args.first;
+    if (first is! String) return false;
+    if (!isSafeImportUrl(first)) return false;
 
     try {
-      await globalState.appController.addProfileFormURL(url!.trim());
+      await globalState.appController.addProfileFormURL(first.trim());
       return true;
     } catch (_) {
       return false;
