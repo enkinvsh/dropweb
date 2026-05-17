@@ -65,6 +65,9 @@ class MessageLookup extends MessageLookupByLibrary {
         "action_tun": MessageLookupByLibrary.simpleMessage("TUN"),
         "action_view": MessageLookupByLibrary.simpleMessage("Показать/Скрыть"),
         "add": MessageLookupByLibrary.simpleMessage("Добавить"),
+        "addSubscription": MessageLookupByLibrary.simpleMessage(
+          "Добавить подписку",
+        ),
         "addFromPhoneSubtitle": MessageLookupByLibrary.simpleMessage(
           "Сканировать QR-код телефоном",
         ),
@@ -282,6 +285,9 @@ class MessageLookup extends MessageLookupByLibrary {
         "doYouWantToPass": MessageLookupByLibrary.simpleMessage(
           "Добавляем профиль по адресу",
         ),
+        "doYouHaveConnectionKey": MessageLookupByLibrary.simpleMessage(
+          "У вас есть ключ для подключения?",
+        ),
         "domain": MessageLookupByLibrary.simpleMessage("Домен"),
         "download": MessageLookupByLibrary.simpleMessage("Загрузка"),
         "edit": MessageLookupByLibrary.simpleMessage("Редактировать"),
@@ -391,6 +397,10 @@ class MessageLookup extends MessageLookupByLibrary {
           "Конфигурация иконки",
         ),
         "iconStyle": MessageLookupByLibrary.simpleMessage("Стиль иконки"),
+        "iHaveKey": MessageLookupByLibrary.simpleMessage("Да, есть ключ"),
+        "iNeedSubscription": MessageLookupByLibrary.simpleMessage(
+          "Нет, войти в кабинет",
+        ),
         "import": MessageLookupByLibrary.simpleMessage("Импорт"),
         "importFile": MessageLookupByLibrary.simpleMessage("Импорт из файла"),
         "importFromURL": MessageLookupByLibrary.simpleMessage("Импорт из URL"),
@@ -582,6 +592,9 @@ class MessageLookup extends MessageLookupByLibrary {
         "password": MessageLookupByLibrary.simpleMessage("Пароль"),
         "paste": MessageLookupByLibrary.simpleMessage("Вставить"),
         "pasteFromClipboard": MessageLookupByLibrary.simpleMessage("Вставить"),
+        "pasteSubscriptionUrl": MessageLookupByLibrary.simpleMessage(
+          "Вставить ссылку подписки",
+        ),
         "pleaseBindWebDAV": MessageLookupByLibrary.simpleMessage(
           "Пожалуйста, привяжите WebDAV",
         ),
@@ -739,6 +752,9 @@ class MessageLookup extends MessageLookupByLibrary {
         "rules": MessageLookupByLibrary.simpleMessage("Правила"),
         "running": MessageLookupByLibrary.simpleMessage("Запущено"),
         "save": MessageLookupByLibrary.simpleMessage("Сохранить"),
+        "scanQrCode": MessageLookupByLibrary.simpleMessage(
+          "Сканировать QR-код",
+        ),
         "saveChanges":
             MessageLookupByLibrary.simpleMessage("Сохранить изменения?"),
         "saveTip": MessageLookupByLibrary.simpleMessage("Сохранить изменения?"),

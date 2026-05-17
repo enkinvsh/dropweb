@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/pages/scan.dart';
 import 'package:dropweb/state.dart';
@@ -15,36 +17,7 @@ class AddProfileView extends StatelessWidget {
   final BuildContext context;
 
   Future<void> _handleAddProfileFormFile() async {
-    globalState.appController.addProfileFormFile();
-  }
-
-  Future<void> _handleAddProfileFormURL(String url) async {
-    globalState.appController.addProfileFormURL(url);
-  }
-
-  Future<void> _toScan() async {
-    if (system.isDesktop) {
-      globalState.appController.addProfileFormQrCode();
-      return;
-    }
-    final url = await BaseNavigator.push(
-      context,
-      const ScanPage(),
-    );
-    if (url != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _handleAddProfileFormURL(url);
-      });
-    }
-  }
-
-  Future<void> _toAdd() async {
-    final url = await globalState.showCommonDialog<String>(
-      child: const URLFormDialog(),
-    );
-    if (url != null) {
-      _handleAddProfileFormURL(url);
-    }
+    await globalState.appController.addProfileFormFile();
   }
 
   Future<void> _handleReceiveFromPhone() async {
@@ -53,7 +26,7 @@ class AddProfileView extends StatelessWidget {
       builder: (_) => const ReceiveProfileDialog(),
     );
     if (url != null && url.isNotEmpty) {
-      _handleAddProfileFormURL(url);
+      await addProfileFromUrl(url);
     }
   }
 
@@ -66,37 +39,66 @@ class AddProfileView extends StatelessWidget {
             children: [
               if (isTV)
                 ListItem(
-                  leading:
-                      HugeIcon(icon: HugeIcons.strokeRoundedTv01, size: 24),
+                  leading: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedTv01, size: 24),
                   title: Text(appLocalizations.addFromPhoneTitle),
                   subtitle: Text(appLocalizations.addFromPhoneSubtitle),
                   onTap: _handleReceiveFromPhone,
                 ),
               ListItem(
-                leading:
-                    HugeIcon(icon: HugeIcons.strokeRoundedQrCode, size: 24),
+                leading: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedQrCode, size: 24),
                 title: Text(appLocalizations.qrcode),
                 subtitle: Text(appLocalizations.qrcodeDesc),
-                onTap: _toScan,
+                onTap: () => scanProfileQrCode(context),
               ),
               ListItem(
-                leading:
-                    HugeIcon(icon: HugeIcons.strokeRoundedFileUpload, size: 24),
+                leading: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedFileUpload, size: 24),
                 title: Text(appLocalizations.file),
                 subtitle: Text(appLocalizations.fileDesc),
                 onTap: _handleAddProfileFormFile,
               ),
               ListItem(
-                leading: HugeIcon(
+                leading: const HugeIcon(
                     icon: HugeIcons.strokeRoundedCloudDownload, size: 24),
                 title: Text(appLocalizations.url),
                 subtitle: Text(appLocalizations.urlDesc),
-                onTap: _toAdd,
+                onTap: () => showProfileUrlDialog(context),
               ),
             ],
           );
         },
       );
+}
+
+Future<void> addProfileFromUrl(String url) async {
+  await globalState.appController.addProfileFormURL(url);
+}
+
+Future<void> scanProfileQrCode(BuildContext context) async {
+  if (system.isDesktop) {
+    await globalState.appController.addProfileFormQrCode();
+    return;
+  }
+  final url = await BaseNavigator.push<String>(
+    context,
+    const ScanPage(),
+  );
+  if (url != null) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(addProfileFromUrl(url));
+    });
+  }
+}
+
+Future<void> showProfileUrlDialog(BuildContext context) async {
+  final url = await globalState.showCommonDialog<String>(
+    child: const URLFormDialog(),
+  );
+  if (url != null) {
+    await addProfileFromUrl(url);
+  }
 }
 
 class URLFormDialog extends StatefulWidget {

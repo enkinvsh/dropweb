@@ -614,6 +614,66 @@ class AppLocalizations {
     return Intl.message('Add', name: 'add', desc: '', args: []);
   }
 
+  /// `Add subscription`
+  String get addSubscription {
+    return Intl.message(
+      'Add subscription',
+      name: 'addSubscription',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Do you have a connection key?`
+  String get doYouHaveConnectionKey {
+    return Intl.message(
+      'Do you have a connection key?',
+      name: 'doYouHaveConnectionKey',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Yes, I have a key`
+  String get iHaveKey {
+    return Intl.message(
+      'Yes, I have a key',
+      name: 'iHaveKey',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `No, log in to cabinet`
+  String get iNeedSubscription {
+    return Intl.message(
+      'No, log in to cabinet',
+      name: 'iNeedSubscription',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Scan QR code`
+  String get scanQrCode {
+    return Intl.message(
+      'Scan QR code',
+      name: 'scanQrCode',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Paste subscription URL`
+  String get pasteSubscriptionUrl {
+    return Intl.message(
+      'Paste subscription URL',
+      name: 'pasteSubscriptionUrl',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Save`
   String get save {
     return Intl.message('Save', name: 'save', desc: '', args: []);

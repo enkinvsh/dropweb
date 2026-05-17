@@ -63,6 +63,9 @@ class MessageLookup extends MessageLookupByLibrary {
         "action_tun": MessageLookupByLibrary.simpleMessage("TUN"),
         "action_view": MessageLookupByLibrary.simpleMessage("Show/Hide"),
         "add": MessageLookupByLibrary.simpleMessage("Add"),
+        "addSubscription": MessageLookupByLibrary.simpleMessage(
+          "Add subscription",
+        ),
         "addFromPhoneSubtitle": MessageLookupByLibrary.simpleMessage(
           "Scan QR code with phone",
         ),
@@ -268,6 +271,9 @@ class MessageLookup extends MessageLookupByLibrary {
         "doYouWantToPass": MessageLookupByLibrary.simpleMessage(
           "Adding profile from",
         ),
+        "doYouHaveConnectionKey": MessageLookupByLibrary.simpleMessage(
+          "Do you have a connection key?",
+        ),
         "domain": MessageLookupByLibrary.simpleMessage("Domain"),
         "download": MessageLookupByLibrary.simpleMessage("Download"),
         "edit": MessageLookupByLibrary.simpleMessage("Edit"),
@@ -367,6 +373,12 @@ class MessageLookup extends MessageLookupByLibrary {
           "Icon configuration",
         ),
         "iconStyle": MessageLookupByLibrary.simpleMessage("Icon style"),
+        "iHaveKey": MessageLookupByLibrary.simpleMessage(
+          "Yes, I have a key",
+        ),
+        "iNeedSubscription": MessageLookupByLibrary.simpleMessage(
+          "No, log in to cabinet",
+        ),
         "import": MessageLookupByLibrary.simpleMessage("Import"),
         "importFile": MessageLookupByLibrary.simpleMessage("Import from file"),
         "importFromURL":
@@ -545,6 +557,9 @@ class MessageLookup extends MessageLookupByLibrary {
         "password": MessageLookupByLibrary.simpleMessage("Password"),
         "paste": MessageLookupByLibrary.simpleMessage("Paste"),
         "pasteFromClipboard": MessageLookupByLibrary.simpleMessage("Paste"),
+        "pasteSubscriptionUrl": MessageLookupByLibrary.simpleMessage(
+          "Paste subscription URL",
+        ),
         "pleaseBindWebDAV": MessageLookupByLibrary.simpleMessage(
           "Please bind WebDAV",
         ),
@@ -691,6 +706,7 @@ class MessageLookup extends MessageLookupByLibrary {
         "rules": MessageLookupByLibrary.simpleMessage("Rules"),
         "running": MessageLookupByLibrary.simpleMessage("Running"),
         "save": MessageLookupByLibrary.simpleMessage("Save"),
+        "scanQrCode": MessageLookupByLibrary.simpleMessage("Scan QR code"),
         "saveChanges": MessageLookupByLibrary.simpleMessage(
           "Do you want to save the changes?",
         ),
