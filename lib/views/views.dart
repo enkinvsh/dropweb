@@ -2,6 +2,7 @@ export 'about.dart';
 export 'access.dart';
 export 'application_setting.dart';
 export 'backup_and_recovery.dart';
+export 'cabinet/cabinet_view.dart';
 export 'config/config.dart';
 export 'connection/connections.dart';
 export 'connection/requests.dart';
