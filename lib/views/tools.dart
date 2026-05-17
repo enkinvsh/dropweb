@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/models/models.dart';
+import 'package:dropweb/pages/send_to_tv_page.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/about.dart';
@@ -11,15 +12,13 @@ import 'package:dropweb/views/access.dart';
 import 'package:dropweb/views/application_setting.dart';
 import 'package:dropweb/views/config/config.dart';
 import 'package:dropweb/views/hotkey.dart';
+import 'package:dropweb/views/parazitx_page.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' show dirname, join;
-
-import 'package:dropweb/pages/send_to_tv_page.dart';
-import 'package:dropweb/views/parazitx_page.dart';
 
 import 'developer.dart';
 import 'theme.dart';
@@ -142,7 +141,7 @@ class _LocaleItem extends ConsumerWidget {
     final subTitle = locale ?? appLocale.defaultText;
     final currentLocale = utils.getLocaleForString(locale);
     return ListItem<Locale?>.options(
-      leading: HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 24),
+      leading: const HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 24),
       title: Text(appLocale.language),
       subtitle: Text(Intl.message(subTitle)),
       delegate: OptionsDelegate(
@@ -167,7 +166,7 @@ class _ThemeItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocale = AppLocalizations.of(context);
     return ListItem.open(
-      leading: HugeIcon(icon: HugeIcons.strokeRoundedEdgeStyle, size: 24),
+      leading: const HugeIcon(icon: HugeIcons.strokeRoundedEdgeStyle, size: 24),
       title: Text(appLocale.theme),
       subtitle: Text(appLocale.themeDesc),
       delegate: OpenDelegate(
@@ -185,7 +184,7 @@ class _HotkeyItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocale = AppLocalizations.of(context);
     return ListItem.open(
-      leading: HugeIcon(icon: HugeIcons.strokeRoundedKeyboard, size: 24),
+      leading: const HugeIcon(icon: HugeIcons.strokeRoundedKeyboard, size: 24),
       title: Text(appLocale.hotkeyManagement),
       subtitle: Text(appLocale.hotkeyManagementDesc),
       delegate: OpenDelegate(
@@ -203,7 +202,8 @@ class _LoopbackItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocale = AppLocalizations.of(context);
     return ListItem(
-      leading: HugeIcon(icon: HugeIcons.strokeRoundedLockPassword, size: 24),
+      leading:
+          const HugeIcon(icon: HugeIcons.strokeRoundedLockPassword, size: 24),
       title: Text(appLocale.loopback),
       subtitle: Text(appLocale.loopbackDesc),
       onTap: () {
@@ -223,7 +223,7 @@ class _AccessItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocale = AppLocalizations.of(context);
     return ListItem.open(
-      leading: HugeIcon(icon: HugeIcons.strokeRoundedListView, size: 24),
+      leading: const HugeIcon(icon: HugeIcons.strokeRoundedListView, size: 24),
       title: Text(appLocale.accessControl),
       subtitle: Text(appLocale.accessControlDesc),
       delegate: OpenDelegate(
@@ -241,7 +241,7 @@ class _ConfigItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocale = AppLocalizations.of(context);
     return ListItem.open(
-      leading: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 24),
+      leading: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 24),
       title: Text(appLocale.basicConfig),
       subtitle: Text(appLocale.basicConfigDesc),
       delegate: OpenDelegate(
@@ -259,7 +259,7 @@ class _SettingItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocale = AppLocalizations.of(context);
     return ListItem.open(
-      leading: HugeIcon(icon: HugeIcons.strokeRoundedSettings02, size: 24),
+      leading: const HugeIcon(icon: HugeIcons.strokeRoundedSettings02, size: 24),
       title: Text(appLocale.application),
       subtitle: Text(appLocale.applicationDesc),
       delegate: OpenDelegate(
@@ -277,13 +277,14 @@ class _DisclaimerItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocale = AppLocalizations.of(context);
     return ListItem(
-      leading: HugeIcon(icon: HugeIcons.strokeRoundedLegalHammer, size: 24),
+      leading:
+          const HugeIcon(icon: HugeIcons.strokeRoundedLegalHammer, size: 24),
       title: Text(appLocale.disclaimer),
       onTap: () async {
         final isDisclaimerAccepted =
             await globalState.appController.showDisclaimer();
         if (!isDisclaimerAccepted) {
-          globalState.appController.handleExit();
+          unawaited(globalState.appController.handleExit());
         }
       },
     );
@@ -298,7 +299,8 @@ class _InfoItem extends StatelessWidget {
     final appLocale = AppLocalizations.of(context);
     return ListItem.open(
       leading:
-          HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 24),
+          const HugeIcon(
+              icon: HugeIcons.strokeRoundedInformationCircle, size: 24),
       title: Text(appLocale.about),
       delegate: OpenDelegate(
         title: appLocale.about,
@@ -315,7 +317,7 @@ class _DeveloperItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocale = AppLocalizations.of(context);
     return ListItem.open(
-      leading: HugeIcon(icon: HugeIcons.strokeRoundedCpu, size: 24),
+      leading: const HugeIcon(icon: HugeIcons.strokeRoundedCpu, size: 24),
       title: Text(appLocale.developerMode),
       delegate: OpenDelegate(
         title: appLocale.developerMode,
@@ -367,7 +369,7 @@ class _TvItemState extends ConsumerState<_TvItem> {
     final url = _profileUrl;
     final hasUrl = profile != null && url != null && url.isNotEmpty;
     return ListItem(
-      leading: HugeIcon(icon: HugeIcons.strokeRoundedTv01, size: 24),
+      leading: const HugeIcon(icon: HugeIcons.strokeRoundedTv01, size: 24),
       title: Text(appLocale.connectTv),
       subtitle: Text(appLocale.connectTvDesc),
       onTap: hasUrl
