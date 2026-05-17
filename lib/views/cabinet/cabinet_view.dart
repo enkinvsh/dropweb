@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:dropweb/common/package.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import 'cabinet_home_adapter.dart';
+import 'cabinet_home_data.dart';
 
 /// Allowed host for the zencab WebView shell. ONLY this host may load the
 /// main frame, run JavaScript, and call native bridge handlers.
@@ -16,6 +22,46 @@ const String _dropwebUaMarker = 'DropwebApp/Android';
 /// Caller-supplied query parameters MUST NOT override this.
 const String _surfaceParam = 'surface';
 const String _surfaceValue = 'dropweb_android';
+
+/// Root for support routes. Only `/support` and `/support/...` are accepted
+/// for the `openSupport` bridge handler.
+const String _supportRoot = '/support';
+
+/// Allowed payment/top-up/checkout route prefixes mirroring the existing
+/// zencab `App.tsx` routes. Absolute URLs and any path outside this list
+/// MUST be rejected. Keep this list conservative — every entry below maps
+/// to a real `<Route>` in zencab; never broaden without confirming a real
+/// route exists.
+const List<String> _safePaymentExactPaths = <String>[
+  '/balance',
+  '/subscription/purchase',
+];
+
+/// Allowed prefixes for payment routes. A path is accepted when it equals
+/// `prefix` or starts with `prefix/`.
+const List<String> _safePaymentPrefixes = <String>[
+  '/balance/',
+  '/buy/',
+];
+
+/// Suffix-based match for renew routes shaped like `/subscriptions/{id}/renew`.
+const String _renewPathPrefix = '/subscriptions/';
+const String _renewPathSuffix = '/renew';
+
+/// Required prefix for the Telegram bot login `start` payload. The Telegram
+/// Login bot ignores any other prefix, so accepting only `webauth_...` keeps
+/// the external handoff scoped to the auth flow we control.
+const String _telegramLoginStartPrefix = 'webauth_';
+
+/// Charset for the bot username (`domain` query) on `tg://resolve`. Telegram
+/// usernames are 5–32 ASCII alphanumerics or underscores; we widen to 1–64
+/// purely defensively — anything else is rejected so we cannot be tricked
+/// into encoding a path or scheme inside the domain.
+final RegExp _telegramDomainPattern = RegExp(r'^[A-Za-z0-9_]{1,64}$');
+
+/// Charset for the bot `start` token suffix after `webauth_`. Matches the
+/// token shape zencab issues (URL-safe base64-ish: alphanumerics, `_`, `-`).
+final RegExp _telegramStartTokenPattern = RegExp(r'^[A-Za-z0-9_-]{1,128}$');
 
 /// Reusable hardened WebView container for zencab pages.
 ///
@@ -85,6 +131,99 @@ bool isTrustedBridgeOrigin(Uri? current) {
   return true;
 }
 
+/// Returns true if any path segment is `.` or `..` or empty (which would
+/// produce a double slash). Path traversal segments MUST be rejected at
+/// the bridge boundary; resolving them on the server side could escape
+/// the intended route allowlist.
+bool _hasUnsafePathSegments(String path) {
+  // Split off any query/fragment that a future caller might smuggle in.
+  // The current validators already block `:`/`\` so this is defence in
+  // depth — never trust the path string verbatim.
+  final pathOnly = path.split('?').first.split('#').first;
+  // Strip the leading slash so the first split entry isn't an empty
+  // segment by definition; everything after that must be non-empty and
+  // not a dot-segment.
+  final body = pathOnly.startsWith('/') ? pathOnly.substring(1) : pathOnly;
+  // Allow a single trailing slash (`/support/`); the empty final segment
+  // it produces is benign. Any other empty segment means `//` inside the
+  // path, which we reject.
+  final segments = body.split('/');
+  for (var i = 0; i < segments.length; i++) {
+    final segment = segments[i];
+    if (segment == '.' || segment == '..') return true;
+    if (segment.isEmpty && i != segments.length - 1) return true;
+  }
+  return false;
+}
+
+/// Validates a support route path. Only `/support` or `/support/...` are
+/// accepted. Reuses [isSafeCabinetPath] to reject absolute URLs, schemes,
+/// protocol-relative inputs, backslashes, and oversized strings, and
+/// additionally rejects `.`/`..` path traversal segments.
+@visibleForTesting
+bool isSafeSupportPath(String path) {
+  if (!isSafeCabinetPath(path)) return false;
+  if (_hasUnsafePathSegments(path)) return false;
+  if (path == _supportRoot) return true;
+  return path.startsWith('$_supportRoot/');
+}
+
+/// Validates a payment/top-up/checkout route path against the conservative
+/// allowlist mirrored from zencab `App.tsx`. Reuses [isSafeCabinetPath] so
+/// schemes, absolute URLs, and protocol-relative inputs are rejected, and
+/// additionally rejects `.`/`..` path traversal segments.
+@visibleForTesting
+bool isSafePaymentPath(String path) {
+  if (!isSafeCabinetPath(path)) return false;
+  if (_hasUnsafePathSegments(path)) return false;
+  if (_safePaymentExactPaths.contains(path)) return true;
+  for (final prefix in _safePaymentPrefixes) {
+    if (path.startsWith(prefix)) return true;
+  }
+  // `/subscriptions/{id}/renew`: must contain a non-empty id segment with no
+  // additional slashes between the id and `/renew`. Reject `/subscriptions//renew`
+  // and deeper nested paths.
+  if (path.startsWith(_renewPathPrefix) && path.endsWith(_renewPathSuffix)) {
+    final id = path.substring(
+      _renewPathPrefix.length,
+      path.length - _renewPathSuffix.length,
+    );
+    if (id.isNotEmpty && !id.contains('/')) return true;
+  }
+  return false;
+}
+
+/// Validates a `tg://resolve?domain=<bot>&start=webauth_<token>` URI from
+/// the WebView. ONLY this exact shape is treated as a trusted handoff to the
+/// Telegram app: scheme `tg`, host `resolve`, no path/fragment, and exactly
+/// the two expected query parameters with safe charsets. Every other
+/// `tg://` deep link is rejected so the WebView cannot be coerced into
+/// opening arbitrary Telegram intents (joinchat, msg, share, etc.).
+@visibleForTesting
+bool isSafeTelegramLoginUri(Uri uri) {
+  if (uri.scheme != 'tg') return false;
+  if (uri.host != 'resolve') return false;
+  // `tg://resolve` has no path/fragment in the canonical login link; reject
+  // anything else so attackers cannot smuggle extra routing information.
+  if (uri.path.isNotEmpty && uri.path != '/') return false;
+  if (uri.hasFragment) return false;
+  // Use queryParametersAll so duplicate keys (e.g. `?domain=a&domain=b`)
+  // are caught — `queryParameters` would silently keep only the last value.
+  final params = uri.queryParametersAll;
+  if (params.length != 2) return false;
+  final domains = params['domain'];
+  final starts = params['start'];
+  if (domains == null || domains.length != 1) return false;
+  if (starts == null || starts.length != 1) return false;
+  final domain = domains.first;
+  final start = starts.first;
+  if (!_telegramDomainPattern.hasMatch(domain)) return false;
+  if (!start.startsWith(_telegramLoginStartPrefix)) return false;
+  final token = start.substring(_telegramLoginStartPrefix.length);
+  if (!_telegramStartTokenPattern.hasMatch(token)) return false;
+  return true;
+}
+
 class _CabinetWebViewState extends State<CabinetWebView> {
   InAppWebViewController? _controller;
   bool _loading = true;
@@ -129,6 +268,15 @@ class _CabinetWebViewState extends State<CabinetWebView> {
     }
     final uri = action.request.url;
     if (uri == null) return NavigationActionPolicy.CANCEL;
+    // Telegram app handoff for the login deep link. zencab issues
+    // `tg://resolve?domain=<bot>&start=webauth_<token>` only in app mode;
+    // hand it off to the Telegram app and keep the WebView on the current
+    // page. CANCEL is returned regardless of launch result so the WebView
+    // never tries to render the `tg://` URL itself.
+    if (isSafeTelegramLoginUri(uri)) {
+      unawaited(launchUrl(uri, mode: LaunchMode.externalApplication));
+      return NavigationActionPolicy.CANCEL;
+    }
     if (uri.scheme != 'https') return NavigationActionPolicy.CANCEL;
     if (uri.host != _zencabHost) return NavigationActionPolicy.CANCEL;
     return NavigationActionPolicy.ALLOW;
@@ -160,12 +308,124 @@ class _CabinetWebViewState extends State<CabinetWebView> {
     }
   }
 
+  Future<bool> _handleReceiveCabinetHomeData(List<dynamic> args) async {
+    if (!await _isCurrentOriginTrusted()) return false;
+    if (args.isEmpty) return false;
+    final data = CabinetHomeData.fromBridgePayload(args.first);
+    if (data == null) return false;
+    cabinetHomeAdapter.update(data);
+    return true;
+  }
+
+  /// Origin gate shared by every bridge handler. `addJavaScriptHandler` is
+  /// unauthenticated; re-reading `getUrl()` is the only way to confirm the
+  /// caller frame is still the trusted zencab origin.
+  Future<bool> _isCurrentOriginTrusted() async {
+    Uri? current;
+    try {
+      final webUri = await _controller?.getUrl();
+      current = webUri == null ? null : Uri.tryParse(webUri.toString());
+    } catch (_) {
+      current = null;
+    }
+    return isTrustedBridgeOrigin(current);
+  }
+
+  /// Loads `path` inside the existing WebView, preserving the surface
+  /// marker query parameter. Caller is responsible for validating `path`.
+  Future<bool> _loadCabinetPath(String path) async {
+    final controller = _controller;
+    if (controller == null) return false;
+    final uri = Uri.https(_zencabHost, path, <String, String>{
+      _surfaceParam: _surfaceValue,
+    });
+    try {
+      await controller.loadUrl(urlRequest: URLRequest(url: WebUri.uri(uri)));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _handleOpenSupport(List<dynamic> args) async {
+    if (!await _isCurrentOriginTrusted()) return false;
+    final path = args.isEmpty ? _supportRoot : args.first;
+    if (path is! String) return false;
+    if (!isSafeSupportPath(path)) return false;
+    return _loadCabinetPath(path);
+  }
+
+  Future<bool> _handleOpenPayment(List<dynamic> args) async {
+    if (!await _isCurrentOriginTrusted()) return false;
+    if (args.isEmpty) return false;
+    final path = args.first;
+    if (path is! String) return false;
+    if (!isSafePaymentPath(path)) return false;
+    return _loadCabinetPath(path);
+  }
+
+  Future<bool> _handleCloseCabinet(List<dynamic> args) async {
+    if (!await _isCurrentOriginTrusted()) return false;
+    if (!mounted) return false;
+    try {
+      return await Navigator.of(context).maybePop();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _handleGetAppContext(List<dynamic> args) async {
+    if (!await _isCurrentOriginTrusted()) return null;
+    if (!mounted) return null;
+    var appVersion = '';
+    try {
+      appVersion = globalState.packageInfo.version;
+    } catch (_) {
+      appVersion = '';
+    }
+    final brightness = Theme.of(context).brightness;
+    String locale;
+    try {
+      locale = Localizations.localeOf(context).toLanguageTag();
+    } catch (_) {
+      locale = 'en';
+    }
+    return <String, dynamic>{
+      'platform': 'android',
+      'appVersion': appVersion,
+      'surface': _surfaceValue,
+      'theme': brightness == Brightness.dark ? 'dark' : 'light',
+      'locale': locale,
+    };
+  }
+
   void _onWebViewCreated(InAppWebViewController controller) {
     _controller = controller;
-    controller.addJavaScriptHandler(
-      handlerName: 'importSubscription',
-      callback: _handleImportSubscription,
-    );
+    controller
+      ..addJavaScriptHandler(
+        handlerName: 'importSubscription',
+        callback: _handleImportSubscription,
+      )
+      ..addJavaScriptHandler(
+        handlerName: 'receiveCabinetHomeData',
+        callback: _handleReceiveCabinetHomeData,
+      )
+      ..addJavaScriptHandler(
+        handlerName: 'openSupport',
+        callback: _handleOpenSupport,
+      )
+      ..addJavaScriptHandler(
+        handlerName: 'openPayment',
+        callback: _handleOpenPayment,
+      )
+      ..addJavaScriptHandler(
+        handlerName: 'closeCabinet',
+        callback: _handleCloseCabinet,
+      )
+      ..addJavaScriptHandler(
+        handlerName: 'getAppContext',
+        callback: _handleGetAppContext,
+      );
   }
 
   @override
