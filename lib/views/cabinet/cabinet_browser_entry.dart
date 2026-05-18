@@ -1,14 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Top-level page shown for the `Кабинет` navigation tab when the current
-/// profile declares a cabinet URL via the `dropweb-cabinet` provider header.
+Future<bool> openCabinetBrowser(Uri url) async {
+  try {
+    final ok = await launchUrl(
+      url,
+      mode: LaunchMode.inAppBrowserView,
+      browserConfiguration: const BrowserConfiguration(showTitle: true),
+    );
+    if (ok) return true;
+  } catch (_) {
+    // fall through to external browser
+  }
+  try {
+    return await launchUrl(
+      url,
+      mode: LaunchMode.externalApplication,
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Fallback page for opening a cabinet URL declared by the current profile's
+/// `dropweb-cabinet` provider header.
 ///
 /// The page does NOT embed a WebView. Instead, it opens the supplied URL
 /// through the system browser surface (Android Custom Tabs / iOS in-app
 /// browser via `url_launcher`'s `LaunchMode.inAppBrowserView`).
-/// A small fallback card is rendered so the tab is never blank if the
-/// launch fails or the user returns to it.
+/// A small fallback card is rendered if the launch fails or the user returns
+/// to it.
 class CabinetBrowserEntry extends StatefulWidget {
   const CabinetBrowserEntry({super.key, required this.url});
 
@@ -27,30 +48,9 @@ class _CabinetBrowserEntryState extends State<CabinetBrowserEntry> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_autoOpened && mounted) {
         _autoOpened = true;
-        _open();
+        openCabinetBrowser(widget.url);
       }
     });
-  }
-
-  Future<void> _open() async {
-    try {
-      final ok = await launchUrl(
-        widget.url,
-        mode: LaunchMode.inAppBrowserView,
-        browserConfiguration: const BrowserConfiguration(showTitle: true),
-      );
-      if (ok) return;
-    } catch (_) {
-      // fall through to external browser
-    }
-    try {
-      await launchUrl(
-        widget.url,
-        mode: LaunchMode.externalApplication,
-      );
-    } catch (_) {
-      // swallow – fallback UI remains visible
-    }
   }
 
   @override
@@ -79,7 +79,7 @@ class _CabinetBrowserEntryState extends State<CabinetBrowserEntry> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: FilledButton.icon(
-                    onPressed: _open,
+                    onPressed: () => openCabinetBrowser(widget.url),
                     icon: const Icon(Icons.open_in_browser),
                     label: const Text('Открыть кабинет'),
                   ),

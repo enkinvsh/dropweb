@@ -225,6 +225,10 @@ extension ProfileExtension on Profile {
       'profile-update-interval',
       'x-hwid-limit',
       'fallback-url',
+      // Standard Remnawave subscription headers — profile title and the
+      // subscription page URL, collected as harmless metadata.
+      'profile-title',
+      'profile-web-page-url',
     ];
 
     for (final headerName in headersToCollect) {
