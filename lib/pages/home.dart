@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
@@ -6,7 +7,6 @@ import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/about.dart' show startFileTransferGame;
-import 'package:dropweb/views/dashboard/widgets/magic_rings.dart';
 import 'package:dropweb/views/dashboard/widgets/start_button.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +21,23 @@ String _navigationLabel(PageLabel label) => switch (label) {
       PageLabel.cabinet => 'Кабинет',
       _ => Intl.message(label.name),
     };
+
+const double _connectBaseSize = 128.0;
+const double _connectTallScreenGrowth = 28.0;
+const double _connectMaxSize = 160.0;
+const Alignment _mobileConnectAlignment = Alignment(0, 0.58);
+
+double _connectSizeFor(BuildContext context) {
+  final size = MediaQuery.sizeOf(context);
+  final aspect = size.width == 0 ? 0.0 : size.height / size.width;
+  final t = ((aspect - 2.0) / 0.45).clamp(0.0, 1.0).toDouble();
+  return (_connectBaseSize + _connectTallScreenGrowth * t)
+      .clamp(
+        _connectBaseSize,
+        _connectMaxSize,
+      )
+      .toDouble();
+}
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -42,12 +59,6 @@ class HomePage extends StatelessWidget {
               navigationItems: navigationItems,
               currentIndex: currentIndex,
             );
-            final bottomNavigationBar = viewMode == ViewMode.mobile
-                ? _BottomBarWithConnect(
-                    navigationBar: navigationBar,
-                    navigationItemCount: navigationItems.length,
-                  )
-                : null;
             final sideNavigationBar =
                 viewMode != ViewMode.mobile ? navigationBar : null;
             return CommonScaffold(
@@ -58,12 +69,11 @@ class HomePage extends StatelessWidget {
                   : _navigationLabel(pageLabel),
               sideNavigationBar: sideNavigationBar,
               body: child!,
-              bottomNavigationBar: bottomNavigationBar,
             );
           },
           child: const _HomePageView(),
         ),
-    );
+      );
 }
 
 class _HomePageView extends ConsumerStatefulWidget {
@@ -153,19 +163,40 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
   Widget build(BuildContext context) {
     final navigationItems = ref.watch(currentNavigationsStateProvider).value;
     final isMobile = ref.watch(isMobileViewProvider);
-    return PageView.builder(
+    final currentLabel = ref.watch(currentPageLabelProvider);
+    // Defensive HomePage-level guard: regardless of what the provider
+    // returns, when there is no profile/subscription we collapse the
+    // visible navigation to Dashboard only. This is the second line of
+    // defense behind `currentNavigationsState` so the swipe, indicator
+    // and PageView item count cannot expose a Tools page that the user
+    // hasn't unlocked yet.
+    final hasProfiles = ref.watch(
+      profilesProvider.select((profiles) => profiles.isNotEmpty),
+    );
+    final effectiveNavigationItems = hasProfiles
+        ? navigationItems
+        : navigationItems
+            .where((item) => item.label == PageLabel.dashboard)
+            .toList();
+    final currentIndex = effectiveNavigationItems.indexWhere(
+      (item) => item.label == currentLabel,
+    );
+    final canSwipe = isMobile && effectiveNavigationItems.length > 1;
+    final pageView = PageView.builder(
       controller: _pageController,
       // Mobile: horizontal swipe between dashboard ↔ tools (settings).
-      // Non-mobile: navigation lives in the sidebar — swipe stays disabled.
-      physics: isMobile
+      // Non-mobile and no-profile single-page state: swipe stays disabled.
+      physics: canSwipe
           ? const PageScrollPhysics()
           : const NeverScrollableScrollPhysics(),
-      itemCount: navigationItems.length,
-      onPageChanged: !isMobile
+      itemCount: effectiveNavigationItems.length,
+      onPageChanged: !canSwipe
           ? null
           : (index) {
-              if (index < 0 || index >= navigationItems.length) return;
-              final newLabel = navigationItems[index].label;
+              if (index < 0 || index >= effectiveNavigationItems.length) {
+                return;
+              }
+              final newLabel = effectiveNavigationItems[index].label;
               // Guard against the swipe → toPage → animate → onPageChanged
               // → toPage feedback loop: only push the new label up if it
               // actually differs from what the provider currently holds.
@@ -178,7 +209,7 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
               });
             },
       itemBuilder: (_, index) {
-        final navigationItem = navigationItems[index];
+        final navigationItem = effectiveNavigationItems[index];
         return KeepScope(
           keep: navigationItem.keep,
           key: Key(navigationItem.label.name),
@@ -186,65 +217,143 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
         );
       },
     );
+
+    if (!isMobile) {
+      return pageView;
+    }
+
+    final connectSize = _connectSizeFor(context);
+
+    return Stack(
+      children: [
+        pageView,
+        _MobileConnectOverlay(
+          buttonSize: connectSize,
+          currentIndex: currentIndex == -1 ? 0 : currentIndex,
+          itemCount: effectiveNavigationItems.length,
+        ),
+      ],
+    );
   }
 }
 
-class _BottomBarWithConnect extends ConsumerWidget {
-  const _BottomBarWithConnect({
-    required this.navigationBar,
-    required this.navigationItemCount,
+class _ScreenIndicator extends StatelessWidget {
+  const _ScreenIndicator({
+    required this.currentIndex,
+    required this.itemCount,
   });
 
-  final Widget navigationBar;
-  final int navigationItemCount;
+  final int currentIndex;
+  final int itemCount;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final hasProfile =
-        ref.watch(profilesProvider.select((state) => state.isNotEmpty));
-    final navigationWidth = navigationItemCount <= 2 ? 140.0 : 204.0;
+  Widget build(BuildContext context) {
+    if (itemCount <= 1) {
+      return const SizedBox.shrink();
+    }
 
-    return Container(
-      color: Colors.transparent,
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        bottom: MediaQuery.of(context).padding.bottom + 20,
-        top: 8,
+    final colorScheme = Theme.of(context).colorScheme;
+    final selectedIndex =
+        currentIndex >= itemCount ? itemCount - 1 : currentIndex;
+
+    return IgnorePointer(
+      child: SizedBox(
+        height: 24,
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(itemCount, (index) {
+              final isActive = index == selectedIndex;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                width: isActive ? 16 : 4,
+                height: 4,
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              );
+            }),
+          ),
+        ),
       ),
-      child: Row(
+    );
+  }
+}
+
+class _MobileConnectOverlay extends StatelessWidget {
+  const _MobileConnectOverlay({
+    required this.buttonSize,
+    required this.currentIndex,
+    required this.itemCount,
+  });
+
+  final double buttonSize;
+  final int currentIndex;
+  final int itemCount;
+
+  @override
+  Widget build(BuildContext context) {
+    const indicatorGap = 10.0;
+    const indicatorHeight = 24.0;
+
+    return Positioned.fill(
+      child: Stack(
         children: [
-          if (hasProfile)
-            SizedBox(
-              width: navigationWidth,
-              child: navigationBar,
+          Align(
+            alignment: _mobileConnectAlignment,
+            child: SizedBox.square(
+              dimension: buttonSize,
+              child: _ConnectCircle(buttonSize: buttonSize),
             ),
-          const Spacer(),
-          const _ConnectCircle(),
+          ),
+          Align(
+            alignment: _mobileConnectAlignment,
+            child: Transform.translate(
+              offset: Offset(
+                0,
+                buttonSize / 2 + indicatorGap + indicatorHeight / 2,
+              ),
+              child: _ScreenIndicator(
+                currentIndex: currentIndex,
+                itemCount: itemCount,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-/// Connect button — glass circle. Reports its screen position via
-/// [connectButtonCenter] so [MagicRingsOverlay] can draw rings from it.
+/// Connect button — glass lens. Reports its screen position via
+/// [connectButtonCenter] for any overlay that needs the button anchor.
 ///
-/// No glow — just glassShadow always.
+/// Material model: dark void body, Fresnel rim, top specular arc, concave
+/// inset, inner edge glow, and an outer perimeter halo. Accent color is
+/// pulled live from `Theme.of(context).colorScheme.primary`, so the lens
+/// follows whichever theme is active.
 class _ConnectCircle extends ConsumerStatefulWidget {
-  const _ConnectCircle();
+  const _ConnectCircle({required this.buttonSize});
+
+  final double buttonSize;
 
   @override
   ConsumerState<_ConnectCircle> createState() => _ConnectCircleState();
 }
 
 /// Global notifier for the connect button's screen-space center.
-/// Written by [_ConnectCircle], read by [MagicRingsOverlay].
+/// Written by [_ConnectCircle].
 final connectButtonCenter = ValueNotifier<Offset?>(null);
 
 class _ConnectCircleState extends ConsumerState<_ConnectCircle>
     with WidgetsBindingObserver {
   final _key = GlobalKey();
+  bool _isPressed = false;
 
   void _reportPosition() {
     if (!mounted) return;
@@ -271,9 +380,8 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
     // localToGlobal + notifier writes).
     _schedulePostFrameReport();
 
-    // Profile availability toggles the nav-row in [_BottomBarWithConnect],
-    // which shifts the connect button horizontally. Re-anchor the rings
-    // origin whenever profile presence changes.
+    // Profile availability can change the mobile pages and rebuild the body.
+    // Re-anchor the rings origin if the button shifts with that state.
     ref.listenManual<bool>(
       profilesProvider.select((profiles) => profiles.isNotEmpty),
       (_, __) => _schedulePostFrameReport(),
@@ -302,6 +410,13 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
     _schedulePostFrameReport();
   }
 
+  void _setPressed(bool value) {
+    if (_isPressed == value) return;
+    setState(() {
+      _isPressed = value;
+    });
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -312,54 +427,299 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colorScheme = Theme.of(context).colorScheme;
+    final buttonSize = widget.buttonSize;
+    final iconSize = buttonSize * 0.37;
 
-    const buttonSize = 64.0; // same as navbar
+    // Theme-driven accent. The lens pulls its glow color straight from
+    // ColorScheme.primary so it follows whatever theme is active —
+    // no hardcoded Lumina green here.
+    final accent = Theme.of(context).colorScheme.primary;
 
-    if (!isDark) {
-      return RepaintBoundary(
-        key: _key,
-        child: Container(
-          width: buttonSize,
-          height: buttonSize,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: colorScheme.surfaceContainer,
-            border: Border.all(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x14000000),
-                blurRadius: 12,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: const StartButton(),
-        ),
-      );
-    }
+    // Connect state amplifies the perimeter halo and inner edge glow.
+    final isRunning =
+        ref.watch(runTimeProvider.select((state) => state != null));
 
     return RepaintBoundary(
       key: _key,
-      child: Container(
-        width: buttonSize,
-        height: buttonSize,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: Lumina.glassShadow,
-        ),
-        child: ClipOval(
-          // BackdropFilter disabled for perf test
-          child: Container(
-            decoration: Lumina.glassCircle(),
-            child: const StartButton(),
-          ),
+      child: Listener(
+        onPointerDown: (_) => _setPressed(true),
+        onPointerUp: (_) => _setPressed(false),
+        onPointerCancel: (_) => _setPressed(false),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(end: _isPressed ? 1.0 : 0.0),
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          builder: (_, pressT, __) {
+            // Outer perimeter halo — the visible theme-colored ring of
+            // light hugging the lens edge. Idle is visible but restrained;
+            // press and live-connection intensify.
+            final haloAlpha = (isRunning ? 0.24 : 0.14) + pressT * 0.18;
+            final haloBlur = 22.0 + pressT * 10.0;
+            final perimeterGlow = BoxShadow(
+              color: accent.withValues(alpha: haloAlpha),
+              blurRadius: haloBlur,
+              spreadRadius: isDark ? -1.0 : -2.0,
+            );
+
+            return SizedBox.square(
+              dimension: buttonSize,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    perimeterGlow,
+                    if (isDark) ...const [
+                      BoxShadow(
+                        color: Color(0x99000000),
+                        blurRadius: 4,
+                        offset: Offset(0, 1),
+                      ),
+                      BoxShadow(
+                        color: Color(0x66000000),
+                        blurRadius: 26,
+                        spreadRadius: -6,
+                        offset: Offset(0, 14),
+                      ),
+                    ] else ...const [
+                      BoxShadow(
+                        color: Color(0x22000000),
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
+                      ),
+                      BoxShadow(
+                        color: Color(0x1F000000),
+                        blurRadius: 22,
+                        spreadRadius: -4,
+                        offset: Offset(0, 12),
+                      ),
+                    ],
+                  ],
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CustomPaint(
+                      painter: _ConnectGlassPainter(
+                        isDark: isDark,
+                        pressT: pressT,
+                        isRunning: isRunning,
+                        accent: accent,
+                      ),
+                    ),
+                    StartButton(iconSize: iconSize),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
+}
+
+/// Paints the connect lens. Seven layers, in order:
+///   1. Body — dark fill, lifted just enough off the void background to be
+///      visibly present as glass rather than a black hole.
+///   2. Accent veil — a low-alpha radial of the theme accent caught in the
+///      upper-mid body. Reads as refracted ambient theme light, not a fill.
+///   3. Concave inset — a soft dark sweep on the lower inner arc so the
+///      lens reads as a recessed/convex cap rather than a flat disk.
+///   4. Top-edge specular — a single soft arc near 11-1 o'clock. No
+///      rotated rectangle stickers.
+///   5. Inner edge glow — a wide blurred accent stroke hugging the inner
+///      rim. Light caught at the rim from inside the lens; works with the
+///      outer perimeter BoxShadow to make the edge read as luminous.
+///   6. Fresnel rim — 1px stroke with a sweep gradient that brightens at
+///      the top and falls off toward the bottom (true lit-edge behavior).
+///      Top/side carry a small constant accent tint; pressed state warms.
+///   7. Icon halo — a tight radial in the accent color. Idle floor + live
+///      connection + press progress all stack additively.
+///
+/// All accent color comes from the painter's [accent] argument, which is
+/// the active theme primary — nothing in this painter hardcodes a brand
+/// hue.
+class _ConnectGlassPainter extends CustomPainter {
+  const _ConnectGlassPainter({
+    required this.isDark,
+    required this.pressT,
+    required this.isRunning,
+    required this.accent,
+  });
+
+  final bool isDark;
+  final double pressT;
+  final bool isRunning;
+  final Color accent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = size.shortestSide / 2;
+    final center = Offset(size.width / 2, size.height / 2);
+    final rect = Rect.fromCircle(center: center, radius: r);
+
+    // 1. Body. Lifted off the void surface (#030305) so the lens reads
+    //    as glass-on-void instead of a black hole.
+    final bodyPaint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(0, 0.25),
+        radius: 1.05,
+        colors: isDark
+            ? const [Color(0xFF15151D), Color(0xFF080810)]
+            : const [Color(0xFFF2F2F6), Color(0xFFD8DAE2)],
+        stops: const [0.55, 1.0],
+      ).createShader(rect);
+    canvas.drawCircle(center, r, bodyPaint);
+
+    // 2. Accent veil — theme glow refracted through the upper-mid body.
+    //    Low alpha; reads as caught light, not a filled disk.
+    final veilPaint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(0, -0.15),
+        radius: 0.9,
+        colors: [
+          accent.withValues(alpha: isDark ? 0.13 : 0.10),
+          accent.withValues(alpha: isDark ? 0.05 : 0.04),
+          accent.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.55, 1.0],
+      ).createShader(rect);
+    canvas
+      ..save()
+      ..clipPath(Path()..addOval(rect))
+      ..drawCircle(center, r, veilPaint)
+      ..restore();
+
+    // 3. Concave inset on the lower interior arc.
+    final insetPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = r * 0.18
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.045)
+      ..shader = SweepGradient(
+        transform: const GradientRotation(-math.pi / 2),
+        colors: isDark
+            ? const [
+                Color(0x00000000),
+                Color(0xAA000000),
+                Color(0x00000000),
+              ]
+            : const [
+                Color(0x00000000),
+                Color(0x44000000),
+                Color(0x00000000),
+              ],
+        stops: const [0.08, 0.5, 0.92],
+      ).createShader(rect);
+    canvas
+      ..save()
+      ..clipPath(Path()..addOval(rect.deflate(1)))
+      ..drawCircle(center, r - r * 0.085, insetPaint)
+      ..restore();
+
+    // 4. Top-edge specular. Single soft arc, blurred, ~10→2 o'clock.
+    final specRect = Rect.fromCircle(
+      center: center.translate(0, r * 0.025),
+      radius: r - r * 0.045,
+    );
+    final specPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = r * 0.045
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.04)
+      ..color = Colors.white.withValues(alpha: isDark ? 0.11 : 0.32);
+    canvas.drawArc(
+      specRect,
+      -math.pi * 0.78,
+      math.pi * 0.55,
+      false,
+      specPaint,
+    );
+
+    // 5. Inner edge glow — wide blurred accent stroke at the inner rim.
+    //    Clipped to the circle so the blur reads as light caught at the
+    //    edge fading inward. This is the painter-side counterpart of the
+    //    outer perimeter BoxShadow; together they make the lens edge
+    //    luminous with the theme color.
+    final innerEdgeAlpha = (isRunning ? 0.20 : 0.11) + pressT * 0.16;
+    if (innerEdgeAlpha > 0.005) {
+      final innerEdgePaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r * 0.11
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.055)
+        ..color = accent.withValues(alpha: innerEdgeAlpha);
+      canvas
+        ..save()
+        ..clipPath(Path()..addOval(rect))
+        ..drawCircle(center, r - r * 0.035, innerEdgePaint)
+        ..restore();
+    }
+
+    // 6. Fresnel rim. Bright top → mid sides → dark bottom → back to top.
+    //    Top/side carry a small constant accent tint so the theme color
+    //    catches the rim even at rest; press warms it further.
+    final rimTop = isDark
+        ? Color.lerp(
+            Colors.white.withValues(alpha: 0.32),
+            accent.withValues(alpha: 0.35),
+            0.22,
+          )!
+        : Color.lerp(
+            Colors.black.withValues(alpha: 0.30),
+            accent.withValues(alpha: 0.30),
+            0.14,
+          )!;
+    final rimSide = isDark
+        ? Color.lerp(
+            Colors.white.withValues(alpha: 0.14),
+            accent.withValues(alpha: 0.18),
+            0.20,
+          )!
+        : Color.lerp(
+            Colors.black.withValues(alpha: 0.14),
+            accent.withValues(alpha: 0.16),
+            0.12,
+          )!;
+    final rimBottom = isDark
+        ? Colors.white.withValues(alpha: 0.05)
+        : Colors.black.withValues(alpha: 0.06);
+    final warmTop =
+        Color.lerp(rimTop, accent.withValues(alpha: 0.60), pressT * 0.6)!;
+    final warmSide =
+        Color.lerp(rimSide, accent.withValues(alpha: 0.30), pressT * 0.45)!;
+    final rimPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..shader = SweepGradient(
+        transform: const GradientRotation(-math.pi / 2),
+        colors: [warmTop, warmSide, rimBottom, warmSide, warmTop],
+        stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
+      ).createShader(rect);
+    canvas.drawCircle(center, r - 0.5, rimPaint);
+
+    // 7. Icon halo. Tight, scoped to icon region. Small idle floor keeps
+    //    the lens "alive" with theme glow at rest; live connection and
+    //    press stack on top.
+    final haloAlpha = (isRunning ? 0.16 : 0.07) + pressT * 0.10;
+    if (haloAlpha > 0.001) {
+      final haloRadius = r * 0.46;
+      final haloPaint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            accent.withValues(alpha: haloAlpha),
+            accent.withValues(alpha: 0.0),
+          ],
+          stops: const [0.0, 1.0],
+        ).createShader(Rect.fromCircle(center: center, radius: haloRadius));
+      canvas.drawCircle(center, haloRadius, haloPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConnectGlassPainter old) =>
+      old.isDark != isDark ||
+      old.pressT != pressT ||
+      old.isRunning != isRunning ||
+      old.accent != accent;
 }
 
 /// Developer mode activation via 5 rapid CONSECUTIVE taps on the Settings
@@ -431,6 +791,8 @@ class CommonNavigationBar extends ConsumerWidget {
   final List<NavigationItem> navigationItems;
   final int currentIndex;
 
+  static const double _mobileNavigationHeight = 80.0;
+
   static const _icons = <PageLabel, (IconData, IconData)>{
     PageLabel.cabinet: (Icons.account_circle_outlined, Icons.account_circle),
     PageLabel.dashboard: (Icons.dashboard_outlined, Icons.dashboard_rounded),
@@ -448,68 +810,69 @@ class CommonNavigationBar extends ConsumerWidget {
     ColorScheme colorScheme,
     bool isDark,
     WidgetRef ref,
-  ) => Container(
-      height: 64,
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: Lumina.glassOpacity)
-            : colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(Lumina.radiusXxl),
-        border: Border.all(
+  ) =>
+      Container(
+        height: _mobileNavigationHeight,
+        decoration: BoxDecoration(
           color: isDark
-              ? Colors.white.withValues(alpha: Lumina.glassBorderOpacity)
-              : colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ? Colors.white.withValues(alpha: Lumina.glassOpacity)
+              : colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(Lumina.radiusXxl),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: Lumina.glassBorderOpacity)
+                : colorScheme.outlineVariant.withValues(alpha: 0.3),
+          ),
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Row(
-          children: List.generate(navigationItems.length, (index) {
-            final item = navigationItems[index];
-            final isSelected = index == currentIndex;
-            return Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  globalState.appController.toPage(item.label);
-                  if (item.label == PageLabel.tools) {
-                    _handleDevTap(context, ref);
-                    _resetEasterEggTaps();
-                  } else if (item.label == PageLabel.dashboard) {
-                    _handleDashboardTap(context);
-                    _resetDevTapCount();
-                  } else {
-                    _resetDevTapCount();
-                    _resetEasterEggTaps();
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? (isDark
-                            ? colorScheme.primary.withValues(alpha: 0.15)
-                            : colorScheme.primary.withValues(alpha: 0.12))
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(Lumina.radiusXxl - 6),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      _navIcon(item.label, isSelected),
-                      size: 24,
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Row(
+            children: List.generate(navigationItems.length, (index) {
+              final item = navigationItems[index];
+              final isSelected = index == currentIndex;
+              return Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    globalState.appController.toPage(item.label);
+                    if (item.label == PageLabel.tools) {
+                      _handleDevTap(context, ref);
+                      _resetEasterEggTaps();
+                    } else if (item.label == PageLabel.dashboard) {
+                      _handleDashboardTap(context);
+                      _resetDevTapCount();
+                    } else {
+                      _resetDevTapCount();
+                      _resetEasterEggTaps();
+                    }
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
                       color: isSelected
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
+                          ? (isDark
+                              ? colorScheme.primary.withValues(alpha: 0.15)
+                              : colorScheme.primary.withValues(alpha: 0.12))
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(Lumina.radiusXxl - 6),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        _navIcon(item.label, isSelected),
+                        size: 36,
+                        color: isSelected
+                            ? colorScheme.primary
+                            : colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ),
         ),
-      ),
-    );
+      );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

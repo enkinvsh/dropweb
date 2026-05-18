@@ -6,14 +6,13 @@ import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/fade_box.dart';
-import 'package:dropweb/views/dashboard/widgets/magic_rings.dart';
 import 'package:dropweb/widgets/mesh_background.dart';
 import 'package:dropweb/widgets/pop_scope.dart';
 import 'package:dropweb/widgets/search_order_marker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import 'chip.dart';
 
@@ -504,9 +503,8 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
     // that the mesh renders INSIDE the scaffold's body area — on top of
     // the opaque void fill, below the actual content.
     // ── Compose body layers ──
-    // Bottom nav bar is placed INSIDE the body Stack (not Scaffold.bottomNavigationBar)
-    // so that dashboard rings can render through the tab bar area without being
-    // clipped by Scaffold's compositing boundary.
+      // Bottom nav bar is placed INSIDE the body Stack (not Scaffold.bottomNavigationBar)
+      // so it stays in the same compositing boundary as the mesh-backed body.
     final Widget bodyWithMesh;
     final hasBottomNav = widget.bottomNavigationBar != null;
     if (isDark && !widget.disableBackground) {
@@ -514,7 +512,6 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
         children: [
           const Positioned.fill(child: MeshBackground()),
           Positioned.fill(child: body),
-          const Positioned.fill(child: MagicRingsOverlay()),
           if (hasBottomNav)
             Positioned(
               left: 0,
