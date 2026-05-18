@@ -1,6 +1,6 @@
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
-import 'package:dropweb/views/cabinet/native_cabinet_home.dart';
+import 'package:dropweb/views/cabinet/cabinet_browser_entry.dart';
 import 'package:dropweb/views/views.dart';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -17,37 +17,47 @@ class Navigation {
   List<NavigationItem> getItems({
     bool openLogs = false,
     bool hasProxies = false,
-    bool hasCabinetMarker = false,
+    Uri? cabinetUri,
   }) =>
       [
-        if (hasCabinetMarker)
+        if (cabinetUri != null)
           NavigationItem(
             keep: true,
-            icon: HugeIcon(icon: HugeIcons.strokeRoundedUserAccount, size: 24),
+            icon: const HugeIcon(
+              icon: HugeIcons.strokeRoundedUserAccount,
+              size: 24,
+            ),
             label: PageLabel.cabinet,
-            view: const NativeCabinetHome(
-              key: GlobalObjectKey(PageLabel.cabinet),
+            path: cabinetUri.toString(),
+            view: CabinetBrowserEntry(
+              key: const GlobalObjectKey(PageLabel.cabinet),
+              url: cabinetUri,
             ),
           ),
-        NavigationItem(
+        const NavigationItem(
           keep: true, // keep alive to avoid rebuild lag on return
           icon: HugeIcon(
-              icon: HugeIcons.strokeRoundedDashboardSquare01, size: 24),
+            icon: HugeIcons.strokeRoundedDashboardSquare01,
+            size: 24,
+          ),
           label: PageLabel.dashboard,
-          view: const DashboardView(
+          view: DashboardView(
             key: GlobalObjectKey(PageLabel.dashboard),
           ),
         ),
-        NavigationItem(
+        const NavigationItem(
           keep: true, // keep alive to avoid rebuild lag on return
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedSettings02, size: 24),
+          icon: HugeIcon(
+            icon: HugeIcons.strokeRoundedSettings02,
+            size: 24,
+          ),
           label: PageLabel.tools,
-          view: const ToolsView(
+          view: ToolsView(
             key: GlobalObjectKey(
               PageLabel.tools,
             ),
           ),
-          modes: const [NavigationItemMode.desktop, NavigationItemMode.mobile],
+          modes: [NavigationItemMode.desktop, NavigationItemMode.mobile],
         ),
       ];
 }

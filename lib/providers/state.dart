@@ -70,14 +70,14 @@ NavigationItemsState navigationsState(Ref ref) {
       ref.watch(appSettingProvider.select((state) => state.openLogs));
   final hasProxies = ref.watch(
       currentGroupsStateProvider.select((state) => state.value.isNotEmpty));
-  final hasCabinetMarker = ref.watch(
-    currentProfileProvider.select(profileHasCabinetMarker),
+  final cabinetUri = ref.watch(
+    currentProfileProvider.select(profileCabinetUri),
   );
   return NavigationItemsState(
     value: navigation.getItems(
       openLogs: openLogs,
       hasProxies: hasProxies,
-      hasCabinetMarker: hasCabinetMarker,
+      cabinetUri: cabinetUri,
     ),
   );
 }
