@@ -212,7 +212,7 @@ class _BalanceCard extends StatelessWidget {
         child: CommonCard(
           onPressed: onPressed,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -275,7 +275,7 @@ class _DevicesCard extends StatelessWidget {
         child: CommonCard(
           onPressed: onPressed,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -348,7 +348,7 @@ class _CabinetActionCard extends StatelessWidget {
         child: CommonCard(
           onPressed: onPressed,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -375,7 +375,7 @@ class _CabinetActionCard extends StatelessWidget {
                 const Spacer(),
                 Text(
                   subtitle,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: context.textTheme.bodySmall?.copyWith(
                     color: context.colorScheme.onSurfaceVariant,
@@ -435,7 +435,7 @@ class _TariffHeroCard extends StatelessWidget {
         child: SizedBox(
           height: height,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -470,7 +470,7 @@ class _TariffHeroCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(
                   _status,
                   maxLines: 2,
@@ -488,7 +488,7 @@ class _TariffHeroCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Icon(
