@@ -70,7 +70,10 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
             Navigator.of(context).pop();
             BaseNavigator.push(
               context,
-              const CabinetWebView(initialPath: '/login'),
+              const CabinetWebView(
+                initialPath: '/login',
+                postAuthBootstrap: true,
+              ),
             );
           },
         ),

@@ -40,6 +40,35 @@ void main() {
     });
   });
 
+  group('isAllowedOAuthHost', () {
+    test('accepts known Google/Yandex OAuth provider hosts', () {
+      expect(isAllowedOAuthHost('accounts.google.com'), isTrue);
+      expect(isAllowedOAuthHost('oauth.yandex.ru'), isTrue);
+      expect(isAllowedOAuthHost('passport.yandex.ru'), isTrue);
+      expect(isAllowedOAuthHost('login.yandex.ru'), isTrue);
+    });
+
+    test('accepts hosts case-insensitively', () {
+      expect(isAllowedOAuthHost('Accounts.Google.Com'), isTrue);
+      expect(isAllowedOAuthHost('OAUTH.YANDEX.RU'), isTrue);
+    });
+
+    test('rejects unknown / look-alike / subdomain hosts', () {
+      expect(isAllowedOAuthHost(''), isFalse);
+      expect(isAllowedOAuthHost('cab.dropweb.org'), isFalse);
+      expect(isAllowedOAuthHost('google.com'), isFalse);
+      expect(isAllowedOAuthHost('evil.accounts.google.com'), isFalse);
+      expect(isAllowedOAuthHost('accounts.google.com.evil.tld'), isFalse);
+      expect(isAllowedOAuthHost('yandex.ru'), isFalse);
+      expect(isAllowedOAuthHost('mail.yandex.ru'), isFalse);
+      expect(isAllowedOAuthHost('oauth.yandex.com'), isFalse);
+      // Deep-link / non-host inputs must never be mistaken for a host.
+      expect(isAllowedOAuthHost('tg://resolve'), isFalse);
+      expect(isAllowedOAuthHost('intent://foo'), isFalse);
+      expect(isAllowedOAuthHost('javascript:alert(1)'), isFalse);
+    });
+  });
+
   group('isSafePaymentPath', () {
     test('accepts known zencab payment routes', () {
       expect(isSafePaymentPath('/balance'), isTrue);

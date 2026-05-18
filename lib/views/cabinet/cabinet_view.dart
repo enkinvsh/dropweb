@@ -10,6 +10,31 @@ import 'cabinet_home_data.dart';
 /// main frame, run JavaScript, and call native bridge handlers.
 const String _zencabHost = 'cab.dropweb.org';
 
+/// Conservative allowlist of external HTTPS hosts that the WebView main
+/// frame is permitted to navigate to as part of the zencab Google/Yandex
+/// OAuth handoff. The zencab Login page redirects `window.location.href`
+/// to the provider's `authorize_url`; without this allowlist the WebView
+/// cancels the navigation and the login button hangs spinning.
+///
+/// Bridge handlers remain gated to the zencab origin via
+/// [isTrustedBridgeOrigin]; OAuth pages MUST NOT be able to call them.
+const Set<String> _oauthProviderHosts = <String>{
+  'accounts.google.com',
+  'oauth.yandex.ru',
+  'passport.yandex.ru',
+  'login.yandex.ru',
+};
+
+/// Returns true when [host] is a known OAuth provider host that the
+/// zencab login flow legitimately needs to hand off to. Comparison is
+/// case-insensitive because URI hosts are normalised but defence in depth
+/// is cheap here.
+@visibleForTesting
+bool isAllowedOAuthHost(String host) {
+  if (host.isEmpty) return false;
+  return _oauthProviderHosts.contains(host.toLowerCase());
+}
+
 /// Stable user-agent marker that keeps zencab in app mode after internal
 /// navigations that lose the `?surface=dropweb_android` query parameter.
 /// Detector on the zencab side recognises this token; do not rename.
@@ -19,6 +44,17 @@ const String _dropwebUaMarker = 'DropwebApp/Android';
 /// Caller-supplied query parameters MUST NOT override this.
 const String _surfaceParam = 'surface';
 const String _surfaceValue = 'dropweb_android';
+
+/// Query parameter the native shell appends ONLY when it opens the cabinet
+/// WebView for the "post-auth bootstrap" entry point (the "Нет, войти в
+/// кабинет" flow on the dashboard). zencab persists this into sessionStorage
+/// on first load so it survives Google/Yandex/Telegram OAuth roundtrips, then
+/// — after auth — fetches the cabinet snapshot, imports the active (or freshly
+/// activated trial) subscription, and closes the WebView back to the native
+/// cabinet. Any other authenticated WebView (`/balance`, `/support`,
+/// `/subscription/purchase`) MUST NOT carry this flag.
+const String _postAuthBootstrapParam = 'dropweb_post_auth';
+const String _postAuthBootstrapValue = '1';
 
 /// Root for support routes. Only `/support` and `/support/...` are accepted
 /// for the `openSupport` bridge handler.
@@ -60,6 +96,7 @@ class CabinetWebView extends StatefulWidget {
     super.key,
     this.initialPath = '/login',
     this.queryParameters,
+    this.postAuthBootstrap = false,
   });
 
   /// Relative app path starting with `/` (e.g. `/login`, `/support`,
@@ -69,6 +106,13 @@ class CabinetWebView extends StatefulWidget {
 
   /// Optional extra query parameters merged with the surface marker.
   final Map<String, String>? queryParameters;
+
+  /// When `true`, attaches the post-auth bootstrap marker so zencab runs the
+  /// "after login, import the (trial) subscription and close back to native"
+  /// sequence. Must be set ONLY by the dashboard's "Нет, войти в кабинет"
+  /// entry point. Defaulting to `false` keeps every other CabinetWebView call
+  /// site (payment, support, renew) free of auto-close behaviour.
+  final bool postAuthBootstrap;
 
   @override
   State<CabinetWebView> createState() => _CabinetWebViewState();
@@ -185,10 +229,15 @@ class _CabinetWebViewState extends State<CabinetWebView> {
         : '/login';
     // Spread caller-supplied parameters FIRST so the required surface
     // marker always wins. Callers must not be able to switch the WebView
-    // out of app mode by passing `surface: 'web'` or similar.
+    // out of app mode by passing `surface: 'web'` or similar. The post-auth
+    // bootstrap marker is driven by the dedicated widget flag rather than
+    // caller-supplied query parameters so callers cannot accidentally enable
+    // auto-close on non-login surfaces.
     final qp = <String, String>{
       ...?widget.queryParameters,
       _surfaceParam: _surfaceValue,
+      if (widget.postAuthBootstrap)
+        _postAuthBootstrapParam: _postAuthBootstrapValue,
     };
     final uri = Uri.https(_zencabHost, path, qp);
     return WebUri.uri(uri);
@@ -219,13 +268,18 @@ class _CabinetWebViewState extends State<CabinetWebView> {
     }
     final uri = action.request.url;
     if (uri == null) return NavigationActionPolicy.CANCEL;
-    // Only HTTPS navigations to the trusted zencab host are allowed. Any
-    // other scheme (including `tg://`, `intent://`, `javascript:`, `data:`)
-    // is cancelled so the WebView cannot be coerced into a deep-link or
-    // protocol-handler handoff to another app.
+    // Only HTTPS navigations are allowed. Any other scheme (including
+    // `tg://`, `intent://`, `javascript:`, `data:`, `http://`) is cancelled
+    // so the WebView cannot be coerced into a deep-link or protocol-handler
+    // handoff to another app.
     if (uri.scheme != 'https') return NavigationActionPolicy.CANCEL;
-    if (uri.host != _zencabHost) return NavigationActionPolicy.CANCEL;
-    return NavigationActionPolicy.ALLOW;
+    // Trusted zencab host always allowed. Beyond that, only the
+    // conservative OAuth provider allowlist is permitted so the
+    // Google/Yandex login handoff can complete. Every other HTTPS host is
+    // rejected — the WebView is not a general-purpose browser.
+    if (uri.host == _zencabHost) return NavigationActionPolicy.ALLOW;
+    if (isAllowedOAuthHost(uri.host)) return NavigationActionPolicy.ALLOW;
+    return NavigationActionPolicy.CANCEL;
   }
 
   Future<bool> _handleImportSubscription(List<dynamic> args) async {
