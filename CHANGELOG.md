@@ -1,3 +1,195 @@
+## v0.6.7
+
+- release(v0.6.7): ship Lumina cabinet UX
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- style(ui): clean secondary dashboard controls
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- refactor(dashboard): polish subscription card layout
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(home): add centered glass connect control
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- refactor(navigation): simplify profile-gated pages
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(cabinet): keep cabinet access in subscription flow
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- docs(remnawave): document response headers
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(cabinet): open header-gated cabinet tab
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(cabinet): add browser entry page
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(cabinet): resolve cabinet URLs from provider headers
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(cabinet): tighten native cabinet card spacing
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(cabinet): support OAuth post-auth bootstrap
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(cabinet): block Telegram deeplink handoff
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- build(release): add direct APK build helper
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- docs(release): document APK source availability
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- docs(cabinet): record bento layout decisions
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- chore(settings): clean tools view analyzer hints
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(cabinet): add marker-gated cabinet tab
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(cabinet): add native cabinet home
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(cabinet): harden zencab WebView bridge
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(cabinet): persist native home data
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(onboarding): add subscription bento flow
+
+- fix(cabinet): pin surface param, append UA marker, harden bridge args
+
+- feat(cabinet): add zencab WebView shell
+
+- Merge branch 'main' of https://github.com/enkinvsh/dropweb
+
+- style(ui): update support link icon
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ux): map YAML parse errors to human-readable messages in ErrorMapper
+
+- fix(parazitx): plumb SOCKS5 credentials end-to-end so Mihomo can authenticate to relay bridge
+
+- ParazitX's SOCKS5 listener requires RFC1929 user/password auth
+- (`--socks-user`/`--socks-pass` CLI args). The Mihomo bridge proxy
+- config in patchRawConfig had no auth. As soon as `__dropweb_parazitx_vk_bridge`
+- was selected as GLOBAL on the device, every Mihomo CONNECT failed
+- the SOCKS5 method-selection handshake and user traffic stopped.
+
+- Generate creds in Dart with Random.secure() (16 hex / 32 hex). Pass
+- them via existing MethodChannel + new EXTRA_SOCKS_USER/PASS Intent
+- extras down to ParazitXRelayController.start(...) (with override
+- parameters; lazy random fallback preserves standalone-mode behavior).
+- Surface them on ParazitXBridgeInfo for the orchestrator to forward
+- to MihomoDialerProxyPatcher. Redact in toString() and never log.
+
+- Caught during device QA on Pixel 10: api.ipify.org through the bridge
+- now returns 64.188.66.103 (pzx-001 egress) instead of failing.
+
+- fix(android): VPN services use systemExempted FGS to avoid Android 14+ dataSync 6h timeout
+
+- Android 14+ enforces a 6h cumulative timeout on `dataSync` foreground
+- services and crashes them with ForegroundServiceDidNotStopInTime when
+- the service does not stop on request. Sticky-restarted ParazitXVpnService
+- hit this within 10s of a fresh launch on Pixel 10.
+
+- VPN apps qualify for the `systemExempted` FGS type, which is the
+- correct declaration for VpnService subclasses. DropwebService stays
+- on `dataSync` since it is a true background-data service.
+
+- Caught during device QA on Pixel 10 (API 36).
+
+- feat(parazitx): wave-2 — Mihomo owns TUN, ParazitX is local SOCKS outbound
+
+- Implements docs/plans/2026-05-02-parazitx-mihomo-outbound.md tasks 1-9.
+
+- Mihomo's DropwebVpnService now owns TUN/DNS/fake-IP. ParazitXVpnService
+- gains a `mihomo_outbound` mode that runs the relay subprocess only and
+- exposes its local SOCKS5 listener as `__dropweb_parazitx_vk_bridge`
+- appended to the GLOBAL proxy-group. ParazitXMihomoOrchestrator wires
+- this into GlobalState.patchRawConfig and prepends DIRECT rules for VK
+- signaling/Yandex/YC API Gateway endpoints to prevent self-loop while
+- the Go relay still lacks VpnService.protect(fd).
+
+- Tests: 31 new unit tests across patcher + orchestrator. Architecture:
+- docs/plans/2026-05-02-parazitx-mihomo-outbound.md.
+
+- Update changelog
+
 ## v0.6.6
 
 - release(v0.6.6): ship libparazitx-relay.so in release APKs
