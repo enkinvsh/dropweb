@@ -35,9 +35,6 @@ class _ToolboxViewState extends ConsumerState<ToolsView> {
       ListItem.open(
         leading: navigationItem.icon,
         title: Text(Intl.message(navigationItem.label.name)),
-        subtitle: navigationItem.description != null
-            ? Text(Intl.message(navigationItem.description!))
-            : null,
         delegate: OpenDelegate(
           title: Intl.message(navigationItem.label.name),
           widget: navigationItem.view,
@@ -138,12 +135,10 @@ class _LocaleItem extends ConsumerWidget {
     final appLocale = AppLocalizations.of(context);
     final locale =
         ref.watch(appSettingProvider.select((state) => state.locale));
-    final subTitle = locale ?? appLocale.defaultText;
     final currentLocale = utils.getLocaleForString(locale);
     return ListItem<Locale?>.options(
       leading: const HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 24),
       title: Text(appLocale.language),
-      subtitle: Text(Intl.message(subTitle)),
       delegate: OptionsDelegate(
         title: appLocale.language,
         options: [null, ...AppLocalizations.delegate.supportedLocales],
@@ -168,7 +163,6 @@ class _ThemeItem extends StatelessWidget {
     return ListItem.open(
       leading: const HugeIcon(icon: HugeIcons.strokeRoundedEdgeStyle, size: 24),
       title: Text(appLocale.theme),
-      subtitle: Text(appLocale.themeDesc),
       delegate: OpenDelegate(
         title: appLocale.theme,
         widget: const ThemeView(),
@@ -186,7 +180,6 @@ class _HotkeyItem extends StatelessWidget {
     return ListItem.open(
       leading: const HugeIcon(icon: HugeIcons.strokeRoundedKeyboard, size: 24),
       title: Text(appLocale.hotkeyManagement),
-      subtitle: Text(appLocale.hotkeyManagementDesc),
       delegate: OpenDelegate(
         title: appLocale.hotkeyManagement,
         widget: const HotKeyView(),
@@ -205,7 +198,6 @@ class _LoopbackItem extends StatelessWidget {
       leading:
           const HugeIcon(icon: HugeIcons.strokeRoundedLockPassword, size: 24),
       title: Text(appLocale.loopback),
-      subtitle: Text(appLocale.loopbackDesc),
       onTap: () {
         windows?.runas(
           '"${join(dirname(Platform.resolvedExecutable), "EnableLoopback.exe")}"',
@@ -225,7 +217,6 @@ class _AccessItem extends StatelessWidget {
     return ListItem.open(
       leading: const HugeIcon(icon: HugeIcons.strokeRoundedListView, size: 24),
       title: Text(appLocale.accessControl),
-      subtitle: Text(appLocale.accessControlDesc),
       delegate: OpenDelegate(
         title: appLocale.accessControl,
         widget: const AccessView(),
@@ -243,7 +234,6 @@ class _ConfigItem extends StatelessWidget {
     return ListItem.open(
       leading: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 24),
       title: Text(appLocale.basicConfig),
-      subtitle: Text(appLocale.basicConfigDesc),
       delegate: OpenDelegate(
         title: appLocale.override,
         widget: const ConfigView(),
@@ -261,7 +251,6 @@ class _SettingItem extends StatelessWidget {
     return ListItem.open(
       leading: const HugeIcon(icon: HugeIcons.strokeRoundedSettings02, size: 24),
       title: Text(appLocale.application),
-      subtitle: Text(appLocale.applicationDesc),
       delegate: OpenDelegate(
         title: appLocale.application,
         widget: const ApplicationSettingView(),
@@ -371,7 +360,6 @@ class _TvItemState extends ConsumerState<_TvItem> {
     return ListItem(
       leading: const HugeIcon(icon: HugeIcons.strokeRoundedTv01, size: 24),
       title: Text(appLocale.connectTv),
-      subtitle: Text(appLocale.connectTvDesc),
       onTap: hasUrl
           ? () {
               BaseNavigator.push(
@@ -393,7 +381,6 @@ class _ParazitXItem extends StatelessWidget {
     return ListItem(
       leading: const HugeIcon(icon: HugeIcons.strokeRoundedShield01, size: 24),
       title: Text(appLocale.parazitx),
-      subtitle: Text(appLocale.parazitxDesc),
       onTap: () {
         BaseNavigator.push(context, const ParazitXPage());
       },

@@ -50,7 +50,7 @@ class MeshBackground extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   center: Alignment.bottomRight,
-                  radius: 1.3,
+                  radius: 1.43,
                   colors: [
                     tertiary.withValues(alpha: 0.28),
                     tertiary.withValues(alpha: 0.10),

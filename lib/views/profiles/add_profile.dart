@@ -16,10 +16,6 @@ class AddProfileView extends StatelessWidget {
   });
   final BuildContext context;
 
-  Future<void> _handleAddProfileFormFile() async {
-    await globalState.appController.addProfileFormFile();
-  }
-
   Future<void> _handleReceiveFromPhone() async {
     final url = await showDialog<String>(
       context: context,
@@ -36,6 +32,9 @@ class AddProfileView extends StatelessWidget {
         builder: (context, snapshot) {
           final isTV = snapshot.data ?? false;
           return ListView(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             children: [
               if (isTV)
                 ListItem(
@@ -49,21 +48,12 @@ class AddProfileView extends StatelessWidget {
                 leading: const HugeIcon(
                     icon: HugeIcons.strokeRoundedQrCode, size: 24),
                 title: Text(appLocalizations.qrcode),
-                subtitle: Text(appLocalizations.qrcodeDesc),
                 onTap: () => scanProfileQrCode(context),
-              ),
-              ListItem(
-                leading: const HugeIcon(
-                    icon: HugeIcons.strokeRoundedFileUpload, size: 24),
-                title: Text(appLocalizations.file),
-                subtitle: Text(appLocalizations.fileDesc),
-                onTap: _handleAddProfileFormFile,
               ),
               ListItem(
                 leading: const HugeIcon(
                     icon: HugeIcons.strokeRoundedCloudDownload, size: 24),
                 title: Text(appLocalizations.url),
-                subtitle: Text(appLocalizations.urlDesc),
                 onTap: () => showProfileUrlDialog(context),
               ),
             ],
