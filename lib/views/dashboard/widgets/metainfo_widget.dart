@@ -1,16 +1,15 @@
 import 'dart:convert';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/views/cabinet/cabinet_browser_entry.dart';
 import 'package:dropweb/views/subscription.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
@@ -78,8 +77,14 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
 
   String? _decodeBase64IfNeeded(String? value) {
     if (value == null || value.isEmpty) return value;
+    var textToDecode = value;
+    // Remnawave emits `profile-title` (and similar) as `base64:<value>`.
+    if (textToDecode.startsWith('base64:')) {
+      textToDecode = textToDecode.substring(7);
+    }
     try {
-      return utf8.decode(base64.decode(value));
+      final normalized = base64.normalize(textToDecode);
+      return utf8.decode(base64.decode(normalized));
     } catch (e) {
       return value;
     }
@@ -97,38 +102,6 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
     } catch (e) {
       return encodedText;
     }
-  }
-
-  Widget _buildLogo(BuildContext context, String logoUrl) {
-    const logoSize = 36.0;
-    const borderRadius = 8.0;
-    const placeholder = SizedBox(width: logoSize, height: logoSize);
-
-    final isSvg = logoUrl.toLowerCase().endsWith('.svg');
-
-    Widget logoWidget;
-    if (isSvg) {
-      logoWidget = SvgPicture.network(
-        logoUrl,
-        width: logoSize,
-        height: logoSize,
-        placeholderBuilder: (_) => placeholder,
-      );
-    } else {
-      logoWidget = CachedNetworkImage(
-        imageUrl: logoUrl,
-        width: logoSize,
-        height: logoSize,
-        fit: BoxFit.cover,
-        placeholder: (_, __) => placeholder,
-        errorWidget: (_, __, ___) => placeholder,
-      );
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: logoWidget,
-    );
   }
 
   List<InlineSpan> _buildAnnounceSpans(BuildContext context, String text) {
@@ -189,19 +162,25 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
 
     final isUnlimitedTraffic = subscriptionInfo.total == 0;
     final isPerpetual = subscriptionInfo.expire == 0;
+    final cabinetUri = profileCabinetUri(currentProfile);
 
     final headers = currentProfile.providerHeaders;
     final supportUrl = headers['support-url'];
+    final profileTitle = _decodeBase64IfNeeded(headers['profile-title']);
     final serviceName = _decodeBase64IfNeeded(headers['dropweb-servicename']);
-    final logoUrl = _decodeBase64IfNeeded(headers['dropweb-servicelogo']);
     final announceText = _decodeAnnounce(headers['announce']);
 
-    final hasLogo = logoUrl != null && logoUrl.isNotEmpty;
-    final hasServiceName = serviceName != null && serviceName.isNotEmpty;
     final hasAnnounce = announceText != null && announceText.isNotEmpty;
 
-    final titleText =
-        hasServiceName ? serviceName : appLocalizations.subscription;
+    String pickTitle() {
+      for (final candidate in [profileTitle, serviceName]) {
+        final trimmed = candidate?.trim();
+        if (trimmed != null && trimmed.isNotEmpty) return trimmed;
+      }
+      return currentProfile.label?.trim() ?? '';
+    }
+
+    final titleText = pickTitle();
 
     var timeLeftValue = '';
     var timeLeftUnit = '';
@@ -234,6 +213,7 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
     }
 
     return CommonCard(
+      radius: Lumina.radiusLg,
       onPressed: () {
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -243,156 +223,175 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
       },
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: IntrinsicHeight(
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: EmojiText(
+                    titleText,
+                    style: theme.textTheme.headlineSmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (cabinetUri != null)
+                  IconButton(
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedUserCircle,
+                      size: 34,
+                      color: theme.colorScheme.primary,
+                    ),
+                    onPressed: () => openCabinetBrowser(cabinetUri),
+                  ),
+                if (supportUrl != null && supportUrl.isNotEmpty)
+                  IconButton(
+                    icon: HugeIcon(
+                      icon: supportUrl.toLowerCase().contains('t.me')
+                          ? HugeIcons.strokeRoundedTelegram
+                          : HugeIcons.strokeRoundedCustomerSupport,
+                      size: 34,
+                      color: theme.colorScheme.primary,
+                    ),
+                    onPressed: () {
+                      globalState.openUrl(supportUrl);
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (!isUnlimitedTraffic)
+              Builder(builder: (context) {
+                final totalTraffic =
+                    TrafficValue(value: subscriptionInfo.total);
+                final usedTrafficValue =
+                    subscriptionInfo.upload + subscriptionInfo.download;
+                final usedTraffic = TrafficValue(value: usedTrafficValue);
+
+                var progress = 0.0;
+                if (subscriptionInfo.total > 0) {
+                  progress = usedTrafficValue / subscriptionInfo.total;
+                }
+                progress = progress.clamp(0.0, 1.0);
+
+                Color progressColor = Colors.green;
+                if (progress > 0.9) {
+                  progressColor = Colors.red;
+                } else if (progress > 0.7) {
+                  progressColor = Colors.orange;
+                }
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        if (hasLogo) ...[
-                          _buildLogo(context, logoUrl),
-                          const SizedBox(width: 10),
-                        ],
-                        Expanded(
-                          child: EmojiText(
-                            titleText,
-                            style: theme.textTheme.headlineSmall,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (supportUrl != null && supportUrl.isNotEmpty)
-                          IconButton(
-                            icon: HugeIcon(
-                              icon: supportUrl.toLowerCase().contains('t.me')
-                                  ? HugeIcons.strokeRoundedTelegram
-                                  : HugeIcons.strokeRoundedCustomerSupport,
-                              size: 34,
-                              color: theme.colorScheme.primary,
-                            ),
-                            onPressed: () {
-                              globalState.openUrl(supportUrl);
-                            },
-                          ),
-                        IconButton(
-                          icon: HugeIcon(
-                            icon: HugeIcons.strokeRoundedRefresh,
-                            size: 34,
-                            color: theme.colorScheme.primary,
-                          ),
-                          onPressed: () {
-                            globalState.appController
-                                .updateProfile(currentProfile);
-                          },
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    if (!isUnlimitedTraffic)
-                      Builder(builder: (context) {
-                        final totalTraffic =
-                            TrafficValue(value: subscriptionInfo.total);
-                        final usedTrafficValue =
-                            subscriptionInfo.upload + subscriptionInfo.download;
-                        final usedTraffic =
-                            TrafficValue(value: usedTrafficValue);
-
-                        var progress = 0.0;
-                        if (subscriptionInfo.total > 0) {
-                          progress = usedTrafficValue / subscriptionInfo.total;
-                        }
-                        progress = progress.clamp(0.0, 1.0);
-
-                        Color progressColor = Colors.green;
-                        if (progress > 0.9) {
-                          progressColor = Colors.red;
-                        } else if (progress > 0.7) {
-                          progressColor = Colors.orange;
-                        }
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${appLocalizations.traffic} ${usedTraffic.showValue} ${usedTraffic.showUnit} / ${totalTraffic.showValue} ${totalTraffic.showUnit}',
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 6),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: LinearProgressIndicator(
-                                value: progress,
-                                minHeight: 6,
-                                backgroundColor:
-                                    theme.colorScheme.surfaceContainerHighest,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    progressColor),
-                              ),
-                            ),
-                          ],
-                        );
-                      })
-                    else
-                      Text(
-                        appLocalizations.trafficUnlimited,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    const SizedBox(height: 12),
                     Text(
-                      isPerpetual
-                          ? appLocalizations.subscriptionEternal
-                          : '${appLocalizations.expiresOn} ${DateFormat('dd.MM.yyyy').format(DateTime.fromMillisecondsSinceEpoch(subscriptionInfo.expire * 1000))}',
+                      '${appLocalizations.traffic} ${usedTraffic.showValue} ${usedTraffic.showUnit} / ${totalTraffic.showValue} ${totalTraffic.showUnit}',
                       style: theme.textTheme.bodyMedium,
                     ),
-                    if (hasAnnounce) ...[
-                      const SizedBox(height: 10),
-                      Divider(
-                        height: 1,
-                        color: theme.colorScheme.outlineVariant
-                            .withValues(alpha: 0.3),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 6,
+                        backgroundColor:
+                            theme.colorScheme.surfaceContainerHighest,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(progressColor),
                       ),
-                      const SizedBox(height: 10),
-                      RichText(
-                        text: TextSpan(
-                          children: _buildAnnounceSpans(context, announceText),
-                        ),
-                      ),
-                    ],
+                    ),
                   ],
+                );
+              })
+            else
+              Text(
+                appLocalizations.trafficUnlimited,
+                style: theme.textTheme.bodyMedium,
+              ),
+            const SizedBox(height: 12),
+            Text(
+              isPerpetual
+                  ? appLocalizations.subscriptionEternal
+                  : '${appLocalizations.expiresOn} ${DateFormat('dd.MM.yyyy').format(DateTime.fromMillisecondsSinceEpoch(subscriptionInfo.expire * 1000))}',
+              style: theme.textTheme.bodyMedium,
+            ),
+            if (hasAnnounce) ...[
+              const SizedBox(height: 10),
+              Divider(
+                height: 1,
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+              const SizedBox(height: 10),
+              RichText(
+                text: TextSpan(
+                  children: _buildAnnounceSpans(context, announceText),
                 ),
               ),
-              if (showTimeLeft) ...[
-                const VerticalDivider(width: 32),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      remainingText,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    FittedBox(
-                      fit: BoxFit.contain,
-                      child: Text(
-                        timeLeftValue,
-                        style: theme.textTheme.displaySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      timeLeftUnit,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
-              ]
             ],
-          ),
+            if (showTimeLeft) ...[
+              const SizedBox(height: 12),
+              _buildExpirationNotice(
+                context,
+                remainingText: remainingText,
+                timeLeftValue: timeLeftValue,
+                timeLeftUnit: timeLeftUnit,
+              ),
+            ],
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildExpirationNotice(
+    BuildContext context, {
+    required String remainingText,
+    required String timeLeftValue,
+    required String timeLeftUnit,
+  }) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(Lumina.radiusLg - 8),
+        border: Border.all(
+          color: scheme.primary.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedClock01,
+            color: scheme.primary,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              remainingText,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurface,
+              ),
+            ),
+          ),
+          Text(
+            timeLeftValue,
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: scheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            timeLeftUnit,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }

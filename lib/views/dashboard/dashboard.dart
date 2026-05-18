@@ -1,11 +1,8 @@
-import 'dart:math';
-
 import 'package:defer_pointer/defer_pointer.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/providers/providers.dart';
-import 'package:dropweb/views/cabinet/cabinet_view.dart';
-import 'package:dropweb/views/profiles/add_profile.dart';
+import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -54,52 +51,6 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
 
   @override
   List<Widget> get actions => [];
-
-  void _showAddSubscriptionModal() {
-    showSheet(
-      context: context,
-      builder: (_, type) => AdaptiveSheetScaffold(
-        type: type,
-        title: appLocalizations.addSubscription,
-        body: _AddSubscriptionKeyQuestion(
-          onHasKey: () {
-            Navigator.of(context).pop();
-            _showSubscriptionImportModal();
-          },
-          onNeedsSubscription: () {
-            Navigator.of(context).pop();
-            BaseNavigator.push(
-              context,
-              const CabinetWebView(
-                initialPath: '/login',
-                postAuthBootstrap: true,
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  void _showSubscriptionImportModal() {
-    showSheet(
-      context: context,
-      builder: (_, type) => AdaptiveSheetScaffold(
-        type: type,
-        title: appLocalizations.addSubscription,
-        body: _SubscriptionImportSelector(
-          onScanQr: () {
-            Navigator.of(context).pop();
-            scanProfileQrCode(context);
-          },
-          onPasteUrl: () {
-            Navigator.of(context).pop();
-            showProfileUrlDialog(context);
-          },
-        ),
-      ),
-    );
-  }
 
   // ignore: unused_element
   void _showAddWidgetsModal() {
@@ -181,13 +132,12 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
     final hasNoProfiles = ref.watch(
       profilesProvider.select((state) => state.isEmpty),
     );
-    final columns = max(4 * ((dashboardState.viewWidth / 320).ceil()), 8);
+    final currentProfile = ref.watch(currentProfileProvider);
+    const columns = 8;
     final spacing = 16.ap;
 
     if (hasNoProfiles) {
-      return _EmptySubscriptionDashboard(
-        onPressed: _showAddSubscriptionModal,
-      );
+      return const SizedBox.expand();
     }
 
     bool isAllowed(DashboardWidget item) => _isAllowedWidget(
@@ -210,193 +160,70 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
           .map((item) => item.widget)
           .toList();
     });
+    Future<void> handleRefresh() async {
+      final profile = currentProfile;
+      if (profile == null) return;
+      try {
+        await globalState.appController.updateProfile(profile);
+      } catch (e, st) {
+        debugPrint('Dashboard pull-to-refresh failed: $e\n$st');
+      }
+    }
+
     return Stack(
       children: [
-        SingleChildScrollView(
-          padding: const EdgeInsets.all(16).copyWith(
-            bottom: 16,
-          ),
-          child: Column(
-            children: [
-              // Dashboard widgets
-              _buildIsEdit((isEdit) => isEdit
-                  ? SystemBackBlock(
-                      child: CommonPopScope(
-                        child: SuperGrid(
-                          key: key,
-                          crossAxisCount: columns,
-                          crossAxisSpacing: spacing,
-                          mainAxisSpacing: spacing,
-                          onUpdate: _handleSave,
-                          children: [
-                            ...dashboardState.dashboardWidgets
-                                .where(isAllowed)
-                                .map(
-                                  (item) => item.widget,
+        RefreshIndicator(
+          onRefresh: handleRefresh,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16).copyWith(
+              bottom: 16,
+            ),
+            child: Column(
+              children: [
+                // Dashboard widgets
+                _buildIsEdit(
+                  (isEdit) => Column(
+                    children: [
+                      isEdit
+                          ? SystemBackBlock(
+                              child: CommonPopScope(
+                                child: SuperGrid(
+                                  key: key,
+                                  crossAxisCount: columns,
+                                  crossAxisSpacing: spacing,
+                                  mainAxisSpacing: spacing,
+                                  onUpdate: _handleSave,
+                                  children: [
+                                    ...dashboardState.dashboardWidgets
+                                        .where(isAllowed)
+                                        .map(
+                                          (item) => item.widget,
+                                        ),
+                                  ],
                                 ),
-                          ],
-                        ),
-                        onPop: () {
-                          _handleUpdateIsEdit();
-                          return false;
-                        },
-                      ),
-                    )
-                  : Grid(
-                      crossAxisCount: columns,
-                      crossAxisSpacing: spacing,
-                      mainAxisSpacing: spacing,
-                      children: children,
-                    )),
-            ],
+                                onPop: () {
+                                  _handleUpdateIsEdit();
+                                  return false;
+                                },
+                              ),
+                            )
+                          : Grid(
+                              crossAxisCount: columns,
+                              crossAxisSpacing: spacing,
+                              mainAxisSpacing: spacing,
+                              children: children,
+                            ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
-}
-
-class _EmptySubscriptionDashboard extends StatelessWidget {
-  const _EmptySubscriptionDashboard({
-    required this.onPressed,
-  });
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 520,
-              minHeight: 240,
-            ),
-            child: CommonCard(
-              radius: Lumina.radiusLg,
-              enterAnimated: true,
-              onPressed: onPressed,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: Lumina.glassCircle(
-                        opacity: Lumina.glassHoverOpacity,
-                        borderOpacity: Lumina.glassHoverBorderOpacity,
-                      ),
-                      child: Center(
-                        child: HugeIcon(
-                          icon: HugeIcons.strokeRoundedAddCircle,
-                          size: 28,
-                          color: context.colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    Text(
-                      appLocalizations.addSubscription,
-                      style: context.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      appLocalizations.doYouHaveConnectionKey,
-                      style: context.textTheme.bodyMedium?.copyWith(
-                        color: context.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-}
-
-class _AddSubscriptionKeyQuestion extends StatelessWidget {
-  const _AddSubscriptionKeyQuestion({
-    required this.onHasKey,
-    required this.onNeedsSubscription,
-  });
-
-  final VoidCallback onHasKey;
-  final VoidCallback onNeedsSubscription;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              appLocalizations.doYouHaveConnectionKey,
-              style: context.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onHasKey,
-              icon: const HugeIcon(
-                icon: HugeIcons.strokeRoundedKey02,
-                size: 20,
-              ),
-              label: Text(appLocalizations.iHaveKey),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: onNeedsSubscription,
-              icon: const HugeIcon(
-                icon: HugeIcons.strokeRoundedUserAccount,
-                size: 20,
-              ),
-              label: Text(appLocalizations.iNeedSubscription),
-            ),
-          ],
-        ),
-      );
-}
-
-class _SubscriptionImportSelector extends StatelessWidget {
-  const _SubscriptionImportSelector({
-    required this.onScanQr,
-    required this.onPasteUrl,
-  });
-
-  final VoidCallback onScanQr;
-  final VoidCallback onPasteUrl;
-
-  @override
-  Widget build(BuildContext context) => ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.only(bottom: 16),
-        children: [
-          ListItem(
-            leading: const HugeIcon(
-              icon: HugeIcons.strokeRoundedQrCode,
-              size: 24,
-            ),
-            title: Text(appLocalizations.scanQrCode),
-            subtitle: Text(appLocalizations.qrcodeDesc),
-            onTap: onScanQr,
-          ),
-          ListItem(
-            leading: const HugeIcon(
-              icon: HugeIcons.strokeRoundedCloudDownload,
-              size: 24,
-            ),
-            title: Text(appLocalizations.pasteSubscriptionUrl),
-            subtitle: Text(appLocalizations.urlDesc),
-            onTap: onPasteUrl,
-          ),
-        ],
-      );
 }
 
 class _AddDashboardWidgetModal extends StatelessWidget {
