@@ -502,6 +502,58 @@ bool profileHasCabinetMarker(Profile? profile) {
   );
 }
 
+/// Default cabinet URL used as a fallback when the legacy marker value
+/// `cabinet` (or its truthy aliases) is present without an explicit URL.
+const String defaultCabinetUrl = 'https://cab.dropweb.org';
+
+/// Returns `true` for loopback hostnames that may legitimately be served
+/// over plain `http://` during local development.
+bool _isLocalHttpCabinetHost(String host) {
+  final normalized = host.toLowerCase();
+  return normalized == 'localhost' ||
+      normalized == '127.0.0.1' ||
+      normalized == '::1' ||
+      // `Uri.host` lowercases IPv6 literals and strips the surrounding
+      // brackets, but keep the bracketed form as a safety net.
+      normalized == '[::1]';
+}
+
+/// Resolves the cabinet URL declared by the panel via
+/// `dropweb-cabinet: <url>` response header.
+///
+/// Accepts:
+///   * any absolute `https://` URI with a non-empty host;
+///   * `http://` URIs only when the host is a loopback address
+///     (`localhost`, `127.0.0.1`, `::1`) — strictly for local dev.
+/// Returns the default cabinet URL when the header carries a legacy
+/// truthy marker (e.g. `cabinet`, `true`).
+/// Returns `null` for missing, invalid, or unsupported values
+/// (relative paths, hostless URIs, plain `http://` on public hosts,
+/// `tg://`, `intent://`, `javascript:` etc.).
+Uri? profileCabinetUri(Profile? profile) {
+  final raw = profile?.providerHeaders['dropweb-cabinet'];
+  if (raw == null) return null;
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return null;
+
+  final parsed = Uri.tryParse(trimmed);
+  if (parsed != null && parsed.hasScheme && parsed.host.isNotEmpty) {
+    if (parsed.scheme == 'https') {
+      return parsed;
+    }
+    if (parsed.scheme == 'http' && _isLocalHttpCabinetHost(parsed.host)) {
+      return parsed;
+    }
+  }
+
+  // Legacy truthy marker → fall back to the well-known cabinet URL.
+  if (_isCabinetHeaderTruthy(trimmed)) {
+    return Uri.parse(defaultCabinetUrl);
+  }
+
+  return null;
+}
+
 @riverpod
 bool globalModeEnabled(Ref ref) {
   final profile = ref.watch(currentProfileProvider);
