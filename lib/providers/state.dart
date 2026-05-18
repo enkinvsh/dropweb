@@ -70,14 +70,10 @@ NavigationItemsState navigationsState(Ref ref) {
       ref.watch(appSettingProvider.select((state) => state.openLogs));
   final hasProxies = ref.watch(
       currentGroupsStateProvider.select((state) => state.value.isNotEmpty));
-  final cabinetUri = ref.watch(
-    currentProfileProvider.select(profileCabinetUri),
-  );
   return NavigationItemsState(
     value: navigation.getItems(
       openLogs: openLogs,
       hasProxies: hasProxies,
-      cabinetUri: cabinetUri,
     ),
   );
 }
@@ -86,16 +82,27 @@ NavigationItemsState navigationsState(Ref ref) {
 NavigationItemsState currentNavigationsState(Ref ref) {
   final viewWidth = ref.watch(viewWidthProvider);
   final navigationItemsState = ref.watch(navigationsStateProvider);
+  final hasProfiles = ref.watch(
+    profilesProvider.select((profiles) => profiles.isNotEmpty),
+  );
   final navigationItemMode = switch (viewWidth <= maxMobileWidth) {
     true => NavigationItemMode.mobile,
     false => NavigationItemMode.desktop,
   };
+  final filtered = navigationItemsState.value
+      .where(
+        (element) => element.modes.contains(navigationItemMode),
+      )
+      .toList();
+  // Without any profile/subscription there is nothing to navigate to —
+  // collapse the tab menu and screen indicator to a single Dashboard entry
+  // so the user only sees the connect / add-subscription affordance.
   return NavigationItemsState(
-    value: navigationItemsState.value
-        .where(
-          (element) => element.modes.contains(navigationItemMode),
-        )
-        .toList(),
+    value: hasProfiles
+        ? filtered
+        : filtered
+            .where((element) => element.label == PageLabel.dashboard)
+            .toList(),
   );
 }
 
