@@ -1,10 +1,7 @@
-import 'dart:async';
-
 import 'package:dropweb/common/package.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'cabinet_home_adapter.dart';
 import 'cabinet_home_data.dart';
@@ -47,21 +44,6 @@ const List<String> _safePaymentPrefixes = <String>[
 /// Suffix-based match for renew routes shaped like `/subscriptions/{id}/renew`.
 const String _renewPathPrefix = '/subscriptions/';
 const String _renewPathSuffix = '/renew';
-
-/// Required prefix for the Telegram bot login `start` payload. The Telegram
-/// Login bot ignores any other prefix, so accepting only `webauth_...` keeps
-/// the external handoff scoped to the auth flow we control.
-const String _telegramLoginStartPrefix = 'webauth_';
-
-/// Charset for the bot username (`domain` query) on `tg://resolve`. Telegram
-/// usernames are 5–32 ASCII alphanumerics or underscores; we widen to 1–64
-/// purely defensively — anything else is rejected so we cannot be tricked
-/// into encoding a path or scheme inside the domain.
-final RegExp _telegramDomainPattern = RegExp(r'^[A-Za-z0-9_]{1,64}$');
-
-/// Charset for the bot `start` token suffix after `webauth_`. Matches the
-/// token shape zencab issues (URL-safe base64-ish: alphanumerics, `_`, `-`).
-final RegExp _telegramStartTokenPattern = RegExp(r'^[A-Za-z0-9_-]{1,128}$');
 
 /// Reusable hardened WebView container for zencab pages.
 ///
@@ -193,37 +175,6 @@ bool isSafePaymentPath(String path) {
   return false;
 }
 
-/// Validates a `tg://resolve?domain=<bot>&start=webauth_<token>` URI from
-/// the WebView. ONLY this exact shape is treated as a trusted handoff to the
-/// Telegram app: scheme `tg`, host `resolve`, no path/fragment, and exactly
-/// the two expected query parameters with safe charsets. Every other
-/// `tg://` deep link is rejected so the WebView cannot be coerced into
-/// opening arbitrary Telegram intents (joinchat, msg, share, etc.).
-@visibleForTesting
-bool isSafeTelegramLoginUri(Uri uri) {
-  if (uri.scheme != 'tg') return false;
-  if (uri.host != 'resolve') return false;
-  // `tg://resolve` has no path/fragment in the canonical login link; reject
-  // anything else so attackers cannot smuggle extra routing information.
-  if (uri.path.isNotEmpty && uri.path != '/') return false;
-  if (uri.hasFragment) return false;
-  // Use queryParametersAll so duplicate keys (e.g. `?domain=a&domain=b`)
-  // are caught — `queryParameters` would silently keep only the last value.
-  final params = uri.queryParametersAll;
-  if (params.length != 2) return false;
-  final domains = params['domain'];
-  final starts = params['start'];
-  if (domains == null || domains.length != 1) return false;
-  if (starts == null || starts.length != 1) return false;
-  final domain = domains.first;
-  final start = starts.first;
-  if (!_telegramDomainPattern.hasMatch(domain)) return false;
-  if (!start.startsWith(_telegramLoginStartPrefix)) return false;
-  final token = start.substring(_telegramLoginStartPrefix.length);
-  if (!_telegramStartTokenPattern.hasMatch(token)) return false;
-  return true;
-}
-
 class _CabinetWebViewState extends State<CabinetWebView> {
   InAppWebViewController? _controller;
   bool _loading = true;
@@ -268,15 +219,10 @@ class _CabinetWebViewState extends State<CabinetWebView> {
     }
     final uri = action.request.url;
     if (uri == null) return NavigationActionPolicy.CANCEL;
-    // Telegram app handoff for the login deep link. zencab issues
-    // `tg://resolve?domain=<bot>&start=webauth_<token>` only in app mode;
-    // hand it off to the Telegram app and keep the WebView on the current
-    // page. CANCEL is returned regardless of launch result so the WebView
-    // never tries to render the `tg://` URL itself.
-    if (isSafeTelegramLoginUri(uri)) {
-      unawaited(launchUrl(uri, mode: LaunchMode.externalApplication));
-      return NavigationActionPolicy.CANCEL;
-    }
+    // Only HTTPS navigations to the trusted zencab host are allowed. Any
+    // other scheme (including `tg://`, `intent://`, `javascript:`, `data:`)
+    // is cancelled so the WebView cannot be coerced into a deep-link or
+    // protocol-handler handoff to another app.
     if (uri.scheme != 'https') return NavigationActionPolicy.CANCEL;
     if (uri.host != _zencabHost) return NavigationActionPolicy.CANCEL;
     return NavigationActionPolicy.ALLOW;

@@ -28,151 +28,15 @@ void main() {
     });
   });
 
-  group('isSafeTelegramLoginUri', () {
-    Uri parse(String raw) => Uri.parse(raw);
-
-    test('accepts tg://resolve with domain and webauth_<token> start', () {
+  group('isSafeCabinetPath rejects Telegram deep-link shapes', () {
+    test('tg://resolve and other non-https schemes are never cabinet paths', () {
       expect(
-        isSafeTelegramLoginUri(
-          parse('tg://resolve?domain=dropwebpay_bot&start=webauth_test'),
-        ),
-        isTrue,
-      );
-      expect(
-        isSafeTelegramLoginUri(
-          parse('tg://resolve?domain=A_bot9&start=webauth_abc123-XYZ_0'),
-        ),
-        isTrue,
-      );
-    });
-
-    test('rejects wrong scheme', () {
-      expect(
-        isSafeTelegramLoginUri(
-          parse('https://t.me/dropwebpay_bot?start=webauth_test'),
-        ),
+        isSafeCabinetPath('tg://resolve?domain=bot&start=webauth_token'),
         isFalse,
       );
-      expect(
-        isSafeTelegramLoginUri(
-          parse('http://resolve?domain=x&start=webauth_y'),
-        ),
-        isFalse,
-      );
-      expect(
-        isSafeTelegramLoginUri(
-          parse('intent://resolve?domain=x&start=webauth_y#Intent;end'),
-        ),
-        isFalse,
-      );
-    });
-
-    test('rejects wrong host / non-resolve targets', () {
-      expect(
-        isSafeTelegramLoginUri(parse('tg://join?invite=abc')),
-        isFalse,
-      );
-      expect(
-        isSafeTelegramLoginUri(
-          parse('tg://msg?to=evil&text=webauth_x'),
-        ),
-        isFalse,
-      );
-      expect(
-        isSafeTelegramLoginUri(
-          parse('tg://resolve.evil?domain=x&start=webauth_y'),
-        ),
-        isFalse,
-      );
-    });
-
-    test('rejects missing or empty domain', () {
-      expect(
-        isSafeTelegramLoginUri(parse('tg://resolve?start=webauth_test')),
-        isFalse,
-      );
-      expect(
-        isSafeTelegramLoginUri(
-          parse('tg://resolve?domain=&start=webauth_test'),
-        ),
-        isFalse,
-      );
-    });
-
-    test('rejects start that is missing, lacks webauth_ prefix, or empty token', () {
-      expect(
-        isSafeTelegramLoginUri(parse('tg://resolve?domain=x')),
-        isFalse,
-      );
-      expect(
-        isSafeTelegramLoginUri(parse('tg://resolve?domain=x&start=hello')),
-        isFalse,
-      );
-      expect(
-        isSafeTelegramLoginUri(parse('tg://resolve?domain=x&start=webauth_')),
-        isFalse,
-      );
-      expect(
-        isSafeTelegramLoginUri(parse('tg://resolve?domain=x&start=')),
-        isFalse,
-      );
-    });
-
-    test('rejects unsafe characters in domain or start token', () {
-      expect(
-        isSafeTelegramLoginUri(
-          parse('tg://resolve?domain=evil/path&start=webauth_test'),
-        ),
-        isFalse,
-      );
-      expect(
-        isSafeTelegramLoginUri(
-          parse('tg://resolve?domain=evil%20bot&start=webauth_test'),
-        ),
-        isFalse,
-      );
-      expect(
-        isSafeTelegramLoginUri(
-          parse('tg://resolve?domain=x&start=webauth_evil%2Fy'),
-        ),
-        isFalse,
-      );
-    });
-
-    test('rejects extra query parameters, paths, or fragments', () {
-      expect(
-        isSafeTelegramLoginUri(
-          parse('tg://resolve?domain=x&start=webauth_y&extra=1'),
-        ),
-        isFalse,
-      );
-      expect(
-        isSafeTelegramLoginUri(
-          parse('tg://resolve/extra?domain=x&start=webauth_y'),
-        ),
-        isFalse,
-      );
-      expect(
-        isSafeTelegramLoginUri(
-          parse('tg://resolve?domain=x&start=webauth_y#frag'),
-        ),
-        isFalse,
-      );
-    });
-
-    test('rejects duplicate query keys', () {
-      expect(
-        isSafeTelegramLoginUri(
-          parse('tg://resolve?domain=x&domain=y&start=webauth_z'),
-        ),
-        isFalse,
-      );
-      expect(
-        isSafeTelegramLoginUri(
-          parse('tg://resolve?domain=x&start=webauth_a&start=webauth_b'),
-        ),
-        isFalse,
-      );
+      expect(isSafeCabinetPath('tg://join?invite=abc'), isFalse);
+      expect(isSafeCabinetPath('intent://resolve#Intent;end'), isFalse);
+      expect(isSafeCabinetPath('javascript:alert(1)'), isFalse);
     });
   });
 
