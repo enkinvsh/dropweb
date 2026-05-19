@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:dropweb/common/common.dart';
@@ -8,6 +7,16 @@ import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hugeicons/hugeicons.dart';
+
+/// Whether the About page should show the manual "Check for updates" entry.
+///
+/// dropweb is distributed via GitHub releases as a signed APK, not via the
+/// Play Store, so the Play Store policy that forbids in-app update checks
+/// does not apply. The manual update check is enabled on every platform,
+/// including Android, where it hits the same safe GitHub Releases API as
+/// the desktop builds.
+@visibleForTesting
+bool shouldShowCheckForUpdate() => true;
 
 @immutable
 class Contributor {
@@ -105,8 +114,10 @@ class AboutView extends StatelessWidget {
         onTap: () => _showCreditsSheet(context),
         trailing: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 24),
       ),
-      // Play Store forbids in-app update checks on Android. Keep for desktop.
-      if (!Platform.isAndroid)
+      // dropweb is shipped from GitHub releases on every platform, so the
+      // manual update check is available everywhere — see
+      // [shouldShowCheckForUpdate] for the policy.
+      if (shouldShowCheckForUpdate())
         ListItem(
           title: Text(appLocalizations.checkUpdate),
           onTap: () => _checkUpdate(context),
