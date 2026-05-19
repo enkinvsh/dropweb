@@ -1337,34 +1337,35 @@ class AppController {
     );
   }
 
-  Future<bool> showDisclaimer() async =>
-      await globalState.showCommonDialog<bool>(
-        dismissible: false,
-        child: CommonDialog(
-          title: appLocalizations.disclaimer,
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop<bool>(false);
-              },
-              child: Text(appLocalizations.exit),
-            ),
-            TextButton(
-              onPressed: () {
-                _ref.read(appSettingProvider.notifier).updateState(
-                      (state) => state.copyWith(disclaimerAccepted: true),
-                    );
-                Navigator.of(context).pop<bool>(true);
-              },
-              child: Text(appLocalizations.agree),
-            )
-          ],
-          child: SelectableText(
-            appLocalizations.disclaimerDesc,
+  Future<bool> showDisclaimer() async {
+    final accepted = await globalState.showCommonDialog<bool>(
+      dismissible: false,
+      child: CommonDialog(
+        title: appLocalizations.disclaimer,
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop<bool>(false);
+            },
+            child: Text(appLocalizations.exit),
           ),
+          TextButton(
+            onPressed: () {
+              _ref.read(appSettingProvider.notifier).updateState(
+                    (state) => state.copyWith(disclaimerAccepted: true),
+                  );
+              Navigator.of(context).pop<bool>(true);
+            },
+            child: Text(appLocalizations.agree),
+          )
+        ],
+        child: SelectableText(
+          appLocalizations.disclaimerDesc,
         ),
-      ) ??
-      false;
+      ),
+    );
+    return accepted ?? false;
+  }
 
   Future<void> _handlerDisclaimer() async {
     if (_ref.read(appSettingProvider).disclaimerAccepted) {
@@ -1385,6 +1386,7 @@ class AppController {
         !uri.hasScheme ||
         !(uri.scheme == 'http' || uri.scheme == 'https') ||
         uri.host.isEmpty) {
+      unawaited(App().playUiSound(DropwebSoundCue.importError));
       unawaited(
         globalState.showMessage(
           message: TextSpan(text: appLocalizations.invalidProfileUrl),
@@ -1423,8 +1425,10 @@ class AppController {
         }
 
         await addProfile(profile);
+        unawaited(App().playUiSound(DropwebSoundCue.importSuccess));
       }
     } catch (err) {
+      unawaited(App().playUiSound(DropwebSoundCue.importError));
       commonPrint.log('Add Profile Failed: $err');
       final message = ErrorMapper.mapError(err.toString()) ?? err.toString();
       unawaited(globalState.showMessage(message: TextSpan(text: message)));
