@@ -43,9 +43,12 @@ class _StartButtonState extends ConsumerState<StartButton>
   }
 
   void handleSwitchStart() {
-    App().performHapticFeedback(DropwebHapticCue.confirm);
     final currentlyRunning = ref.read(runTimeProvider) != null;
     final next = !currentlyRunning;
+    App().performHapticFeedback(DropwebHapticCue.confirm);
+    App().playUiSound(
+      next ? DropwebSoundCue.powerOn : DropwebSoundCue.powerOff,
+    );
     debouncer.call(
       FunctionTag.updateStatus,
       () {
@@ -56,6 +59,10 @@ class _StartButtonState extends ConsumerState<StartButton>
   }
 
   void _handleTapDown() {
+    // Press-down only fires the gestureStart haptic — the audible cue was
+    // removed (user feedback: the per-press tick felt redundant on top of
+    // the powerOn/powerOff cue). Animation still runs so the visual press
+    // affordance is preserved.
     if (ref.read(startButtonSelectorStateProvider).hasProfile) {
       App().performHapticFeedback(DropwebHapticCue.gestureStart);
     }
