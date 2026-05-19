@@ -26,6 +26,27 @@ import 'models/models.dart';
 import 'plugins/vpn.dart';
 import 'views/profiles/override_profile.dart';
 
+/// Decides whether [AppController.checkUpdateResultHandle] should react to a
+/// finished update check.
+///
+/// Pre-release builds (`globalState.isPre == true`) suppress *automatic*
+/// startup prompts to avoid noisy prerelease dialogs, but a *manual* check
+/// initiated from About → "Проверить обновления" must still produce
+/// feedback (either the update dialog or the "latest version" message).
+/// Stable builds always proceed.
+///
+/// [handleError] mirrors the existing `checkUpdateResultHandle` flag:
+/// `true` = manual/explicit check (show "latest version" when there is no
+/// update), `false` = silent automatic check.
+@visibleForTesting
+bool shouldHandleUpdateResult({
+  required bool isPre,
+  required bool handleError,
+}) {
+  if (!isPre) return true;
+  return handleError;
+}
+
 class AppController {
   AppController(this.context, WidgetRef ref) : _ref = ref;
   int? lastProfileModified;
@@ -1123,11 +1144,32 @@ class AppController {
     checkUpdateResultHandle(data: res);
   }
 
+  /// Resolves a safe, release-specific URL from a GitHub release payload.
+  /// Prefers the release's own `html_url`, falls back to a tagged URL,
+  /// and finally to the generic `releases/latest` page.
+  String _resolveReleaseUrl(Map<String, dynamic> data) {
+    final htmlUrl = data['html_url'];
+    if (htmlUrl is String && htmlUrl.isNotEmpty) {
+      final parsed = Uri.tryParse(htmlUrl);
+      if (parsed != null && parsed.hasScheme) {
+        return htmlUrl;
+      }
+    }
+    final tag = data['tag_name'];
+    if (tag is String && tag.isNotEmpty) {
+      return "https://github.com/$repository/releases/tag/$tag";
+    }
+    return "https://github.com/$repository/releases/latest";
+  }
+
   Future<void> checkUpdateResultHandle({
     Map<String, dynamic>? data,
     bool handleError = false,
   }) async {
-    if (globalState.isPre) {
+    if (!shouldHandleUpdateResult(
+      isPre: globalState.isPre,
+      handleError: handleError,
+    )) {
       return;
     }
     if (data != null) {
@@ -1157,9 +1199,8 @@ class AppController {
       if (res != true) {
         return;
       }
-      unawaited(launchUrl(
-        Uri.parse("https://github.com/$repository/releases/latest"),
-      ));
+      final releaseUrl = _resolveReleaseUrl(data);
+      unawaited(launchUrl(Uri.parse(releaseUrl)));
     } else if (handleError) {
       globalState.showMessage(
         title: appLocalizations.checkUpdate,
