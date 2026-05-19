@@ -1,3 +1,19 @@
+## v0.6.8
+
+- release(v0.6.8): ship dashboard control hotfix
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(home): keep connect control on dashboard
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- Update changelog
+
 ## v0.6.7
 
 - release(v0.6.7): ship Lumina cabinet UX
