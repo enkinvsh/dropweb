@@ -1,5 +1,6 @@
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
+import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/profiles/add_profile.dart';
@@ -42,7 +43,7 @@ class _StartButtonState extends ConsumerState<StartButton>
   }
 
   void handleSwitchStart() {
-    HapticFeedback.mediumImpact();
+    App().performHapticFeedback(DropwebHapticCue.confirm);
     final currentlyRunning = ref.read(runTimeProvider) != null;
     final next = !currentlyRunning;
     debouncer.call(
@@ -52,6 +53,13 @@ class _StartButtonState extends ConsumerState<StartButton>
       },
       duration: commonDuration,
     );
+  }
+
+  void _handleTapDown() {
+    if (ref.read(startButtonSelectorStateProvider).hasProfile) {
+      App().performHapticFeedback(DropwebHapticCue.gestureStart);
+    }
+    _pressController.forward();
   }
 
   void _handleAddProfile() {
@@ -95,7 +103,7 @@ class _StartButtonState extends ConsumerState<StartButton>
       ),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => _pressController.forward(),
+        onTapDown: (_) => _handleTapDown(),
         onTapUp: (_) => _pressController.reverse(),
         onTapCancel: () => _pressController.reverse(),
         onTap: hasProfile ? handleSwitchStart : _handleAddProfile,
