@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:defer_pointer/defer_pointer.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
+import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/widgets.dart';
@@ -163,6 +166,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
     Future<void> handleRefresh() async {
       final profile = currentProfile;
       if (profile == null) return;
+      unawaited(App().playUiSound(DropwebSoundCue.subscriptionRefresh));
       try {
         await globalState.appController.updateProfile(profile);
       } catch (e, st) {

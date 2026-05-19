@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart' hide Action;
+import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/mesh_background.dart';
@@ -130,6 +133,10 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
 /// error.
 Future<void> _refreshProfiles(BuildContext context, [Profile? current]) async {
   final controller = globalState.appController;
+  // Fire the refresh cue up-front so the user gets immediate feedback,
+  // mirroring the dashboard pull-to-refresh behavior. Fire-and-forget:
+  // `playUiSound` never throws, and we must not block the network work.
+  unawaited(App().playUiSound(DropwebSoundCue.subscriptionRefresh));
   if (current != null) {
     controller.setProfile(current.copyWith(isUpdating: true));
     try {
