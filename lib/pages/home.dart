@@ -377,9 +377,19 @@ class _ConnectCircle extends ConsumerStatefulWidget {
 final connectButtonCenter = ValueNotifier<Offset?>(null);
 
 class _ConnectCircleState extends ConsumerState<_ConnectCircle>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final _key = GlobalKey();
   bool _isPressed = false;
+
+  /// Iris bloom: one-shot radial luminance pulse through the glass disc on
+  /// connect, mirrored recede on disconnect. Hands off to the perimeter halo
+  /// + icon halo for sustained ambient — Iris itself does NOT loop. Idle at
+  /// value 0 paints nothing.
+  late final AnimationController _irisController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+    reverseDuration: const Duration(milliseconds: 360),
+  );
 
   void _reportPosition() {
     if (!mounted) return;
@@ -408,10 +418,31 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
 
     // Profile availability can change the mobile pages and rebuild the body.
     // Re-anchor the rings origin if the button shifts with that state.
-    ref.listenManual<bool>(
-      profilesProvider.select((profiles) => profiles.isNotEmpty),
-      (_, __) => _schedulePostFrameReport(),
-    );
+    ref
+      ..listenManual<bool>(
+        profilesProvider.select((profiles) => profiles.isNotEmpty),
+        (_, __) => _schedulePostFrameReport(),
+      )
+      // Iris bloom — triggered ONLY on actual OFF↔ON transitions.
+      // listenManual does not fire-immediately, so initial state never
+      // replays the animation (e.g. coming back to dashboard while already
+      // connected does not re-bloom).
+      ..listenManual<bool>(
+        runTimeProvider.select((state) => state != null),
+        (_, running) {
+          if (!mounted) return;
+          // Reduced-motion: snap to terminal state, no animation.
+          if (MediaQuery.disableAnimationsOf(context)) {
+            _irisController.value = running ? 1.0 : 0.0;
+            return;
+          }
+          if (running) {
+            _irisController.forward();
+          } else {
+            _irisController.reverse();
+          }
+        },
+      );
   }
 
   @override
@@ -445,6 +476,7 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
 
   @override
   void dispose() {
+    _irisController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     connectButtonCenter.value = null;
     super.dispose();
@@ -524,12 +556,19 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    CustomPaint(
-                      painter: _ConnectGlassPainter(
-                        isDark: isDark,
-                        pressT: pressT,
-                        isRunning: isRunning,
-                        accent: accent,
+                    // Iris drives painter repaints only while it's animating.
+                    // When _irisController sits at 0.0 (idle off) or 1.0
+                    // (idle on) it stops ticking — no continuous loop.
+                    AnimatedBuilder(
+                      animation: _irisController,
+                      builder: (_, __) => CustomPaint(
+                        painter: _ConnectGlassPainter(
+                          isDark: isDark,
+                          pressT: pressT,
+                          isRunning: isRunning,
+                          accent: accent,
+                          irisT: _irisController.value,
+                        ),
                       ),
                     ),
                     StartButton(iconSize: iconSize),
@@ -571,12 +610,25 @@ class _ConnectGlassPainter extends CustomPainter {
     required this.pressT,
     required this.isRunning,
     required this.accent,
+    required this.irisT,
   });
 
   final bool isDark;
   final double pressT;
   final bool isRunning;
   final Color accent;
+
+  /// Iris animation progress in [0, 1]. 0 = no bloom, 1 = settled subtle
+  /// luminance. Triggered only on real connect/disconnect transitions, never
+  /// on rebuilds or initial mount.
+  final double irisT;
+
+  // Sustained alpha at irisT == 1 — kept low so the perimeter halo and
+  // Fresnel rim stay dominant. Iris is the *transition* effect, not the
+  // running indicator.
+  static const double _irisSettledAlpha = 0.14;
+  // Peak alpha mid-bloom (irisT ≈ 0.5). Restrained, premium, not neon.
+  static const double _irisPeakAlpha = 0.30;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -680,6 +732,34 @@ class _ConnectGlassPainter extends CustomPainter {
         ..restore();
     }
 
+    // 5b. Iris bloom — one-shot radial luminance wash across the lens body,
+    //     driven by [irisT]. Painted *under* the Fresnel rim so the rim
+    //     highlight stays crisp and Iris reads as light caught inside the
+    //     lens, not slapped on top. No-op while irisT == 0.
+    if (irisT > 0) {
+      // Triangular overshoot: 0 → +(peak-settled) at t=0.5 → 0 at t=1.
+      final overshoot =
+          (_irisPeakAlpha - _irisSettledAlpha) * 4 * irisT * (1 - irisT);
+      final irisAlpha =
+          (_irisSettledAlpha * irisT + overshoot).clamp(0.0, 1.0);
+      if (irisAlpha > 0.001) {
+        final irisPaint = Paint()
+          ..shader = RadialGradient(
+            colors: [
+              accent.withValues(alpha: irisAlpha),
+              accent.withValues(alpha: irisAlpha * 0.4),
+              accent.withValues(alpha: 0),
+            ],
+            stops: const [0.0, 0.55, 1.0],
+          ).createShader(rect);
+        canvas
+          ..save()
+          ..clipPath(Path()..addOval(rect))
+          ..drawCircle(center, r, irisPaint)
+          ..restore();
+      }
+    }
+
     // 6. Fresnel rim. Bright top → mid sides → dark bottom → back to top.
     //    Top/side carry a small constant accent tint so the theme color
     //    catches the rim even at rest; press warms it further.
@@ -745,7 +825,8 @@ class _ConnectGlassPainter extends CustomPainter {
       old.isDark != isDark ||
       old.pressT != pressT ||
       old.isRunning != isRunning ||
-      old.accent != accent;
+      old.accent != accent ||
+      old.irisT != irisT;
 }
 
 /// Developer mode activation via 5 rapid CONSECUTIVE taps on the Settings
