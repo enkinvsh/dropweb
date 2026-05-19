@@ -9,6 +9,7 @@ import android.content.pm.ComponentInfo
 import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
+import android.view.HapticFeedbackConstants
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -216,10 +217,53 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 result.success(true)
             }
 
+            "performHapticFeedback" -> {
+                val cue = call.argument<String>("cue")
+                result.success(performHapticFeedback(cue))
+            }
+
             else -> {
                 result.notImplemented()
             }
         }
+    }
+
+    /**
+     * Map semantic dashboard cues to Pixel-friendly [HapticFeedbackConstants]
+     * and fire them through the activity's decor view so the system haptic
+     * engine renders them with the user's preferred intensity.
+     *
+     * Returns true when a vibration was actually performed, false otherwise.
+     * Falls back via the call site (Dart) to generic Flutter haptics on false.
+     */
+    private fun performHapticFeedback(cue: String?): Boolean {
+        val view = activityRef?.get()?.window?.decorView ?: return false
+        val constant: Int = when (cue) {
+            "gestureStart" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    HapticFeedbackConstants.GESTURE_START
+                } else {
+                    HapticFeedbackConstants.CONTEXT_CLICK
+                }
+            }
+            "confirm" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    HapticFeedbackConstants.CONFIRM
+                } else {
+                    HapticFeedbackConstants.VIRTUAL_KEY
+                }
+            }
+            "cancel" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    HapticFeedbackConstants.GESTURE_END
+                } else {
+                    HapticFeedbackConstants.CLOCK_TICK
+                }
+            }
+            else -> return false
+        }
+        // No flags → respect the user's system haptic settings.
+        return view.performHapticFeedback(constant)
     }
 
     private fun openFile(path: String) {

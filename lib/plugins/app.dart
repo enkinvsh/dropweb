@@ -88,6 +88,50 @@ class App {
   Future<bool?> updateExcludeFromRecents(bool value) async => methodChannel.invokeMethod<bool>("updateExcludeFromRecents", {
       "value": value,
     });
+
+  /// Pixel-tuned native haptic cues for the dashboard power button.
+  ///
+  /// On Android the call routes through `AppPlugin.performHapticFeedback`,
+  /// which maps each cue to a `View.performHapticFeedback` constant (e.g.
+  /// `GESTURE_START`, `CONFIRM`, `GESTURE_END`) so the system haptic engine
+  /// renders the platform-native feel. If the native channel is missing
+  /// (desktop, tests, very old Android) or fails, we fall back to Flutter's
+  /// generic `HapticFeedback` shim so callers never need a try/catch.
+  Future<void> performHapticFeedback(DropwebHapticCue cue) async {
+    try {
+      final ok = await methodChannel.invokeMethod<bool>(
+        "performHapticFeedback",
+        {"cue": cue.name},
+      );
+      if (ok == true) return;
+    } on MissingPluginException catch (_) {
+      // Native side absent — fall through to Flutter fallback.
+    } on PlatformException catch (_) {
+      // Native side errored — fall through to Flutter fallback.
+    }
+    await _fallbackHaptic(cue);
+  }
+
+  Future<void> _fallbackHaptic(DropwebHapticCue cue) async {
+    switch (cue) {
+      case DropwebHapticCue.gestureStart:
+        await HapticFeedback.selectionClick();
+      case DropwebHapticCue.confirm:
+        await HapticFeedback.mediumImpact();
+      case DropwebHapticCue.cancel:
+        await HapticFeedback.lightImpact();
+    }
+  }
+}
+
+/// Semantic haptic cues consumed by the dashboard power button.
+///
+/// String names (`.name`) are part of the public method-channel contract
+/// with `AppPlugin.kt` and are covered by `test/plugins/app_haptics_test.dart`.
+enum DropwebHapticCue {
+  gestureStart,
+  confirm,
+  cancel,
 }
 
 final app = Platform.isAndroid ? App() : null;
