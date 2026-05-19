@@ -122,6 +122,33 @@ class App {
         await HapticFeedback.lightImpact();
     }
   }
+
+  /// Pixel-tuned native UI sound cues for the dashboard power button.
+  ///
+  /// On Android the call routes through `AppPlugin.playUiSound`, which
+  /// plays a short pre-loaded WAV via `SoundPool` (USAGE_ASSISTANCE_SONIFICATION).
+  /// The native side returns `true` both when the cue is played and when it
+  /// is intentionally consumed silently (e.g. the user disabled system touch
+  /// sounds via `Settings.System.SOUND_EFFECTS_ENABLED == 0`) — in both cases
+  /// the Dart wrapper must NOT play a fallback. Native returns `false` only
+  /// for actual failures (unknown cue, missing asset, sample not yet loaded).
+  /// In that case — and when the channel is absent or errors — we fall back
+  /// to Flutter's `SystemSound.play(SystemSoundType.click)` so the tap never
+  /// feels dead.
+  Future<void> playUiSound(DropwebSoundCue cue) async {
+    try {
+      final ok = await methodChannel.invokeMethod<bool>(
+        "playUiSound",
+        {"cue": cue.name},
+      );
+      if (ok == true) return;
+    } on MissingPluginException catch (_) {
+      // Native side absent — fall through to Flutter fallback.
+    } on PlatformException catch (_) {
+      // Native side errored — fall through to Flutter fallback.
+    }
+    await SystemSound.play(SystemSoundType.click);
+  }
 }
 
 /// Semantic haptic cues consumed by the dashboard power button.
@@ -132,6 +159,31 @@ enum DropwebHapticCue {
   gestureStart,
   confirm,
   cancel,
+}
+
+/// Semantic UI sound cues fired from a handful of user-driven moments
+/// (power button, subscription import / refresh).
+///
+/// String names (`.name`) are part of the public method-channel contract
+/// with `AppPlugin.kt` (`playUiSound`) and are covered by
+/// `test/plugins/app_sounds_test.dart`.
+///
+/// Mapping (native side picks the asset):
+///   - [powerOn]             → `assets/sounds/toggle_on.wav`
+///     (byte-copy of refresh_subscriptions.wav)
+///   - [powerOff]            → `assets/sounds/toggle_off.wav`
+///     (byte-copy of the former import_error.wav)
+///   - [subscriptionRefresh] → `assets/sounds/refresh_subscriptions.wav`
+///   - [importSuccess]       → `assets/sounds/import_success.wav`
+///   - [importError]         → `assets/sounds/toggle_off.wav`
+///     (shares the powerOff asset; the standalone import_error.wav was
+///     removed during the SFX simplification pass).
+enum DropwebSoundCue {
+  powerOn,
+  powerOff,
+  subscriptionRefresh,
+  importSuccess,
+  importError,
 }
 
 final app = Platform.isAndroid ? App() : null;

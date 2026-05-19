@@ -7,8 +7,11 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.ComponentInfo
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.SoundPool
 import android.net.VpnService
 import android.os.Build
+import android.provider.Settings
 import android.view.HapticFeedbackConstants
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
@@ -56,6 +59,34 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
     private val iconMap = mutableMapOf<String, String?>()
 
     private val packages = mutableListOf<Package>()
+
+    private var pluginBinding: FlutterPlugin.FlutterPluginBinding? = null
+
+    // Lazily-built shared SoundPool for the dashboard power button cues.
+    // Released in onDetachedFromEngine. Keep maxStreams low — we never need
+    // more than one short UI tick at a time and overlapping cues sound bad.
+    private var soundPool: SoundPool? = null
+
+    // Maps DropwebSoundCue.name → SoundPool sample id. Samples are
+    // preloaded once on engine attach so the very first tap is not silent.
+    private val soundIdMap = mutableMapOf<String, Int>()
+
+    // Cue → asset mapping. Reduced set after the SFX simplification pass:
+    // power cues reuse the subscription-refresh / import-error timbres
+    // (toggle_on.wav is a byte copy of refresh_subscriptions.wav,
+    // toggle_off.wav is a byte copy of import_error.wav), and importError
+    // shares the toggle_off.wav asset because the standalone
+    // import_error.wav file was removed. Every entry is preloaded into
+    // SoundPool on engine attach. Cue names must match DropwebSoundCue.name
+    // on the Dart side; the contract is locked by
+    // test/plugins/app_sounds_test.dart.
+    private val cueAssets: Map<String, String> = mapOf(
+        "powerOn" to "assets/sounds/toggle_on.wav",
+        "powerOff" to "assets/sounds/toggle_off.wav",
+        "subscriptionRefresh" to "assets/sounds/refresh_subscriptions.wav",
+        "importSuccess" to "assets/sounds/import_success.wav",
+        "importError" to "assets/sounds/toggle_off.wav",
+    )
 
     private val skipPrefixList = listOf(
         "com.google",
@@ -120,8 +151,10 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         scope = CoroutineScope(Dispatchers.Default)
+        pluginBinding = flutterPluginBinding
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "app")
         channel.setMethodCallHandler(this)
+        preloadUiSounds(flutterPluginBinding)
     }
 
     private fun initShortcuts(label: String) {
@@ -144,6 +177,10 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
         scope.cancel()
+        soundPool?.release()
+        soundPool = null
+        soundIdMap.clear()
+        pluginBinding = null
     }
 
     private fun tip(message: String?) {
@@ -222,6 +259,11 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 result.success(performHapticFeedback(cue))
             }
 
+            "playUiSound" -> {
+                val cue = call.argument<String>("cue")
+                result.success(playUiSound(cue))
+            }
+
             else -> {
                 result.notImplemented()
             }
@@ -264,6 +306,80 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
         }
         // No flags → respect the user's system haptic settings.
         return view.performHapticFeedback(constant)
+    }
+
+    /**
+     * Eagerly load every UI cue declared in [cueAssets] into a shared
+     * SoundPool so the first tap after launch is not silent. SoundPool.load
+     * is async, so even with eager preload the very first invocation right
+     * after attach may still hit play() before the sample is decoded — in
+     * that case play() returns streamId 0 and we report false so the Dart
+     * wrapper falls back to SystemSound.click.
+     */
+    private fun preloadUiSounds(binding: FlutterPlugin.FlutterPluginBinding) {
+        val pool = ensureSoundPool()
+        val context = DropwebApplication.getAppContext()
+        for ((cue, asset) in cueAssets) {
+            if (soundIdMap.containsKey(cue)) continue
+            try {
+                val path = binding.flutterAssets.getAssetFilePathByName(asset)
+                val afd = context.assets.openFd(path)
+                val id = pool.load(afd, 1)
+                afd.close()
+                soundIdMap[cue] = id
+            } catch (_: Throwable) {
+                // Asset missing or unreadable — leave unmapped so playUiSound
+                // returns false and Dart falls back to SystemSound.click.
+            }
+        }
+    }
+
+    private fun ensureSoundPool(): SoundPool {
+        soundPool?.let { return it }
+        val attrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        val pool = SoundPool.Builder()
+            .setMaxStreams(2)
+            .setAudioAttributes(attrs)
+            .build()
+        soundPool = pool
+        return pool
+    }
+
+    /**
+     * Play a short UI cue through SoundPool. Returns true when the cue was
+     * "consumed" by the native side and the Dart wrapper should NOT fall
+     * back to SystemSound.click. Specifically:
+     *  - Returns true when SoundPool.play succeeded (streamId != 0).
+     *  - Returns true when the user disabled system touch sounds
+     *    (Settings.System.SOUND_EFFECTS_ENABLED == 0). The user asked for
+     *    silence; falling back to SystemSound.click would defeat that.
+     *  - Returns false on any other failure (sample not yet loaded, unknown
+     *    cue, asset missing) so the Dart wrapper plays SystemSound.click.
+     */
+    private fun playUiSound(cue: String?): Boolean {
+        val context = DropwebApplication.getAppContext()
+        val asset = cueAssets[cue] ?: return false
+
+        val effectsEnabled = try {
+            Settings.System.getInt(
+                context.contentResolver,
+                Settings.System.SOUND_EFFECTS_ENABLED,
+                1,
+            ) == 1
+        } catch (_: Throwable) {
+            true
+        }
+        if (!effectsEnabled) return true
+
+        val pool = soundPool ?: ensureSoundPool().also {
+            pluginBinding?.let(::preloadUiSounds)
+        }
+        val sampleId = soundIdMap[cue] ?: return false
+        val streamId = pool.play(sampleId, 0.8f, 0.8f, 1, 0, 1f)
+        return streamId != 0
     }
 
     private fun openFile(path: String) {
