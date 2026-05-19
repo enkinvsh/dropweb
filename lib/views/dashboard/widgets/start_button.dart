@@ -80,8 +80,9 @@ class _StartButtonState extends ConsumerState<StartButton>
     final colorScheme = Theme.of(context).colorScheme;
     final hasProfile = state.hasProfile;
     final isInactive = hasProfile && !isStart;
-    final iconColor =
-        isInactive ? colorScheme.onSurfaceVariant : colorScheme.primary;
+    final iconColor = isInactive
+        ? Color.lerp(const Color(0xFF15151D), colorScheme.primary, 0.28)!
+        : colorScheme.primary;
 
     const motionDuration = Duration(milliseconds: 180);
     const motionCurve = Curves.easeOutCubic;

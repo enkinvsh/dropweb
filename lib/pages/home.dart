@@ -182,6 +182,7 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
       (item) => item.label == currentLabel,
     );
     final canSwipe = isMobile && effectiveNavigationItems.length > 1;
+    final connectSize = isMobile ? _connectSizeFor(context) : 0.0;
     final pageView = PageView.builder(
       controller: _pageController,
       // Mobile: horizontal swipe between dashboard ↔ tools (settings).
@@ -210,11 +211,25 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
             },
       itemBuilder: (_, index) {
         final navigationItem = effectiveNavigationItems[index];
-        return KeepScope(
+        final page = KeepScope(
           keep: navigationItem.keep,
           key: Key(navigationItem.label.name),
           child: navigationItem.view,
         );
+        // The connect/add button belongs to the Dashboard page itself so
+        // PageView physics slides it off-screen with the rest of Dashboard
+        // when the user swipes to Tools. The tab indicator is rendered
+        // outside the PageView (see below) so it stays visible across
+        // pages.
+        if (isMobile && navigationItem.label == PageLabel.dashboard) {
+          return Stack(
+            children: [
+              page,
+              _MobileConnectButtonOverlay(buttonSize: connectSize),
+            ],
+          );
+        }
+        return page;
       },
     );
 
@@ -222,12 +237,10 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
       return pageView;
     }
 
-    final connectSize = _connectSizeFor(context);
-
     return Stack(
       children: [
         pageView,
-        _MobileConnectOverlay(
+        _MobileIndicatorOverlay(
           buttonSize: connectSize,
           currentIndex: currentIndex == -1 ? 0 : currentIndex,
           itemCount: effectiveNavigationItems.length,
@@ -285,8 +298,32 @@ class _ScreenIndicator extends StatelessWidget {
   }
 }
 
-class _MobileConnectOverlay extends StatelessWidget {
-  const _MobileConnectOverlay({
+/// Connect/add button overlay — Dashboard-scoped. Lives inside the
+/// Dashboard PageView item so it slides off with the rest of Dashboard
+/// when the user swipes to Tools.
+class _MobileConnectButtonOverlay extends StatelessWidget {
+  const _MobileConnectButtonOverlay({required this.buttonSize});
+
+  final double buttonSize;
+
+  @override
+  Widget build(BuildContext context) => Positioned.fill(
+        child: Align(
+          alignment: _mobileConnectAlignment,
+          child: SizedBox.square(
+            dimension: buttonSize,
+            child: _ConnectCircle(buttonSize: buttonSize),
+          ),
+        ),
+      );
+}
+
+/// Tab/screen indicator overlay — page-independent. Rendered in an outer
+/// Stack above the PageView so it stays visible on Dashboard, Settings
+/// and any other page. The indicator anchors visually to the same spot
+/// the connect button would occupy on Dashboard.
+class _MobileIndicatorOverlay extends StatelessWidget {
+  const _MobileIndicatorOverlay({
     required this.buttonSize,
     required this.currentIndex,
     required this.itemCount,
@@ -302,29 +339,18 @@ class _MobileConnectOverlay extends StatelessWidget {
     const indicatorHeight = 24.0;
 
     return Positioned.fill(
-      child: Stack(
-        children: [
-          Align(
-            alignment: _mobileConnectAlignment,
-            child: SizedBox.square(
-              dimension: buttonSize,
-              child: _ConnectCircle(buttonSize: buttonSize),
-            ),
+      child: Align(
+        alignment: _mobileConnectAlignment,
+        child: Transform.translate(
+          offset: Offset(
+            0,
+            buttonSize / 2 + indicatorGap + indicatorHeight / 2,
           ),
-          Align(
-            alignment: _mobileConnectAlignment,
-            child: Transform.translate(
-              offset: Offset(
-                0,
-                buttonSize / 2 + indicatorGap + indicatorHeight / 2,
-              ),
-              child: _ScreenIndicator(
-                currentIndex: currentIndex,
-                itemCount: itemCount,
-              ),
-            ),
+          child: _ScreenIndicator(
+            currentIndex: currentIndex,
+            itemCount: itemCount,
           ),
-        ],
+        ),
       ),
     );
   }
