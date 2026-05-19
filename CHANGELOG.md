@@ -1,3 +1,10 @@
+## v0.6.9
+
+- Added Android manual update checks with prerelease-safe update handling.
+- Added Iris connect button bloom feedback.
+- Added pixel-native haptics for key interactions.
+- Added native Android SoundPool UI sounds with a reduced retained SFX set.
+
 ## v0.6.8
 
 - release(v0.6.8): ship dashboard control hotfix
