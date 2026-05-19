@@ -168,29 +168,60 @@ class Utils {
     return "assets/images/icon_inactive.ico";
   }
 
+  /// Compares two semver-ish version strings without throwing.
+  ///
+  /// Forgiving rules:
+  /// - leading `v` / `V` is stripped (only at start, not mid-token)
+  /// - `+build` metadata is ignored for ordering
+  /// - `-prerelease` suffix is honored: a stable release ranks above a
+  ///   matching prerelease (`0.6.8` > `0.6.8-beta2`); two prereleases
+  ///   with the same base are compared lexicographically
+  /// - missing minor / patch parts default to 0 (`1` == `1.0.0`)
+  /// - non-numeric segments fall back to 0 instead of throwing
+  /// - any unexpected error yields `0` (treated as "equal / unknown")
   int compareVersions(String version1, String version2) {
-    final v1 = version1.split('+')[0].split('.');
-    final v2 = version2.split('+')[0].split('.');
-    final major1 = int.parse(v1[0]);
-    final major2 = int.parse(v2[0]);
-    if (major1 != major2) {
-      return major1.compareTo(major2);
+    try {
+      final (base1, pre1) = _splitVersion(version1);
+      final (base2, pre2) = _splitVersion(version2);
+
+      for (var i = 0; i < 3; i++) {
+        final a = i < base1.length ? base1[i] : 0;
+        final b = i < base2.length ? base2[i] : 0;
+        if (a != b) return a.compareTo(b);
+      }
+
+      // Equal base. Stable (no prerelease) ranks above prerelease.
+      if (pre1.isEmpty && pre2.isEmpty) return 0;
+      if (pre1.isEmpty) return 1;
+      if (pre2.isEmpty) return -1;
+      return pre1.compareTo(pre2);
+    } catch (_) {
+      return 0;
     }
-    final minor1 = v1.length > 1 ? int.parse(v1[1]) : 0;
-    final minor2 = v2.length > 1 ? int.parse(v2[1]) : 0;
-    if (minor1 != minor2) {
-      return minor1.compareTo(minor2);
+  }
+
+  /// Returns ([major, minor, patch], prerelease) for a forgiving version
+  /// string. Strips a single leading `v` / `V`, drops `+build` metadata,
+  /// splits prerelease after the first `-`, and defaults non-numeric
+  /// segments to 0.
+  (List<int>, String) _splitVersion(String version) {
+    var v = version.trim();
+    if (v.startsWith('v') || v.startsWith('V')) {
+      v = v.substring(1);
     }
-    final patch1 = v1.length > 2 ? int.parse(v1[2]) : 0;
-    final patch2 = v2.length > 2 ? int.parse(v2[2]) : 0;
-    if (patch1 != patch2) {
-      return patch1.compareTo(patch2);
+    final plusIdx = v.indexOf('+');
+    if (plusIdx >= 0) v = v.substring(0, plusIdx);
+
+    var prerelease = '';
+    final dashIdx = v.indexOf('-');
+    if (dashIdx >= 0) {
+      prerelease = v.substring(dashIdx + 1);
+      v = v.substring(0, dashIdx);
     }
-    final build1 =
-        version1.contains('+') ? int.parse(version1.split('+')[1]) : 0;
-    final build2 =
-        version2.contains('+') ? int.parse(version2.split('+')[1]) : 0;
-    return build1.compareTo(build2);
+
+    final parts = v.isEmpty ? <String>[] : v.split('.');
+    final nums = parts.map((p) => int.tryParse(p) ?? 0).toList();
+    return (nums, prerelease);
   }
 
   String getPinyin(String value) => value.isNotEmpty
