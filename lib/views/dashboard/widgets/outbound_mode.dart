@@ -80,7 +80,7 @@ class OutboundMode extends StatelessWidget {
                               value: item,
                               groupValue: mode,
                               onChanged: (value) async {
-                                if (value == null) {
+                                if (value == null || value == mode) {
                                   return;
                                 }
                                 globalState.appController.changeMode(value);
@@ -174,7 +174,7 @@ class OutboundModeV2 extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 groupValue: mode,
                 onValueChanged: (value) {
-                  if (value == null) {
+                  if (value == null || value == mode) {
                     return;
                   }
                   globalState.appController.changeMode(value);
