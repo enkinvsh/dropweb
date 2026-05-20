@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:dropweb/clash/core.dart';
 import 'package:dropweb/common/common.dart';
+import 'package:dropweb/common/share_link_profile.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/utils/device_info_service.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
@@ -262,13 +263,25 @@ extension ProfileExtension on Profile {
 
     final newFallbackUrl = providerHeaders['fallback-url'];
 
+    // Some providers return a raw, newline-separated list of share links
+    // (e.g. `vless://...`, `trojan://...`) instead of a Mihomo/Clash YAML
+    // document. Detect that case here and rewrite the bytes to a minimal,
+    // self-contained Mihomo YAML before they hit `saveFile`. Returns `null`
+    // for normal YAML, in which case `responseData` flows through unchanged.
+    var bytesToSave = responseData;
+    final decoded = utf8.decode(responseData, allowMalformed: true);
+    final converted = convertShareLinkSubscriptionToMihomo(decoded);
+    if (converted != null) {
+      bytesToSave = Uint8List.fromList(utf8.encode(converted));
+    }
+
     return copyWith(
       label: label ?? utils.getFileNameForDisposition(disposition) ?? id,
       subscriptionInfo: SubscriptionInfo.formHString(userinfo),
       autoUpdateDuration: durationFromHeader ?? autoUpdateDuration,
       providerHeaders: providerHeaders,
       fallbackUrl: newFallbackUrl ?? fallbackUrl,
-    ).saveFile(responseData);
+    ).saveFile(bytesToSave);
   }
 
   Future<Profile> saveFile(Uint8List bytes) async {
