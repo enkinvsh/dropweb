@@ -26,6 +26,38 @@ import 'models/models.dart';
 import 'plugins/vpn.dart';
 import 'views/profiles/override_profile.dart';
 
+/// Decides whether a profile is eligible for automatic subscription update.
+///
+/// The original [AppController.autoUpdateProfiles] skipped profiles based on
+/// `profile.type == ProfileType.file`, which is derived from
+/// `profile.url.isEmpty`. After URL migration to `SecureProfileUrlStore` the
+/// plaintext `Profile.url` is intentionally empty for URL profiles, so the
+/// type-based check misclassifies migrated URL profiles as file profiles and
+/// silently disables auto-update for them. This helper instead takes the
+/// already-resolved URL (via `preferences.getProfileUrl(profile)`), so the
+/// "is there anything to fetch?" decision matches what `Profile.update()`
+/// actually uses.
+///
+/// Skips:
+/// * `autoUpdate == false`
+/// * no resolved URL (real file profile)
+/// * `lastUpdateDate + autoUpdateDuration` still in the future
+@visibleForTesting
+bool shouldAutoUpdateProfile({
+  required Profile profile,
+  required DateTime now,
+  required String? resolvedUrl,
+}) {
+  if (!profile.autoUpdate) return false;
+  if (resolvedUrl == null || resolvedUrl.isEmpty) return false;
+  final nextUpdate = profile.lastUpdateDate?.add(profile.autoUpdateDuration);
+  // Preserve original `isBeforeNow` semantics: only update once the next
+  // update timestamp is strictly before `now`. `null` lastUpdateDate means
+  // "never updated", so it falls through and is treated as due.
+  if (nextUpdate != null && !nextUpdate.isBefore(now)) return false;
+  return true;
+}
+
 /// Decides whether [AppController.checkUpdateResultHandle] should react to a
 /// finished update check.
 ///
@@ -904,13 +936,24 @@ class AppController {
 
   Future<void> autoUpdateProfiles() async {
     for (final profile in _ref.read(profilesProvider)) {
+      // Cheap checks first: profiles with `autoUpdate == false` or whose
+      // next-update timestamp is still in the future are skipped without
+      // touching secure storage. The secure-store read happens only when
+      // those gates pass; due file profiles still cost one resolved-URL
+      // lookup to confirm they have no URL to fetch.
       if (!profile.autoUpdate) continue;
-      final isNotNeedUpdate = profile.lastUpdateDate
-          ?.add(
-            profile.autoUpdateDuration,
-          )
-          .isBeforeNow;
-      if (isNotNeedUpdate == false || profile.type == ProfileType.file) {
+      final nextUpdate =
+          profile.lastUpdateDate?.add(profile.autoUpdateDuration);
+      if (nextUpdate != null && !nextUpdate.isBefore(DateTime.now())) {
+        continue;
+      }
+
+      final resolvedUrl = await preferences.getProfileUrl(profile);
+      if (!shouldAutoUpdateProfile(
+        profile: profile,
+        now: DateTime.now(),
+        resolvedUrl: resolvedUrl,
+      )) {
         continue;
       }
       try {
@@ -946,9 +989,13 @@ class AppController {
         return;
       }
 
-      if (currentProfile.type == ProfileType.file) {
+      // Use the resolved subscription URL (from secure storage) instead of
+      // `currentProfile.type`, which is `ProfileType.file` for migrated URL
+      // profiles whose plaintext `Profile.url` is empty.
+      final resolvedUrl = await preferences.getProfileUrl(currentProfile);
+      if (resolvedUrl == null || resolvedUrl.isEmpty) {
         commonPrint.log(
-            "_updateCurrentProfileSubscription: Profile is file type, skipping");
+            "_updateCurrentProfileSubscription: No subscription URL available, skipping");
         return;
       }
 
