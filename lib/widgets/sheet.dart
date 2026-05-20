@@ -126,18 +126,22 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
     final colorScheme = context.colorScheme;
     final bottomSheet = widget.type == SheetType.bottomSheet;
     final sideSheet = widget.type == SheetType.sideSheet;
-    final backgroundColor = sideSheet 
-        ? colorScheme.surface.withValues(alpha: 0.92)
-        : colorScheme.surface.withValues(alpha: 0.92);
+    final page = widget.type == SheetType.page;
+    final backgroundColor = colorScheme.surface.withValues(alpha: 0.92);
+    // Page-mode (mobile push from showExtend) renders inside CommonScaffold's
+    // dark void with the mesh background. Forcing an opaque surface tint on
+    // the AppBar produced the black header users saw when opening Settings
+    // from the dashboard. Let the mesh bleed through instead.
     final appBar = AppBar(
-      forceMaterialTransparency: bottomSheet ? true : false,
+      forceMaterialTransparency: bottomSheet || page,
       automaticallyImplyLeading: bottomSheet
           ? false
           : widget.actions.isEmpty && sideSheet
               ? false
               : true,
       centerTitle: bottomSheet,
-      backgroundColor: backgroundColor,
+      backgroundColor: page ? Colors.transparent : backgroundColor,
+      elevation: page ? 0 : null,
       title: Text(
         widget.title,
       ),
@@ -184,9 +188,12 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
     }
     return CommonScaffold(
       appBar: appBar,
-      backgroundColor: backgroundColor,
+      // For page-mode we want CommonScaffold's normal dark-mode treatment
+      // (Lumina.void_ fill + mesh) to show, so don't pass a custom tint and
+      // re-enable the background layer.
+      backgroundColor: page ? null : backgroundColor,
       body: widget.body,
-      disableBackground: widget.disableBackground,
+      disableBackground: page ? false : widget.disableBackground,
     );
   }
 }

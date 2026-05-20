@@ -8,11 +8,8 @@ import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/mesh_background.dart';
 import 'package:dropweb/views/profiles/add_profile.dart';
-import 'package:dropweb/views/profiles/profiles.dart'
-    show ProfileItem, ReorderableProfilesSheet;
-import 'package:dropweb/views/profiles/scripts.dart';
+import 'package:dropweb/views/profiles/profiles.dart' show ProfileItem;
 import 'package:dropweb/views/proxies/common.dart';
-import 'package:dropweb/views/proxies/providers.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,7 +59,6 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
 
   @override
   Widget build(BuildContext context) {
-    final isProfilesTab = _tabController.index == 0;
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -90,8 +86,8 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                   isDark: isDark,
                   colorScheme: colorScheme,
                   tabs: [
-                    appLocalizations.proxies,
                     appLocalizations.profiles,
+                    appLocalizations.proxies,
                   ],
                 ),
               ),
@@ -100,8 +96,8 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    const _ProxiesContent(),
                     _ProfilesContent(onAdd: _handleShowAddProfilePage),
+                    const _ProxiesContent(),
                   ],
                 ),
               ),
@@ -510,7 +506,6 @@ class _ProxySelectorSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final proxyName = ref.watch(getProxyNameProvider(group.name));
     final selectedName =
@@ -697,6 +692,13 @@ class _GlassTabBar extends StatelessWidget {
         indicatorSize: TabBarIndicatorSize.tab,
         indicatorPadding: const EdgeInsets.all(4),
         dividerHeight: 0,
+        // Suppress the default Material ink ripple + hover/press overlay.
+        // The Tab hit-rect is the full tab cell, which makes the default
+        // overlay bleed into a rectangle that ignores the pill indicator's
+        // border radius. The mode bottom bar uses GestureDetector and
+        // doesn't have this problem; matching that visual contract here.
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         labelColor: colorScheme.primary,
         unselectedLabelColor: colorScheme.onSurfaceVariant,
         labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
