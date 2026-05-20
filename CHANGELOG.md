@@ -1,3 +1,10 @@
+## v0.6.10
+
+- Added raw share-link subscription import support.
+- Fixed auto-update for migrated URL profiles.
+- Polished mobile settings entry and subscription tab.
+- Refined ambient background visuals.
+
 ## v0.6.9
 
 - Added Android manual update checks with prerelease-safe update handling.
