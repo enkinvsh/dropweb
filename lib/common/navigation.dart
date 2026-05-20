@@ -41,7 +41,10 @@ class Navigation {
               PageLabel.tools,
             ),
           ),
-          modes: [NavigationItemMode.desktop, NavigationItemMode.mobile],
+          // Desktop-only: on mobile, Settings is reached via the explicit
+          // settings icon on the Dashboard subscription card rather than a
+          // horizontal swipe / bottom-tab page.
+          modes: [NavigationItemMode.desktop],
         ),
       ];
 }

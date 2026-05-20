@@ -6,6 +6,7 @@ import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/cabinet/cabinet_browser_entry.dart';
 import 'package:dropweb/views/subscription.dart';
+import 'package:dropweb/views/tools.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -246,19 +247,42 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
                     ),
                     onPressed: () => openCabinetBrowser(cabinetUri),
                   ),
-                if (supportUrl != null && supportUrl.isNotEmpty)
-                  IconButton(
-                    icon: HugeIcon(
-                      icon: supportUrl.toLowerCase().contains('t.me')
-                          ? HugeIcons.strokeRoundedTelegram
-                          : HugeIcons.strokeRoundedCustomerSupport,
-                      size: 34,
-                      color: theme.colorScheme.primary,
+                // Right-side action cluster: support icon on top (if any),
+                // settings icon directly beneath it. The cluster always
+                // contains Settings so mobile users can reach Settings here
+                // since the Tools page is no longer swipeable on mobile.
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (supportUrl != null && supportUrl.isNotEmpty)
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                        icon: HugeIcon(
+                          icon: supportUrl.toLowerCase().contains('t.me')
+                              ? HugeIcons.strokeRoundedTelegram
+                              : HugeIcons.strokeRoundedCustomerSupport,
+                          size: 30,
+                          color: theme.colorScheme.primary,
+                        ),
+                        onPressed: () {
+                          globalState.openUrl(supportUrl);
+                        },
+                      ),
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: appLocalizations.tools,
+                      icon: HugeIcon(
+                        icon: HugeIcons.strokeRoundedSettings02,
+                        size: 30,
+                        color: theme.colorScheme.primary,
+                      ),
+                      onPressed: () => _openToolsSheet(context),
                     ),
-                    onPressed: () {
-                      globalState.openUrl(supportUrl);
-                    },
-                  ),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -340,6 +364,18 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  void _openToolsSheet(BuildContext context) {
+    showExtend(
+      context,
+      builder: (_, type) => AdaptiveSheetScaffold(
+        type: type,
+        disableBackground: false,
+        body: const ToolsView(),
+        title: appLocalizations.tools,
       ),
     );
   }
