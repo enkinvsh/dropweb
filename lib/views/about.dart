@@ -145,6 +145,71 @@ class AboutView extends StatelessWidget {
     );
   }
 
+  // Play-policy links (privacy, support, account deletion, source code) and
+  // a short HWID/device-header disclosure. URLs target the v0.7.1 Play
+  // candidate tag — see docs/play/* for the canonical text these point to.
+  // Row labels are intentionally fixed in English to match the Play Console
+  // policy form fields; the disclosure copy is shown in the screen's
+  // primary language (Russian).
+  List<Widget> _buildLegalSection(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final items = <Widget>[
+      // Disclosure sits at the top of the section, right above the Privacy
+      // Policy and Delete Account rows it refers to. Rendered as a plain
+      // ListTile so it visually belongs to the same section without
+      // pretending to be tappable.
+      ListTile(
+        title: Text(
+          'Dropweb может отправлять идентификаторы устройства провайдеру '
+          'подписки для получения и защиты VPN-профиля. Подробнее см. в '
+          'Политике конфиденциальности.',
+          style: textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+      ListItem(
+        leading: HugeIcon(icon: HugeIcons.strokeRoundedShield01, size: 24),
+        title: const Text('Privacy Policy'),
+        onTap: () => globalState.openUrl(
+          'https://github.com/enkinvsh/dropweb/blob/v0.7.1/docs/play/privacy-policy.md',
+        ),
+        trailing: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 24),
+      ),
+      ListItem(
+        leading: HugeIcon(
+          icon: HugeIcons.strokeRoundedCustomerSupport,
+          size: 24,
+        ),
+        title: const Text('Support'),
+        onTap: () => globalState.openUrl('https://t.me/+gnnahAxAtisxZmVi'),
+        trailing: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 24),
+      ),
+      ListItem(
+        leading: HugeIcon(icon: HugeIcons.strokeRoundedUserRemove01, size: 24),
+        title: const Text('Delete Account'),
+        onTap: () => globalState.openUrl(
+          'https://github.com/enkinvsh/dropweb/blob/v0.7.1/docs/play/account-deletion.md',
+        ),
+        trailing: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 24),
+      ),
+      ListItem(
+        leading: HugeIcon(icon: HugeIcons.strokeRoundedSourceCode, size: 24),
+        title: const Text('Source Code'),
+        onTap: () => globalState.openUrl(
+          'https://github.com/enkinvsh/dropweb/tree/v0.7.1',
+        ),
+        trailing: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 24),
+      ),
+    ];
+    return generateSection(
+      separated: false,
+      title: 'Legal',
+      items: items,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = [
@@ -167,6 +232,7 @@ class AboutView extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 12),
+      ..._buildLegalSection(context),
       ..._buildMoreSection(context),
     ];
     return Padding(
