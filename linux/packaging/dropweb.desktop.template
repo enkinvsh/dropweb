@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Dropweb
+GenericName=VPN Client
+Comment=Dropweb VPN client
+Exec=@EXEC@
+Icon=dropweb
+Terminal=false
+Categories=Network;
+StartupNotify=true
+Keywords=dropweb;Clash;ClashMeta;Proxy;VPN;
