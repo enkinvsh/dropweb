@@ -6,7 +6,6 @@ import 'package:dropweb/views/config/network.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hugeicons/hugeicons.dart';
 
 class TUNButton extends StatelessWidget {
   const TUNButton({super.key});

@@ -601,27 +601,4 @@ Future<T?> showModalSideSheet<T>({
   ));
 }
 
-// class ModalAppBar extends StatelessWidget {
-//   final String title;
-//
-//   const ModalAppBar({
-//     super.key,
-//     required this.title,
-//   });
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return AppBar(
-//       automaticallyImplyLeading: false,
-//       title: Text(title),
-//       centerTitle: false,
-//       actions: const [
-//         SizedBox(
-//           height: kToolbarHeight,
-//           width: kToolbarHeight,
-//           child: CloseButton(),
-//         )
-//       ],
-//     );
-//   }
-// }
+

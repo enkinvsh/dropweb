@@ -79,6 +79,24 @@ bool shouldHandleUpdateResult({
   return handleError;
 }
 
+/// Whether [AppController.autoCheckUpdate] is allowed to hit the GitHub
+/// releases API on startup.
+///
+/// Android is the Google Play target: Play policy forbids in-app update
+/// checks against an external source, so Android always skips the auto
+/// check regardless of the persisted `autoCheckUpdate` preference (which
+/// can still be flipped on via a subscription `dropweb-settings:
+/// autoupdate` header). Non-Android builds keep honouring the user's
+/// preference.
+@visibleForTesting
+bool shouldRunAutoUpdateCheck({
+  required bool isAndroid,
+  required bool autoCheckUpdate,
+}) {
+  if (isAndroid) return false;
+  return autoCheckUpdate;
+}
+
 class AppController {
   AppController(this.context, WidgetRef ref) : _ref = ref;
   int? lastProfileModified;
@@ -222,6 +240,22 @@ class AppController {
   }
 
   Future<void> updateStatus(bool isStart) async {
+    if (isStart) {
+      // Central safety gate: every code path that turns the VPN on must
+      // pass through here, so first-run disclosure consent is enforced
+      // even for non-UI entry points (Quick Settings tile, desktop tray,
+      // hotkey, hidden auto-run). Disconnect is intentionally never gated.
+      // UI is NOT shown from the controller — the dashboard StartButton is
+      // responsible for surfacing the dialog and persisting consent before
+      // it calls back into this method. If consent is missing we simply
+      // refuse the start so external triggers can't bypass the disclosure.
+      if (!await vpnConsent.isAccepted()) {
+        commonPrint.log(
+          'updateStatus(true) refused: VPN disclosure consent not granted',
+        );
+        return;
+      }
+    }
     await StatusBarManager.updateIcon(isConnected: isStart);
 
     if (isStart) {
@@ -1186,7 +1220,12 @@ class AppController {
   }
 
   Future<void> autoCheckUpdate() async {
-    if (!_ref.read(appSettingProvider).autoCheckUpdate) return;
+    if (!shouldRunAutoUpdateCheck(
+      isAndroid: Platform.isAndroid,
+      autoCheckUpdate: _ref.read(appSettingProvider).autoCheckUpdate,
+    )) {
+      return;
+    }
     final res = await request.checkForUpdate();
     checkUpdateResultHandle(data: res);
   }
@@ -1458,7 +1497,7 @@ class AppController {
           return Profile.normal(url: normalizedUrl)
               .update(shouldSendHeaders: shouldSend);
         },
-        title: "${appLocalizations.add}${appLocalizations.profile}",
+        title: appLocalizations.addProfile,
       );
 
       if (profile != null) {
@@ -1498,7 +1537,7 @@ class AppController {
         await Future.delayed(const Duration(milliseconds: 300));
         return Profile.normal(label: platformFile?.name).saveFile(bytes);
       },
-      title: "${appLocalizations.add}${appLocalizations.profile}",
+      title: appLocalizations.addProfile,
     );
     if (profile != null) {
       await addProfile(profile);

@@ -1,7 +1,6 @@
 import 'package:dropweb/clash/clash.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/error_mapper.dart';
-import 'package:dropweb/common/file_logger.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/app.dart';
@@ -81,13 +80,26 @@ class _ClashContainerState extends ConsumerState<ClashManager>
 
   @override
   void onLog(Log log) {
-    ref.read(logsProvider.notifier).addLog(log);
+    // SECURITY: mihomo core log payloads can include outbound URLs from
+    // proxy/provider activity. Redact at the boundary so the in-app log
+    // viewer (`logsProvider`), the on-disk log file (`fileLogger`), and
+    // the user-facing error notifier never receive raw tokens.
+    final redactedPayload = redactUrls(log.payload);
+    final redactedLog = log.copyWith(payload: redactedPayload);
+
+    ref.read(logsProvider.notifier).addLog(redactedLog);
 
     // Write core logs to file
-    fileLogger.log("[${log.logLevel.name.toUpperCase()}] ${log.payload}");
+    fileLogger.log(
+      "[${log.logLevel.name.toUpperCase()}] $redactedPayload",
+    );
 
     if (log.logLevel == LogLevel.error) {
-      final message = ErrorMapper.mapError(log.payload) ?? log.payload;
+      // Run pattern matching against the original payload so existing
+      // regexes (e.g. `DioException.*connection error`) still match;
+      // fall back to the REDACTED payload, never the raw one, so a
+      // surfaced notifier cannot leak credentials or tokens.
+      final message = ErrorMapper.mapError(log.payload) ?? redactedPayload;
       globalState.showNotifier(message);
     }
     super.onLog(log);

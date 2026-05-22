@@ -146,7 +146,7 @@
   "project": "Project",
   "core": "Core",
   "tabAnimation": "Tab animation",
-  "desc": "A multi-platform proxy client based on ClashMeta, simple and easy to use, open-source and ad-free.",
+  "desc": "Dropweb — fast, simple VPN client. Open-source and ad-free.",
   "startVpn": "Starting VPN...",
   "stopVpn": "Stopping VPN...",
   "discovery": "Discovery a new version",
@@ -473,5 +473,8 @@
   "subscriptionExpiresToday": "Your subscription expires today",
   "subscriptionExpired": "Your subscription has expired",
   "renew": "Renew",
-  "announcement": "Announcement"
+  "announcement": "Announcement",
+  "vpnDisclosureTitle": "Before you connect",
+  "vpnDisclosureBody": "Dropweb uses Android's VPN permission to create a local VPN tunnel that you control. Network traffic is routed according to the connection or subscription you select. You can disconnect at any time from this screen or your device's VPN settings. Any optional diagnostics, account, or cabinet features are separate and are disclosed where they apply.",
+  "vpnDisclosureContinue": "Continue"
 }

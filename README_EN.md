@@ -2,7 +2,7 @@
   <a href="README.md">Русский</a>
 </div>
 
-<img src="assets/images/header.png" alt="dropweb — VPN proxy client mihomo Clash Meta for Android Windows macOS with anti-detection" width="720" />
+<img src="assets/images/header.png" alt="dropweb — VPN client for Android Windows macOS powered by mihomo Clash Meta with anti-detection" width="720" />
 
 # dropweb
 
@@ -27,9 +27,9 @@
 
 ---
 
-Cross-platform proxy client powered by [mihomo](https://github.com/MetaCubeX/mihomo) (Clash Meta) core. Fork of [FlClashX](https://github.com/pluralplay/FlClashX) focused on local scanning protection, DPI bypass and utilitarian interface.
+Dropweb is a consumer VPN client for Android, Windows, and macOS. It helps people import VPN subscriptions, connect and disconnect without extra setup, and reduce the risk of local VPN detection on the device.
 
-Built for a specific task: give engineers a tool they can deploy to non-technical users (or use themselves) for stable access to international services, without detection risks or broken configs.
+The project remains an open-source GPL-3.0 fork of [FlClashX](https://github.com/pluralplay/FlClashX), powered by [mihomo](https://github.com/MetaCubeX/mihomo) (Clash Meta), with lineage to the original [FlClash](https://github.com/chen08209/FlClash). Attribution and source access stay visible in the build and license sections below.
 
 ## Download
 

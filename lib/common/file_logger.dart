@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dropweb/common/log_redaction.dart';
 import 'package:dropweb/common/path.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart';
@@ -217,7 +218,13 @@ class FileLogger {
   }
 
   void log(String message) {
-    _writeQueue.add(message);
+    // SECURITY: second central chokepoint. Callers that bypass
+    // `commonPrint.log` (e.g. `lib/manager/clash_manager.dart` forwarding
+    // mihomo core logs) must still get URL credentials/query/fragment
+    // stripped before anything reaches disk. Double-application from
+    // `commonPrint.log` is safe because `redactUrls` is idempotent on
+    // text that already contains the `[REDACTED]` markers.
+    _writeQueue.add(redactUrls(message));
     unawaited(_processQueue());
   }
 

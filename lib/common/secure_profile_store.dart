@@ -1,3 +1,4 @@
+import 'package:dropweb/common/log_redaction.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -26,7 +27,9 @@ class SecureProfileUrlStore {
       return await _storage.read(key: '$_urlKeyPrefix$profileId');
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[SecureProfileStore] getUrl failed: $e');
+        // SECURITY: redact in case the platform exception ever echoes the
+        // stored URL value back into the message.
+        debugPrint(redactUrls('[SecureProfileStore] getUrl failed: $e'));
       }
       return null;
     }
@@ -37,7 +40,8 @@ class SecureProfileUrlStore {
       return await _storage.read(key: '$_fallbackKeyPrefix$profileId');
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[SecureProfileStore] getFallbackUrl failed: $e');
+        debugPrint(
+            redactUrls('[SecureProfileStore] getFallbackUrl failed: $e'));
       }
       return null;
     }
@@ -53,7 +57,7 @@ class SecureProfileUrlStore {
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[SecureProfileStore] setUrl failed: $e');
+        debugPrint(redactUrls('[SecureProfileStore] setUrl failed: $e'));
       }
     }
   }
@@ -68,7 +72,8 @@ class SecureProfileUrlStore {
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[SecureProfileStore] setFallbackUrl failed: $e');
+        debugPrint(
+            redactUrls('[SecureProfileStore] setFallbackUrl failed: $e'));
       }
     }
   }
@@ -91,7 +96,8 @@ class SecureProfileUrlStore {
       await _storage.write(key: _migrationKey, value: '1');
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[SecureProfileStore] markMigrated failed: $e');
+        debugPrint(
+            redactUrls('[SecureProfileStore] markMigrated failed: $e'));
       }
     }
   }

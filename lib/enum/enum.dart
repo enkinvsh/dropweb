@@ -432,8 +432,8 @@ extension DashboardWidgetParser on DashboardWidget {
           (e) => e.name.toLowerCase() == name,
         );
         result.add(widget);
-      } catch (e) {
-        print('no data widget "$name"');
+      } catch (_) {
+        // Unknown widget name in saved layout — silently skip.
       }
     }
     return result;

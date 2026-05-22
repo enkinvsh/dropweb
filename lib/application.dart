@@ -5,7 +5,6 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dropweb/clash/clash.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/l10n/l10n.dart';
-import 'package:dropweb/manager/hotkey_manager.dart';
 import 'package:dropweb/manager/manager.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
@@ -47,9 +46,7 @@ class ApplicationState extends ConsumerState<Application> {
 
   @override
   void initState() {
-    debugPrint("[dropweb] [APP] Application.initState enter");
     super.initState();
-    debugPrint("[dropweb] [APP] super.initState done");
 
     if (Platform.isWindows) {
       windows?.enableDarkModeForApp();
@@ -57,23 +54,16 @@ class ApplicationState extends ConsumerState<Application> {
 
     _autoUpdateGroupTask();
     _autoUpdateProfilesTask();
-    debugPrint("[dropweb] [APP] creating AppController");
     globalState.appController = AppController(context, ref);
-    debugPrint("[dropweb] [APP] AppController created, registering postFrame");
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
-      debugPrint("[dropweb] [APP] postFrameCallback fired");
       final currentContext = globalState.navigatorKey.currentContext;
       if (currentContext != null) {
         globalState.appController = AppController(currentContext, ref);
       }
-      debugPrint("[dropweb] [APP] calling appController.init()");
       await globalState.appController.init();
-      debugPrint("[dropweb] [APP] appController.init() done");
       globalState.appController.initLink();
       app?.initShortcuts();
-      debugPrint("[dropweb] [APP] postFrameCallback complete");
     });
-    debugPrint("[dropweb] [APP] initState complete");
   }
 
   void _autoUpdateGroupTask() {
@@ -94,12 +84,17 @@ class ApplicationState extends ConsumerState<Application> {
 
   Widget _buildPlatformState(Widget child) {
     if (system.isDesktop) {
+      // `HotKeyManager` (global numpad/modifier registration + Ctrl+W
+      // Shortcut wrapper) was removed for the Play readiness wave —
+      // the settings UI no longer exposes the hotkey configuration
+      // screen so persisted (often broken) numpad mappings should not
+      // be registered at startup. The wrapper itself was unwound
+      // here rather than gutted in `hotkey_manager.dart` so the file
+      // can come back later if we re-introduce a curated set.
       return WindowManager(
         child: TrayManager(
-          child: HotKeyManager(
-            child: ProxyManager(
-              child: child,
-            ),
+          child: ProxyManager(
+            child: child,
           ),
         ),
       );
@@ -188,11 +183,16 @@ class ApplicationState extends ConsumerState<Application> {
                 title: appName,
                 locale: utils.getLocaleForString(locale),
                 supportedLocales: AppLocalizations.delegate.supportedLocales,
-                themeMode: themeProps.themeMode,
+                // Dropweb is shipped as a dark-only product. The light /
+                // system options used to live behind `_ThemeModeItem` in
+                // Settings → Theme but have been removed; any persisted
+                // `ThemeMode.light` / `ThemeMode.system` value from older
+                // installs is intentionally ignored here.
+                themeMode: ThemeMode.dark,
                 theme: _buildThemeData(
-                  brightness: Brightness.light,
+                  brightness: Brightness.dark,
                   primaryColor: themeProps.primaryColor,
-                  pureBlack: false,
+                  pureBlack: themeProps.pureBlack,
                 ),
                 darkTheme: _buildThemeData(
                   brightness: Brightness.dark,

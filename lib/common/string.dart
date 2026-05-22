@@ -75,10 +75,6 @@ extension StringExtension on String {
     final bytes = utf8.encode(this);
     return sha256.convert(bytes).toString();
   }
-
-// bool containsToLower(String target) {
-//   return toLowerCase().contains(target);
-// }
 }
 
 extension StringExtensionSafe on String? {

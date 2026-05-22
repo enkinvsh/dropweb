@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:dropweb/common/common.dart';
+import 'package:dropweb/common/send_to_tv_visibility.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart' hide Action;
 import 'package:dropweb/pages/pages.dart';
@@ -14,8 +16,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
-
-import 'add_profile.dart';
 
 class ProfilesView extends StatefulWidget {
   const ProfilesView({super.key});
@@ -141,7 +141,7 @@ class _ProfileItemState extends State<ProfileItem> {
           profile: widget.profile,
           context: context,
         ),
-        title: "${appLocalizations.edit}${appLocalizations.profile}",
+        title: "${appLocalizations.edit} ${appLocalizations.profile}",
       ),
     );
   }
@@ -222,25 +222,6 @@ class _ProfileItemState extends State<ProfileItem> {
     ];
   }
 
-  Future<void> _handleExportFile(BuildContext context) async {
-    final commonScaffoldState = context.commonScaffoldState;
-    final res = await commonScaffoldState?.loadingRun<bool>(
-      () async {
-        final file = await widget.profile.getFile();
-        final value = await picker.saveFile(
-          widget.profile.label ?? widget.profile.id,
-          file.readAsBytesSync(),
-        );
-        if (value == null) return false;
-        return true;
-      },
-      title: appLocalizations.tip,
-    );
-    if (res == true && context.mounted) {
-      context.showNotifier(appLocalizations.exportSuccess);
-    }
-  }
-
   void _handlePushGenProfilePage(BuildContext context, String id) {
     final overrideProfileView = OverrideProfileView(
       profileId: id,
@@ -313,7 +294,17 @@ class _ProfileItemState extends State<ProfileItem> {
                                   onPressed: updateProfile,
                                 ),
                               ],
-                              if (system.isMobile && !_isTV)
+                              // Android (Play target) hides LAN
+                              // subscription sharing because it exposes
+                              // the subscription URL over plain local
+                              // HTTP and is not essential for Play v1
+                              // (see `shouldShowSendToTv`). Other mobile
+                              // surfaces (iOS) keep the user-explicit
+                              // local sharing flow.
+                              if (system.isMobile &&
+                                  !_isTV &&
+                                  shouldShowSendToTv(
+                                      isAndroid: Platform.isAndroid))
                                 PopupMenuItemData(
                                   label: appLocalizations.sendToTv,
                                   onPressed: () {
@@ -341,12 +332,6 @@ class _ProfileItemState extends State<ProfileItem> {
                                 onPressed: () {
                                   _handlePushGenProfilePage(
                                       context, widget.profile.id);
-                                },
-                              ),
-                              PopupMenuItemData(
-                                label: appLocalizations.exportFile,
-                                onPressed: () {
-                                  _handleExportFile(context);
                                 },
                               ),
                               PopupMenuItemData(

@@ -6,7 +6,6 @@ import 'dart:isolate';
 import 'dart:ui';
 
 import 'package:dropweb/enum/enum.dart';
-import 'package:dropweb/models/common.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/plugins/tile.dart';
 import 'package:dropweb/plugins/vpn.dart';
@@ -22,39 +21,26 @@ import 'common/common.dart';
 import 'models/models.dart';
 
 Future<void> main() async {
-  debugPrint("[dropweb] [MAIN] entrypoint started");
   globalState.isService = false;
   WidgetsFlutterBinding.ensureInitialized();
-  debugPrint("[dropweb] [MAIN] WidgetsFlutterBinding initialized");
 
   if (Platform.isWindows || Platform.isLinux) {
     DartPluginRegistrant.ensureInitialized();
   }
 
   final version = await system.version;
-  debugPrint("[dropweb] [MAIN] got version, calling clashCore.preload");
   await clashCore.preload();
-  debugPrint(
-      "[dropweb] [MAIN] clashCore.preload done, calling globalState.initApp");
   await globalState.initApp(version);
-  debugPrint("[dropweb] [MAIN] globalState.initApp done, calling android.init");
   await android?.init();
-  debugPrint("[dropweb] [MAIN] android.init done, calling window.init");
   await window?.init(version);
-  debugPrint("[dropweb] [MAIN] window.init done");
 
   if (Platform.isAndroid) {
-    debugPrint("[dropweb] [MAIN] instantiating vpn");
     vpn;
-    debugPrint("[dropweb] [MAIN] vpn instantiated");
   }
-  debugPrint("[dropweb] [MAIN] setting HttpOverrides");
   HttpOverrides.global = DropwebHttpOverrides();
-  debugPrint("[dropweb] [MAIN] calling runApp");
   runApp(const ProviderScope(
     child: Application(),
   ));
-  debugPrint("[dropweb] [MAIN] runApp returned");
 
   if (Platform.isAndroid) {
     unawaited(DeepLinkHandler.init());

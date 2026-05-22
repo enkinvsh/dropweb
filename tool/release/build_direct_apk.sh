@@ -2,14 +2,18 @@
 # Direct APK build wrapper for Dropweb (ARM64-only).
 #
 # Preconditions (operator responsibility, NOT performed by this script):
-#   - Production keystore present locally and referenced from
-#     `android/app/key.properties` (or whatever the signing config expects).
-#     These files MUST exist locally and MUST NOT be committed.
+#   - Production keystore present locally at `android/app/keystore.jks`, with
+#     matching `storePassword` / `keyAlias` / `keyPassword` entries in
+#     `android/local.properties`. These files MUST exist locally and MUST NOT
+#     be committed.
 #   - `android/local.properties` (Android SDK / NDK paths) is configured.
 #   - The Task 10.5 source-availability gate is ready (see
 #     `docs/release/source-availability.md`).
 #
-# If signing falls back to the debug key, STOP and do not publish — see
+# Release signing is fail-closed: if the production keystore or its credentials
+# in `android/local.properties` are missing, the underlying Gradle release
+# tasks (`:app:assembleRelease`, `:app:bundleRelease`, ...) abort up-front with
+# an explicit message. There is no debug-key fallback. See
 # `docs/release/direct-apk.md` for the hard gates.
 
 set -euo pipefail

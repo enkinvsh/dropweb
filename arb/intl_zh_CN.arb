@@ -141,7 +141,7 @@
   "project": "项目",
   "core": "内核",
   "tabAnimation": "选项卡动画",
-  "desc": "基于ClashMeta的多平台代理客户端，简单易用，开源无广告。",
+  "desc": "Dropweb — 简洁高速的 VPN 客户端。开源，无广告。",
   "startVpn": "正在启动VPN...",
   "stopVpn": "正在停止VPN...",
   "discovery": "发现新版本",
@@ -445,5 +445,8 @@
   "subscriptionExpiresToday": "您的订阅今天到期",
   "subscriptionExpired": "您的订阅已过期",
   "renew": "续订",
-  "announcement": "公告"
+  "announcement": "公告",
+  "vpnDisclosureTitle": "连接之前",
+  "vpnDisclosureBody": "Dropweb 使用 Android 的 VPN 权限来创建由您控制的本地 VPN 隧道。网络流量将按照您选择的连接或订阅进行路由。您可以随时通过此界面或设备的 VPN 设置断开连接。任何可选的诊断、账户或后台功能均为独立功能，将在相应位置进行说明。",
+  "vpnDisclosureContinue": "继续"
 }

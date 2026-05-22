@@ -496,12 +496,6 @@ class RuleContent extends ConsumerWidget {
             radius: 18,
             type: CommonCardType.filled,
             isSelected: isSelected,
-            // decoration: BoxDecoration(
-            //   color: isSelected
-            //       ? context.colorScheme.secondaryContainer.opacity80
-            //       : context.colorScheme.surfaceContainer,
-            //   borderRadius: BorderRadius.circular(18),
-            // ),
             onPressed: () {
               onTab();
             },

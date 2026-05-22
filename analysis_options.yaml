@@ -38,7 +38,6 @@ linter:
     - comment_references
     - conditional_uri_does_not_exist
     - directives_ordering
-    - invariant_booleans
     - library_names
     - library_prefixes
     - library_private_types_in_public_api
@@ -60,7 +59,6 @@ linter:
     - prefer_const_literals_to_create_immutables
     - prefer_constructors_over_static_methods
     - prefer_contains
-    - prefer_equal_for_default_values
     - prefer_expression_function_bodies
     - prefer_final_fields
     - prefer_final_in_for_each

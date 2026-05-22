@@ -135,6 +135,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
     final hasNoProfiles = ref.watch(
       profilesProvider.select((state) => state.isEmpty),
     );
+    final isMobileView = ref.watch(isMobileViewProvider);
     final currentProfile = ref.watch(currentProfileProvider);
     const columns = 8;
     final spacing = 16.ap;
@@ -142,6 +143,19 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
     if (hasNoProfiles) {
       return const SizedBox.expand();
     }
+
+    // Mobile / narrow-window view overlays the floating connect button at
+    // ~79% of viewport height (see `_mobileConnectAlignment` /
+    // `_MobileConnectButtonOverlay` in `pages/home.dart`). When the
+    // desktop window is shrunk vertically the subscription/metainfo
+    // card ends up *behind* the connect lens because the scroll content
+    // has no room to slide above it. Reserve bottom padding proportional
+    // to the viewport height (with a sensible floor / ceiling) so the
+    // last dashboard widget can always scroll out from under the lens.
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final bottomReserve = isMobileView
+        ? (viewportHeight * 0.42).clamp(200.0, 320.0)
+        : 16.0;
 
     bool isAllowed(DashboardWidget item) => _isAllowedWidget(
           item,
@@ -181,7 +195,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16).copyWith(
-              bottom: 16,
+              bottom: bottomReserve,
             ),
             child: Column(
               children: [

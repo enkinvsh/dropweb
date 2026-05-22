@@ -81,10 +81,6 @@ const viewModeColumnsMap = {
   ViewMode.desktop: [4, 3],
 };
 
-// const proxiesStoreKey = PageStorageKey<String>('proxies');
-// const toolsStoreKey = PageStorageKey<String>('tools');
-// const profilesStoreKey = PageStorageKey<String>('profiles');
-
 const defaultPrimaryColor = 0xFF15803D;
 
 double getWidgetHeight(num lines) => max(lines * 84 + (lines - 1) * 16, 0).ap;

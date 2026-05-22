@@ -149,18 +149,7 @@ class Tray {
     }
   }
 
-  Future<void> updateTrayTitle([Traffic? traffic]) async {
-    // if (!Platform.isMacOS) {
-    //   return;
-    // }
-    // if (traffic == null) {
-    //   await trayManager.setTitle("");
-    // } else {
-    //   await trayManager.setTitle(
-    //     "${traffic.up.shortShow} ↑ \n${traffic.down.shortShow} ↓",
-    //   );
-    // }
-  }
+  Future<void> updateTrayTitle([Traffic? traffic]) async {}
 
   Future<void> _copyEnv(int port) async {
     final url = "http://127.0.0.1:$port";

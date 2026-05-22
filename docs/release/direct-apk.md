@@ -6,10 +6,25 @@ must be airtight before any APK URL is published.
 
 ## Keystore and secret hygiene
 
-- A **production keystore is required**. Builds that fall back to the debug
-  signing key MUST NOT be published.
+- A **production keystore is required**. The release Gradle config is
+  **fail-closed**: any release packaging task (`:app:assembleRelease`,
+  `:app:bundleRelease`, `:app:installRelease`, `:app:packageRelease`,
+  `:app:packageReleaseBundle`, `:app:signReleaseApk`, `:app:signReleaseBundle`)
+  aborts up-front when the production signing inputs are missing. There is no
+  debug-key fallback; release builds that cannot find the production keystore
+  are not built at all. Debug builds and non-release Gradle tasks (analyze,
+  test, IDE sync, `tasks`) continue to work without the production keystore.
+- The signing config is loaded by `android/app/build.gradle.kts` from:
+  - **Keystore file:** `android/app/keystore.jks` (must be a real regular
+    file — a directory of the same name will not satisfy the check).
+  - **Credentials:** the following keys in `android/local.properties`, each of
+    which **must be present and non-blank** (empty or whitespace-only values
+    are treated as missing and trigger the same fail-closed guard):
+    - `storePassword=<your store password>`
+    - `keyAlias=<your key alias>`
+    - `keyPassword=<your key password>`
 - **Never commit** any of the following to git, CI logs, screenshots, or chat:
-  - `.jks` / `.keystore` files
+  - `.jks` / `.keystore` files (including `android/app/keystore.jks`)
   - keystore passwords, key aliases, or key passwords
   - `android/local.properties`
   - `android/app/key.properties`, `signing.properties`, or any other file
@@ -57,8 +72,12 @@ and must be communicated honestly.
 
 ## Hard gates — do NOT publish if
 
-- Build signed with the debug key (signing fell back, keystore missing, or
-  `key.properties` not loaded).
+- A release artifact was produced without the production signing config. The
+  Gradle fail-closed guard prevents the silent debug-key fallback that used to
+  exist here, so the practical failure mode is now "release task aborts before
+  producing an APK/AAB". Treat any successful release build whose certificate
+  SHA-256 does not match the recorded production fingerprint as a regression
+  and do not publish it.
 - The Task 10.5 source-availability gate is not satisfied: the exact
   Dropweb app source commit and source archive for this build are not yet
   reachable from `dropweb.org`, or the served cabinet source URL is missing
@@ -71,6 +90,9 @@ and must be communicated honestly.
 
 `tool/release/build_direct_apk.sh` is a thin wrapper that runs
 `dart run setup.dart android --arch arm64`. It expects the local signing
-configuration (`android/app/key.properties` + the keystore referenced by it)
-to already be present locally and **NOT** committed. The wrapper does not
-provision signing — that is an operator step.
+configuration (`android/app/keystore.jks` + `storePassword` / `keyAlias` /
+`keyPassword` in `android/local.properties`) to already be present locally and
+**NOT** committed. The wrapper does not provision signing — that is an
+operator step. If the production signing config is missing, the underlying
+Gradle release tasks will abort with an explicit message naming the required
+inputs (see "Keystore and secret hygiene" above).

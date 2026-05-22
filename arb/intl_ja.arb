@@ -141,7 +141,7 @@
   "project": "プロジェクト",
   "core": "コア",
   "tabAnimation": "タブアニメーション",
-  "desc": "ClashMetaベースのマルチプラットフォームプロキシクライアント。シンプルで使いやすく、オープンソースで広告なし。",
+  "desc": "Dropweb — シンプルで高速な VPN クライアント。オープンソース、広告なし。",
   "startVpn": "VPNを開始中...",
   "stopVpn": "VPNを停止中...",
   "discovery": "新しいバージョンを発見",
@@ -445,5 +445,8 @@
   "subscriptionExpiresToday": "サブスクリプションは本日期限切れになります",
   "subscriptionExpired": "サブスクリプションが期限切れになりました",
   "renew": "更新",
-  "announcement": "お知らせ"
+  "announcement": "お知らせ",
+  "vpnDisclosureTitle": "接続する前に",
+  "vpnDisclosureBody": "Dropweb は Android の VPN 権限を使用して、ユーザーが制御するローカル VPN トンネルを作成します。ネットワーク通信は、選択した接続またはサブスクリプションに従ってルーティングされます。この画面または端末の VPN 設定からいつでも切断できます。診断、アカウント、キャビネットなどの任意機能はそれぞれ別個に提供され、該当箇所で説明されます。",
+  "vpnDisclosureContinue": "続行"
 }

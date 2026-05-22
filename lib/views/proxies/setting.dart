@@ -4,24 +4,10 @@ import 'package:dropweb/providers/config.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
 class ProxiesSetting extends StatelessWidget {
   const ProxiesSetting({super.key});
-
-  List<List<dynamic>> _getIconWithProxiesType(ProxiesType type) =>
-      switch (type) {
-        ProxiesType.tab => HugeIcons.strokeRoundedCarouselHorizontal,
-        ProxiesType.list => HugeIcons.strokeRoundedListView,
-      };
-
-  List<List<dynamic>> _getIconWithProxiesSortType(ProxiesSortType type) =>
-      switch (type) {
-        ProxiesSortType.none => HugeIcons.strokeRoundedSorting01,
-        ProxiesSortType.delay => HugeIcons.strokeRoundedWifiConnected01,
-        ProxiesSortType.name => HugeIcons.strokeRoundedArrowDownAZ,
-      };
 
   String _getStringProxiesSortType(ProxiesSortType type) => switch (type) {
         ProxiesSortType.none => appLocalizations.defaultText,

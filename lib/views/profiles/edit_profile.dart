@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:dropweb/clash/clash.dart';
 import 'package:dropweb/common/common.dart';
+import 'package:dropweb/common/secure_profile_store.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/pages/editor.dart';
@@ -104,6 +105,12 @@ class _EditProfileViewState extends State<EditProfileView> {
             commonDuration,
           );
           if (hasUpdate) {
+            // Persist the newly entered URL to the secure store BEFORE
+            // calling updateProfile(). Profile.update() resolves the URL
+            // via preferences.getProfileUrl(), which prefers the secure
+            // store value over the freshly typed profile.url — without
+            // this write the old subscription URL would be fetched.
+            await secureProfileUrlStore.setUrl(profile.id, profile.url);
             await appController.updateProfile(profile);
           }
         },

@@ -75,30 +75,8 @@ class ConnectionItem extends ConsumerWidget {
       ],
     );
     return CommonPopupBox(
-      targetBuilder: (open) =>
-          // openPopup(Offset offset) {
-          //   open(
-          //     offset: offset.translate(
-          //       0,
-          //       0,
-          //     ),
-          //   );
-          // }
-
-          InkWell(
+      targetBuilder: (open) => InkWell(
         child: GestureDetector(
-          // onLongPressStart: (details) {
-          //   if (!system.isDesktop) {
-          //     return;
-          //   }
-          //   openPopup(details.localPosition);
-          // },
-          // onSecondaryTapDown: (details) {
-          //   if (!system.isDesktop) {
-          //     return;
-          //   }
-          //   openPopup(details.localPosition);
-          // },
           child: ListItem(
             padding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -147,9 +125,7 @@ class ConnectionItem extends ConsumerWidget {
         items: [
           PopupMenuItemData(
             label: "Edit rules",
-            onPressed: () {
-              // _handleShowEditExtendPage(context);
-            },
+            onPressed: () {},
           ),
           PopupMenuItemData(
             label: "Set direct",

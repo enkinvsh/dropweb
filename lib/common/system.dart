@@ -71,7 +71,6 @@ class System {
       return AuthorizeCode.none;
     }
 
-    final corePath = appPath.corePath.replaceAll(' ', r'\\ ');
     final isAdmin = await checkIsAdmin();
     if (isAdmin) {
       return AuthorizeCode.none;

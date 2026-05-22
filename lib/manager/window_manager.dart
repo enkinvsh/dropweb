@@ -218,12 +218,14 @@ class _WindowHeaderState extends State<WindowHeader> {
     required VoidCallback onPressed,
     Color? hoverColor,
     Color? hoverIconColor,
+    bool isActive = false,
   }) {
     return _WindowControlButton(
       icon: icon,
       onPressed: onPressed,
       hoverColor: hoverColor,
       hoverIconColor: hoverIconColor,
+      isActive: isActive,
     );
   }
 
@@ -232,17 +234,23 @@ class _WindowHeaderState extends State<WindowHeader> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Pin button
-        _buildWindowButton(
-          icon: ValueListenableBuilder(
-            valueListenable: isPinNotifier,
-            builder: (_, value, ___) => HugeIcon(
+        // Pin (always-on-top) button — active state shows a persistent
+        // primary-tinted background + primary icon color so the user can
+        // tell at a glance whether the window is pinned. Inactive falls
+        // back to the standard muted control look.
+        ValueListenableBuilder<bool>(
+          valueListenable: isPinNotifier,
+          builder: (_, pinned, __) => _buildWindowButton(
+            isActive: pinned,
+            icon: HugeIcon(
               icon: HugeIcons.strokeRoundedPin02,
               size: 16,
-              color: colorScheme.onSurface.withValues(alpha: 0.8),
+              color: pinned
+                  ? colorScheme.primary
+                  : colorScheme.onSurface.withValues(alpha: 0.8),
             ),
+            onPressed: _updatePin,
           ),
-          onPressed: _updatePin,
         ),
         // Minimize button
         _buildWindowButton(
@@ -316,8 +324,15 @@ class _WindowHeaderState extends State<WindowHeader> {
               Row(
                 children: [
                   const SizedBox(width: 12),
-                  // Connection status indicator
-                  const _ConnectionStatusIndicator(),
+                  // Connection status indicator — wrapped in IgnorePointer
+                  // so the status dot/label does not absorb pointer events
+                  // and pan-drag on this area reaches the underlying
+                  // GestureDetector that calls `windowManager.startDragging`.
+                  // Without this, dragging the titlebar starting on the
+                  // "Запущено / Остановлено" text or dot does nothing.
+                  const IgnorePointer(
+                    child: _ConnectionStatusIndicator(),
+                  ),
                   const Spacer(),
                   // Window controls
                   _buildActions(context),
@@ -336,12 +351,14 @@ class _WindowControlButton extends StatefulWidget {
   final VoidCallback onPressed;
   final Color? hoverColor;
   final Color? hoverIconColor;
+  final bool isActive;
 
   const _WindowControlButton({
     required this.icon,
     required this.onPressed,
     this.hoverColor,
     this.hoverIconColor,
+    this.isActive = false,
   });
 
   @override
@@ -355,6 +372,14 @@ class _WindowControlButtonState extends State<_WindowControlButton> {
   Widget build(BuildContext context) {
     final colorScheme = context.colorScheme;
     final defaultHoverColor = colorScheme.onSurface.withValues(alpha: 0.08);
+    // Persistent tint shown when the control is in an "on" state (e.g.
+    // the pin button while always-on-top is enabled). Hover still wins
+    // visually if both are true.
+    final activeColor = colorScheme.primary.withValues(alpha: 0.16);
+
+    final Color backgroundColor = _isHovered
+        ? (widget.hoverColor ?? defaultHoverColor)
+        : (widget.isActive ? activeColor : Colors.transparent);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -366,9 +391,7 @@ class _WindowControlButtonState extends State<_WindowControlButton> {
           width: 46,
           height: kHeaderHeight,
           decoration: BoxDecoration(
-            color: _isHovered
-                ? (widget.hoverColor ?? defaultHoverColor)
-                : Colors.transparent,
+            color: backgroundColor,
           ),
           child: Center(
             child: _isHovered && widget.hoverIconColor != null

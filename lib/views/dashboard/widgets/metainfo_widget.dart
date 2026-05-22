@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dropweb/common/common.dart';
+import 'package:dropweb/common/dev_unlock_counter.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
@@ -23,6 +24,11 @@ class MetainfoWidget extends ConsumerStatefulWidget {
 
 class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
   final List<TapGestureRecognizer> _recognizers = [];
+  // Developer-mode unlock counter for 5 rapid taps on the Settings screen
+  // title. Lives on the widget state so taps survive opening/closing the
+  // Settings sheet during a single dashboard session; the 3-second window
+  // inside `DevUnlockCounter` self-resets stale streaks.
+  final DevUnlockCounter _devUnlockCounter = DevUnlockCounter();
 
   @override
   void dispose() {
@@ -376,8 +382,24 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
         disableBackground: false,
         body: const ToolsView(),
         title: appLocalizations.tools,
+        onTitleTap: _onSettingsTitleTap,
       ),
     );
+  }
+
+  // 5 rapid taps on the Settings screen title unlock developer / advanced
+  // mode (Access Control, Config, Application settings entries). Replaces
+  // the legacy bottom-nav unlock that used to live in `lib/pages/home.dart`
+  // when Settings was still a tab — mobile now reaches Settings only via
+  // this sheet, so the title is the natural tap target.
+  void _onSettingsTitleTap() {
+    if (!_devUnlockCounter.registerTap()) return;
+    final alreadyEnabled = ref.read(appSettingProvider).developerMode;
+    if (alreadyEnabled) return;
+    ref.read(appSettingProvider.notifier).updateState(
+          (state) => state.copyWith(developerMode: true),
+        );
+    globalState.showNotifier(appLocalizations.developerModeEnableTip);
   }
 
   Widget _buildExpirationNotice(

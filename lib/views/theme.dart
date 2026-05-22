@@ -14,17 +14,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
-class ThemeModeItem {
-  const ThemeModeItem({
-    required this.themeMode,
-    required this.icon,
-    required this.label,
-  });
-  final ThemeMode themeMode;
-  final Widget icon;
-  final String label;
-}
-
 class FontFamilyItem {
   const FontFamilyItem({
     required this.fontFamily,
@@ -37,12 +26,15 @@ class FontFamilyItem {
 class ThemeView extends StatelessWidget {
   const ThemeView({super.key});
 
+  // Dropweb is shipped as a dark-only product. The legacy theme-mode
+  // picker (System / Light / Dark) used to live here but has been
+  // removed so users can no longer switch the app out of dark mode.
+  // Theme color / pureBlack / text-scale still work as before.
   @override
   Widget build(BuildContext context) => const SingleChildScrollView(
         child: Column(
           spacing: 24,
           children: [
-            _ThemeModeItem(),
             _PrimaryColorItem(),
             _PrueBlackItem(),
             _TextScaleFactorItem(),
@@ -76,85 +68,6 @@ class ItemCard extends StatelessWidget {
           child,
         ],
       );
-}
-
-class _ThemeModeItem extends ConsumerWidget {
-  const _ThemeModeItem();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode =
-        ref.watch(themeSettingProvider.select((state) => state.themeMode));
-    final themeModeItems = <ThemeModeItem>[
-      ThemeModeItem(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedRotate01, size: 18),
-        label: appLocalizations.auto,
-        themeMode: ThemeMode.system,
-      ),
-      ThemeModeItem(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedSun01, size: 18),
-        label: appLocalizations.light,
-        themeMode: ThemeMode.light,
-      ),
-      ThemeModeItem(
-        icon: HugeIcon(icon: HugeIcons.strokeRoundedMoon02, size: 18),
-        label: appLocalizations.dark,
-        themeMode: ThemeMode.dark,
-      ),
-    ];
-    return ItemCard(
-      info: Info(
-        label: appLocalizations.themeMode,
-        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedSun03, size: 24),
-      ),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        height: 44,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: themeModeItems.length,
-          itemBuilder: (_, index) {
-            final themeModeItem = themeModeItems[index];
-            return CommonCard(
-              isSelected: themeModeItem.themeMode == themeMode,
-              onPressed: () {
-                ref.read(themeSettingProvider.notifier).updateState(
-                      (state) => state.copyWith(
-                        themeMode: themeModeItem.themeMode,
-                      ),
-                    );
-              },
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    Flexible(
-                      child: themeModeItem.icon,
-                    ),
-                    const SizedBox(
-                      width: 6,
-                    ),
-                    Flexible(
-                      child: Text(
-                        themeModeItem.label,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-          separatorBuilder: (_, __) => const SizedBox(
-            width: 12,
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _PrimaryColorItem extends ConsumerStatefulWidget {

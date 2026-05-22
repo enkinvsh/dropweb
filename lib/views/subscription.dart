@@ -50,7 +50,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
       builder: (_, type) => AdaptiveSheetScaffold(
         type: type,
         body: AddProfileView(context: context),
-        title: "${appLocalizations.add}${appLocalizations.profile}",
+        title: appLocalizations.addProfile,
       ),
     );
   }
@@ -368,7 +368,11 @@ class _RulesGroupCard extends ConsumerWidget {
     showSheet(
       context: context,
       props: const SheetProps(isScrollControlled: true),
-      builder: (_, type) => _ProxySelectorSheet(group: group),
+      builder: (_, type) => AdaptiveSheetScaffold(
+        type: type,
+        title: group.name,
+        body: _ProxySelectorSheet(group: group),
+      ),
     );
   }
 
@@ -511,54 +515,36 @@ class _ProxySelectorSheet extends ConsumerWidget {
     final selectedName =
         proxyName != null && proxyName.isNotEmpty ? proxyName : group.realNow;
 
-    return Container(
+    return ConstrainedBox(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.6,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-            child: Text(
-              group.name,
-              style: context.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-          const Divider(height: 1),
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: group.all.length,
-              itemBuilder: (context, index) {
-                final proxy = group.all[index];
-                final isSelected = proxy.name == selectedName;
-                return _ProxySelectorRow(
-                  proxy: proxy,
-                  testUrl: group.testUrl,
-                  isSelected: isSelected,
-                  isDark: isDark,
-                  onTap: () {
-                    final appController = globalState.appController;
-                    appController.updateCurrentSelectedMap(
-                      group.name,
-                      proxy.name,
-                    );
-                    appController.changeProxyDebounce(
-                      group.name,
-                      proxy.name,
-                    );
-                    Navigator.of(context).pop();
-                  },
-                );
-              },
-            ),
-          ),
-          SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
-        ],
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: group.all.length,
+        itemBuilder: (context, index) {
+          final proxy = group.all[index];
+          final isSelected = proxy.name == selectedName;
+          return _ProxySelectorRow(
+            proxy: proxy,
+            testUrl: group.testUrl,
+            isSelected: isSelected,
+            isDark: isDark,
+            onTap: () {
+              final appController = globalState.appController;
+              appController.updateCurrentSelectedMap(
+                group.name,
+                proxy.name,
+              );
+              appController.changeProxyDebounce(
+                group.name,
+                proxy.name,
+              );
+              Navigator.of(context).pop();
+            },
+          );
+        },
       ),
     );
   }
@@ -839,7 +825,7 @@ class SharedProfilesBody extends ConsumerWidget {
       builder: (_, type) => AdaptiveSheetScaffold(
         type: type,
         body: AddProfileView(context: context),
-        title: "${appLocalizations.add}${appLocalizations.profile}",
+        title: appLocalizations.addProfile,
       ),
     );
   }

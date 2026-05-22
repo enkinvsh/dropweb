@@ -398,6 +398,13 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
         val flags =
             Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION
 
+        // Attach grant flags to the intent itself so the viewer that ends up
+        // resolving the ACTION_VIEW (including via system chooser) still gets
+        // read/write access to the FileProvider URI even when the explicit
+        // queryIntentActivities loop below returns no candidates (e.g. when
+        // package-visibility queries do not match any installed viewer).
+        intent.addFlags(flags)
+
         val resInfoList = DropwebApplication.getAppContext().packageManager.queryIntentActivities(
             intent, PackageManager.MATCH_DEFAULT_ONLY
         )

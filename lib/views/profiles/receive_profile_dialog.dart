@@ -40,7 +40,6 @@ class _ReceiveProfileDialogState extends State<ReceiveProfileDialog> {
         final url = json['url'] as String?;
 
         if (url != null && url.isNotEmpty) {
-          print('Received subscription link: $url');
           if (mounted) Navigator.of(context).pop(url);
           return shelf.Response.ok('Link received by TV');
         }
@@ -48,8 +47,6 @@ class _ReceiveProfileDialogState extends State<ReceiveProfileDialog> {
       });
 
       _server = await shelf_io.serve(router.call, ip!, port);
-      print(
-          'Server started at http://${_server?.address.host}:${_server?.port}');
 
       setState(() {
         _qrData = jsonEncode({

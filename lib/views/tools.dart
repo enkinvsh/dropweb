@@ -1,18 +1,16 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dropweb/common/access_control_visibility.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/models/models.dart';
-import 'package:dropweb/pages/send_to_tv_page.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/about.dart';
 import 'package:dropweb/views/access.dart';
 import 'package:dropweb/views/application_setting.dart';
 import 'package:dropweb/views/config/config.dart';
-import 'package:dropweb/views/hotkey.dart';
-import 'package:dropweb/views/parazitx_page.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -73,11 +71,26 @@ class _ToolboxViewState extends ConsumerState<ToolsView> {
         items: [
           const _LocaleItem(),
           const _ThemeItem(),
-          if (system.isDesktop) const _HotkeyItem(),
+          // Hotkey Management entry was removed for the Play readiness
+          // wave together with the runtime global-hotkey registration
+          // (see `Application._buildPlatformState`). The `HotKeyView`
+          // source and persisted bindings remain on disk so the entry
+          // can be re-introduced cleanly when we ship a curated set.
           if (Platform.isWindows) const _LoopbackItem(),
-          if (Platform.isAndroid) const _AccessItem(),
-          if (Platform.isAndroid) const _TvItem(),
-          if (Platform.isAndroid) const _ParazitXItem(),
+          // Access Control / per-app proxy is an advanced Android surface
+          // (installed-package enumeration + split-tunnel rules). Hidden by
+          // default on the Play target and only re-exposed after the
+          // existing developer-mode unlock — matches `_ConfigItem` /
+          // `_SettingItem` gating below. See `shouldShowAccessControl`.
+          if (shouldShowAccessControl(
+            isAndroid: Platform.isAndroid,
+            developerMode: enableDeveloperMode,
+          ))
+            const _AccessItem(),
+          // The settings-page Connect TV / Send to TV entry only ever
+          // lived on Android. Android (Play target) now hides the
+          // Send to TV / LAN subscription-sharing flow entirely (see
+          // `shouldShowSendToTv`), so the menu item is dropped here.
           if (enableDeveloperMode) const _ConfigItem(),
           if (enableDeveloperMode) const _SettingItem(),
         ],
@@ -166,23 +179,6 @@ class _ThemeItem extends StatelessWidget {
       delegate: OpenDelegate(
         title: appLocale.theme,
         widget: const ThemeView(),
-      ),
-    );
-  }
-}
-
-class _HotkeyItem extends StatelessWidget {
-  const _HotkeyItem();
-
-  @override
-  Widget build(BuildContext context) {
-    final appLocale = AppLocalizations.of(context);
-    return ListItem.open(
-      leading: const HugeIcon(icon: HugeIcons.strokeRoundedKeyboard, size: 24),
-      title: Text(appLocale.hotkeyManagement),
-      delegate: OpenDelegate(
-        title: appLocale.hotkeyManagement,
-        widget: const HotKeyView(),
       ),
     );
   }
@@ -316,74 +312,4 @@ class _DeveloperItem extends StatelessWidget {
   }
 }
 
-class _TvItem extends ConsumerStatefulWidget {
-  const _TvItem();
 
-  @override
-  ConsumerState<_TvItem> createState() => _TvItemState();
-}
-
-class _TvItemState extends ConsumerState<_TvItem> {
-  String? _profileUrl;
-  String? _lastLoadedProfileId;
-
-  @override
-  void initState() {
-    super.initState();
-    // Listen for profile changes outside build() to avoid triggering
-    // Keystore IPC on every ToolsView rebuild during page transitions.
-    ref.listenManual<Profile?>(
-      currentProfileProvider,
-      (prev, next) {
-        if (next != null) _ensureUrl(next);
-      },
-      fireImmediately: true,
-    );
-  }
-
-  Future<void> _ensureUrl(Profile profile) async {
-    if (_lastLoadedProfileId == profile.id) return;
-    _lastLoadedProfileId = profile.id;
-    final url = await preferences.getProfileUrl(profile);
-    if (!mounted) return;
-    setState(() {
-      _profileUrl = url;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final appLocale = AppLocalizations.of(context);
-    final profile = ref.watch(currentProfileProvider);
-    final url = _profileUrl;
-    final hasUrl = profile != null && url != null && url.isNotEmpty;
-    return ListItem(
-      leading: const HugeIcon(icon: HugeIcons.strokeRoundedTv01, size: 24),
-      title: Text(appLocale.connectTv),
-      onTap: hasUrl
-          ? () {
-              BaseNavigator.push(
-                context,
-                SendToTvPage(profileUrl: url),
-              );
-            }
-          : null,
-    );
-  }
-}
-
-class _ParazitXItem extends StatelessWidget {
-  const _ParazitXItem();
-
-  @override
-  Widget build(BuildContext context) {
-    final appLocale = AppLocalizations.of(context);
-    return ListItem(
-      leading: const HugeIcon(icon: HugeIcons.strokeRoundedShield01, size: 24),
-      title: Text(appLocale.parazitx),
-      onTap: () {
-        BaseNavigator.push(context, const ParazitXPage());
-      },
-    );
-  }
-}

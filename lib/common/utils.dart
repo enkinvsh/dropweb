@@ -374,52 +374,6 @@ class Utils {
     );
   }
 
-  // dynamic convertYamlNode(dynamic node) {
-  //   if (node is YamlMap) {
-  //     final map = <String, dynamic>{};
-  //     YamlNode? mergeKeyNode;
-  //     for (final entry in node.nodes.entries) {
-  //       if (entry.key is YamlScalar &&
-  //           (entry.key as YamlScalar).value == '<<') {
-  //         mergeKeyNode = entry.value;
-  //         break;
-  //       }
-  //     }
-  //     if (mergeKeyNode != null) {
-  //       final mergeValue = mergeKeyNode.value;
-  //       if (mergeValue is YamlMap) {
-  //         map.addAll(convertYamlNode(mergeValue) as Map<String, dynamic>);
-  //       } else if (mergeValue is YamlList) {
-  //         for (final node in mergeValue.nodes) {
-  //           if (node.value is YamlMap) {
-  //             map.addAll(convertYamlNode(node.value) as Map<String, dynamic>);
-  //           }
-  //         }
-  //       }
-  //     }
-  //
-  //     node.nodes.forEach((key, value) {
-  //       String stringKey;
-  //       if (key is YamlScalar) {
-  //         stringKey = key.value.toString();
-  //       } else {
-  //         stringKey = key.toString();
-  //       }
-  //       map[stringKey] = convertYamlNode(value.value);
-  //     });
-  //     return map;
-  //   } else if (node is YamlList) {
-  //     final list = <dynamic>[];
-  //     for (final item in node.nodes) {
-  //       list.add(convertYamlNode(item.value));
-  //     }
-  //     return list;
-  //   } else if (node is YamlScalar) {
-  //     return node.value;
-  //   }
-  //   return node;
-  // }
-
   FutureOr<T> handleWatch<T>(FutureOr<T> Function() function) async {
     if (kDebugMode) {
       final stopwatch = Stopwatch()..start();

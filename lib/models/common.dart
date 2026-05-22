@@ -86,10 +86,6 @@ extension ConnectionExt on Connection {
 
 String _logDateTime(_) => DateTime.now().toString();
 
-// String _logId(_) {
-//   return utils.id;
-// }
-
 @freezed
 class Log with _$Log {
   const factory Log({
@@ -104,7 +100,6 @@ class Log with _$Log {
       Log(
         payload: payload,
         dateTime: _logDateTime(null),
-        // id: _logId(null),
       );
 
   factory Log.fromJson(Map<String, Object?> json) => _$LogFromJson(json);

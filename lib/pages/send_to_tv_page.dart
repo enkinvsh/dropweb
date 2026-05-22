@@ -50,7 +50,6 @@ class _SendToTvPageState extends ConsumerState<SendToTvPage> {
     } catch (e) {
       _showResultDialog(
           appLocalizations.errorTitle, appLocalizations.invalidQrMessage);
-      print('Error sending to TV: $e');
     }
   }
 

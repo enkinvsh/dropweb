@@ -24,7 +24,6 @@ import 'common/common.dart';
 import 'common/proxy_credentials.dart';
 import 'controller.dart';
 import 'models/models.dart';
-import 'services/parazitx_mihomo_orchestrator.dart';
 
 typedef UpdateTasks = List<FutureOr Function()>;
 
@@ -280,27 +279,6 @@ class GlobalState {
           ),
         ),
       );
-
-  // Future<Map<String, dynamic>> getProfileMap(String id) async {
-  //   final profilePath = await appPath.getProfilePath(id);
-  //   final res = await Isolate.run<Result<dynamic>>(() async {
-  //     try {
-  //       final file = File(profilePath);
-  //       if (!await file.exists()) {
-  //         return Result.error("");
-  //       }
-  //       final value = await file.readAsString();
-  //       return Result.success(utils.convertYamlNode(loadYaml(value)));
-  //     } catch (e) {
-  //       return Result.error(e.toString());
-  //     }
-  //   });
-  //   if (res.isSuccess) {
-  //     return res.data as Map<String, dynamic>;
-  //   } else {
-  //     throw res.message;
-  //   }
-  // }
 
   Future<T?> showCommonDialog<T>({
     required Widget child,
@@ -661,28 +639,6 @@ class GlobalState {
       }
     }
     rawConfig["rule"] = rules;
-
-    // Inject ParazitX SOCKS5 bridge as a Mihomo outbound when the bridge
-    // is currently advertised by ParazitXManager. No-op otherwise; the
-    // next config rebuild produces a clean config without ParazitX
-    // entries, which is how cleanup happens after deactivate/failure.
-    //
-    // `rulesKey: 'rule'` because by this point in patchRawConfig the
-    // rules array has already been renamed from `rules` to `rule`
-    // (singular, mihomo's setup-config convention) — see lines 650-663
-    // above. The orchestrator's DIRECT rules (Task 6 self-loop
-    // protection fallback) must therefore prepend into the same key.
-    //
-    // `useProfileFallback: true` lets the orchestrator read the active
-    // subscription profile to derive dynamic DIRECT rules from
-    // `dropweb-parazitx-servers` and `dropweb-parazitx-relays`
-    // provider headers (callfactory + signaling-relay endpoints).
-    ParazitXMihomoOrchestrator.applyToConfig(
-      rawConfig,
-      useManagerFallback: true,
-      useProfileFallback: true,
-      rulesKey: 'rule',
-    );
 
     return rawConfig;
   }

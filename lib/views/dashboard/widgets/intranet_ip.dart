@@ -4,7 +4,6 @@ import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hugeicons/hugeicons.dart';
 
 class IntranetIP extends StatelessWidget {
   const IntranetIP({super.key});

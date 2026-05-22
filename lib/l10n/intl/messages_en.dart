@@ -201,10 +201,6 @@ class MessageLookup extends MessageLookupByLibrary {
         "connectTvDesc": MessageLookupByLibrary.simpleMessage(
           "Send profile to Android TV via QR code",
         ),
-        "parazitx": MessageLookupByLibrary.simpleMessage("ParazitX"),
-        "parazitxDesc": MessageLookupByLibrary.simpleMessage(
-          "Network drop bypass via VK",
-        ),
         "connections": MessageLookupByLibrary.simpleMessage("Connections"),
         "connectionsDesc": MessageLookupByLibrary.simpleMessage(
           "View current connections data",
@@ -244,7 +240,7 @@ class MessageLookup extends MessageLookupByLibrary {
         "deleteMultipTip": m0,
         "deleteTip": m1,
         "desc": MessageLookupByLibrary.simpleMessage(
-          "A multi-platform proxy client based on ClashMeta, simple and easy to use, open-source and ad-free.",
+          "Dropweb — fast, simple VPN client. Open-source and ad-free.",
         ),
         "detectionTip": MessageLookupByLibrary.simpleMessage(
           "Relying on third-party api is for reference only",
@@ -856,6 +852,13 @@ class MessageLookup extends MessageLookupByLibrary {
         "vpnDesc": MessageLookupByLibrary.simpleMessage(
           "Modify VPN related settings",
         ),
+        "vpnDisclosureBody": MessageLookupByLibrary.simpleMessage(
+          "Dropweb uses Android\'s VPN permission to create a local VPN tunnel that you control. Network traffic is routed according to the connection or subscription you select. You can disconnect at any time from this screen or your device\'s VPN settings. Any optional diagnostics, account, or cabinet features are separate and are disclosed where they apply.",
+        ),
+        "vpnDisclosureContinue":
+            MessageLookupByLibrary.simpleMessage("Continue"),
+        "vpnDisclosureTitle":
+            MessageLookupByLibrary.simpleMessage("Before you connect"),
         "vpnEnableDesc": MessageLookupByLibrary.simpleMessage(
           "Auto routes all system traffic through VpnService",
         ),

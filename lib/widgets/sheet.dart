@@ -109,12 +109,18 @@ class AdaptiveSheetScaffold extends StatefulWidget {
     required this.title,
     this.actions = const [],
     this.disableBackground = true,
+    this.onTitleTap,
   });
   final SheetType type;
   final Widget body;
   final String title;
   final List<Widget> actions;
   final bool disableBackground;
+
+  /// Optional tap handler attached to the AppBar title. Used by the
+  /// Settings sheet to surface the 5-rapid-taps developer-mode unlock on
+  /// the screen header (see `DevUnlockCounter`).
+  final VoidCallback? onTitleTap;
 
   @override
   State<AdaptiveSheetScaffold> createState() => _AdaptiveSheetScaffoldState();
@@ -142,9 +148,13 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       centerTitle: bottomSheet,
       backgroundColor: page ? Colors.transparent : backgroundColor,
       elevation: page ? 0 : null,
-      title: Text(
-        widget.title,
-      ),
+      title: widget.onTitleTap != null
+          ? GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onTitleTap,
+              child: Text(widget.title),
+            )
+          : Text(widget.title),
       actions: genActions([
         if (widget.actions.isEmpty && sideSheet) const CloseButton(),
         ...widget.actions,

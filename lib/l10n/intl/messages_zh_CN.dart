@@ -162,7 +162,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "deleteMultipTip": m0,
     "deleteTip": m1,
     "desc": MessageLookupByLibrary.simpleMessage(
-      "基于ClashMeta的多平台代理客户端，简单易用，开源无广告。",
+      "Dropweb — 简洁高速的 VPN 客户端。开源，无广告。",
     ),
     "detectionTip": MessageLookupByLibrary.simpleMessage("依赖第三方api，仅供参考"),
     "developerMode": MessageLookupByLibrary.simpleMessage("开发者模式"),
@@ -529,8 +529,13 @@ class MessageLookup extends MessageLookupByLibrary {
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("使用系统Hosts"),
     "value": MessageLookupByLibrary.simpleMessage("值"),
     "vibrantScheme": MessageLookupByLibrary.simpleMessage("活力"),
-    "view": MessageLookupByLibrary.simpleMessage("查看"),
+        "view": MessageLookupByLibrary.simpleMessage("查看"),
     "vpnDesc": MessageLookupByLibrary.simpleMessage("修改VPN相关设置"),
+    "vpnDisclosureBody": MessageLookupByLibrary.simpleMessage(
+      "Dropweb 使用 Android 的 VPN 权限来创建由您控制的本地 VPN 隧道。网络流量将按照您选择的连接或订阅进行路由。您可以随时通过此界面或设备的 VPN 设置断开连接。任何可选的诊断、账户或后台功能均为独立功能，将在相应位置进行说明。",
+    ),
+    "vpnDisclosureContinue": MessageLookupByLibrary.simpleMessage("继续"),
+    "vpnDisclosureTitle": MessageLookupByLibrary.simpleMessage("连接之前"),
     "vpnEnableDesc": MessageLookupByLibrary.simpleMessage(
       "通过VpnService自动路由系统所有流量",
     ),

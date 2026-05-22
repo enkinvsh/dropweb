@@ -1,3 +1,12 @@
+## v0.7.0
+
+- Cleaned up the codebase for Google Play readiness and removed the legacy ParazitX module along with the unused native cabinet.
+- Hardened privacy: tightened logging, locked down FileProvider exports, and added an explicit in-app VPN data-collection disclosure.
+- Gated Play-facing UI surfaces and moved admin unlock controls out of the main flow.
+- Fixed several profile import/edit bugs and the proxy selector sheet behavior.
+- Switched the app to dark-only theming and removed desktop global hotkeys.
+- Added a manual Linux build workflow (not part of the release matrix).
+
 ## v0.6.10
 
 - Added raw share-link subscription import support.

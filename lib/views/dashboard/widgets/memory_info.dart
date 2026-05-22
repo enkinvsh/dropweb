@@ -7,7 +7,6 @@ import 'package:dropweb/models/common.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
-import 'package:hugeicons/hugeicons.dart';
 
 final _memoryInfoStateNotifier = ValueNotifier<TrafficValue>(
   const TrafficValue(value: 0),

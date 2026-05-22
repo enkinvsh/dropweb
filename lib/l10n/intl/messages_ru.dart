@@ -209,8 +209,6 @@ class MessageLookup extends MessageLookupByLibrary {
         "connectTvDesc": MessageLookupByLibrary.simpleMessage(
           "Отправить профиль на Android TV через QR-код",
         ),
-        "parazitx": MessageLookupByLibrary.simpleMessage("ParazitX"),
-        "parazitxDesc": MessageLookupByLibrary.simpleMessage("Сетевое падение"),
         "connections": MessageLookupByLibrary.simpleMessage("Соединения"),
         "connectionsDesc": MessageLookupByLibrary.simpleMessage(
           "Просмотр текущих данных о соединениях",
@@ -255,7 +253,7 @@ class MessageLookup extends MessageLookupByLibrary {
         "deleteMultipTip": m0,
         "deleteTip": m1,
         "desc": MessageLookupByLibrary.simpleMessage(
-          "Многоплатформенный прокси-клиент на основе ClashMeta, простой и удобный в использовании, с открытым исходным кодом и без рекламы.",
+          "Dropweb — простой и быстрый VPN-клиент с открытым исходным кодом, без рекламы.",
         ),
         "detectionTip": MessageLookupByLibrary.simpleMessage(
           "Использует сторонний API. Только для справки",
@@ -911,6 +909,13 @@ class MessageLookup extends MessageLookupByLibrary {
         "vpnDesc": MessageLookupByLibrary.simpleMessage(
           "Изменение настроек, связанных с VPN",
         ),
+        "vpnDisclosureBody": MessageLookupByLibrary.simpleMessage(
+          "Dropweb использует системное VPN-разрешение Android, чтобы создать локальный VPN-туннель, которым управляете вы. Сетевой трафик направляется в соответствии с выбранным вами подключением или подпиской. Вы можете в любой момент отключиться с этого экрана или из системных настроек VPN. Дополнительные функции диагностики, аккаунта или личного кабинета — отдельные опции и описываются там, где применяются.",
+        ),
+        "vpnDisclosureContinue":
+            MessageLookupByLibrary.simpleMessage("Продолжить"),
+        "vpnDisclosureTitle":
+            MessageLookupByLibrary.simpleMessage("Перед подключением"),
         "vpnEnableDesc": MessageLookupByLibrary.simpleMessage(
           "Автоматически направляет весь системный трафик через VpnService",
         ),

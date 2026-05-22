@@ -6,7 +6,6 @@ import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
-import 'package:dropweb/views/about.dart' show startFileTransferGame;
 import 'package:dropweb/views/dashboard/widgets/start_button.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -829,63 +828,6 @@ class _ConnectGlassPainter extends CustomPainter {
       old.irisT != irisT;
 }
 
-/// Developer mode activation via 5 rapid CONSECUTIVE taps on the Settings
-/// tab. Any tap on another tab (or a pause >3s) resets the counter so
-/// users bouncing between Dashboard and Settings don't accidentally
-/// unlock dev mode.
-int _devTapCount = 0;
-DateTime _devTapLast = DateTime(0);
-const _devTapThreshold = 5;
-const _devTapWindow = Duration(seconds: 3);
-
-void _resetDevTapCount() {
-  _devTapCount = 0;
-  _devTapLast = DateTime(0);
-}
-
-/// Hidden File Transfer game — triggered by 10 rapid CONSECUTIVE taps on
-/// the Dashboard tab. Any tap on another tab (or >3s pause) resets.
-int _eggTapCount = 0;
-DateTime _eggTapLast = DateTime(0);
-const _eggTapThreshold = 10;
-const _eggTapWindow = Duration(seconds: 3);
-
-void _resetEasterEggTaps() {
-  _eggTapCount = 0;
-  _eggTapLast = DateTime(0);
-}
-
-void _handleDashboardTap(BuildContext context) {
-  final now = DateTime.now();
-  if (now.difference(_eggTapLast) > _eggTapWindow) {
-    _eggTapCount = 0;
-  }
-  _eggTapLast = now;
-  _eggTapCount++;
-  if (_eggTapCount >= _eggTapThreshold) {
-    _eggTapCount = 0;
-    startFileTransferGame(context);
-  }
-}
-
-void _handleDevTap(BuildContext context, WidgetRef ref) {
-  final now = DateTime.now();
-  if (now.difference(_devTapLast) > _devTapWindow) {
-    _devTapCount = 0;
-  }
-  _devTapLast = now;
-  _devTapCount++;
-  final alreadyEnabled = ref.read(appSettingProvider).developerMode;
-  if (alreadyEnabled) return;
-  if (_devTapCount >= _devTapThreshold) {
-    _devTapCount = 0;
-    ref.read(appSettingProvider.notifier).updateState(
-          (state) => state.copyWith(developerMode: true),
-        );
-    globalState.showNotifier(appLocalizations.developerModeEnableTip);
-  }
-}
-
 class CommonNavigationBar extends ConsumerWidget {
   const CommonNavigationBar({
     super.key,
@@ -943,16 +885,6 @@ class CommonNavigationBar extends ConsumerWidget {
                   onTap: () {
                     HapticFeedback.selectionClick();
                     globalState.appController.toPage(item.label);
-                    if (item.label == PageLabel.tools) {
-                      _handleDevTap(context, ref);
-                      _resetEasterEggTaps();
-                    } else if (item.label == PageLabel.dashboard) {
-                      _handleDashboardTap(context);
-                      _resetDevTapCount();
-                    } else {
-                      _resetDevTapCount();
-                      _resetEasterEggTaps();
-                    }
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),

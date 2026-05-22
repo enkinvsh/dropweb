@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/views/dashboard/widgets/vpn_disclosure_dialog.dart';
 import 'package:dropweb/views/profiles/add_profile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -42,20 +45,54 @@ class _StartButtonState extends ConsumerState<StartButton>
     super.dispose();
   }
 
-  void handleSwitchStart() {
+  Future<void> handleSwitchStart() async {
     final currentlyRunning = ref.read(runTimeProvider) != null;
     final next = !currentlyRunning;
-    App().performHapticFeedback(DropwebHapticCue.confirm);
-    App().playUiSound(
-      next ? DropwebSoundCue.powerOn : DropwebSoundCue.powerOff,
-    );
+
+    // Disconnect keeps the existing feedback timing — play the power-off
+    // cue immediately so the user gets a confirmation tick on tap. Feedback
+    // is fire-and-forget so we don't block the status update.
+    if (!next) {
+      unawaited(App().performHapticFeedback(DropwebHapticCue.confirm));
+      unawaited(App().playUiSound(DropwebSoundCue.powerOff));
+      debouncer.call(
+        FunctionTag.updateStatus,
+        () => globalState.appController.updateStatus(false),
+        duration: commonDuration,
+      );
+      return;
+    }
+
+    // First-start path: the disclosure gate runs BEFORE any confirm haptic
+    // and BEFORE the power-on cue. If the user cancels the dialog, no
+    // feedback should suggest a connection was about to happen.
+    final allowed = await _ensureVpnConsent();
+    if (!allowed) return;
+
+    unawaited(App().performHapticFeedback(DropwebHapticCue.confirm));
+    unawaited(App().playUiSound(DropwebSoundCue.powerOn));
     debouncer.call(
       FunctionTag.updateStatus,
-      () {
-        globalState.appController.updateStatus(next);
-      },
+      () => globalState.appController.updateStatus(true),
       duration: commonDuration,
     );
+  }
+
+  /// Returns true when the user has previously accepted the disclosure OR
+  /// just accepted it in the dialog AND the accepted flag was successfully
+  /// persisted. Returning true without a persisted flag would let the
+  /// dashboard play the power-on feedback while the central
+  /// `AppController.updateStatus` guard silently refuses the start, leaving
+  /// the user with a tick but no connection. If `markAccepted()` fails to
+  /// write, we treat the attempt as cancelled so the dialog can re-prompt
+  /// next time.
+  Future<bool> _ensureVpnConsent() async {
+    if (await vpnConsent.isAccepted()) return true;
+    if (!mounted) return false;
+    final accepted = await showVpnDisclosureDialog(context);
+    if (accepted != true) return false;
+    final persisted = await vpnConsent.markAccepted();
+    return persisted;
   }
 
   void _handleTapDown() {

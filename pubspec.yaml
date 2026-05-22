@@ -1,7 +1,7 @@
 name: dropweb
 description: Multi-platform VPN client based on mihomo core. Open-source and ad-free.
 publish_to: "none"
-version: 0.6.10+2026052001
+version: 0.7.0+2026052201
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -86,12 +86,7 @@ dev_dependencies:
   freezed: ^2.5.7
   json_serializable: ^6.8.0
   riverpod_generator: ^2.4.3
-  riverpod_lint: ^2.3.13
-  custom_lint: ^0.7.3
   flutter_launcher_icons: ^0.14.4
-
-dependency_overrides:
-  analyzer_plugin: ^0.13.0
 
 flutter:
   uses-material-design: true
@@ -111,10 +106,6 @@ flutter:
     - family: Icons
       fonts:
         - asset: assets/fonts/Icons.ttf
-    - family: Unbounded
-      fonts:
-        # Variable covers every weight — don't add Unbounded-Regular.ttf back.
-        - asset: assets/fonts/Unbounded-Variable.ttf
     - family: Onest
       fonts:
         - asset: assets/fonts/Onest-Thin.ttf

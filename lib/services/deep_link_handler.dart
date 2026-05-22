@@ -1,12 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
-import 'package:dropweb/common/navigator.dart';
-import 'package:dropweb/enum/enum.dart';
-import 'package:dropweb/state.dart';
-import 'package:dropweb/views/parazitx_page.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 
 class DeepLinkHandler {
   DeepLinkHandler._();
@@ -40,29 +35,7 @@ class DeepLinkHandler {
   }
 
   static void _navigate(String route) {
-    switch (route) {
-      case 'parazitx':
-        _openParazitX();
-        break;
-      default:
-        developer.log('unknown route: $route', name: 'DeepLink');
-    }
-  }
-
-  static void _openParazitX() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final navigator = globalState.navigatorKey.currentState;
-      if (navigator == null) return;
-
-      globalState.appController.toPage(PageLabel.tools);
-
-      navigator.popUntil((route) => route.isFirst);
-      navigator.push(
-        CommonRoute<void>(
-          builder: (_) => const ParazitXPage(),
-        ),
-      );
-    });
+    developer.log('unknown route: $route', name: 'DeepLink');
   }
 
   static Future<void> dispose() async {

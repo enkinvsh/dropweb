@@ -79,21 +79,6 @@ class AppLocalizations {
     );
   }
 
-  /// `ParazitX`
-  String get parazitx {
-    return Intl.message('ParazitX', name: 'parazitx', desc: '', args: []);
-  }
-
-  /// `Network drop bypass via VK`
-  String get parazitxDesc {
-    return Intl.message(
-      'Network drop bypass via VK',
-      name: 'parazitxDesc',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `By rule`
   String get rule {
     return Intl.message('By rule', name: 'rule', desc: '', args: []);
@@ -1154,10 +1139,10 @@ class AppLocalizations {
     );
   }
 
-  /// `A multi-platform proxy client based on ClashMeta, simple and easy to use, open-source and ad-free.`
+  /// `Dropweb — fast, simple VPN client. Open-source and ad-free.`
   String get desc {
     return Intl.message(
-      'A multi-platform proxy client based on ClashMeta, simple and easy to use, open-source and ad-free.',
+      'Dropweb — fast, simple VPN client. Open-source and ad-free.',
       name: 'desc',
       desc: '',
       args: [],
@@ -3713,6 +3698,37 @@ class AppLocalizations {
       args: [],
     );
   }
+
+  /// `Before you connect`
+  String get vpnDisclosureTitle {
+    return Intl.message(
+      'Before you connect',
+      name: 'vpnDisclosureTitle',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Dropweb uses Android's VPN permission to create a local VPN tunnel that you control. Network traffic is routed according to the connection or subscription you select. You can disconnect at any time from this screen or your device's VPN settings. Any optional diagnostics, account, or cabinet features are separate and are disclosed where they apply.`
+  String get vpnDisclosureBody {
+    return Intl.message(
+      'Dropweb uses Android\'s VPN permission to create a local VPN tunnel that you control. Network traffic is routed according to the connection or subscription you select. You can disconnect at any time from this screen or your device\'s VPN settings. Any optional diagnostics, account, or cabinet features are separate and are disclosed where they apply.',
+      name: 'vpnDisclosureBody',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Continue`
+  String get vpnDisclosureContinue {
+    return Intl.message(
+      'Continue',
+      name: 'vpnDisclosureContinue',
+      desc: '',
+      args: [],
+    );
+  }
+
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<AppLocalizations> {
