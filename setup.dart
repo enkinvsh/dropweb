@@ -477,7 +477,7 @@ class BuildCommand extends Command {
       Build.getExecutable("sudo apt update -y"),
     );
     await Build.exec(
-      Build.getExecutable("sudo apt install -y ninja-build libgtk-3-dev"),
+      Build.getExecutable("sudo apt install -y ninja-build libgtk-3-dev libsecret-1-dev"),
     );
     await Build.exec(
       Build.getExecutable("sudo apt install -y libayatana-appindicator3-dev"),
