@@ -2,7 +2,7 @@
   <a href="README_EN.md">English</a>
 </div>
 
-<img src="assets/images/header.png" alt="dropweb — VPN-клиент для Android Windows macOS на базе mihomo Clash Meta с защитой от детекции" width="720" />
+<img src="assets/images/header.png" alt="dropweb, VPN-клиент для Android Windows macOS на базе mihomo Clash Meta" width="720" />
 
 # dropweb
 
@@ -27,9 +27,9 @@
 
 ---
 
-Dropweb — потребительский VPN-клиент для Android, Windows и macOS. Он помогает импортировать VPN-подписки, подключаться и отключаться без лишних настроек, а также снижает риск локальной детекции VPN на устройстве.
+Dropweb: потребительский VPN-клиент для Android, Windows и macOS. Он помогает подключаться через профили mihomo, держит повседневный интерфейс простым и даёт пользователю понятный контроль над VPN-подключением.
 
-Проект остаётся открытым GPL-3.0 форком [FlClashX](https://github.com/pluralplay/FlClashX), использует ядро [mihomo](https://github.com/MetaCubeX/mihomo) (Clash Meta) и сохраняет связь с оригинальным [FlClash](https://github.com/chen08209/FlClash). Атрибуция и исходный код доступны в разделах сборки и лицензии ниже.
+Проект остаётся открытым GPL-3.0 форком [FlClashX](https://github.com/pluralplay/FlClashX), использует ядро [mihomo](https://github.com/MetaCubeX/mihomo) (Clash Meta) и сохраняет связь с оригинальным [FlClash](https://github.com/chen08209/FlClash). Атрибуция доступна в [NOTICE.md](NOTICE.md) и [ATTRIBUTIONS.md](ATTRIBUTIONS.md).
 
 ## Загрузка
 
@@ -46,19 +46,17 @@ Direct APK download links must not be published until exact-version source links
 - **Протоколы:** VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, WireGuard (Xray-core совместимые)
 - **Подписки:** Импорт по URL/QR, автообновление в фоне
 - **Маршрутизация:** Split tunneling — локальный трафик напрямую, заблокированный через прокси (GeoIP/Geosite)
-- **UI:** Максимально урезан, только необходимые переключатели
+- **UI:** Максимально урезан, только базовые переключатели
 
 ---
 
-## Почему форк и защита от детекции
+## Почему форк
 
-FlClashX — отличный клиент, но большинство популярных приложений (Happ, v2rayNG, Hiddify, Neko Box) уязвимы к локальному сканированию. Любое приложение на устройстве может найти стандартный SOCKS-порт (7890) без root-прав — это активно используется для [выявления VPN-пользователей](https://habr.com/ru/news/1020902/).
+Dropweb делает мобильный VPN-клиент проще для повседневного использования:
 
-**Как dropweb решает проблему:**
-
-- **Динамические порты** — рандомизация вместо дефолтных 7890/7891
-- **SOCKS-аутентификация** — принудительно включена, сканеры не могут проверить тип трафика
-- **Только TUN** — выпилен системный прокси (который читается из настроек ОС), весь роутинг через виртуальный интерфейс
+1. Основной сценарий сосредоточен вокруг подключения и подписки.
+2. Android-сборка использует TUN/VPN-подключение как основной режим работы.
+3. Релизы публикуются вместе с исходным кодом соответствующей версии.
 
 ---
 

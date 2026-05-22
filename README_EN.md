@@ -2,7 +2,7 @@
   <a href="README.md">Русский</a>
 </div>
 
-<img src="assets/images/header.png" alt="dropweb — VPN client for Android Windows macOS powered by mihomo Clash Meta with anti-detection" width="720" />
+<img src="assets/images/header.png" alt="dropweb, VPN client for Android Windows macOS powered by mihomo Clash Meta" width="720" />
 
 # dropweb
 
@@ -27,9 +27,9 @@
 
 ---
 
-Dropweb is a consumer VPN client for Android, Windows, and macOS. It helps people import VPN subscriptions, connect and disconnect without extra setup, and reduce the risk of local VPN detection on the device.
+Dropweb is a consumer VPN client for Android, Windows and macOS. It helps users connect through mihomo profiles, keeps the everyday interface simple, and gives users clear control over the VPN connection.
 
-The project remains an open-source GPL-3.0 fork of [FlClashX](https://github.com/pluralplay/FlClashX), powered by [mihomo](https://github.com/MetaCubeX/mihomo) (Clash Meta), with lineage to the original [FlClash](https://github.com/chen08209/FlClash). Attribution and source access stay visible in the build and license sections below.
+Dropweb remains an open GPL-3.0 fork of [FlClashX](https://github.com/pluralplay/FlClashX), uses [mihomo](https://github.com/MetaCubeX/mihomo) (Clash Meta), and preserves attribution to the original [FlClash](https://github.com/chen08209/FlClash). Attribution is available in [NOTICE.md](NOTICE.md) and [ATTRIBUTIONS.md](ATTRIBUTIONS.md).
 
 ## Download
 
@@ -46,15 +46,13 @@ The project remains an open-source GPL-3.0 fork of [FlClashX](https://github.com
 
 ---
 
-## Why Fork and Detection Protection
+## Why this fork exists
 
-FlClashX is an excellent client, but most popular apps (Happ, v2rayNG, Hiddify, Neko Box) are vulnerable to local scanning. Any app on the device can find the standard SOCKS port (7890) without root — this is actively used for VPN user detection.
+Dropweb keeps the mobile VPN experience focused on everyday use:
 
-**How dropweb solves this:**
-
-- **Dynamic ports** — randomization instead of default 7890/7891
-- **SOCKS authentication** — enforced, scanners can't verify traffic type
-- **TUN only** — removed system proxy (readable from OS settings), all routing via virtual interface
+1. The main flow centers on connection and subscription management.
+2. The Android build uses TUN/VPN as the primary connection mode.
+3. Releases are published with matching source code for the shipped version.
 
 ---
 
