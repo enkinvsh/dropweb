@@ -2,7 +2,7 @@ import 'dart:math';
 import 'package:dropweb/models/core.dart';
 
 /// Generates cryptographically random proxy credentials.
-/// Used to protect SOCKS/HTTP port from detection by other apps.
+/// Used to avoid relying on a fixed, well-known SOCKS/HTTP port.
 class ProxyCredentialsGenerator {
   static final _random = Random.secure();
   static const _chars =

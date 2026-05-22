@@ -85,7 +85,7 @@ class AndroidVpnOptions with _$AndroidVpnOptions {
 }
 
 /// Randomly generated credentials for SOCKS/HTTP proxy authentication.
-/// Regenerated on each VPN connect to prevent detection by other apps.
+/// Regenerated on each VPN connect to avoid reusing the same credentials.
 @freezed
 class ProxyCredentials with _$ProxyCredentials {
   const factory ProxyCredentials({

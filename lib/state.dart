@@ -66,7 +66,7 @@ class GlobalState {
   bool isInit = false;
 
   /// Persisted SOCKS port (loaded from SharedPreferences on init)
-  /// Survives app restarts to avoid VPN detection via port scanning
+  /// Survives app restarts to avoid relying on a fixed SOCKS port
   int? _persistedSocksPort;
 
   /// Current session's proxy credentials (auth regenerated per connect, port persisted)
@@ -147,7 +147,7 @@ class GlobalState {
       utils.getLocaleForString(config.appSetting.locale) ??
           WidgetsBinding.instance.platformDispatcher.locale,
     );
-    // Load persisted SOCKS port for VPN detection protection
+    // Load persisted SOCKS port to avoid fixed-port assumptions
     _persistedSocksPort = await preferences.getSocksPort();
     if (_persistedSocksPort != null) {
       commonPrint
