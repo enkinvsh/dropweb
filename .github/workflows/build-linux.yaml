@@ -28,8 +28,16 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
 
+      - name: Test Linux desktop installer
+        run: sh test/tool/linux_install_desktop_entry_test.sh
+
       - name: Build Linux
         run: dart run setup.dart linux --arch amd64
+
+      - name: Include Linux desktop installer
+        run: |
+          mkdir -p dist/linux-tools
+          cp tool/linux/install_desktop_entry.sh dist/linux-tools/install_desktop_entry.sh
 
       - name: Upload
         uses: actions/upload-artifact@v4
