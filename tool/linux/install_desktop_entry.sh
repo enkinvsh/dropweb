@@ -9,8 +9,18 @@ APPLICATIONS_DIR="$XDG_BASE/applications"
 ICONS_DIR="$XDG_BASE/icons/hicolor/256x256/apps"
 DESKTOP_FILE="$APPLICATIONS_DIR/$APP_ID.desktop"
 ICON_FILE="$ICONS_DIR/$APP_ID.png"
-TEMPLATE_FILE="$ROOT_DIR/linux/packaging/dropweb.desktop.template"
-SOURCE_ICON="$ROOT_DIR/assets/images/icon.png"
+
+if [ -f "$SCRIPT_DIR/dropweb.desktop.template" ]; then
+  TEMPLATE_FILE="$SCRIPT_DIR/dropweb.desktop.template"
+else
+  TEMPLATE_FILE="$ROOT_DIR/linux/packaging/dropweb.desktop.template"
+fi
+
+if [ -f "$SCRIPT_DIR/dropweb.png" ]; then
+  SOURCE_ICON="$SCRIPT_DIR/dropweb.png"
+else
+  SOURCE_ICON="$ROOT_DIR/assets/images/icon.png"
+fi
 
 usage() {
   printf '%s\n' "Usage: $0 [--exec PATH] [--uninstall]"

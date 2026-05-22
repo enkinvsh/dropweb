@@ -38,6 +38,8 @@ jobs:
         run: |
           mkdir -p dist/linux-tools
           cp tool/linux/install_desktop_entry.sh dist/linux-tools/install_desktop_entry.sh
+          cp linux/packaging/dropweb.desktop.template dist/linux-tools/dropweb.desktop.template
+          cp assets/images/icon.png dist/linux-tools/dropweb.png
 
       - name: Upload
         uses: actions/upload-artifact@v4
