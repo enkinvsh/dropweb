@@ -1,6 +1,8 @@
 # VpnService Demo Video Script
 
-Status: owner recording required.
+Status: Pre-submission draft. Not ready for Google Play submission until every OWNER_ACTION_REQUIRED item is resolved.
+
+OWNER_ACTION_REQUIRED: record the demo video and save the final URL before submitting the VpnService declaration.
 
 ## Goal
 
@@ -10,7 +12,7 @@ Record a short reviewer video that proves VPN is the core purpose of Dropweb.
 
 1. Show the app icon and launch Dropweb.
 2. Show the main dashboard identifying Dropweb as a VPN client.
-3. Import or select the demo subscription profile.
+3. Import or select the demo subscription profile. OWNER_ACTION_REQUIRED: prepare a safe demo profile before recording.
 4. Tap the main connect control.
 5. Show the Android VPN permission dialog.
 6. Accept the dialog.

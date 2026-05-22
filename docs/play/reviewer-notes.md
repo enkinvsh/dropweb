@@ -1,10 +1,14 @@
 # Google Play Reviewer Notes Draft
 
-Status: owner review required before submission.
+Status: Pre-submission draft. Not ready for Google Play submission until every OWNER_ACTION_REQUIRED item is resolved.
 
 ## Test account
 
-OWNER_INPUT_REQUIRED: provide reviewer account, subscription URL, or demo profile that is safe for Google review.
+OWNER_ACTION_REQUIRED: provide reviewer account, subscription URL, or demo profile that is safe for Google review.
+
+OWNER_ACTION_REQUIRED: provide cabinet login only if the submitted app requires cabinet access for review.
+
+OWNER_ACTION_REQUIRED: provide demo video URL if Play Console asks for VpnService review evidence.
 
 ## Steps to test
 
@@ -18,4 +22,6 @@ OWNER_INPUT_REQUIRED: provide reviewer account, subscription URL, or demo profil
 
 ## Notes
 
-Dropweb is a GPL-3.0 VPN client fork of FlClashX. Source for the submitted version is available at OWNER_INPUT_REQUIRED.
+Dropweb is a GPL-3.0 VPN client fork of FlClashX.
+
+OWNER_ACTION_REQUIRED: publish and verify the source URL for the exact submitted version before review notes are finalized.

@@ -1,6 +1,12 @@
 # Google Play VpnService Declaration Draft
 
-Status: owner review required before Play Console entry.
+Status: Pre-submission draft. Not ready for Google Play submission until every OWNER_ACTION_REQUIRED item is resolved.
+
+OWNER_ACTION_REQUIRED: create and verify the Play Console organization, IP account, or physical-person account before submission.
+
+OWNER_ACTION_REQUIRED: provide D-U-N-S details if the organization path requires them.
+
+OWNER_ACTION_REQUIRED: record and provide the VpnService demo video URL before submitting this declaration.
 
 ## Core purpose
 
@@ -20,8 +26,8 @@ The app must show clear in-app information that enabling the main connection sta
 2. `android.permission.QUERY_ALL_PACKAGES`: confirm this permission is absent. If the execution branch declares it, document the exact per-app VPN app-selection need, justify it honestly for Play, or remove it before submission.
 3. Foreground service permissions: used to keep the VPN session active.
 4. `POST_NOTIFICATIONS`: used for VPN status notifications on Android 13 and later.
-5. `RECEIVE_BOOT_COMPLETED`: OWNER_INPUT_REQUIRED if auto-start or reconnect after boot is enabled.
-6. `USE_FULL_SCREEN_INTENT`: OWNER_INPUT_REQUIRED. Remove if no user-visible Play-safe need remains.
+5. `RECEIVE_BOOT_COMPLETED`: OWNER_ACTION_REQUIRED: confirm this permission is absent or document the Play-safe auto-start or reconnect need if enabled.
+6. `USE_FULL_SCREEN_INTENT`: OWNER_ACTION_REQUIRED: confirm this permission is absent. Remove it if no user-visible Play-safe need remains.
 
 ## Not used for prohibited behavior
 

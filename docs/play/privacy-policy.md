@@ -1,8 +1,8 @@
 # Dropweb Privacy Policy Draft
 
-Status: owner review required before publication.
+Status: Pre-submission draft. Not ready for Google Play submission until every OWNER_ACTION_REQUIRED item is resolved.
 
-Public URL: OWNER_INPUT_REQUIRED
+Public URL: OWNER_ACTION_REQUIRED: publish the Privacy Policy URL before submission.
 
 ## What Dropweb does
 
@@ -21,12 +21,16 @@ Dropweb does not sell personal data.
 
 ## Backend retention
 
-OWNER_INPUT_REQUIRED: describe what backend logs are kept, retention period, deletion process, subprocessors, and whether IP addresses are stored.
+OWNER_ACTION_REQUIRED: confirm whether backend logs are kept, exact retention periods, deletion process, subprocessors, hosting providers, and whether IP addresses are stored.
+
+OWNER_ACTION_REQUIRED: confirm exact HWID or device-header retention rules and backend providers before publication.
 
 ## User controls
 
-Users can remove profiles, clear local app data, and request account or data deletion through the account deletion process documented at OWNER_INPUT_REQUIRED.
+Users can remove profiles and clear local app data. Account or data deletion cannot be described as final until the owner provides the deletion process and public URL.
+
+OWNER_ACTION_REQUIRED: publish and verify the account deletion URL before Play submission.
 
 ## Contact
 
-Support contact: OWNER_INPUT_REQUIRED
+Support contact: OWNER_ACTION_REQUIRED: provide and verify the public support contact before publication.
