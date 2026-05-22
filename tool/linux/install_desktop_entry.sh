@@ -42,7 +42,12 @@ uninstall_entry() {
 }
 
 find_neighbor_appimage() {
-  for candidate in "$SCRIPT_DIR"/*.AppImage "$SCRIPT_DIR"/dropweb*AppImage; do
+  parent_dir="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+  for candidate in \
+    "$SCRIPT_DIR"/*.AppImage \
+    "$SCRIPT_DIR"/dropweb*AppImage \
+    "$parent_dir"/*.AppImage \
+    "$parent_dir"/dropweb*AppImage; do
     if [ -f "$candidate" ] && [ -x "$candidate" ]; then
       printf '%s\n' "$candidate"
       return 0
