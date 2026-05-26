@@ -11,7 +11,6 @@ import app.dropweb.RunState
 
 @RequiresApi(Build.VERSION_CODES.N)
 class DropwebTileService : TileService() {
-
     private val mihomoObserver = Observer<RunState> { _ ->
         refreshTile()
     }

@@ -165,7 +165,7 @@ private fun numericToTextFormat(address: Inet6Address): String {
 suspend fun <T> MethodChannel.awaitResult(
     method: String,
     arguments: Any? = null
-): T? = withContext(Dispatchers.Main) { // 切换到主线程
+): T? = withContext(Dispatchers.Main) { // Switch to main thread
     suspendCoroutine { continuation ->
         invokeMethod(method, arguments, object : MethodChannel.Result {
             override fun success(result: Any?) {
