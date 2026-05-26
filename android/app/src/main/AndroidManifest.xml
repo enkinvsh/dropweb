@@ -24,6 +24,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- VPN services use systemExempted FGS type to avoid the Android 14+
+
          dataSync 6h cumulative timeout that can crash long-running VPN
          foreground services with ForegroundServiceDidNotStopInTimeException.
          VPN apps qualify for this exemption. The matching foregroundServiceType
@@ -41,6 +42,7 @@
             lookup) both wrap their package-manager calls in try/catch and
             return safe defaults when a package is not visible.
     -->
+
     <queries>
         <!-- Per-app VPN access control: declares a MAIN + LAUNCHER intent so
              AppPlugin.getPackages can see packages that publish a launcher
@@ -199,11 +201,14 @@
             </intent-filter>
         </service>
 
+<<<<<<< HEAD
         <!-- Non-VPN proxy mode (mihomo HTTP/SOCKS without TUN). The FGS type is
              dataSync because this service relays user traffic between local
              apps and remote servers over the network. PROPERTY_SPECIAL_USE_FGS_SUBTYPE
              is intentionally NOT declared here — it is only meaningful for
              foregroundServiceType="specialUse". -->
+=======
+>>>>>>> 67ca011 (chore(android): remove ParazitX service declarations)
         <service
             android:name=".services.DropwebService"
             android:exported="false"
