@@ -457,8 +457,7 @@ class BuildCommand extends Command {
       ].join(','),
       help: 'The $name build env',
     );
-    // Android builds always create both split and universal APKs
-    // No additional flags needed
+    // Android APK builds always use split-per-abi and never package universal APKs.
   }
 
   @override
@@ -677,24 +676,19 @@ class BuildCommand extends Command {
         );
         return;
       case Target.android:
-        // Build all architectures: armeabi-v7a, arm64-v8a, x86_64
-        final allTargets = "android-arm,android-arm64,android-x64";
+        final targetMap = {
+          Arch.arm: "android-arm",
+          Arch.arm64: "android-arm64",
+          Arch.amd64: "android-x64",
+        };
+        final allTargets = targetMap.values.join(",");
+        final defaultTarget = arch == null ? allTargets : targetMap[arch];
 
-        // Build split APKs (one per architecture)
         await _buildDistributor(
           target: target,
           targets: "apk",
           args:
-              ",split-per-abi --build-target-platform $allTargets --build-dart-define=CORE_VERSION=$coreVersion",
-          env: env,
-        );
-
-        // Build universal APK (all architectures in one file)
-        await _buildDistributor(
-          target: target,
-          targets: "apk",
-          args:
-              " --build-target-platform $allTargets --build-dart-define=CORE_VERSION=$coreVersion",
+              ",split-per-abi --build-target-platform $defaultTarget --build-dart-define=CORE_VERSION=$coreVersion",
           env: env,
         );
 
