@@ -201,14 +201,11 @@
             </intent-filter>
         </service>
 
-<<<<<<< HEAD
         <!-- Non-VPN proxy mode (mihomo HTTP/SOCKS without TUN). The FGS type is
              dataSync because this service relays user traffic between local
              apps and remote servers over the network. PROPERTY_SPECIAL_USE_FGS_SUBTYPE
              is intentionally NOT declared here — it is only meaningful for
              foregroundServiceType="specialUse". -->
-=======
->>>>>>> 67ca011 (chore(android): remove ParazitX service declarations)
         <service
             android:name=".services.DropwebService"
             android:exported="false"
