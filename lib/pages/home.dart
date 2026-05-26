@@ -828,6 +828,38 @@ class _ConnectGlassPainter extends CustomPainter {
       old.irisT != irisT;
 }
 
+/// Developer mode activation via 5 rapid CONSECUTIVE taps on the Settings
+/// tab. Any tap on another tab (or a pause >3s) resets the counter so
+/// users bouncing between Dashboard and Settings don't accidentally
+/// unlock dev mode.
+int _devTapCount = 0;
+DateTime _devTapLast = DateTime(0);
+const _devTapThreshold = 5;
+const _devTapWindow = Duration(seconds: 3);
+
+void _resetDevTapCount() {
+  _devTapCount = 0;
+  _devTapLast = DateTime(0);
+}
+
+void _handleDevTap(BuildContext context, WidgetRef ref) {
+  final now = DateTime.now();
+  if (now.difference(_devTapLast) > _devTapWindow) {
+    _devTapCount = 0;
+  }
+  _devTapLast = now;
+  _devTapCount++;
+  final alreadyEnabled = ref.read(appSettingProvider).developerMode;
+  if (alreadyEnabled) return;
+  if (_devTapCount >= _devTapThreshold) {
+    _devTapCount = 0;
+    ref.read(appSettingProvider.notifier).updateState(
+          (state) => state.copyWith(developerMode: true),
+        );
+    globalState.showNotifier(appLocalizations.developerModeEnableTip);
+  }
+}
+
 class CommonNavigationBar extends ConsumerWidget {
   const CommonNavigationBar({
     super.key,
@@ -885,6 +917,13 @@ class CommonNavigationBar extends ConsumerWidget {
                   onTap: () {
                     HapticFeedback.selectionClick();
                     globalState.appController.toPage(item.label);
+                    if (item.label == PageLabel.tools) {
+                      _handleDevTap(context, ref);
+                    } else if (item.label == PageLabel.dashboard) {
+                      _resetDevTapCount();
+                    } else {
+                      _resetDevTapCount();
+                    }
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
