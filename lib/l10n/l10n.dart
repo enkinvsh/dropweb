@@ -641,12 +641,7 @@ class AppLocalizations {
 
   /// `Scan QR code`
   String get scanQrCode {
-    return Intl.message(
-      'Scan QR code',
-      name: 'scanQrCode',
-      desc: '',
-      args: [],
-    );
+    return Intl.message('Scan QR code', name: 'scanQrCode', desc: '', args: []);
   }
 
   /// `Paste subscription URL`
@@ -1074,10 +1069,10 @@ class AppLocalizations {
     return Intl.message('ProxyPort', name: 'proxyPort', desc: '', args: []);
   }
 
-  /// `Set the Clash listening port`
+  /// `Set the local proxy listening port`
   String get proxyPortDesc {
     return Intl.message(
-      'Set the Clash listening port',
+      'Set the local proxy listening port',
       name: 'proxyPortDesc',
       desc: '',
       args: [],
@@ -1124,6 +1119,16 @@ class AppLocalizations {
     return Intl.message('Project', name: 'project', desc: '', args: []);
   }
 
+  /// `Support the project`
+  String get supportProject {
+    return Intl.message(
+      'Support the project',
+      name: 'supportProject',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Core`
   String get core {
     return Intl.message('Core', name: 'core', desc: '', args: []);
@@ -1139,10 +1144,17 @@ class AppLocalizations {
     );
   }
 
+<<<<<<< HEAD
   /// `Dropweb — fast, simple VPN client. Open-source and ad-free.`
   String get desc {
     return Intl.message(
       'Dropweb — fast, simple VPN client. Open-source and ad-free.',
+=======
+  /// `A multi-platform VPN client, simple and easy to use, open-source and ad-free.`
+  String get desc {
+    return Intl.message(
+      'A multi-platform VPN client, simple and easy to use, open-source and ad-free.',
+>>>>>>> 02b3c3c (feat(about): add Tribute support link)
       name: 'desc',
       desc: '',
       args: [],
@@ -1184,10 +1196,10 @@ class AppLocalizations {
     );
   }
 
-  /// `Opening it will lose part of its application ability and gain the support of full amount of Clash.`
+  /// `Opening it will lose part of custom app functionality in exchange for full routing compatibility.`
   String get compatibleDesc {
     return Intl.message(
-      'Opening it will lose part of its application ability and gain the support of full amount of Clash.',
+      'Opening it will lose part of custom app functionality in exchange for full routing compatibility.',
       name: 'compatibleDesc',
       desc: '',
       args: [],
@@ -1464,10 +1476,10 @@ class AppLocalizations {
     );
   }
 
-  /// `Once enabled, the Clash kernel can be controlled on port 9090`
+  /// `Once enabled, the VPN core can be controlled on port 9090`
   String get externalControllerDesc {
     return Intl.message(
-      'Once enabled, the Clash kernel can be controlled on port 9090',
+      'Once enabled, the VPN core can be controlled on port 9090',
       name: 'externalControllerDesc',
       desc: '',
       args: [],
@@ -3699,15 +3711,24 @@ class AppLocalizations {
     );
   }
 
+<<<<<<< HEAD
   /// `Before you connect`
   String get vpnDisclosureTitle {
     return Intl.message(
       'Before you connect',
       name: 'vpnDisclosureTitle',
+=======
+  /// `Privacy Policy`
+  String get privacyPolicy {
+    return Intl.message(
+      'Privacy Policy',
+      name: 'privacyPolicy',
+>>>>>>> 02b3c3c (feat(about): add Tribute support link)
       desc: '',
       args: [],
     );
   }
+<<<<<<< HEAD
 
   /// `Dropweb uses Android's VPN permission to create a local VPN tunnel that you control. Network traffic is routed according to the connection or subscription you select. You can disconnect at any time from this screen or your device's VPN settings. Any optional diagnostics, account, or cabinet features are separate and are disclosed where they apply.`
   String get vpnDisclosureBody {
@@ -3729,6 +3750,8 @@ class AppLocalizations {
     );
   }
 
+=======
+>>>>>>> 02b3c3c (feat(about): add Tribute support link)
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<AppLocalizations> {
