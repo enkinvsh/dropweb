@@ -115,7 +115,6 @@ class MainActivity : FlutterActivity() {
                     result.notImplemented()
                 }
             }
-
         flutterEngine.plugins.add(AppPlugin())
         flutterEngine.plugins.add(ServicePlugin)
         flutterEngine.plugins.add(TilePlugin())
