@@ -2,7 +2,7 @@
   <a href="README.md">Русский</a>
 </div>
 
-<img src="assets/images/header.png" alt="dropweb — VPN client for Android Windows macOS powered by mihomo Clash Meta with anti-detection" width="720" />
+<img src="assets/images/header.png" alt="dropweb, VPN client for Android Windows macOS with anti-detection" width="720" />
 
 # dropweb
 
@@ -27,15 +27,17 @@
 
 ---
 
-Dropweb is a consumer VPN client for Android, Windows, and macOS. It helps people import VPN subscriptions, connect and disconnect without extra setup, and reduce the risk of local VPN detection on the device.
-
-The project remains an open-source GPL-3.0 fork of [FlClashX](https://github.com/pluralplay/FlClashX), powered by [mihomo](https://github.com/MetaCubeX/mihomo) (Clash Meta), with lineage to the original [FlClash](https://github.com/chen08209/FlClash). Attribution and source access stay visible in the build and license sections below.
+Dropweb is a consumer VPN client for Android, Windows and macOS. It helps people connect to international services through connection profiles, keeps the everyday interface simple and reduces the risk of local VPN detection on the device.
 
 ## Download
 
 - [Android](https://github.com/enkinvsh/dropweb/releases) — APK, 6.0+
 - [Windows](https://github.com/enkinvsh/dropweb/releases) — Portable/Setup, 10+
 - [macOS](https://github.com/enkinvsh/dropweb/releases) — DMG, 11+ (Intel and Apple Silicon)
+
+## Support the project
+
+- [Tribute](https://web.tribute.tg/d/Huc)
 
 ## Features
 
@@ -46,9 +48,9 @@ The project remains an open-source GPL-3.0 fork of [FlClashX](https://github.com
 
 ---
 
-## Why Fork and Detection Protection
+## Detection Protection
 
-FlClashX is an excellent client, but most popular apps (Happ, v2rayNG, Hiddify, Neko Box) are vulnerable to local scanning. Any app on the device can find the standard SOCKS port (7890) without root — this is actively used for VPN user detection.
+Most popular apps (Happ, v2rayNG, Hiddify, Neko Box) are vulnerable to local scanning. Any app on the device can find the standard SOCKS port (7890) without root — this is actively used for VPN user detection.
 
 **How dropweb solves this:**
 
@@ -75,7 +77,7 @@ dart run setup.dart windows
 dart run setup.dart macos
 ```
 
-Requires Flutter SDK 3.24+. Mihomo binaries are downloaded automatically.
+Requires Flutter SDK 3.24+. VPN core binaries are downloaded automatically.
 
 ---
 
@@ -92,8 +94,6 @@ Requires Flutter SDK 3.24+. Mihomo binaries are downloaded automatically.
 GPL-3.0 — see [LICENSE](LICENSE).
 
 **Community:** [Telegram discussion forum](https://t.me/+gnnahAxAtisxZmVi)
-
-**Links:** [FlClashX — parent fork](https://github.com/pluralplay/FlClashX) · [FlClash — original](https://github.com/chen08209/FlClash)
 
 ---
 

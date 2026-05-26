@@ -2,7 +2,7 @@
   <a href="README_EN.md">English</a>
 </div>
 
-<img src="assets/images/header.png" alt="dropweb — VPN-клиент для Android Windows macOS на базе mihomo Clash Meta с защитой от детекции" width="720" />
+<img src="assets/images/header.png" alt="dropweb, VPN-клиент для Android Windows macOS с защитой от детекции" width="720" />
 
 # dropweb
 
@@ -27,15 +27,17 @@
 
 ---
 
-Dropweb — потребительский VPN-клиент для Android, Windows и macOS. Он помогает импортировать VPN-подписки, подключаться и отключаться без лишних настроек, а также снижает риск локальной детекции VPN на устройстве.
-
-Проект остаётся открытым GPL-3.0 форком [FlClashX](https://github.com/pluralplay/FlClashX), использует ядро [mihomo](https://github.com/MetaCubeX/mihomo) (Clash Meta) и сохраняет связь с оригинальным [FlClash](https://github.com/chen08209/FlClash). Атрибуция и исходный код доступны в разделах сборки и лицензии ниже.
+Dropweb: потребительский VPN-клиент для Android, Windows и macOS. Он помогает подключаться к зарубежным сервисам через профили подключения, держит повседневный интерфейс простым и снижает риск локальной детекции VPN на устройстве.
 
 ## Загрузка
 
 - [Android](https://github.com/enkinvsh/dropweb/releases) — APK, 6.0+
 - [Windows](https://github.com/enkinvsh/dropweb/releases) — Portable/Setup, 10+
 - [macOS](https://github.com/enkinvsh/dropweb/releases) — DMG, 11+ (Intel и Apple Silicon)
+
+## Поддержать проект
+
+- [Tribute](https://web.tribute.tg/d/Huc)
 
 ### Source availability gate for direct APK releases
 
@@ -50,9 +52,9 @@ Direct APK download links must not be published until exact-version source links
 
 ---
 
-## Почему форк и защита от детекции
+## Защита от детекции
 
-FlClashX — отличный клиент, но большинство популярных приложений (Happ, v2rayNG, Hiddify, Neko Box) уязвимы к локальному сканированию. Любое приложение на устройстве может найти стандартный SOCKS-порт (7890) без root-прав — это активно используется для [выявления VPN-пользователей](https://habr.com/ru/news/1020902/).
+Большинство популярных приложений (Happ, v2rayNG, Hiddify, Neko Box) уязвимы к локальному сканированию. Любое приложение на устройстве может найти стандартный SOCKS-порт (7890) без root-прав — это активно используется для [выявления VPN-пользователей](https://habr.com/ru/news/1020902/).
 
 **Как dropweb решает проблему:**
 
@@ -79,7 +81,7 @@ dart run setup.dart windows
 dart run setup.dart macos
 ```
 
-Требуется Flutter SDK 3.24+. Бинарники mihomo скачиваются автоматически.
+Требуется Flutter SDK 3.24+. Бинарные файлы ядра скачиваются автоматически.
 
 ---
 
@@ -96,8 +98,6 @@ dart run setup.dart macos
 GPL-3.0 — см. [LICENSE](LICENSE).
 
 **Сообщество:** [Telegram-форум для обсуждений](https://t.me/+gnnahAxAtisxZmVi)
-
-**Ссылки:** [FlClashX — родительский форк](https://github.com/pluralplay/FlClashX) · [FlClash — оригинал](https://github.com/chen08209/FlClash)
 
 ---
 
