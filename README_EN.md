@@ -16,35 +16,25 @@
 <br>
 
 <a href="https://github.com/enkinvsh/dropweb/releases">
-  <img src="https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Download for Android">
+  <img src="https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android">
 </a>
 <a href="https://github.com/enkinvsh/dropweb/releases">
-  <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows">
+  <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows">
 </a>
 <a href="https://github.com/enkinvsh/dropweb/releases">
-  <img src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download for macOS">
+  <img src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS">
 </a>
 
 ---
 
-Dropweb is a consumer VPN client for Android, Windows and macOS. It helps people connect to international services through connection profiles, keeps the everyday interface simple and reduces the risk of local VPN detection on the device.
-
-## Download
-
-- [Android](https://github.com/enkinvsh/dropweb/releases) — APK, 6.0+
-- [Windows](https://github.com/enkinvsh/dropweb/releases) — Portable/Setup, 10+
-- [macOS](https://github.com/enkinvsh/dropweb/releases) — DMG, 11+ (Intel and Apple Silicon)
-
-## Support the project
-
-- [Tribute](https://web.tribute.tg/d/Huc)
+dropweb is a consumer VPN client for Android, Windows and macOS. It helps people connect to international services through connection profiles, keeps the everyday interface simple and reduces the risk of local VPN detection on the device.
 
 ## Features
 
-- **Protocols:** VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, WireGuard (Xray-core compatible)
-- **Subscriptions:** Import via URL/QR, auto-update in background
-- **Routing:** Split tunneling — local traffic direct, blocked through proxy (GeoIP/Geosite)
-- **UI:** Stripped down to essentials, only necessary controls
+- **VPN profiles and subscriptions:** import by URL and QR code
+- **TUN routing:** split tunneling for direct and proxied traffic
+- **Detection protection:** randomized local ports, SOCKS authentication, no system proxy
+- **Everyday UI:** minimal interface without extra settings
 
 ---
 
@@ -58,34 +48,9 @@ Most popular apps (Happ, v2rayNG, Hiddify, Neko Box) are vulnerable to local sca
 - **SOCKS authentication** — enforced, scanners can't verify traffic type
 - **TUN only** — removed system proxy (readable from OS settings), all routing via virtual interface
 
----
+## Support the project
 
-## Build from Source
-
-```bash
-git clone https://github.com/enkinvsh/dropweb.git
-cd dropweb
-flutter pub get
-
-# Android
-dart run setup.dart android --arch arm64
-
-# Windows  
-dart run setup.dart windows
-
-# macOS
-dart run setup.dart macos
-```
-
-Requires Flutter SDK 3.24+. VPN core binaries are downloaded automatically.
-
----
-
-## Known Issues
-
-- **Android:** Aggressive battery optimization (MIUI, ColorOS) may kill VPN in background. Disable battery optimization for dropweb
-- **macOS:** First launch requires admin rights for TUN interface
-- **Old devices:** Android with <3GB RAM may crash with heavy GeoIP databases
+- [Tribute](https://web.tribute.tg/d/Huc)
 
 ---
 

@@ -27,28 +27,14 @@
 
 ---
 
-Dropweb: потребительский VPN-клиент для Android, Windows и macOS. Он помогает подключаться к зарубежным сервисам через профили подключения, держит повседневный интерфейс простым и снижает риск локальной детекции VPN на устройстве.
-
-## Загрузка
-
-- [Android](https://github.com/enkinvsh/dropweb/releases) — APK, 6.0+
-- [Windows](https://github.com/enkinvsh/dropweb/releases) — Portable/Setup, 10+
-- [macOS](https://github.com/enkinvsh/dropweb/releases) — DMG, 11+ (Intel и Apple Silicon)
-
-## Поддержать проект
-
-- [Tribute](https://web.tribute.tg/d/Huc)
-
-### Source availability gate for direct APK releases
-
-Direct APK download links must not be published until exact-version source links are live for the shipped APK. Release metadata should include `sourceUrl`, `sourceArchiveUrl`, `license`, and, when the APK depends on the served cabinet flow, `cabinetSourceUrl`.
+dropweb — потребительский VPN-клиент для Android, Windows и macOS. Он помогает подключаться к зарубежным сервисам через профили подключения, держит повседневный интерфейс простым и снижает риск локальной детекции VPN на устройстве.
 
 ## Фичи
 
-- **Протоколы:** VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC, WireGuard (Xray-core совместимые)
-- **Подписки:** Импорт по URL/QR, автообновление в фоне
-- **Маршрутизация:** Split tunneling — локальный трафик напрямую, заблокированный через прокси (GeoIP/Geosite)
-- **UI:** Максимально урезан, только необходимые переключатели
+- **VPN-профили и подписки:** импорт по URL и QR-коду
+- **TUN-маршрутизация:** split tunneling для прямого и проксируемого трафика
+- **Защита от детекции:** рандомные локальные порты, SOCKS-аутентификация, без системного прокси
+- **Повседневный UI:** минимальный интерфейс без лишних настроек
 
 ---
 
@@ -62,34 +48,9 @@ Direct APK download links must not be published until exact-version source links
 - **SOCKS-аутентификация** — принудительно включена, сканеры не могут проверить тип трафика
 - **Только TUN** — выпилен системный прокси (который читается из настроек ОС), весь роутинг через виртуальный интерфейс
 
----
+## Поддержать проект
 
-## Сборка из исходников
-
-```bash
-git clone https://github.com/enkinvsh/dropweb.git
-cd dropweb
-flutter pub get
-
-# Android
-dart run setup.dart android --arch arm64
-
-# Windows  
-dart run setup.dart windows
-
-# macOS
-dart run setup.dart macos
-```
-
-Требуется Flutter SDK 3.24+. Бинарные файлы ядра скачиваются автоматически.
-
----
-
-## Known Issues
-
-- **Android:** Агрессивное энергосбережение (MIUI, ColorOS) может убивать VPN в фоне. Отключите оптимизацию батареи для dropweb
-- **macOS:** При первом запуске нужны права администратора для TUN-интерфейса
-- **Старые устройства:** На Android с <3 ГБ ОЗУ возможны вылеты при тяжёлых GeoIP-базах
+- [Tribute](https://web.tribute.tg/d/Huc)
 
 ---
 
