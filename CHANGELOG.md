@@ -1,3 +1,11 @@
+## Unreleased
+
+- Rebased the bundled mihomo core onto current MetaCubeX Alpha (previously a frozen January snapshot ~378 commits behind), re-applying the FlClash integration layer and the Dropweb rebrand.
+- Added an opt-in, SNI-targeted TLS ClientHello fragmentation mode (`tls-fragment` in the general config) for DPI evasion, with a Settings toggle. Default off.
+- Ported a sing-box subscription converter so sing-box-format subscriptions import as proxy-providers.
+- Ported the Smart (LightGBM) proxy-group type from vernesong into the core (not yet wired into generated subscriptions).
+- Fixed the Dart codegen toolchain (analyzer_plugin/custom_lint deadlock) and bumped the Android NDK to satisfy the jni plugin.
+
 ## v0.7.0
 
 - Cleaned up the codebase for Google Play readiness and removed the legacy ParazitX module along with the unused native cabinet.

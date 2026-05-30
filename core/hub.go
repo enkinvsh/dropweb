@@ -24,7 +24,6 @@ import (
 	"github.com/metacubex/mihomo/hub/executor"
 	"github.com/metacubex/mihomo/listener"
 	"github.com/metacubex/mihomo/log"
-	"github.com/metacubex/mihomo/tunnel"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 )
 
@@ -117,7 +116,7 @@ func extractProxyDescriptionsFromRaw(rawConfig *config.RawConfig) {
 func handleGetProxies() interface{} {
 	runLock.Lock()
 	defer runLock.Unlock()
-	proxies := tunnel.ProxiesWithProviders()
+	proxies := proxiesWithProviders()
 	
 	// Convert to map for JSON manipulation
 	result := make(map[string]interface{})
@@ -160,7 +159,7 @@ func handleChangeProxy(data string, fn func(string string)) {
 		}
 		groupName := *params.GroupName
 		proxyName := *params.ProxyName
-		proxies := tunnel.ProxiesWithProviders()
+		proxies := proxiesWithProviders()
 		group, ok := proxies[groupName]
 		if !ok {
 			fn("Not found group")
@@ -237,7 +236,7 @@ func handleAsyncTestDelay(paramsString string, fn func(string)) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(params.Timeout))
 		defer cancel()
 
-		proxies := tunnel.ProxiesWithProviders()
+		proxies := proxiesWithProviders()
 		proxy := proxies[params.ProxyName]
 
 		delayData := &Delay{

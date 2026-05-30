@@ -90,3 +90,6 @@ signing.properties
 opencode.json
 # Sisyphus orchestration scratch
 .sisyphus/
+
+# Serena tooling metadata
+.serena/
