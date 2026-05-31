@@ -93,6 +93,26 @@ dropweb-disconeko: https://example.com/emergency-pool
 
 ---
 
+## 5. dropweb-cabinet — действие личного кабинета
+
+```
+dropweb-cabinet: <HTTPS URL>
+```
+
+URL указывает на личный кабинет пользователя. Когда заголовок присутствует, приложение показывает действие «личный кабинет» и открывает указанный URL в браузере или custom tab.
+
+**Требования:**
+
+- значение должно быть полным HTTPS URL (например `https://cab.example.com`);
+- если заголовка нет, приложение не показывает действие личного кабинета.
+
+### Пример
+```
+dropweb-cabinet: https://cab.example.com
+```
+
+---
+
 ## Сводка
 
 | Заголовок | Назначение | Пример значения |
@@ -100,3 +120,4 @@ dropweb-disconeko: https://example.com/emergency-pool
 | `dropweb-custom` | Гейт: когда применять `dropweb-*` | `update` |
 | `dropweb-theme` | Тема одной строкой | `fidelity,#15803D,#009938,#009938,2` |
 | `dropweb-disconeko` | Аварийный пул серверов (SOS) | `https://example.com/emergency-pool` |
+| `dropweb-cabinet` | Действие личного кабинета (открывает URL) | `https://cab.example.com` |
