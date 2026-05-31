@@ -116,6 +116,63 @@ Color applyColorFilter(Color base, DynamicSchemeVariant variant) {
   }
 }
 
+/// Image-space equivalent of [applyColorFilter]: returns a [ColorFilter] that
+/// applies the active scheme variant's transform to an entire image (e.g. a
+/// provider logo), so logos follow the same filter as the accent/orbs.
+/// Returns null for `fidelity` (image rendered in its original colors).
+ColorFilter? imageColorFilter(DynamicSchemeVariant variant) {
+  switch (variant) {
+    case DynamicSchemeVariant.vibrant:
+      return _saturationColorFilter(1.4);
+    case DynamicSchemeVariant.monochrome:
+      return _saturationColorFilter(0.0);
+    case DynamicSchemeVariant.neutral:
+      return _saturationColorFilter(0.3);
+    case DynamicSchemeVariant.expressive:
+      return _hueRotateColorFilter(30.0);
+    case DynamicSchemeVariant.fidelity:
+    default:
+      return null;
+  }
+}
+
+/// Saturation color matrix (s=0 grayscale, s=1 identity, s>1 boosts).
+ColorFilter _saturationColorFilter(double s) {
+  const lr = 0.2126, lg = 0.7152, lb = 0.0722;
+  final ir = (1 - s) * lr;
+  final ig = (1 - s) * lg;
+  final ib = (1 - s) * lb;
+  return ColorFilter.matrix(<double>[
+    ir + s, ig, ib, 0, 0, //
+    ir, ig + s, ib, 0, 0, //
+    ir, ig, ib + s, 0, 0, //
+    0, 0, 0, 1, 0, //
+  ]);
+}
+
+/// Luminance-preserving hue-rotation color matrix (degrees).
+ColorFilter _hueRotateColorFilter(double degrees) {
+  final rad = degrees * pi / 180.0;
+  final c = cos(rad);
+  final s = sin(rad);
+  const lr = 0.213, lg = 0.715, lb = 0.072;
+  return ColorFilter.matrix(<double>[
+    lr + c * (1 - lr) + s * (-lr),
+    lg + c * (-lg) + s * (-lg),
+    lb + c * (-lb) + s * (1 - lb),
+    0, 0, //
+    lr + c * (-lr) + s * 0.143,
+    lg + c * (1 - lg) + s * 0.140,
+    lb + c * (-lb) + s * (-0.283),
+    0, 0, //
+    lr + c * (-lr) + s * (-(1 - lr)),
+    lg + c * (-lg) + s * lg,
+    lb + c * (1 - lb) + s * lb,
+    0, 0, //
+    0, 0, 0, 1, 0, //
+  ]);
+}
+
 extension ColorSchemeExtension on ColorScheme {
   ColorScheme toPureBlack(bool isPureBlack) {
     if (!isPureBlack) return this;

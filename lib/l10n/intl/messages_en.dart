@@ -764,6 +764,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscriptionExpiresToday": MessageLookupByLibrary.simpleMessage(
       "Your subscription expires today",
     ),
+    "subscriptionLogo": MessageLookupByLibrary.simpleMessage(
+      "Logo from subscription",
+    ),
     "subscriptionTheme": MessageLookupByLibrary.simpleMessage(
       "Theme from subscription",
     ),

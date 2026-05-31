@@ -1954,6 +1954,16 @@ class AppLocalizations {
     );
   }
 
+  /// `Logo from subscription`
+  String get subscriptionLogo {
+    return Intl.message(
+      'Logo from subscription',
+      name: 'subscriptionLogo',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Pure black mode`
   String get pureBlackMode {
     return Intl.message(

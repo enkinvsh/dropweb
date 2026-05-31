@@ -254,6 +254,7 @@
   "onlyStatisticsProxy": "Учитывать только прокси-трафик",
   "onlyStatisticsProxyDesc": "Учитывать в статистике только трафик через прокси",
   "subscriptionTheme": "Тема из подписки",
+  "subscriptionLogo": "Лого из подписки",
   "pureBlackMode": "Чисто черный режим",
   "keepAliveIntervalDesc": "Интервал поддержания TCP-соединения",
   "entries": " записей",

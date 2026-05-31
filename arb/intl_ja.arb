@@ -249,6 +249,7 @@
   "onlyStatisticsProxy": "プロキシのみ統計",
   "onlyStatisticsProxyDesc": "有効化するとプロキシトラフィックのみ統計",
   "subscriptionTheme": "サブスクのテーマ",
+  "subscriptionLogo": "サブスクのロゴ",
   "pureBlackMode": "純黒モード",
   "keepAliveIntervalDesc": "TCPキープアライブ間隔",
   "entries": " エントリ",

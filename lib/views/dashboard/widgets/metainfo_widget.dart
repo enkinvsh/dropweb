@@ -1,15 +1,16 @@
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
-import 'package:dropweb/views/dashboard/widgets/card_menu.dart';
 import 'package:dropweb/views/subscription.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
@@ -50,6 +51,55 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
       default:
         return appLocalizations.days;
     }
+  }
+
+  /// Circular provider logo from `dropweb-logo`, color-filtered to follow the
+  /// active scheme variant (mono -> grayscale, vibrant -> saturated, etc.);
+  /// fidelity leaves it in its original colors.
+  Widget _buildLogo(
+    BuildContext context,
+    String logoUrl,
+    DynamicSchemeVariant variant,
+    bool lit,
+  ) {
+    final isSvg = logoUrl.toLowerCase().endsWith('.svg');
+    final image = isSvg
+        ? SvgPicture.network(
+            logoUrl,
+            width: 36,
+            height: 36,
+            fit: BoxFit.cover,
+            placeholderBuilder: (_) => const SizedBox(width: 36, height: 36),
+          )
+        : CachedNetworkImage(
+            imageUrl: logoUrl,
+            width: 36,
+            height: 36,
+            fit: BoxFit.cover,
+            placeholder: (_, __) => const SizedBox(width: 36, height: 36),
+            errorWidget: (_, __, ___) => const SizedBox(width: 36, height: 36),
+          );
+    Widget content = image;
+    final filter = imageColorFilter(variant);
+    if (filter != null) {
+      content = ColorFiltered(colorFilter: filter, child: content);
+    }
+    // Thin accent ring that lights up in sync with the connect button: full
+    // accent when running, dimmed (matching the button's inactive icon) when
+    // not. Animates over the same 180ms / easeOutCubic as the button.
+    final colorScheme = Theme.of(context).colorScheme;
+    final ringColor = lit
+        ? colorScheme.primary
+        : Color.lerp(const Color(0xFF15151D), colorScheme.primary, 0.28)!;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: ringColor, width: 0.5),
+      ),
+      child: ClipOval(child: content),
+    );
   }
 
   String _getHoursDeclension(int hours) {
@@ -167,6 +217,12 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
     final profileTitle = _decodeBase64IfNeeded(headers['profile-title']);
     final serviceName = _decodeBase64IfNeeded(headers['dropweb-servicename']);
     final announceText = _decodeAnnounce(headers['announce']);
+    final logoUrl = _decodeBase64IfNeeded(headers['dropweb-logo']);
+    final logoVariant =
+        ref.watch(themeSettingProvider.select((s) => s.schemeVariant));
+    final logoLit = ref.watch(runTimeProvider.select((s) => s != null));
+    final showSubscriptionLogo =
+        ref.watch(appSettingProvider.select((s) => s.applySubscriptionLogo));
 
     final hasAnnounce = announceText != null && announceText.isNotEmpty;
 
@@ -235,16 +291,14 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                IconButton(
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                  icon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedMenu01,
-                    size: 30,
-                    color: theme.colorScheme.primary,
-                  ),
-                  onPressed: () => showCardMenu(context, ref),
-                ),
+                // Provider logo from the `dropweb-logo` header, rendered as a
+                // circle and tinted by the active scheme-variant filter so it
+                // follows the theme. Absent header -> nothing (the menu stays
+                // reachable via the bottom swipe-up handle).
+                if (showSubscriptionLogo &&
+                    logoUrl != null &&
+                    logoUrl.isNotEmpty)
+                  _buildLogo(context, logoUrl, logoVariant, logoLit),
               ],
             ),
             const SizedBox(height: 12),

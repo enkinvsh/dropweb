@@ -254,6 +254,7 @@
   "onlyStatisticsProxy": "Count only proxy traffic",
   "onlyStatisticsProxyDesc": "When turned on, only proxy traffic will be counted in statistics",
   "subscriptionTheme": "Theme from subscription",
+  "subscriptionLogo": "Logo from subscription",
   "pureBlackMode": "Pure black mode",
   "keepAliveIntervalDesc": "Tcp keep alive interval",
   "entries": " entries",

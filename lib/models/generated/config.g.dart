@@ -30,6 +30,7 @@ _$AppSettingPropsImpl _$$AppSettingPropsImplFromJson(
       overrideProviderSettings:
           json['overrideProviderSettings'] as bool? ?? false,
       applySubscriptionTheme: json['applySubscriptionTheme'] as bool? ?? true,
+      applySubscriptionLogo: json['applySubscriptionLogo'] as bool? ?? true,
       overrideNetworkSettings:
           json['overrideNetworkSettings'] as bool? ?? false,
       recoveryStrategy: $enumDecodeNullable(
@@ -60,6 +61,7 @@ Map<String, dynamic> _$$AppSettingPropsImplToJson(
       'developerMode': instance.developerMode,
       'overrideProviderSettings': instance.overrideProviderSettings,
       'applySubscriptionTheme': instance.applySubscriptionTheme,
+      'applySubscriptionLogo': instance.applySubscriptionLogo,
       'overrideNetworkSettings': instance.overrideNetworkSettings,
       'recoveryStrategy': _$RecoveryStrategyEnumMap[instance.recoveryStrategy]!,
     };

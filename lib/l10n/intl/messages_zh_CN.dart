@@ -502,6 +502,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscriptionExpiresToday": MessageLookupByLibrary.simpleMessage(
       "您的订阅今天到期",
     ),
+    "subscriptionLogo": MessageLookupByLibrary.simpleMessage("订阅徽标"),
     "subscriptionTheme": MessageLookupByLibrary.simpleMessage("订阅主题"),
     "support": MessageLookupByLibrary.simpleMessage("支持"),
     "supportProject": MessageLookupByLibrary.simpleMessage("支持项目"),

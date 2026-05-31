@@ -37,6 +37,7 @@ class ThemeView extends StatelessWidget {
             _ThemePresetItem(),
             _PrimaryColorItem(),
             _OrbColorItem(),
+            _SubscriptionLogoItem(),
             _SubscriptionThemeItem(),
             _PrueBlackItem(),
             _TextScaleFactorItem(),
@@ -770,6 +771,39 @@ class _OrbSlot extends StatelessWidget {
           ),
         ],
       );
+}
+
+class _SubscriptionLogoItem extends ConsumerWidget {
+  const _SubscriptionLogoItem();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final applySubscriptionLogo = ref.watch(
+      appSettingProvider.select(
+        (state) => state.applySubscriptionLogo,
+      ),
+    );
+    return ListItem.switchItem(
+      leading: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 24),
+      horizontalTitleGap: 12,
+      title: Text(
+        appLocalizations.subscriptionLogo,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: context.colorScheme.onSurfaceVariant,
+            ),
+      ),
+      delegate: SwitchDelegate(
+        value: applySubscriptionLogo,
+        onChanged: (value) {
+          ref.read(appSettingProvider.notifier).updateState(
+                (state) => state.copyWith(
+                  applySubscriptionLogo: value,
+                ),
+              );
+        },
+      ),
+    );
+  }
 }
 
 class _SubscriptionThemeItem extends ConsumerWidget {

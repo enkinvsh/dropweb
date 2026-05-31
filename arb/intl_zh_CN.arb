@@ -249,6 +249,7 @@
   "onlyStatisticsProxy": "仅统计代理",
   "onlyStatisticsProxyDesc": "开启后，将只统计代理流量",
   "subscriptionTheme": "订阅主题",
+  "subscriptionLogo": "订阅徽标",
   "pureBlackMode": "纯黑模式",
   "keepAliveIntervalDesc": "TCP保持活动间隔",
   "entries": "个条目",

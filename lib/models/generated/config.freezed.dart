@@ -40,6 +40,7 @@ mixin _$AppSettingProps {
   bool get developerMode => throw _privateConstructorUsedError;
   bool get overrideProviderSettings => throw _privateConstructorUsedError;
   bool get applySubscriptionTheme => throw _privateConstructorUsedError;
+  bool get applySubscriptionLogo => throw _privateConstructorUsedError;
   bool get overrideNetworkSettings => throw _privateConstructorUsedError;
   RecoveryStrategy get recoveryStrategy => throw _privateConstructorUsedError;
 
@@ -79,6 +80,7 @@ abstract class $AppSettingPropsCopyWith<$Res> {
       bool developerMode,
       bool overrideProviderSettings,
       bool applySubscriptionTheme,
+      bool applySubscriptionLogo,
       bool overrideNetworkSettings,
       RecoveryStrategy recoveryStrategy});
 }
@@ -116,6 +118,7 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
     Object? developerMode = null,
     Object? overrideProviderSettings = null,
     Object? applySubscriptionTheme = null,
+    Object? applySubscriptionLogo = null,
     Object? overrideNetworkSettings = null,
     Object? recoveryStrategy = null,
   }) {
@@ -192,6 +195,10 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
           ? _value.applySubscriptionTheme
           : applySubscriptionTheme // ignore: cast_nullable_to_non_nullable
               as bool,
+      applySubscriptionLogo: null == applySubscriptionLogo
+          ? _value.applySubscriptionLogo
+          : applySubscriptionLogo // ignore: cast_nullable_to_non_nullable
+              as bool,
       overrideNetworkSettings: null == overrideNetworkSettings
           ? _value.overrideNetworkSettings
           : overrideNetworkSettings // ignore: cast_nullable_to_non_nullable
@@ -232,6 +239,7 @@ abstract class _$$AppSettingPropsImplCopyWith<$Res>
       bool developerMode,
       bool overrideProviderSettings,
       bool applySubscriptionTheme,
+      bool applySubscriptionLogo,
       bool overrideNetworkSettings,
       RecoveryStrategy recoveryStrategy});
 }
@@ -267,6 +275,7 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
     Object? developerMode = null,
     Object? overrideProviderSettings = null,
     Object? applySubscriptionTheme = null,
+    Object? applySubscriptionLogo = null,
     Object? overrideNetworkSettings = null,
     Object? recoveryStrategy = null,
   }) {
@@ -343,6 +352,10 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
           ? _value.applySubscriptionTheme
           : applySubscriptionTheme // ignore: cast_nullable_to_non_nullable
               as bool,
+      applySubscriptionLogo: null == applySubscriptionLogo
+          ? _value.applySubscriptionLogo
+          : applySubscriptionLogo // ignore: cast_nullable_to_non_nullable
+              as bool,
       overrideNetworkSettings: null == overrideNetworkSettings
           ? _value.overrideNetworkSettings
           : overrideNetworkSettings // ignore: cast_nullable_to_non_nullable
@@ -378,6 +391,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
       this.developerMode = false,
       this.overrideProviderSettings = false,
       this.applySubscriptionTheme = true,
+      this.applySubscriptionLogo = true,
       this.overrideNetworkSettings = false,
       this.recoveryStrategy = RecoveryStrategy.compatible})
       : _dashboardWidgets = dashboardWidgets;
@@ -447,6 +461,9 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
   final bool applySubscriptionTheme;
   @override
   @JsonKey()
+  final bool applySubscriptionLogo;
+  @override
+  @JsonKey()
   final bool overrideNetworkSettings;
   @override
   @JsonKey()
@@ -454,7 +471,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
 
   @override
   String toString() {
-    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, overrideNetworkSettings: $overrideNetworkSettings, recoveryStrategy: $recoveryStrategy)';
+    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, applySubscriptionLogo: $applySubscriptionLogo, overrideNetworkSettings: $overrideNetworkSettings, recoveryStrategy: $recoveryStrategy)';
   }
 
   @override
@@ -495,6 +512,8 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
                 other.overrideProviderSettings == overrideProviderSettings) &&
             (identical(other.applySubscriptionTheme, applySubscriptionTheme) ||
                 other.applySubscriptionTheme == applySubscriptionTheme) &&
+            (identical(other.applySubscriptionLogo, applySubscriptionLogo) ||
+                other.applySubscriptionLogo == applySubscriptionLogo) &&
             (identical(
                     other.overrideNetworkSettings, overrideNetworkSettings) ||
                 other.overrideNetworkSettings == overrideNetworkSettings) &&
@@ -524,6 +543,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
         developerMode,
         overrideProviderSettings,
         applySubscriptionTheme,
+        applySubscriptionLogo,
         overrideNetworkSettings,
         recoveryStrategy
       ]);
@@ -566,6 +586,7 @@ abstract class _AppSettingProps implements AppSettingProps {
       final bool developerMode,
       final bool overrideProviderSettings,
       final bool applySubscriptionTheme,
+      final bool applySubscriptionLogo,
       final bool overrideNetworkSettings,
       final RecoveryStrategy recoveryStrategy}) = _$AppSettingPropsImpl;
 
@@ -609,6 +630,8 @@ abstract class _AppSettingProps implements AppSettingProps {
   bool get overrideProviderSettings;
   @override
   bool get applySubscriptionTheme;
+  @override
+  bool get applySubscriptionLogo;
   @override
   bool get overrideNetworkSettings;
   @override

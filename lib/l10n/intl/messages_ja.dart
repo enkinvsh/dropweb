@@ -574,6 +574,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscriptionExpiresToday": MessageLookupByLibrary.simpleMessage(
       "サブスクリプションは本日期限切れになります",
     ),
+    "subscriptionLogo": MessageLookupByLibrary.simpleMessage("サブスクのロゴ"),
     "subscriptionTheme": MessageLookupByLibrary.simpleMessage("サブスクのテーマ"),
     "support": MessageLookupByLibrary.simpleMessage("サポート"),
     "supportProject": MessageLookupByLibrary.simpleMessage("プロジェクトを支援"),
