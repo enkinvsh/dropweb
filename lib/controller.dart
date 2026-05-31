@@ -431,92 +431,12 @@ class AppController {
             "Apply subscription theme disabled - ignoring operator theme");
         return;
       }
-      final hexHeader = headers['dropweb-hex'];
-      if (hexHeader != null && hexHeader.isNotEmpty) {
-        _applyThemeColorFromHex(hexHeader);
-      }
       final themeHeader = headers['dropweb-theme'];
       if (themeHeader != null && themeHeader.isNotEmpty) {
         _applyDropwebTheme(themeHeader);
       }
     } catch (e) {
       commonPrint.log("Failed to apply theme color: $e");
-    }
-  }
-
-  void _applyThemeColorFromHex(String hexHeader) {
-    try {
-      // Format: <accent>[:variant][:pureblack][,<orb1>[,<orb2>]]
-      final segments = hexHeader.split(',');
-      final parts = segments[0].split(':');
-      final hexString = parts[0].trim().replaceAll('#', '');
-      final variantName = parts.length > 1 ? parts[1].trim() : null;
-
-      // Check for pureblack flag in any position after color
-      bool enablePureBlack = false;
-      for (int i = 1; i < parts.length; i++) {
-        final part = parts[i].trim().toLowerCase();
-        if (part == 'pureblack') {
-          enablePureBlack = true;
-          break;
-        }
-      }
-
-      final colorValue = _parseHexColorValue(hexString);
-      if (colorValue == null) {
-        commonPrint.log('Invalid hex color length: $hexString');
-        return;
-      }
-
-      // Optional orb colors (CSV positions 1 and 2). null => follow accent.
-      final orbPrimary = segments.length > 1
-          ? _parseHexColorValue(segments[1].trim().replaceAll('#', ''))
-          : null;
-      final orbSecondary = segments.length > 2
-          ? _parseHexColorValue(segments[2].trim().replaceAll('#', ''))
-          : null;
-
-      commonPrint
-          .log('Applying theme from dropweb-hex: #${hexString.toUpperCase()}'
-              '${variantName != null ? ', variant=$variantName' : ''}'
-              '${enablePureBlack ? ', pureBlack=true' : ''}'
-              '${orbPrimary != null ? ', orb1=#${orbPrimary.toRadixString(16).toUpperCase()}' : ''}'
-              '${orbSecondary != null ? ', orb2=#${orbSecondary.toRadixString(16).toUpperCase()}' : ''}');
-
-      _ref.read(themeSettingProvider.notifier).updateState((state) {
-        final updatedColors = [...state.primaryColors];
-        if (!updatedColors.contains(colorValue)) {
-          updatedColors.add(colorValue);
-        }
-
-        DynamicSchemeVariant? newVariant;
-        if (variantName != null && variantName.toLowerCase() != 'pureblack') {
-          try {
-            newVariant = DynamicSchemeVariant.values.firstWhere(
-              (v) => v.name.toLowerCase() == variantName.toLowerCase(),
-            );
-            commonPrint.log('Using scheme variant: ${newVariant.name}');
-          } catch (e) {
-            commonPrint.log(
-                'Unknown variant: $variantName, using current: ${state.schemeVariant.name}');
-          }
-        }
-
-        return state.copyWith(
-          primaryColor: colorValue,
-          primaryColors: updatedColors,
-          orbColorPrimary: orbPrimary,
-          orbColorSecondary: orbSecondary,
-          schemeVariant: newVariant ?? state.schemeVariant,
-          pureBlack: enablePureBlack,
-        );
-      });
-
-      savePreferencesDebounce();
-
-      commonPrint.log('Theme applied successfully');
-    } catch (e) {
-      commonPrint.log('Failed to parse hex color from header: $hexHeader - $e');
     }
   }
 
