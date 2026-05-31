@@ -123,6 +123,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "clipboardExport": MessageLookupByLibrary.simpleMessage("导出剪贴板"),
     "clipboardImport": MessageLookupByLibrary.simpleMessage("剪贴板导入"),
+    "close": MessageLookupByLibrary.simpleMessage("关闭"),
     "color": MessageLookupByLibrary.simpleMessage("颜色"),
     "colorSchemes": MessageLookupByLibrary.simpleMessage("配色方案"),
     "columns": MessageLookupByLibrary.simpleMessage("列数"),
@@ -284,6 +285,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "这些参数由您的提供商管理",
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("内存信息"),
+    "menu": MessageLookupByLibrary.simpleMessage("菜单"),
     "messageTest": MessageLookupByLibrary.simpleMessage("消息测试"),
     "messageTestTip": MessageLookupByLibrary.simpleMessage("这是一条消息。"),
     "min": MessageLookupByLibrary.simpleMessage("最小"),
@@ -357,6 +359,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "password": MessageLookupByLibrary.simpleMessage("密码"),
     "paste": MessageLookupByLibrary.simpleMessage("粘贴"),
     "pasteSubscriptionUrl": MessageLookupByLibrary.simpleMessage("粘贴订阅 URL"),
+    "personalCabinet": MessageLookupByLibrary.simpleMessage("个人中心"),
     "pleaseBindWebDAV": MessageLookupByLibrary.simpleMessage("请绑定WebDAV"),
     "pleaseEnterScriptName": MessageLookupByLibrary.simpleMessage("请输入脚本名称"),
     "pleaseInputAdminPassword": MessageLookupByLibrary.simpleMessage(

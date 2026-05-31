@@ -184,6 +184,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "clipboardExport": MessageLookupByLibrary.simpleMessage("Export clipboard"),
     "clipboardImport": MessageLookupByLibrary.simpleMessage("Clipboard import"),
+    "close": MessageLookupByLibrary.simpleMessage("Close"),
     "color": MessageLookupByLibrary.simpleMessage("Color"),
     "colorSchemes": MessageLookupByLibrary.simpleMessage("Color schemes"),
     "columns": MessageLookupByLibrary.simpleMessage("Columns"),
@@ -429,6 +430,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "These parameters are managed by your provider",
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("Memory info"),
+    "menu": MessageLookupByLibrary.simpleMessage("Menu"),
     "messageTest": MessageLookupByLibrary.simpleMessage("Message test"),
     "messageTestTip": MessageLookupByLibrary.simpleMessage(
       "This is a message.",
@@ -541,6 +543,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pasteSubscriptionUrl": MessageLookupByLibrary.simpleMessage(
       "Paste subscription URL",
     ),
+    "personalCabinet": MessageLookupByLibrary.simpleMessage("Personal cabinet"),
     "pleaseBindWebDAV": MessageLookupByLibrary.simpleMessage(
       "Please bind WebDAV",
     ),

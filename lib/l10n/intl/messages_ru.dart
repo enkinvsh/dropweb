@@ -191,6 +191,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "clipboardImport": MessageLookupByLibrary.simpleMessage(
       "Импорт из буфера обмена",
     ),
+    "close": MessageLookupByLibrary.simpleMessage("Закрыть"),
     "color": MessageLookupByLibrary.simpleMessage("Цвет"),
     "colorSchemes": MessageLookupByLibrary.simpleMessage("Цветовые схемы"),
     "columns": MessageLookupByLibrary.simpleMessage("Столбцы"),
@@ -448,6 +449,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Этими параметрами управляет ваш провайдер",
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("Информация о памяти"),
+    "menu": MessageLookupByLibrary.simpleMessage("Меню"),
     "messageTest": MessageLookupByLibrary.simpleMessage(
       "Тестирование сообщения",
     ),
@@ -570,6 +572,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pasteSubscriptionUrl": MessageLookupByLibrary.simpleMessage(
       "Вставить ссылку подписки",
     ),
+    "personalCabinet": MessageLookupByLibrary.simpleMessage("Личный кабинет"),
     "pleaseBindWebDAV": MessageLookupByLibrary.simpleMessage(
       "Пожалуйста, привяжите WebDAV",
     ),

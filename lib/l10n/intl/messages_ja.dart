@@ -133,6 +133,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "clipboardExport": MessageLookupByLibrary.simpleMessage("クリップボードにエクスポート"),
     "clipboardImport": MessageLookupByLibrary.simpleMessage("クリップボードからインポート"),
+    "close": MessageLookupByLibrary.simpleMessage("閉じる"),
     "color": MessageLookupByLibrary.simpleMessage("カラー"),
     "colorSchemes": MessageLookupByLibrary.simpleMessage("カラースキーム"),
     "columns": MessageLookupByLibrary.simpleMessage("列"),
@@ -316,6 +317,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "これらのパラメータはプロバイダーによって管理されています",
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("メモリ情報"),
+    "menu": MessageLookupByLibrary.simpleMessage("メニュー"),
     "messageTest": MessageLookupByLibrary.simpleMessage("メッセージテスト"),
     "messageTestTip": MessageLookupByLibrary.simpleMessage("これはメッセージです。"),
     "min": MessageLookupByLibrary.simpleMessage("最小化"),
@@ -407,6 +409,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pasteSubscriptionUrl": MessageLookupByLibrary.simpleMessage(
       "サブスクリプションURLを貼り付け",
     ),
+    "personalCabinet": MessageLookupByLibrary.simpleMessage("マイページ"),
     "pleaseBindWebDAV": MessageLookupByLibrary.simpleMessage(
       "WebDAVをバインドしてください",
     ),

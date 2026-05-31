@@ -3719,6 +3719,26 @@ class AppLocalizations {
     return Intl.message('Support', name: 'support', desc: '', args: []);
   }
 
+  /// `Personal cabinet`
+  String get personalCabinet {
+    return Intl.message(
+      'Personal cabinet',
+      name: 'personalCabinet',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Menu`
+  String get menu {
+    return Intl.message('Menu', name: 'menu', desc: '', args: []);
+  }
+
+  /// `Close`
+  String get close {
+    return Intl.message('Close', name: 'close', desc: '', args: []);
+  }
+
   /// `Thanks for contribution`
   String get thanks {
     return Intl.message(

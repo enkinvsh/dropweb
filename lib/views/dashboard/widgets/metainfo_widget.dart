@@ -1,13 +1,11 @@
 import 'dart:convert';
 
 import 'package:dropweb/common/common.dart';
-import 'package:dropweb/common/dev_unlock_counter.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
-import 'package:dropweb/views/cabinet/cabinet_browser_entry.dart';
+import 'package:dropweb/views/dashboard/widgets/card_menu.dart';
 import 'package:dropweb/views/subscription.dart';
-import 'package:dropweb/views/tools.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -24,11 +22,6 @@ class MetainfoWidget extends ConsumerStatefulWidget {
 
 class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
   final List<TapGestureRecognizer> _recognizers = [];
-  // Developer-mode unlock counter for 5 rapid taps on the Settings screen
-  // title. Lives on the widget state so taps survive opening/closing the
-  // Settings sheet during a single dashboard session; the 3-second window
-  // inside `DevUnlockCounter` self-resets stale streaks.
-  final DevUnlockCounter _devUnlockCounter = DevUnlockCounter();
 
   @override
   void dispose() {
@@ -169,10 +162,8 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
 
     final isUnlimitedTraffic = subscriptionInfo.total == 0;
     final isPerpetual = subscriptionInfo.expire == 0;
-    final cabinetUri = profileCabinetUri(currentProfile);
 
     final headers = currentProfile.providerHeaders;
-    final supportUrl = headers['support-url'];
     final profileTitle = _decodeBase64IfNeeded(headers['profile-title']);
     final serviceName = _decodeBase64IfNeeded(headers['dropweb-servicename']);
     final announceText = _decodeAnnounce(headers['announce']);
@@ -244,50 +235,15 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (cabinetUri != null)
-                  IconButton(
-                    icon: HugeIcon(
-                      icon: HugeIcons.strokeRoundedUserCircle,
-                      size: 34,
-                      color: theme.colorScheme.primary,
-                    ),
-                    onPressed: () => openCabinetBrowser(cabinetUri),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  icon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedMenu01,
+                    size: 30,
+                    color: theme.colorScheme.primary,
                   ),
-                // Right-side action cluster: support icon on top (if any),
-                // settings icon directly beneath it. The cluster always
-                // contains Settings so mobile users can reach Settings here
-                // since the Tools page is no longer swipeable on mobile.
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (supportUrl != null && supportUrl.isNotEmpty)
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
-                        icon: HugeIcon(
-                          icon: supportUrl.toLowerCase().contains('t.me')
-                              ? HugeIcons.strokeRoundedTelegram
-                              : HugeIcons.strokeRoundedCustomerSupport,
-                          size: 30,
-                          color: theme.colorScheme.primary,
-                        ),
-                        onPressed: () {
-                          globalState.openUrl(supportUrl);
-                        },
-                      ),
-                    IconButton(
-                      padding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
-                      tooltip: appLocalizations.tools,
-                      icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedSettings02,
-                        size: 30,
-                        color: theme.colorScheme.primary,
-                      ),
-                      onPressed: () => _openToolsSheet(context),
-                    ),
-                  ],
+                  onPressed: () => showCardMenu(context, ref),
                 ),
               ],
             ),
@@ -372,34 +328,6 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
         ),
       ),
     );
-  }
-
-  void _openToolsSheet(BuildContext context) {
-    showExtend(
-      context,
-      builder: (_, type) => AdaptiveSheetScaffold(
-        type: type,
-        disableBackground: false,
-        body: const ToolsView(),
-        title: appLocalizations.tools,
-        onTitleTap: _onSettingsTitleTap,
-      ),
-    );
-  }
-
-  // 5 rapid taps on the Settings screen title unlock developer / advanced
-  // mode (Access Control, Config, Application settings entries). Replaces
-  // the legacy bottom-nav unlock that used to live in `lib/pages/home.dart`
-  // when Settings was still a tab — mobile now reaches Settings only via
-  // this sheet, so the title is the natural tap target.
-  void _onSettingsTitleTap() {
-    if (!_devUnlockCounter.registerTap()) return;
-    final alreadyEnabled = ref.read(appSettingProvider).developerMode;
-    if (alreadyEnabled) return;
-    ref.read(appSettingProvider.notifier).updateState(
-          (state) => state.copyWith(developerMode: true),
-        );
-    globalState.showNotifier(appLocalizations.developerModeEnableTip);
   }
 
   Widget _buildExpirationNotice(

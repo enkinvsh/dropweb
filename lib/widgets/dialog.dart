@@ -28,7 +28,7 @@ class CommonDialog extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     
     return AlertDialog(
-      title: Text(title),
+      title: title.isEmpty ? null : Text(title),
       actions: actions,
       contentPadding: padding,
       backgroundColor: backgroundColor ?? colorScheme.surface.withValues(alpha: 0.92),
