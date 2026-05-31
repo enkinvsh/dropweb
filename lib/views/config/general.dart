@@ -504,6 +504,31 @@ class TcpConcurrentItem extends ConsumerWidget {
   }
 }
 
+class TlsFragmentItem extends ConsumerWidget {
+  const TlsFragmentItem({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tlsFragment = ref
+        .watch(patchClashConfigProvider.select((state) => state.tlsFragment));
+    return ListItem.switchItem(
+      leading: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 24),
+      title: const Text("TLS Fragment"),
+      subtitle: const Text("Дробить TLS ClientHello для обхода DPI"),
+      delegate: SwitchDelegate(
+        value: tlsFragment,
+        onChanged: (value) async {
+          ref.read(patchClashConfigProvider.notifier).updateState(
+                (state) => state.copyWith(
+                  tlsFragment: value,
+                ),
+              );
+        },
+      ),
+    );
+  }
+}
+
 class GeodataLoaderItem extends ConsumerWidget {
   const GeodataLoaderItem({super.key});
 
@@ -572,6 +597,7 @@ final generalItems = <Widget>[
   const UnifiedDelayItem(),
   const FindProcessItem(),
   const TcpConcurrentItem(),
+  const TlsFragmentItem(),
   const GeodataLoaderItem(),
   const ExternalControllerItem(),
 ]

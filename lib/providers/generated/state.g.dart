@@ -40,7 +40,7 @@ final currentGroupsStateProvider = AutoDisposeProvider<GroupsState>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef CurrentGroupsStateRef = AutoDisposeProviderRef<GroupsState>;
-String _$navigationsStateHash() => r'802ae70cc8b7d7f5620b340911da89d74960bfbd';
+String _$navigationsStateHash() => r'b128070385ae63453176ee616a7444a2194ce44c';
 
 /// See also [navigationsState].
 @ProviderFor(navigationsState)
@@ -59,7 +59,7 @@ final navigationsStateProvider =
 // ignore: unused_element
 typedef NavigationsStateRef = AutoDisposeProviderRef<NavigationItemsState>;
 String _$currentNavigationsStateHash() =>
-    r'0eecc0ffef6e000ae45e069d1ad79f4da4a8f082';
+    r'97166064d88c73d660354113c1780bc4407f8191';
 
 /// See also [currentNavigationsState].
 @ProviderFor(currentNavigationsState)
@@ -78,7 +78,7 @@ final currentNavigationsStateProvider =
 // ignore: unused_element
 typedef CurrentNavigationsStateRef
     = AutoDisposeProviderRef<NavigationItemsState>;
-String _$coreStateHash() => r'33f01ee9173525862c89522bf73b3174beb63daa';
+String _$coreStateHash() => r'4061c92db58a9b6f14f4741cc99773f8e75a3bca';
 
 /// See also [coreState].
 @ProviderFor(coreState)
@@ -126,7 +126,7 @@ final proxyStateProvider = AutoDisposeProvider<ProxyState>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ProxyStateRef = AutoDisposeProviderRef<ProxyState>;
-String _$trayStateHash() => r'2d9dd23e9b51508d2bb8f1eb91c89c5f0da1aae2';
+String _$trayStateHash() => r'e40a0935a6b8698654a7b4445cdacc8dc5c068ff';
 
 /// See also [trayState].
 @ProviderFor(trayState)
@@ -158,7 +158,7 @@ final vpnStateProvider = AutoDisposeProvider<VpnState>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef VpnStateRef = AutoDisposeProviderRef<VpnState>;
-String _$homeStateHash() => r'2829f5d6a8548f8a97253a5437bf5c498b17c9ba';
+String _$homeStateHash() => r'eae2dc20882f2651d79fedd86d4d1a912126a866';
 
 /// See also [homeState].
 @ProviderFor(homeState)
@@ -651,7 +651,7 @@ class _IsCurrentPageProviderElement extends AutoDisposeProviderElement<bool>
       (origin as IsCurrentPageProvider).handler;
 }
 
-String _$getRealTestUrlHash() => r'5c6513cabb53e5e6689cba5919f49aeaeff90247';
+String _$getRealTestUrlHash() => r'4120669a194d5726d42e6185f57a4b2caf7cb84e';
 
 /// See also [getRealTestUrl].
 @ProviderFor(getRealTestUrl)
@@ -1106,7 +1106,7 @@ final currentProfileProvider = AutoDisposeProvider<Profile?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef CurrentProfileRef = AutoDisposeProviderRef<Profile?>;
-String _$globalModeEnabledHash() => r'c498d6822cb0d8e250d5725137a106f9840ce6da';
+String _$globalModeEnabledHash() => r'fce25d72fc8dd162f02d32239df539357bb7a18a';
 
 /// See also [globalModeEnabled].
 @ProviderFor(globalModeEnabled)
@@ -1141,7 +1141,7 @@ final hasAnnounceDataProvider = AutoDisposeProvider<bool>.internal(
 // ignore: unused_element
 typedef HasAnnounceDataRef = AutoDisposeProviderRef<bool>;
 String _$hasServiceInfoDataHash() =>
-    r'055787255c43f3a469414256f73d41492a2752d3';
+    r'2aba0650172525cc80d20dfaf2d8d62e3aad44ea';
 
 /// See also [hasServiceInfoData].
 @ProviderFor(hasServiceInfoData)
@@ -1158,7 +1158,7 @@ final hasServiceInfoDataProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef HasServiceInfoDataRef = AutoDisposeProviderRef<bool>;
-String _$hasServerInfoDataHash() => r'9692b3a04a067504f58d8f6403ce9622fa02b003';
+String _$hasServerInfoDataHash() => r'a861ddd1bd5be145fe3986862c7920d3c950dea9';
 
 /// See also [hasServerInfoData].
 @ProviderFor(hasServerInfoData)
@@ -1175,7 +1175,7 @@ final hasServerInfoDataProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef HasServerInfoDataRef = AutoDisposeProviderRef<bool>;
-String _$backgroundUrlHash() => r'13f97b984026adac4ccddacb35f9f9c06b420afc';
+String _$backgroundUrlHash() => r'74a1cf9afae561a6c454b4ba9ebb8ea4c135e64e';
 
 /// See also [backgroundUrl].
 @ProviderFor(backgroundUrl)
@@ -1898,7 +1898,7 @@ final checkIpProvider = AutoDisposeProvider<VM2<int, bool>>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef CheckIpRef = AutoDisposeProviderRef<VM2<int, bool>>;
-String _$genColorSchemeHash() => r'b18f15c938a8132ee4ed02cdfc02f3b9f01724e2';
+String _$genColorSchemeHash() => r'8a7b43eda84b7958651af8739814c265549f3e22';
 
 /// See also [genColorScheme].
 @ProviderFor(genColorScheme)

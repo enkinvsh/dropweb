@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
@@ -164,14 +165,41 @@ class _StartButtonState extends ConsumerState<StartButton>
                   curve: motionCurve,
                   builder: (_, color, __) => AnimatedBuilder(
                     animation: _pressController,
-                    builder: (_, __) => HugeIcon(
-                      icon: !hasProfile
+                    builder: (_, __) {
+                      final iconData = !hasProfile
                           ? HugeIcons.strokeRoundedAddCircleHalfDot
-                          : HugeIcons.strokeRoundedPower,
-                      size: widget.iconSize,
-                      strokeWidth: _pressController.value > 0 ? 3.0 : 2.0,
-                      color: color ?? iconColor,
-                    ),
+                          : HugeIcons.strokeRoundedPower;
+                      final strokeWidth =
+                          _pressController.value > 0 ? 3.0 : 2.0;
+                      return Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Outline/glow: the same glyph, dark + blurred,
+                          // painted UNDER the main icon. Mirrors the tuner's
+                          // drawGlyphPaths(..., rgba(#000,0.72), blur 5.5) pass
+                          // since HugeIcon (SVG) doesn't accept shadows.
+                          ImageFiltered(
+                            imageFilter: ui.ImageFilter.blur(
+                              sigmaX: 5.5,
+                              sigmaY: 5.5,
+                            ),
+                            child: HugeIcon(
+                              icon: iconData,
+                              size: widget.iconSize,
+                              strokeWidth: strokeWidth,
+                              color: const Color(0xFF000000)
+                                  .withValues(alpha: 0.72),
+                            ),
+                          ),
+                          HugeIcon(
+                            icon: iconData,
+                            size: widget.iconSize,
+                            strokeWidth: strokeWidth,
+                            color: color ?? iconColor,
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),

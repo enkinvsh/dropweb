@@ -231,6 +231,7 @@ class _ProfilesContentState extends ConsumerState<_ProfilesContent>
                     groupValue: state.currentProfileId,
                     onChanged: (id) {
                       ref.read(currentProfileIdProvider.notifier).value = id;
+                      globalState.appController.applyActiveProfileHeaders();
                     },
                   ),
                 ),
@@ -866,6 +867,7 @@ class SharedProfilesBody extends ConsumerWidget {
                     groupValue: state.currentProfileId,
                     onChanged: (id) {
                       ref.read(currentProfileIdProvider.notifier).value = id;
+                      globalState.appController.applyActiveProfileHeaders();
                     },
                   ),
                 ),

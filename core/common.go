@@ -131,8 +131,23 @@ func stopListeners() {
 	listener.StopListener()
 }
 
+// proxiesWithProviders merges tunnel proxies with provider proxies.
+// Replaces tunnel.ProxiesWithProviders() removed from the mihomo core.
+func proxiesWithProviders() map[string]constant.Proxy {
+	allProxies := make(map[string]constant.Proxy)
+	for name, proxy := range tunnel.Proxies() {
+		allProxies[name] = proxy
+	}
+	for _, p := range tunnel.Providers() {
+		for _, proxy := range p.Proxies() {
+			allProxies[proxy.Name()] = proxy
+		}
+	}
+	return allProxies
+}
+
 func patchSelectGroup(mapping map[string]string) {
-	for name, proxy := range tunnel.ProxiesWithProviders() {
+	for name, proxy := range proxiesWithProviders() {
 		outbound, ok := proxy.(*adapter.Proxy)
 		if !ok {
 			continue

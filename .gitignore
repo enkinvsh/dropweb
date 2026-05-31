@@ -63,11 +63,14 @@ app.*.map.json
 # 40+ MB of regenerated artefacts on every core update.
 /android/core/src/main/jniLibs/
 
-# app/src/main/jniLibs holds the embedded ParazitX relay binary
-# (libparazitx-relay.so), built out of tree from the parazitx repo
-# (see docs/parazitx/relay-build.md) and copied in. The directory is
-# tracked so release APKs ship the binary even on a clean CI checkout
-# — the relay build is not yet wired into setup.dart / CI.
+# app/src/main/jniLibs holds an embedded native relay binary, built out
+# of tree and copied in. The directory is tracked so release APKs ship
+# the binary even on a clean CI checkout.
+
+# Internal planning / release / infra docs — not shipped publicly
+/docs/plans/
+/docs/parazitx/
+/docs/release/
 
 # Signing keys (sensitive data)
 /android/app/keystore.jks
@@ -90,3 +93,6 @@ signing.properties
 opencode.json
 # Sisyphus orchestration scratch
 .sisyphus/
+
+# Serena tooling metadata
+.serena/

@@ -350,6 +350,7 @@ _$ClashConfigImpl _$$ClashConfigImplFromJson(Map<String, dynamic> json) =>
           defaultKeepAliveInterval,
       unifiedDelay: json['unified-delay'] as bool? ?? true,
       tcpConcurrent: json['tcp-concurrent'] as bool? ?? true,
+      tlsFragment: json['tls-fragment'] as bool? ?? false,
       tun: json['tun'] == null
           ? defaultTun
           : Tun.safeFormJson(json['tun'] as Map<String, Object?>?),
@@ -394,6 +395,7 @@ Map<String, dynamic> _$$ClashConfigImplToJson(_$ClashConfigImpl instance) =>
       'keep-alive-interval': instance.keepAliveInterval,
       'unified-delay': instance.unifiedDelay,
       'tcp-concurrent': instance.tcpConcurrent,
+      'tls-fragment': instance.tlsFragment,
       'tun': instance.tun,
       'dns': instance.dns,
       'geox-url': instance.geoXUrl,

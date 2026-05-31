@@ -391,6 +391,15 @@ class AppController {
     _applyCustomViewSettings(profile);
   }
 
+  void applyActiveProfileHeaders() {
+    final id = _ref.read(currentProfileIdProvider);
+    if (id == null) return;
+    final profiles = _ref.read(profilesProvider);
+    final profile = profiles.where((p) => p.id == id).firstOrNull;
+    if (profile == null || profile.providerHeaders.isEmpty) return;
+    _applyAllHeaderSettings(profile, isNewProfile: false);
+  }
+
   void _applyProviderSettings(Map<String, String> headers) {
     try {
       final currentSettings = _ref.read(appSettingProvider);
@@ -416,82 +425,84 @@ class AppController {
 
   void _applyThemeColor(Map<String, String> headers) {
     try {
-      final hexHeader = headers['dropweb-hex'];
-      if (hexHeader != null && hexHeader.isNotEmpty) {
-        _applyThemeColorFromHex(hexHeader);
+      final applyTheme = _ref.read(appSettingProvider).applySubscriptionTheme;
+      if (!applyTheme) {
+        commonPrint.log(
+            "Apply subscription theme disabled - ignoring operator theme");
+        return;
+      }
+      final themeHeader = headers['dropweb-theme'];
+      if (themeHeader != null && themeHeader.isNotEmpty) {
+        _applyDropwebTheme(themeHeader);
       }
     } catch (e) {
       commonPrint.log("Failed to apply theme color: $e");
     }
   }
 
-  void _applyThemeColorFromHex(String hexHeader) {
+  /// Parses `<filter>,<accentHex>,<orb1Hex>,<orb2Hex>,<blur>` (all optional).
+  void _applyDropwebTheme(String header) {
     try {
-      final parts = hexHeader.split(':');
-      final hexString = parts[0].trim().replaceAll('#', '');
-      final variantName = parts.length > 1 ? parts[1].trim() : null;
+      final parts = header.split(',').map((s) => s.trim()).toList();
 
-      // Check for pureblack flag in any position after color
-      bool enablePureBlack = false;
-      for (int i = 1; i < parts.length; i++) {
-        final part = parts[i].trim().toLowerCase();
-        if (part == 'pureblack') {
-          enablePureBlack = true;
-          break;
-        }
-      }
-
-      if (hexString.length != 6 && hexString.length != 8) {
-        commonPrint.log('Invalid hex color length: $hexString');
-        return;
-      }
-
-      final colorValue = int.parse(
-        hexString.length == 6 ? 'FF$hexString' : hexString,
-        radix: 16,
-      );
-
-      commonPrint
-          .log('Applying theme from dropweb-hex: #${hexString.toUpperCase()}'
-              '${variantName != null ? ', variant=$variantName' : ''}'
-              '${enablePureBlack ? ', pureBlack=true' : ''}');
-
-      _ref.read(themeSettingProvider.notifier).updateState((state) {
-        final updatedColors = [...state.primaryColors];
-        if (!updatedColors.contains(colorValue)) {
-          updatedColors.add(colorValue);
-        }
-
-        DynamicSchemeVariant? newVariant;
-        if (variantName != null && variantName.toLowerCase() != 'pureblack') {
-          try {
-            newVariant = DynamicSchemeVariant.values.firstWhere(
-              (v) => v.name.toLowerCase() == variantName.toLowerCase(),
-            );
-            commonPrint.log('Using scheme variant: ${newVariant.name}');
-          } catch (e) {
-            commonPrint.log(
-                'Unknown variant: $variantName, using current: ${state.schemeVariant.name}');
+      DynamicSchemeVariant? variant;
+      if (parts.isNotEmpty && parts[0].isNotEmpty) {
+        final name = parts[0].toLowerCase();
+        for (final v in DynamicSchemeVariant.values) {
+          if (v.name.toLowerCase() == name) {
+            variant = v;
+            break;
           }
         }
+      }
 
-        commonPrint.log(
-            'Theme updated: primaryColor=#${colorValue.toRadixString(16).toUpperCase()}'
-            '${enablePureBlack ? ', pureBlack=true' : ''}');
+      final accent = parts.length > 1 && parts[1].isNotEmpty
+          ? _parseHexColorValue(parts[1].replaceAll('#', ''))
+          : null;
+      final orb1 = parts.length > 2 && parts[2].isNotEmpty
+          ? _parseHexColorValue(parts[2].replaceAll('#', ''))
+          : null;
+      final orb2 = parts.length > 3 && parts[3].isNotEmpty
+          ? _parseHexColorValue(parts[3].replaceAll('#', ''))
+          : null;
+      final blur = parts.length > 4 && parts[4].isNotEmpty
+          ? double.tryParse(parts[4])?.clamp(1.0, 5.0)
+          : null;
 
+      commonPrint.log('Applying dropweb-theme: filter=${variant?.name}, '
+          'accent=$accent, orb1=$orb1, orb2=$orb2, blur=$blur');
+
+      _ref.read(themeSettingProvider.notifier).updateState((state) {
+        final colors = [...state.primaryColors];
+        if (accent != null && !colors.contains(accent)) colors.add(accent);
         return state.copyWith(
-          primaryColor: colorValue,
-          primaryColors: updatedColors,
-          schemeVariant: newVariant ?? state.schemeVariant,
-          pureBlack: enablePureBlack,
+          primaryColor: accent ?? state.primaryColor,
+          primaryColors: colors,
+          orbColorPrimary: orb1 ?? state.orbColorPrimary,
+          orbColorSecondary: orb2 ?? state.orbColorSecondary,
+          schemeVariant: variant ?? state.schemeVariant,
+          orbBlur: blur ?? state.orbBlur,
         );
       });
 
       savePreferencesDebounce();
-
-      commonPrint.log('Theme applied successfully');
     } catch (e) {
-      commonPrint.log('Failed to parse hex color from header: $hexHeader - $e');
+      commonPrint.log('Failed to parse dropweb-theme: $header - $e');
+    }
+  }
+
+  /// 6/8-digit hex (no '#') to ARGB int, or null if invalid.
+  int? _parseHexColorValue(String hexString) {
+    if (hexString.length != 6 && hexString.length != 8) {
+      return null;
+    }
+    try {
+      return int.parse(
+        hexString.length == 6 ? 'FF$hexString' : hexString,
+        radix: 16,
+      );
+    } catch (e) {
+      return null;
     }
   }
 

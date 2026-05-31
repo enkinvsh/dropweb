@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:dropweb/clash/core.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/share_link_profile.dart';
+import 'package:dropweb/common/smart_pool_patch.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/utils/device_info_service.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
@@ -273,6 +274,48 @@ extension ProfileExtension on Profile {
     final converted = convertShareLinkSubscriptionToMihomo(decoded);
     if (converted != null) {
       bytesToSave = Uint8List.fromList(utf8.encode(converted));
+    }
+
+    // SOS / disconeko emergency fallback. When the provider advertises a
+    // `dropweb-disconeko` URL it points to a SEPARATE pool of emergency
+    // servers (raw share links or a Mihomo YAML). Merge that pool into the
+    // delivered config and surface it through the `📶 First Available`
+    // (`type: fallback`) proxy-group — a manual, opt-in selection the user must
+    // pick deliberately; it never becomes the default route. The fallback group
+    // is created if the delivered config lacks one. This is strictly best-
+    // effort: the emergency pool is optional and must NEVER break the primary
+    // update.
+    final disconekoUrl = providerHeaders['dropweb-disconeko'];
+    if (disconekoUrl != null && disconekoUrl.isNotEmpty) {
+      try {
+        final sosResponse = await request.getFileResponseForUrl(disconekoUrl);
+        final sosData = sosResponse.data;
+        if (sosData != null) {
+          final sosContent = utf8.decode(sosData, allowMalformed: true);
+          final sosProxies = parseSubscriptionToProxies(sosContent);
+          if (sosProxies.isNotEmpty) {
+            final patched = patchSmartPool(
+              utf8.decode(bytesToSave),
+              sosProxies,
+            );
+            // Best-effort: if the embedded core rejects the patched config
+            // (e.g. an unsupported field on this older fork), keep the
+            // un-patched profile rather than breaking the whole subscription.
+            final patchError = await clashCore.validateConfig(patched);
+            if (patchError.isEmpty) {
+              bytesToSave = Uint8List.fromList(utf8.encode(patched));
+            } else {
+              commonPrint.log(
+                'dropweb-disconeko patch rejected by core: $patchError',
+              );
+            }
+          }
+        }
+      } catch (e) {
+        // Best-effort: the SOS pool is optional. Skip it on any failure (fetch,
+        // decode, parse) and keep the primary profile update intact.
+        commonPrint.log('dropweb-disconeko SOS merge skipped: $e');
+      }
     }
 
     return copyWith(

@@ -641,12 +641,7 @@ class AppLocalizations {
 
   /// `Scan QR code`
   String get scanQrCode {
-    return Intl.message(
-      'Scan QR code',
-      name: 'scanQrCode',
-      desc: '',
-      args: [],
-    );
+    return Intl.message('Scan QR code', name: 'scanQrCode', desc: '', args: []);
   }
 
   /// `Paste subscription URL`
@@ -857,6 +852,86 @@ class AppLocalizations {
   /// `Theme color`
   String get themeColor {
     return Intl.message('Theme color', name: 'themeColor', desc: '', args: []);
+  }
+
+  /// `Theme presets`
+  String get themePresets {
+    return Intl.message(
+      'Theme presets',
+      name: 'themePresets',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Drop`
+  String get presetEmerald {
+    return Intl.message('Drop', name: 'presetEmerald', desc: '', args: []);
+  }
+
+  /// `Frost`
+  String get presetFrost {
+    return Intl.message('Frost', name: 'presetFrost', desc: '', args: []);
+  }
+
+  /// `Amethyst`
+  String get presetAmethyst {
+    return Intl.message('Amethyst', name: 'presetAmethyst', desc: '', args: []);
+  }
+
+  /// `Crimson`
+  String get presetCrimson {
+    return Intl.message('Crimson', name: 'presetCrimson', desc: '', args: []);
+  }
+
+  /// `Magma`
+  String get presetMagma {
+    return Intl.message('Magma', name: 'presetMagma', desc: '', args: []);
+  }
+
+  /// `Amber`
+  String get presetAmber {
+    return Intl.message('Amber', name: 'presetAmber', desc: '', args: []);
+  }
+
+  /// `Stealth`
+  String get presetStealth {
+    return Intl.message('Stealth', name: 'presetStealth', desc: '', args: []);
+  }
+
+  /// `Background orbs`
+  String get backgroundOrbs {
+    return Intl.message(
+      'Background orbs',
+      name: 'backgroundOrbs',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Top orbs`
+  String get orbOne {
+    return Intl.message('Top orbs', name: 'orbOne', desc: '', args: []);
+  }
+
+  /// `Bottom orb`
+  String get orbTwo {
+    return Intl.message('Bottom orb', name: 'orbTwo', desc: '', args: []);
+  }
+
+  /// `Blur`
+  String get orbBlur {
+    return Intl.message('Blur', name: 'orbBlur', desc: '', args: []);
+  }
+
+  /// `Auto (follows accent)`
+  String get autoFollowAccent {
+    return Intl.message(
+      'Auto (follows accent)',
+      name: 'autoFollowAccent',
+      desc: '',
+      args: [],
+    );
   }
 
   /// `Preview`
@@ -1074,10 +1149,10 @@ class AppLocalizations {
     return Intl.message('ProxyPort', name: 'proxyPort', desc: '', args: []);
   }
 
-  /// `Set the Clash listening port`
+  /// `Set the local proxy listening port`
   String get proxyPortDesc {
     return Intl.message(
-      'Set the Clash listening port',
+      'Set the local proxy listening port',
       name: 'proxyPortDesc',
       desc: '',
       args: [],
@@ -1129,16 +1204,6 @@ class AppLocalizations {
     return Intl.message(
       'Support the project',
       name: 'supportProject',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Privacy Policy`
-  String get privacyPolicy {
-    return Intl.message(
-      'Privacy Policy',
-      name: 'privacyPolicy',
       desc: '',
       args: [],
     );
@@ -1204,10 +1269,10 @@ class AppLocalizations {
     );
   }
 
-  /// `Opening it will lose part of its application ability and gain the support of full amount of Clash.`
+  /// `Opening it will lose part of custom app functionality in exchange for full routing compatibility.`
   String get compatibleDesc {
     return Intl.message(
-      'Opening it will lose part of its application ability and gain the support of full amount of Clash.',
+      'Opening it will lose part of custom app functionality in exchange for full routing compatibility.',
       name: 'compatibleDesc',
       desc: '',
       args: [],
@@ -1484,10 +1549,10 @@ class AppLocalizations {
     );
   }
 
-  /// `Once enabled, the Clash kernel can be controlled on port 9090`
+  /// `Once enabled, the VPN core can be controlled on port 9090`
   String get externalControllerDesc {
     return Intl.message(
-      'Once enabled, the Clash kernel can be controlled on port 9090',
+      'Once enabled, the VPN core can be controlled on port 9090',
       name: 'externalControllerDesc',
       desc: '',
       args: [],
@@ -1874,6 +1939,26 @@ class AppLocalizations {
     return Intl.message(
       'When turned on, only proxy traffic will be counted in statistics',
       name: 'onlyStatisticsProxyDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Theme from subscription`
+  String get subscriptionTheme {
+    return Intl.message(
+      'Theme from subscription',
+      name: 'subscriptionTheme',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Logo from subscription`
+  String get subscriptionLogo {
+    return Intl.message(
+      'Logo from subscription',
+      name: 'subscriptionLogo',
       desc: '',
       args: [],
     );
@@ -3019,6 +3104,51 @@ class AppLocalizations {
     );
   }
 
+  /// `Calm`
+  String get schemeCalm {
+    return Intl.message('Calm', name: 'schemeCalm', desc: '', args: []);
+  }
+
+  /// `Bright`
+  String get schemeBright {
+    return Intl.message('Bright', name: 'schemeBright', desc: '', args: []);
+  }
+
+  /// `Rich`
+  String get schemeRich {
+    return Intl.message('Rich', name: 'schemeRich', desc: '', args: []);
+  }
+
+  /// `Mono`
+  String get schemeMono {
+    return Intl.message('Mono', name: 'schemeMono', desc: '', args: []);
+  }
+
+  /// `Neutral`
+  String get schemeNeutral {
+    return Intl.message('Neutral', name: 'schemeNeutral', desc: '', args: []);
+  }
+
+  /// `Expressive`
+  String get schemeExpressive {
+    return Intl.message(
+      'Expressive',
+      name: 'schemeExpressive',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Enter a HEX color`
+  String get hexColorInvalid {
+    return Intl.message(
+      'Enter a HEX color',
+      name: 'hexColorInvalid',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Palette`
   String get palette {
     return Intl.message('Palette', name: 'palette', desc: '', args: []);
@@ -3599,6 +3729,26 @@ class AppLocalizations {
     return Intl.message('Support', name: 'support', desc: '', args: []);
   }
 
+  /// `Personal cabinet`
+  String get personalCabinet {
+    return Intl.message(
+      'Personal cabinet',
+      name: 'personalCabinet',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Menu`
+  String get menu {
+    return Intl.message('Menu', name: 'menu', desc: '', args: []);
+  }
+
+  /// `Close`
+  String get close {
+    return Intl.message('Close', name: 'close', desc: '', args: []);
+  }
+
   /// `Thanks for contribution`
   String get thanks {
     return Intl.message(
@@ -3719,6 +3869,16 @@ class AppLocalizations {
     );
   }
 
+  /// `Privacy Policy`
+  String get privacyPolicy {
+    return Intl.message(
+      'Privacy Policy',
+      name: 'privacyPolicy',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Before you connect`
   String get vpnDisclosureTitle {
     return Intl.message(
@@ -3748,7 +3908,6 @@ class AppLocalizations {
       args: [],
     );
   }
-
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<AppLocalizations> {

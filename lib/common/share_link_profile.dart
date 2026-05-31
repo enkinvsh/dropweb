@@ -1,3 +1,5 @@
+import 'package:yaml/yaml.dart';
+
 /// Smart converter for URL subscriptions whose HTTP body is a raw, newline-
 /// separated list of share links (`vless://`, `trojan://`) instead of a full
 /// Mihomo/Clash YAML config.
@@ -15,6 +17,54 @@
 /// is no `🌀 Cascade`, no `📶 First Available`, no `rule-providers`, no DNS
 /// or TUN block — server-side panel skeleton is not reconstructed here.
 String? convertShareLinkSubscriptionToMihomo(String content) {
+  final proxies = _parseShareLinkProxies(content);
+  if (proxies.isEmpty) return null;
+  return _emitMihomoYaml(proxies);
+}
+
+/// Extracts proxy maps from a subscription body for downstream merging.
+///
+/// Two input shapes are supported, in priority order:
+/// 1. A raw, newline-separated list of `vless://` / `trojan://` share links
+///    (same parsing + name-dedup path used by
+///    [convertShareLinkSubscriptionToMihomo]).
+/// 2. A Mihomo/Clash YAML document with a top-level `proxies:` list.
+///
+/// Each returned map carries the full proxy fields including a `name` key.
+/// Returns `[]` when neither shape yields a usable proxy.
+List<Map<String, Object>> parseSubscriptionToProxies(String content) {
+  final shareLinkProxies = _parseShareLinkProxies(content);
+  if (shareLinkProxies.isNotEmpty) {
+    return [
+      for (final p in shareLinkProxies)
+        <String, Object>{'name': p.name, ...p.data},
+    ];
+  }
+
+  final Object? doc;
+  try {
+    doc = loadYaml(content);
+  } catch (_) {
+    return const [];
+  }
+  if (doc is! Map) return const [];
+  final rawProxies = doc['proxies'];
+  if (rawProxies is! List) return const [];
+
+  final result = <Map<String, Object>>[];
+  for (final entry in rawProxies) {
+    if (entry is! Map) continue;
+    final map = _yamlMapToObjectMap(entry);
+    if (map['name'] is! String) continue;
+    result.add(map);
+  }
+  return result;
+}
+
+/// Shared share-link parsing path: scans [content] for supported share-link
+/// lines, parses each, and applies name deduplication. Returns `[]` when no
+/// share-link line is present (caller decides the fallback behavior).
+List<_ProxyEntry> _parseShareLinkProxies(String content) {
   final candidates = <String>[];
   for (final raw in content.split('\n')) {
     final line = raw.trim();
@@ -24,7 +74,7 @@ String? convertShareLinkSubscriptionToMihomo(String content) {
       candidates.add(line);
     }
   }
-  if (candidates.isEmpty) return null;
+  if (candidates.isEmpty) return [];
 
   final proxies = <_ProxyEntry>[];
   final nameCounts = <String, int>{};
@@ -43,9 +93,32 @@ String? convertShareLinkSubscriptionToMihomo(String content) {
     proxies.add(entry);
   }
 
-  if (proxies.isEmpty) return null;
+  return proxies;
+}
 
-  return _emitMihomoYaml(proxies);
+/// Recursively converts a parsed YAML node into plain Dart `Object` values,
+/// so the result is a `Map<String, Object>` free of `YamlMap`/`YamlList`.
+Map<String, Object> _yamlMapToObjectMap(Map source) {
+  final result = <String, Object>{};
+  source.forEach((key, value) {
+    final converted = _yamlNodeToObject(value);
+    if (converted != null) {
+      result[key.toString()] = converted;
+    }
+  });
+  return result;
+}
+
+Object? _yamlNodeToObject(Object? node) {
+  if (node == null) return null;
+  if (node is Map) return _yamlMapToObjectMap(node);
+  if (node is List) {
+    return [
+      for (final item in node)
+        if (_yamlNodeToObject(item) case final v?) v,
+    ];
+  }
+  return node;
 }
 
 class _ProxyEntry {
@@ -169,6 +242,7 @@ String _normalizeNetwork(String? type) {
 String _emitMihomoYaml(List<_ProxyEntry> proxies) {
   const vpnGroup = '🌍 VPN';
   const fastestGroup = '⚡ Fastest';
+  const smartGroup = '🧠 Smart';
 
   final buf = StringBuffer()
     ..writeln('mixed-port: 7890')
@@ -184,6 +258,7 @@ String _emitMihomoYaml(List<_ProxyEntry> proxies) {
     ..writeln('  - name: ${_yamlScalar(vpnGroup)}')
     ..writeln('    type: select')
     ..writeln('    proxies:')
+    ..writeln('      - ${_yamlScalar(smartGroup)}')
     ..writeln('      - ${_yamlScalar(fastestGroup)}');
   for (final p in proxies) {
     buf.writeln('      - ${_yamlScalar(p.name)}');
@@ -195,6 +270,14 @@ String _emitMihomoYaml(List<_ProxyEntry> proxies) {
     ..writeln('    url: ${_yamlScalar('http://www.gstatic.com/generate_204')}')
     ..writeln('    interval: 300')
     ..writeln('    tolerance: 50')
+    ..writeln('    proxies:');
+  for (final p in proxies) {
+    buf.writeln('      - ${_yamlScalar(p.name)}');
+  }
+  buf
+    ..writeln('  - name: ${_yamlScalar(smartGroup)}')
+    ..writeln('    type: smart')
+    ..writeln('    uselightgbm: false')
     ..writeln('    proxies:');
   for (final p in proxies) {
     buf.writeln('      - ${_yamlScalar(p.name)}');

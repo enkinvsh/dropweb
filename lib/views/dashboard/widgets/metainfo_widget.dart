@@ -1,17 +1,16 @@
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dropweb/common/common.dart';
-import 'package:dropweb/common/dev_unlock_counter.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
-import 'package:dropweb/views/cabinet/cabinet_browser_entry.dart';
 import 'package:dropweb/views/subscription.dart';
-import 'package:dropweb/views/tools.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
@@ -24,11 +23,6 @@ class MetainfoWidget extends ConsumerStatefulWidget {
 
 class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
   final List<TapGestureRecognizer> _recognizers = [];
-  // Developer-mode unlock counter for 5 rapid taps on the Settings screen
-  // title. Lives on the widget state so taps survive opening/closing the
-  // Settings sheet during a single dashboard session; the 3-second window
-  // inside `DevUnlockCounter` self-resets stale streaks.
-  final DevUnlockCounter _devUnlockCounter = DevUnlockCounter();
 
   @override
   void dispose() {
@@ -57,6 +51,55 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
       default:
         return appLocalizations.days;
     }
+  }
+
+  /// Circular provider logo from `dropweb-logo`, color-filtered to follow the
+  /// active scheme variant (mono -> grayscale, vibrant -> saturated, etc.);
+  /// fidelity leaves it in its original colors.
+  Widget _buildLogo(
+    BuildContext context,
+    String logoUrl,
+    DynamicSchemeVariant variant,
+    bool lit,
+  ) {
+    final isSvg = logoUrl.toLowerCase().endsWith('.svg');
+    final image = isSvg
+        ? SvgPicture.network(
+            logoUrl,
+            width: 36,
+            height: 36,
+            fit: BoxFit.cover,
+            placeholderBuilder: (_) => const SizedBox(width: 36, height: 36),
+          )
+        : CachedNetworkImage(
+            imageUrl: logoUrl,
+            width: 36,
+            height: 36,
+            fit: BoxFit.cover,
+            placeholder: (_, __) => const SizedBox(width: 36, height: 36),
+            errorWidget: (_, __, ___) => const SizedBox(width: 36, height: 36),
+          );
+    Widget content = image;
+    final filter = imageColorFilter(variant);
+    if (filter != null) {
+      content = ColorFiltered(colorFilter: filter, child: content);
+    }
+    // Thin accent ring that lights up in sync with the connect button: full
+    // accent when running, dimmed (matching the button's inactive icon) when
+    // not. Animates over the same 180ms / easeOutCubic as the button.
+    final colorScheme = Theme.of(context).colorScheme;
+    final ringColor = lit
+        ? colorScheme.primary
+        : Color.lerp(const Color(0xFF15151D), colorScheme.primary, 0.28)!;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: ringColor, width: 0.5),
+      ),
+      child: ClipOval(child: content),
+    );
   }
 
   String _getHoursDeclension(int hours) {
@@ -169,13 +212,17 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
 
     final isUnlimitedTraffic = subscriptionInfo.total == 0;
     final isPerpetual = subscriptionInfo.expire == 0;
-    final cabinetUri = profileCabinetUri(currentProfile);
 
     final headers = currentProfile.providerHeaders;
-    final supportUrl = headers['support-url'];
     final profileTitle = _decodeBase64IfNeeded(headers['profile-title']);
     final serviceName = _decodeBase64IfNeeded(headers['dropweb-servicename']);
     final announceText = _decodeAnnounce(headers['announce']);
+    final logoUrl = _decodeBase64IfNeeded(headers['dropweb-logo']);
+    final logoVariant =
+        ref.watch(themeSettingProvider.select((s) => s.schemeVariant));
+    final logoLit = ref.watch(runTimeProvider.select((s) => s != null));
+    final showSubscriptionLogo =
+        ref.watch(appSettingProvider.select((s) => s.applySubscriptionLogo));
 
     final hasAnnounce = announceText != null && announceText.isNotEmpty;
 
@@ -244,51 +291,14 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (cabinetUri != null)
-                  IconButton(
-                    icon: HugeIcon(
-                      icon: HugeIcons.strokeRoundedUserCircle,
-                      size: 34,
-                      color: theme.colorScheme.primary,
-                    ),
-                    onPressed: () => openCabinetBrowser(cabinetUri),
-                  ),
-                // Right-side action cluster: support icon on top (if any),
-                // settings icon directly beneath it. The cluster always
-                // contains Settings so mobile users can reach Settings here
-                // since the Tools page is no longer swipeable on mobile.
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (supportUrl != null && supportUrl.isNotEmpty)
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
-                        icon: HugeIcon(
-                          icon: supportUrl.toLowerCase().contains('t.me')
-                              ? HugeIcons.strokeRoundedTelegram
-                              : HugeIcons.strokeRoundedCustomerSupport,
-                          size: 30,
-                          color: theme.colorScheme.primary,
-                        ),
-                        onPressed: () {
-                          globalState.openUrl(supportUrl);
-                        },
-                      ),
-                    IconButton(
-                      padding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
-                      tooltip: appLocalizations.tools,
-                      icon: HugeIcon(
-                        icon: HugeIcons.strokeRoundedSettings02,
-                        size: 30,
-                        color: theme.colorScheme.primary,
-                      ),
-                      onPressed: () => _openToolsSheet(context),
-                    ),
-                  ],
-                ),
+                // Provider logo from the `dropweb-logo` header, rendered as a
+                // circle and tinted by the active scheme-variant filter so it
+                // follows the theme. Absent header -> nothing (the menu stays
+                // reachable via the bottom swipe-up handle).
+                if (showSubscriptionLogo &&
+                    logoUrl != null &&
+                    logoUrl.isNotEmpty)
+                  _buildLogo(context, logoUrl, logoVariant, logoLit),
               ],
             ),
             const SizedBox(height: 12),
@@ -372,34 +382,6 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
         ),
       ),
     );
-  }
-
-  void _openToolsSheet(BuildContext context) {
-    showExtend(
-      context,
-      builder: (_, type) => AdaptiveSheetScaffold(
-        type: type,
-        disableBackground: false,
-        body: const ToolsView(),
-        title: appLocalizations.tools,
-        onTitleTap: _onSettingsTitleTap,
-      ),
-    );
-  }
-
-  // 5 rapid taps on the Settings screen title unlock developer / advanced
-  // mode (Access Control, Config, Application settings entries). Replaces
-  // the legacy bottom-nav unlock that used to live in `lib/pages/home.dart`
-  // when Settings was still a tab — mobile now reaches Settings only via
-  // this sheet, so the title is the natural tap target.
-  void _onSettingsTitleTap() {
-    if (!_devUnlockCounter.registerTap()) return;
-    final alreadyEnabled = ref.read(appSettingProvider).developerMode;
-    if (alreadyEnabled) return;
-    ref.read(appSettingProvider.notifier).updateState(
-          (state) => state.copyWith(developerMode: true),
-        );
-    globalState.showNotifier(appLocalizations.developerModeEnableTip);
   }
 
   Widget _buildExpirationNotice(

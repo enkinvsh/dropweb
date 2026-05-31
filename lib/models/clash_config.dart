@@ -485,6 +485,7 @@ class ClashConfig with _$ClashConfig {
     int keepAliveInterval,
     @Default(true) @JsonKey(name: "unified-delay") bool unifiedDelay,
     @Default(true) @JsonKey(name: "tcp-concurrent") bool tcpConcurrent,
+    @Default(false) @JsonKey(name: "tls-fragment") bool tlsFragment,
     @Default(defaultTun) @JsonKey(fromJson: Tun.safeFormJson) Tun tun,
     @Default(defaultDns) @JsonKey(fromJson: Dns.safeDnsFromJson) Dns dns,
     @Default(defaultGeoXUrl)

@@ -6,6 +6,7 @@ import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/views/dashboard/widgets/card_menu.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -189,6 +190,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
     }
 
     return Stack(
+      fit: StackFit.expand,
       children: [
         RefreshIndicator(
           onRefresh: handleRefresh,
@@ -236,6 +238,40 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+        // Bottom swipe-up handle that opens the shared card menu. The accent
+        // up-arrow is pinned near the TOP of the hit band; the band stretches
+        // down to the bottom edge so a natural bottom-up swipe (started below
+        // the arrow) is still captured. Band height scales with viewport height
+        // (adaptive). An upward fling OR a tap opens the menu. Translucent hit
+        // area so it never blocks the connect button, scroll, or pull-to-refresh.
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: isMobileView
+              ? (viewportHeight * 0.06).clamp(56.0, 150.0).toDouble()
+              : 64.0,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => showCardMenu(context, ref),
+            onVerticalDragEnd: (details) {
+              if ((details.primaryVelocity ?? 0) < -250) {
+                showCardMenu(context, ref);
+              }
+            },
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: HugeIcon(
+                  icon: HugeIcons.strokeRoundedArrowUp01,
+                  size: 28,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
             ),
           ),
         ),
