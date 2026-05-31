@@ -81,7 +81,7 @@ const viewModeColumnsMap = {
   ViewMode.desktop: [4, 3],
 };
 
-const defaultPrimaryColor = 0xFF15803D;
+const defaultPrimaryColor = 0xFF29FF76;
 
 double getWidgetHeight(num lines) => max(lines * 84 + (lines - 1) * 16, 0).ap;
 
@@ -92,7 +92,7 @@ const mainIsolate = "dropwebMainIsolate";
 const serviceIsolate = "dropwebServiceIsolate";
 
 const defaultPrimaryColors = [
-  0xFF15803D, // Emerald
+  0xFF29FF76, // Emerald (Падение)
   0xFF38BDF8, // Frost
   0xFFA78BFA, // Amethyst
   0xFFEF4444, // Crimson
@@ -116,7 +116,7 @@ class ThemePreset {
 }
 
 const themePresets = <ThemePreset>[
-  ThemePreset('presetEmerald', 0xFF15803D, 0xFF009938, 0xFF009938),
+  ThemePreset('presetEmerald', 0xFF29FF76, 0xFF009938, 0xFF2BFF7A),
   ThemePreset('presetFrost', 0xFF38BDF8, 0xFF60A5FA, 0xFF38BDF8),
   ThemePreset('presetAmethyst', 0xFFA78BFA, 0xFF8B5CF6, 0xFFA855F7),
   ThemePreset('presetCrimson', 0xFFEF4444, 0xFFF87171, 0xFFB91C1C),

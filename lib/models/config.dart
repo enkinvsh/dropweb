@@ -38,6 +38,9 @@ const defaultWindowProps = WindowProps();
 const defaultAccessControl = AccessControl();
 const defaultThemeProps = ThemeProps(
   primaryColor: defaultPrimaryColor,
+  orbColorPrimary: 0xFF009938,
+  orbColorSecondary: 0xFF2BFF7A,
+  orbBlur: 4.0,
 );
 
 const List<DashboardWidget> defaultDashboardWidgets = [
