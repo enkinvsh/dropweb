@@ -45,6 +45,12 @@ jobs:
         run: |
           echo 'CODE_SIGN_IDENTITY = -' > macos/Runner/Configs/Local.xcconfig
 
+      - name: Select latest stable Xcode (macOS)
+        if: matrix.platform == 'macos'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
