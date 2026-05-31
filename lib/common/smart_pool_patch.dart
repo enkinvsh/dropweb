@@ -9,6 +9,11 @@ import 'mihomo_yaml_splice.dart';
 /// on device.
 const _smartGroupName = '🧠 Smart';
 
+/// Name of the `fallback` group that surfaces the emergency pool — mirrors the
+/// `📶 First Available` group in the dropweb panel template. Offered as a
+/// selectable (NON-default) option inside the primary router.
+const _firstAvailableGroupName = '📶 First Available';
+
 /// Matches a regional-indicator flag pair (two code points in U+1F1E6–U+1F1FF)
 /// followed by the country word(s) up to the first ` |` field separator.
 ///
@@ -20,23 +25,28 @@ final _flagCountryRe = RegExp(
   unicode: true,
 );
 
-/// Merges an emergency pool of [sosProxies] into [mihomoYaml] by exposing them
-/// through a `🧠 Smart` smart group that becomes the default of the primary
-/// router.
+/// Merges an emergency pool of [sosProxies] into [mihomoYaml] by surfacing them
+/// through the `📶 First Available` (`type: fallback`) proxy-group.
 ///
-/// The function is PURE (no I/O). It performs only additive mutations plus a
-/// single index-0 insert into the primary router group, preserving the rest of
-/// the user's YAML — comments, formatting, key order, all other groups and ALL
-/// rules — byte-for-byte (text-splice appends + a reliable `yaml_edit` insert).
+/// The function is PURE (no I/O). It performs only additive mutations:
+/// - appends the (renamed) emergency proxies to top-level `proxies`;
+/// - ensures a `🧠 Smart` smart group (`include-all: true`) exists;
+/// - makes `🧠 Smart` the first member of `📶 First Available` when that group
+///   already exists, OR creates a `📶 First Available` fallback group (holding
+///   `🧠 Smart`) and appends it as a NON-default option to the primary router.
 ///
-/// Returns [mihomoYaml] unchanged when there is nothing to merge: no qualifying
-/// router group, an empty primary group, or no emergency proxies.
+/// The primary router's own default is NEVER changed. The rest of the user's
+/// YAML — comments, formatting, key order, all other groups and ALL rules — is
+/// preserved byte-for-byte (text-splice appends + reliable `yaml_edit` edits).
 ///
-/// Design rationale: a `smart` group with `include-all: true` considers ALL
-/// top-level proxies — the subscription's own nodes plus the merged emergency
-/// pool — and routes traffic through the best live one. This delivers the same
-/// proven "smart" UX as loading a raw subscription directly, instead of the
-/// slow fallback-chain probing the previous `🆘 SOS` design used.
+/// Returns [mihomoYaml] unchanged when there is nothing to merge: no emergency
+/// proxies, or no `📶 First Available` group AND no qualifying primary router
+/// to anchor a freshly-created one.
+///
+/// Design rationale: `📶 First Available` is the panel template's opt-in
+/// fallback group; routing the emergency pool through a `🧠 Smart`
+/// (`include-all: true`) member lets it pick the best live server on device
+/// without hijacking the user's default route.
 String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
   if (sosProxies.isEmpty) return mihomoYaml;
 
@@ -104,8 +114,6 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
     ruleCounts[target] = (ruleCounts[target] ?? 0) + 1;
   }
 
-  if (ruleCounts.isEmpty) return mihomoYaml;
-
   // Primary = highest rule-count; tie → earliest in proxy-groups order.
   String? primary;
   var primaryCount = -1;
@@ -117,10 +125,16 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
       primary = name;
     }
   }
-  if (primary == null) return mihomoYaml;
+  final hasSmart = groupMembers.containsKey(_smartGroupName);
+  final hasFirstAvail = groupMembers.containsKey(_firstAvailableGroupName);
 
-  final primaryMembers = groupMembers[primary]!;
-  if (primaryMembers.isEmpty) return mihomoYaml;
+  // No-op guard: if there is no `📶 First Available` to target AND no
+  // qualifying primary to anchor a new one, there is nowhere meaningful to
+  // surface the pool — leave the profile byte-for-byte unchanged.
+  if (!hasFirstAvail &&
+      (primary == null || groupMembers[primary]!.isEmpty)) {
+    return mihomoYaml;
+  }
 
   // Derive a human display name for each emergency proxy: country flag emoji +
   // country word taken from the ORIGINAL label, stripping provider / SNI /
@@ -148,7 +162,16 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
     'include-all': true,
   };
 
-  final hasSmart = groupMembers.containsKey(_smartGroupName);
+  // Build the `📶 First Available` fallback group spec (used only when no such
+  // group exists yet). Starts with `🧠 Smart` as its sole member.
+  final firstAvailGroup = <String, Object>{
+    'name': _firstAvailableGroupName,
+    'type': 'fallback',
+    'url': 'https://cp.cloudflare.com/generate_204',
+    'interval': 180,
+    'lazy': true,
+    'proxies': <String>[_smartGroupName],
+  };
 
   // Mutations are applied as deterministic text splices rather than via
   // `yaml_edit.appendToList`. yaml_edit mis-indents a complex map appended to a
@@ -174,13 +197,22 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
     );
   }
 
-  // (c) `yaml_edit` for the in-place edits that it handles reliably:
-  //     - add `include-all: true` to a pre-existing `🧠 Smart` group, and
-  //     - prepend `🧠 Smart` at index 0 of the primary router's members.
+  // (c) Append a NEW `📶 First Available` fallback group only if none exists.
+  if (!hasFirstAvail) {
+    result = appendToTopLevelBlock(
+      result,
+      'proxy-groups',
+      emitListItemMap(firstAvailGroup, '  '),
+    );
+  }
+
+  // (d) `yaml_edit` for the in-place edits that it handles reliably. Re-parse
+  //     before each structural read so indices stay valid after prior edits.
   final editor = YamlEditor(result);
-  final reparsed = loadYaml(result);
 
   if (hasSmart) {
+    // Ensure the pre-existing `🧠 Smart` group has `include-all: true`.
+    final reparsed = loadYaml(editor.toString());
     final smartIndex = findGroupIndex(reparsed, _smartGroupName);
     if (smartIndex != null) {
       final existing = (reparsed as Map)['proxy-groups'][smartIndex];
@@ -195,21 +227,51 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
     }
   }
 
-  final primaryIndex = findGroupIndex(loadYaml(editor.toString()), primary);
-  if (primaryIndex != null) {
-    final updated = loadYaml(editor.toString());
-    final members = (updated as Map)['proxy-groups'][primaryIndex]['proxies'];
-    final firstIsSmart = members is List &&
-        members.isNotEmpty &&
-        members.first?.toString() == _smartGroupName;
-    if (!firstIsSmart) {
-      editor.insertIntoList(
-        ['proxy-groups', primaryIndex, 'proxies'],
-        0,
-        _smartGroupName,
-      );
+  if (hasFirstAvail) {
+    // Surface the pool by making `🧠 Smart` the FIRST member of the existing
+    // `📶 First Available` group. Leave the primary router untouched.
+    final reparsed = loadYaml(editor.toString());
+    final faIndex = findGroupIndex(reparsed, _firstAvailableGroupName);
+    if (faIndex != null) {
+      final members =
+          (reparsed as Map)['proxy-groups'][faIndex]['proxies'];
+      if (members is List && members.isNotEmpty) {
+        final firstIsSmart = members.first?.toString() == _smartGroupName;
+        if (!firstIsSmart) {
+          editor.insertIntoList(
+            ['proxy-groups', faIndex, 'proxies'],
+            0,
+            _smartGroupName,
+          );
+        }
+      } else {
+        // proxies is null/empty (e.g. a `# LEAVE THIS LINE!` placeholder) —
+        // replace it with a fresh single-member list.
+        editor.update(
+          ['proxy-groups', faIndex, 'proxies'],
+          [_smartGroupName],
+        );
+      }
+    }
+  } else if (primary != null) {
+    // The `📶 First Available` group was just created with `🧠 Smart` inside;
+    // wire it into the primary router as an APPENDED (non-default) option.
+    final reparsed = loadYaml(editor.toString());
+    final primaryIndex = findGroupIndex(reparsed, primary);
+    if (primaryIndex != null) {
+      final members =
+          (reparsed as Map)['proxy-groups'][primaryIndex]['proxies'];
+      final alreadyListed = members is List &&
+          members.any((m) => m?.toString() == _firstAvailableGroupName);
+      if (!alreadyListed) {
+        editor.appendToList(
+          ['proxy-groups', primaryIndex, 'proxies'],
+          _firstAvailableGroupName,
+        );
+      }
     }
   }
+
   return editor.toString();
 }
 

@@ -279,9 +279,12 @@ extension ProfileExtension on Profile {
     // SOS / disconeko emergency fallback. When the provider advertises a
     // `dropweb-disconeko` URL it points to a SEPARATE pool of emergency
     // servers (raw share links or a Mihomo YAML). Merge that pool into the
-    // delivered config as a last-resort `fallback` group so traffic auto-
-    // switches when ALL normal servers are dead. This is strictly best-effort:
-    // the emergency pool is optional and must NEVER break the primary update.
+    // delivered config and surface it through the `📶 First Available`
+    // (`type: fallback`) proxy-group — a manual, opt-in selection the user must
+    // pick deliberately; it never becomes the default route. The fallback group
+    // is created if the delivered config lacks one. This is strictly best-
+    // effort: the emergency pool is optional and must NEVER break the primary
+    // update.
     final disconekoUrl = providerHeaders['dropweb-disconeko'];
     if (disconekoUrl != null && disconekoUrl.isNotEmpty) {
       try {

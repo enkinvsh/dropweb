@@ -102,7 +102,7 @@ rules:
       },
     ];
 
-    test('dropweb template: builds 🧠 Smart group and rewires primary', () {
+    test('dropweb template: surfaces 🧠 Smart through 📶 First Available', () {
       final out = patchSmartPool(template, sosProxies);
       final doc = loadYaml(out) as YamlMap;
 
@@ -113,13 +113,18 @@ rules:
       expect(smart['uselightgbm'], false);
       expect(smart['include-all'], true);
 
-      // Primary router `🌍 VPN`: `🧠 Smart` prepended as default (index 0),
-      // existing siblings preserved.
+      // Primary router `🌍 VPN` is left UNCHANGED — `🧠 Smart` must NOT be
+      // injected as its default; an existing `📶 First Available` is the
+      // surface for the emergency pool.
       final vpn = _group(doc, '🌍 VPN');
       expect(
         (vpn!['proxies'] as YamlList).toList(),
-        ['🧠 Smart', '⚡ Fastest', '📶 First Available'],
+        ['⚡ Fastest', '📶 First Available'],
       );
+
+      // `📶 First Available` (fallback) now has `🧠 Smart` as its first member.
+      final firstAvailMembers = _group(doc, '📶 First Available');
+      expect((firstAvailMembers!['proxies'] as YamlList).first, '🧠 Smart');
 
       // Emergency nodes appended with flag+country display names; the
       // provider / SNI / protocol / TG noise must NOT leak.
@@ -175,8 +180,19 @@ vless://uuid-2@b.example.com:443?security=tls&sni=b.example.com#Etoneya%20B
       expect(smart, isNotNull);
       expect(smart!['type'], 'smart');
 
+      // The emitter makes `🧠 Smart` the default of `🌍 VPN` and ships NO
+      // `📶 First Available`, so the patch CREATES the fallback group and
+      // wires it into the primary as an appended (non-default) member.
+      final firstAvail = _group(doc, '📶 First Available');
+      expect(firstAvail, isNotNull);
+      expect(firstAvail!['type'], 'fallback');
+      expect((firstAvail['proxies'] as YamlList), contains('🧠 Smart'));
+
       final vpn = _group(doc, '🌍 VPN');
-      expect((vpn!['proxies'] as YamlList).first, '🧠 Smart');
+      final vpnMembers = (vpn!['proxies'] as YamlList).toList();
+      expect(vpnMembers.first, '🧠 Smart');
+      expect(vpnMembers, contains('📶 First Available'));
+      expect(vpnMembers.last, '📶 First Available');
     });
 
     test('no qualifying router: returns input unchanged', () {
@@ -274,7 +290,7 @@ rules:
       expect(out, isNot(contains('@x')));
     });
 
-    test('existing 🧠 Smart group: gains include-all, stays default', () {
+    test('existing 🧠 Smart group: gains include-all, surfaced via 📶 First Available', () {
       const yaml = '''
 mixed-port: 7890
 proxies: # LEAVE THIS LINE!
@@ -308,9 +324,18 @@ rules:
       ].length;
       expect(smartCount, 1);
 
-      // It stays the default (already index 0) of the primary router.
+      // It stays the default (already index 0) of the primary router — the
+      // patch must not disturb `🌍 VPN`'s existing first member.
       final vpn = _group(doc, '🌍 VPN');
       expect((vpn!['proxies'] as YamlList).first, '🧠 Smart');
+
+      // No `📶 First Available` was delivered → the patch CREATES one
+      // (fallback, containing `🧠 Smart`) and APPENDS it to the primary.
+      final firstAvail = _group(doc, '📶 First Available');
+      expect(firstAvail, isNotNull);
+      expect(firstAvail!['type'], 'fallback');
+      expect((firstAvail['proxies'] as YamlList), contains('🧠 Smart'));
+      expect((vpn['proxies'] as YamlList), contains('📶 First Available'));
 
       // Emergency nodes still merged into top-level proxies.
       final names = _proxyNames(doc);
@@ -340,8 +365,57 @@ rules:
       expect(names, contains('🇷🇺 Russia'));
       expect(names, contains('🇸🇪 Sweden'));
 
+      // No `📶 First Available` delivered → created (fallback w/ `🧠 Smart`)
+      // and appended to `🌍 VPN`. `🧠 Smart` is NOT prepended to `🌍 VPN`.
+      final firstAvail = _group(doc, '📶 First Available');
+      expect(firstAvail, isNotNull);
+      expect(firstAvail!['type'], 'fallback');
+      expect((firstAvail['proxies'] as YamlList), contains('🧠 Smart'));
+
       final vpn = _group(doc, '🌍 VPN');
-      expect((vpn!['proxies'] as YamlList).first, '🧠 Smart');
+      expect((vpn!['proxies'] as YamlList), contains('📶 First Available'));
+    });
+
+    test('populated 📶 First Available: 🧠 Smart prepended, 🌍 VPN untouched', () {
+      const yaml = '''
+mixed-port: 7890
+proxies: # LEAVE THIS LINE!
+
+proxy-groups:
+  - name: 🌍 VPN
+    type: select
+    proxies:
+      - ⚡ Fastest
+      - 📶 First Available
+
+  - name: 📶 First Available
+    type: fallback
+    url: https://cp.cloudflare.com/generate_204
+    interval: 180
+    lazy: true
+    proxies:
+      - Node A
+      - Node B
+
+rules:
+  - MATCH,🌍 VPN
+''';
+      final out = patchSmartPool(yaml, sosProxies);
+      final doc = loadYaml(out) as YamlMap;
+
+      // `🧠 Smart` becomes the FIRST member, existing members preserved.
+      final firstAvail = _group(doc, '📶 First Available');
+      expect(
+        (firstAvail!['proxies'] as YamlList).toList(),
+        ['🧠 Smart', 'Node A', 'Node B'],
+      );
+
+      // `🌍 VPN` is untouched (already lists `📶 First Available`).
+      final vpn = _group(doc, '🌍 VPN');
+      expect(
+        (vpn!['proxies'] as YamlList).toList(),
+        ['⚡ Fastest', '📶 First Available'],
+      );
     });
   });
 }
