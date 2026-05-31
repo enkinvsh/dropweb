@@ -80,6 +80,7 @@ class AppSettingProps with _$AppSettingProps {
     @Default(false) bool hidden,
     @Default(false) bool developerMode,
     @Default(false) bool overrideProviderSettings,
+    @Default(true) bool applySubscriptionTheme,
     @Default(false) bool overrideNetworkSettings,
     @Default(RecoveryStrategy.compatible) RecoveryStrategy recoveryStrategy,
   }) = _AppSettingProps;
@@ -186,9 +187,12 @@ class TextScale with _$TextScale {
 class ThemeProps with _$ThemeProps {
   const factory ThemeProps({
     int? primaryColor,
+    int? orbColorPrimary,
+    int? orbColorSecondary,
+    @Default(5.0) double orbBlur,
     @Default(defaultPrimaryColors) List<int> primaryColors,
     @Default(ThemeMode.dark) ThemeMode themeMode,
-    @Default(DynamicSchemeVariant.vibrant) DynamicSchemeVariant schemeVariant,
+    @Default(DynamicSchemeVariant.fidelity) DynamicSchemeVariant schemeVariant,
     @Default(true) bool pureBlack,
     @Default(TextScale()) TextScale textScale,
   }) = _ThemeProps;

@@ -1898,7 +1898,7 @@ final checkIpProvider = AutoDisposeProvider<VM2<int, bool>>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef CheckIpRef = AutoDisposeProviderRef<VM2<int, bool>>;
-String _$genColorSchemeHash() => r'b18f15c938a8132ee4ed02cdfc02f3b9f01724e2';
+String _$genColorSchemeHash() => r'8a7b43eda84b7958651af8739814c265549f3e22';
 
 /// See also [genColorScheme].
 @ProviderFor(genColorScheme)

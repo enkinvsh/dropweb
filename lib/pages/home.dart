@@ -485,7 +485,7 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final buttonSize = widget.buttonSize;
-    final iconSize = buttonSize * 0.37;
+    final iconSize = buttonSize * 0.4;
 
     // Theme-driven accent. The lens pulls its glow color straight from
     // ColorScheme.primary so it follows whatever theme is active —
@@ -510,8 +510,8 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
             // Outer perimeter halo — the visible theme-colored ring of
             // light hugging the lens edge. Idle is visible but restrained;
             // press and live-connection intensify.
-            final haloAlpha = (isRunning ? 0.24 : 0.14) + pressT * 0.18;
-            final haloBlur = 22.0 + pressT * 10.0;
+            final haloAlpha = (isRunning ? 0.28 : 0.175) + pressT * 0.18;
+            final haloBlur = 16.0 + pressT * 10.0;
             final perimeterGlow = BoxShadow(
               color: accent.withValues(alpha: haloAlpha),
               blurRadius: haloBlur,
@@ -625,9 +625,9 @@ class _ConnectGlassPainter extends CustomPainter {
   // Sustained alpha at irisT == 1 — kept low so the perimeter halo and
   // Fresnel rim stay dominant. Iris is the *transition* effect, not the
   // running indicator.
-  static const double _irisSettledAlpha = 0.14;
+  static const double _irisSettledAlpha = 0.18;
   // Peak alpha mid-bloom (irisT ≈ 0.5). Restrained, premium, not neon.
-  static const double _irisPeakAlpha = 0.30;
+  static const double _irisPeakAlpha = 0.34;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -640,7 +640,7 @@ class _ConnectGlassPainter extends CustomPainter {
     final bodyPaint = Paint()
       ..shader = RadialGradient(
         center: const Alignment(0, 0.25),
-        radius: 1.05,
+        radius: 0.8,
         colors: isDark
             ? const [Color(0xFF15151D), Color(0xFF080810)]
             : const [Color(0xFFF2F2F6), Color(0xFFD8DAE2)],
@@ -655,8 +655,8 @@ class _ConnectGlassPainter extends CustomPainter {
         center: const Alignment(0, -0.15),
         radius: 0.9,
         colors: [
-          accent.withValues(alpha: isDark ? 0.13 : 0.10),
-          accent.withValues(alpha: isDark ? 0.05 : 0.04),
+          accent.withValues(alpha: isDark ? 0.19 : 0.10),
+          accent.withValues(alpha: isDark ? 0.19 * 0.38 : 0.04),
           accent.withValues(alpha: 0.0),
         ],
         stops: const [0.0, 0.55, 1.0],
@@ -670,15 +670,15 @@ class _ConnectGlassPainter extends CustomPainter {
     // 3. Concave inset on the lower interior arc.
     final insetPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = r * 0.18
+      ..strokeWidth = r * 0.21
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.045)
       ..shader = SweepGradient(
         transform: const GradientRotation(-math.pi / 2),
         colors: isDark
-            ? const [
-                Color(0x00000000),
-                Color(0xAA000000),
-                Color(0x00000000),
+            ? [
+                const Color(0x00000000),
+                Colors.black.withValues(alpha: 0.75),
+                const Color(0x00000000),
               ]
             : const [
                 Color(0x00000000),
@@ -700,10 +700,10 @@ class _ConnectGlassPainter extends CustomPainter {
     );
     final specPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = r * 0.045
+      ..strokeWidth = r * 0.04
       ..strokeCap = StrokeCap.round
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.04)
-      ..color = Colors.white.withValues(alpha: isDark ? 0.11 : 0.32);
+      ..color = Colors.white.withValues(alpha: isDark ? 0.12 : 0.32);
     canvas.drawArc(
       specRect,
       -math.pi * 0.78,
@@ -717,11 +717,11 @@ class _ConnectGlassPainter extends CustomPainter {
     //    edge fading inward. This is the painter-side counterpart of the
     //    outer perimeter BoxShadow; together they make the lens edge
     //    luminous with the theme color.
-    final innerEdgeAlpha = (isRunning ? 0.20 : 0.11) + pressT * 0.16;
+    final innerEdgeAlpha = (isRunning ? 0.205 : 0.055) + pressT * 0.16;
     if (innerEdgeAlpha > 0.005) {
       final innerEdgePaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = r * 0.11
+        ..strokeWidth = r * 0.12
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.055)
         ..color = accent.withValues(alpha: innerEdgeAlpha);
       canvas
@@ -764,9 +764,9 @@ class _ConnectGlassPainter extends CustomPainter {
     //    catches the rim even at rest; press warms it further.
     final rimTop = isDark
         ? Color.lerp(
-            Colors.white.withValues(alpha: 0.32),
+            Colors.white.withValues(alpha: 0.6),
             accent.withValues(alpha: 0.35),
-            0.22,
+            0.41,
           )!
         : Color.lerp(
             Colors.black.withValues(alpha: 0.30),
@@ -777,7 +777,7 @@ class _ConnectGlassPainter extends CustomPainter {
         ? Color.lerp(
             Colors.white.withValues(alpha: 0.14),
             accent.withValues(alpha: 0.18),
-            0.20,
+            0.369,
           )!
         : Color.lerp(
             Colors.black.withValues(alpha: 0.14),
@@ -804,7 +804,7 @@ class _ConnectGlassPainter extends CustomPainter {
     // 7. Icon halo. Tight, scoped to icon region. Small idle floor keeps
     //    the lens "alive" with theme glow at rest; live connection and
     //    press stack on top.
-    final haloAlpha = (isRunning ? 0.16 : 0.07) + pressT * 0.10;
+    final haloAlpha = (isRunning ? 0.28 : 0.07) + pressT * 0.10;
     if (haloAlpha > 0.001) {
       final haloRadius = r * 0.46;
       final haloPaint = Paint()

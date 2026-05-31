@@ -39,6 +39,7 @@ mixin _$AppSettingProps {
   bool get hidden => throw _privateConstructorUsedError;
   bool get developerMode => throw _privateConstructorUsedError;
   bool get overrideProviderSettings => throw _privateConstructorUsedError;
+  bool get applySubscriptionTheme => throw _privateConstructorUsedError;
   bool get overrideNetworkSettings => throw _privateConstructorUsedError;
   RecoveryStrategy get recoveryStrategy => throw _privateConstructorUsedError;
 
@@ -77,6 +78,7 @@ abstract class $AppSettingPropsCopyWith<$Res> {
       bool hidden,
       bool developerMode,
       bool overrideProviderSettings,
+      bool applySubscriptionTheme,
       bool overrideNetworkSettings,
       RecoveryStrategy recoveryStrategy});
 }
@@ -113,6 +115,7 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
     Object? hidden = null,
     Object? developerMode = null,
     Object? overrideProviderSettings = null,
+    Object? applySubscriptionTheme = null,
     Object? overrideNetworkSettings = null,
     Object? recoveryStrategy = null,
   }) {
@@ -185,6 +188,10 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
           ? _value.overrideProviderSettings
           : overrideProviderSettings // ignore: cast_nullable_to_non_nullable
               as bool,
+      applySubscriptionTheme: null == applySubscriptionTheme
+          ? _value.applySubscriptionTheme
+          : applySubscriptionTheme // ignore: cast_nullable_to_non_nullable
+              as bool,
       overrideNetworkSettings: null == overrideNetworkSettings
           ? _value.overrideNetworkSettings
           : overrideNetworkSettings // ignore: cast_nullable_to_non_nullable
@@ -224,6 +231,7 @@ abstract class _$$AppSettingPropsImplCopyWith<$Res>
       bool hidden,
       bool developerMode,
       bool overrideProviderSettings,
+      bool applySubscriptionTheme,
       bool overrideNetworkSettings,
       RecoveryStrategy recoveryStrategy});
 }
@@ -258,6 +266,7 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
     Object? hidden = null,
     Object? developerMode = null,
     Object? overrideProviderSettings = null,
+    Object? applySubscriptionTheme = null,
     Object? overrideNetworkSettings = null,
     Object? recoveryStrategy = null,
   }) {
@@ -330,6 +339,10 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
           ? _value.overrideProviderSettings
           : overrideProviderSettings // ignore: cast_nullable_to_non_nullable
               as bool,
+      applySubscriptionTheme: null == applySubscriptionTheme
+          ? _value.applySubscriptionTheme
+          : applySubscriptionTheme // ignore: cast_nullable_to_non_nullable
+              as bool,
       overrideNetworkSettings: null == overrideNetworkSettings
           ? _value.overrideNetworkSettings
           : overrideNetworkSettings // ignore: cast_nullable_to_non_nullable
@@ -364,6 +377,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
       this.hidden = false,
       this.developerMode = false,
       this.overrideProviderSettings = false,
+      this.applySubscriptionTheme = true,
       this.overrideNetworkSettings = false,
       this.recoveryStrategy = RecoveryStrategy.compatible})
       : _dashboardWidgets = dashboardWidgets;
@@ -430,6 +444,9 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
   final bool overrideProviderSettings;
   @override
   @JsonKey()
+  final bool applySubscriptionTheme;
+  @override
+  @JsonKey()
   final bool overrideNetworkSettings;
   @override
   @JsonKey()
@@ -437,7 +454,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
 
   @override
   String toString() {
-    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, overrideNetworkSettings: $overrideNetworkSettings, recoveryStrategy: $recoveryStrategy)';
+    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, overrideNetworkSettings: $overrideNetworkSettings, recoveryStrategy: $recoveryStrategy)';
   }
 
   @override
@@ -476,6 +493,8 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
             (identical(
                     other.overrideProviderSettings, overrideProviderSettings) ||
                 other.overrideProviderSettings == overrideProviderSettings) &&
+            (identical(other.applySubscriptionTheme, applySubscriptionTheme) ||
+                other.applySubscriptionTheme == applySubscriptionTheme) &&
             (identical(
                     other.overrideNetworkSettings, overrideNetworkSettings) ||
                 other.overrideNetworkSettings == overrideNetworkSettings) &&
@@ -504,6 +523,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
         hidden,
         developerMode,
         overrideProviderSettings,
+        applySubscriptionTheme,
         overrideNetworkSettings,
         recoveryStrategy
       ]);
@@ -545,6 +565,7 @@ abstract class _AppSettingProps implements AppSettingProps {
       final bool hidden,
       final bool developerMode,
       final bool overrideProviderSettings,
+      final bool applySubscriptionTheme,
       final bool overrideNetworkSettings,
       final RecoveryStrategy recoveryStrategy}) = _$AppSettingPropsImpl;
 
@@ -586,6 +607,8 @@ abstract class _AppSettingProps implements AppSettingProps {
   bool get developerMode;
   @override
   bool get overrideProviderSettings;
+  @override
+  bool get applySubscriptionTheme;
   @override
   bool get overrideNetworkSettings;
   @override
@@ -2044,6 +2067,9 @@ ThemeProps _$ThemePropsFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$ThemeProps {
   int? get primaryColor => throw _privateConstructorUsedError;
+  int? get orbColorPrimary => throw _privateConstructorUsedError;
+  int? get orbColorSecondary => throw _privateConstructorUsedError;
+  double get orbBlur => throw _privateConstructorUsedError;
   List<int> get primaryColors => throw _privateConstructorUsedError;
   ThemeMode get themeMode => throw _privateConstructorUsedError;
   DynamicSchemeVariant get schemeVariant => throw _privateConstructorUsedError;
@@ -2068,6 +2094,9 @@ abstract class $ThemePropsCopyWith<$Res> {
   @useResult
   $Res call(
       {int? primaryColor,
+      int? orbColorPrimary,
+      int? orbColorSecondary,
+      double orbBlur,
       List<int> primaryColors,
       ThemeMode themeMode,
       DynamicSchemeVariant schemeVariant,
@@ -2093,6 +2122,9 @@ class _$ThemePropsCopyWithImpl<$Res, $Val extends ThemeProps>
   @override
   $Res call({
     Object? primaryColor = freezed,
+    Object? orbColorPrimary = freezed,
+    Object? orbColorSecondary = freezed,
+    Object? orbBlur = null,
     Object? primaryColors = null,
     Object? themeMode = null,
     Object? schemeVariant = null,
@@ -2104,6 +2136,18 @@ class _$ThemePropsCopyWithImpl<$Res, $Val extends ThemeProps>
           ? _value.primaryColor
           : primaryColor // ignore: cast_nullable_to_non_nullable
               as int?,
+      orbColorPrimary: freezed == orbColorPrimary
+          ? _value.orbColorPrimary
+          : orbColorPrimary // ignore: cast_nullable_to_non_nullable
+              as int?,
+      orbColorSecondary: freezed == orbColorSecondary
+          ? _value.orbColorSecondary
+          : orbColorSecondary // ignore: cast_nullable_to_non_nullable
+              as int?,
+      orbBlur: null == orbBlur
+          ? _value.orbBlur
+          : orbBlur // ignore: cast_nullable_to_non_nullable
+              as double,
       primaryColors: null == primaryColors
           ? _value.primaryColors
           : primaryColors // ignore: cast_nullable_to_non_nullable
@@ -2148,6 +2192,9 @@ abstract class _$$ThemePropsImplCopyWith<$Res>
   @useResult
   $Res call(
       {int? primaryColor,
+      int? orbColorPrimary,
+      int? orbColorSecondary,
+      double orbBlur,
       List<int> primaryColors,
       ThemeMode themeMode,
       DynamicSchemeVariant schemeVariant,
@@ -2172,6 +2219,9 @@ class __$$ThemePropsImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? primaryColor = freezed,
+    Object? orbColorPrimary = freezed,
+    Object? orbColorSecondary = freezed,
+    Object? orbBlur = null,
     Object? primaryColors = null,
     Object? themeMode = null,
     Object? schemeVariant = null,
@@ -2183,6 +2233,18 @@ class __$$ThemePropsImplCopyWithImpl<$Res>
           ? _value.primaryColor
           : primaryColor // ignore: cast_nullable_to_non_nullable
               as int?,
+      orbColorPrimary: freezed == orbColorPrimary
+          ? _value.orbColorPrimary
+          : orbColorPrimary // ignore: cast_nullable_to_non_nullable
+              as int?,
+      orbColorSecondary: freezed == orbColorSecondary
+          ? _value.orbColorSecondary
+          : orbColorSecondary // ignore: cast_nullable_to_non_nullable
+              as int?,
+      orbBlur: null == orbBlur
+          ? _value.orbBlur
+          : orbBlur // ignore: cast_nullable_to_non_nullable
+              as double,
       primaryColors: null == primaryColors
           ? _value._primaryColors
           : primaryColors // ignore: cast_nullable_to_non_nullable
@@ -2212,9 +2274,12 @@ class __$$ThemePropsImplCopyWithImpl<$Res>
 class _$ThemePropsImpl implements _ThemeProps {
   const _$ThemePropsImpl(
       {this.primaryColor,
+      this.orbColorPrimary,
+      this.orbColorSecondary,
+      this.orbBlur = 5.0,
       final List<int> primaryColors = defaultPrimaryColors,
       this.themeMode = ThemeMode.dark,
-      this.schemeVariant = DynamicSchemeVariant.vibrant,
+      this.schemeVariant = DynamicSchemeVariant.fidelity,
       this.pureBlack = true,
       this.textScale = const TextScale()})
       : _primaryColors = primaryColors;
@@ -2224,6 +2289,13 @@ class _$ThemePropsImpl implements _ThemeProps {
 
   @override
   final int? primaryColor;
+  @override
+  final int? orbColorPrimary;
+  @override
+  final int? orbColorSecondary;
+  @override
+  @JsonKey()
+  final double orbBlur;
   final List<int> _primaryColors;
   @override
   @JsonKey()
@@ -2248,7 +2320,7 @@ class _$ThemePropsImpl implements _ThemeProps {
 
   @override
   String toString() {
-    return 'ThemeProps(primaryColor: $primaryColor, primaryColors: $primaryColors, themeMode: $themeMode, schemeVariant: $schemeVariant, pureBlack: $pureBlack, textScale: $textScale)';
+    return 'ThemeProps(primaryColor: $primaryColor, orbColorPrimary: $orbColorPrimary, orbColorSecondary: $orbColorSecondary, orbBlur: $orbBlur, primaryColors: $primaryColors, themeMode: $themeMode, schemeVariant: $schemeVariant, pureBlack: $pureBlack, textScale: $textScale)';
   }
 
   @override
@@ -2258,6 +2330,11 @@ class _$ThemePropsImpl implements _ThemeProps {
             other is _$ThemePropsImpl &&
             (identical(other.primaryColor, primaryColor) ||
                 other.primaryColor == primaryColor) &&
+            (identical(other.orbColorPrimary, orbColorPrimary) ||
+                other.orbColorPrimary == orbColorPrimary) &&
+            (identical(other.orbColorSecondary, orbColorSecondary) ||
+                other.orbColorSecondary == orbColorSecondary) &&
+            (identical(other.orbBlur, orbBlur) || other.orbBlur == orbBlur) &&
             const DeepCollectionEquality()
                 .equals(other._primaryColors, _primaryColors) &&
             (identical(other.themeMode, themeMode) ||
@@ -2275,6 +2352,9 @@ class _$ThemePropsImpl implements _ThemeProps {
   int get hashCode => Object.hash(
       runtimeType,
       primaryColor,
+      orbColorPrimary,
+      orbColorSecondary,
+      orbBlur,
       const DeepCollectionEquality().hash(_primaryColors),
       themeMode,
       schemeVariant,
@@ -2300,6 +2380,9 @@ class _$ThemePropsImpl implements _ThemeProps {
 abstract class _ThemeProps implements ThemeProps {
   const factory _ThemeProps(
       {final int? primaryColor,
+      final int? orbColorPrimary,
+      final int? orbColorSecondary,
+      final double orbBlur,
       final List<int> primaryColors,
       final ThemeMode themeMode,
       final DynamicSchemeVariant schemeVariant,
@@ -2311,6 +2394,12 @@ abstract class _ThemeProps implements ThemeProps {
 
   @override
   int? get primaryColor;
+  @override
+  int? get orbColorPrimary;
+  @override
+  int? get orbColorSecondary;
+  @override
+  double get orbBlur;
   @override
   List<int> get primaryColors;
   @override

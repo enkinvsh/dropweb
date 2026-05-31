@@ -745,11 +745,20 @@ ColorScheme genColorScheme(
       dynamicSchemeVariant: vm2.b,
     );
   }
-  return ColorScheme.fromSeed(
-    seedColor: color ?? Color(vm2.a!),
+  // Override fromSeed's tone-mapped primary with the HSL-filtered seed so the
+  // accent stays exact (fromSeed lightens/desaturates for contrast).
+  final seed = color ?? Color(vm2.a!);
+  final scheme = ColorScheme.fromSeed(
+    seedColor: seed,
     brightness: brightness,
     dynamicSchemeVariant: vm2.b,
   );
+  final filtered = applyColorFilter(seed, vm2.b);
+  final onAccent =
+      ThemeData.estimateBrightnessForColor(filtered) == Brightness.dark
+          ? Colors.white
+          : Colors.black;
+  return scheme.copyWith(primary: filtered, onPrimary: onAccent);
 }
 
 @riverpod

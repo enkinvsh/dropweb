@@ -212,7 +212,7 @@ class _LocalRingsPainter extends CustomPainter {
   // Slightly higher base alpha than the old fullscreen painter — rings are
   // smaller now, so they need a bit more presence to read as an active-VPN
   // cue without being loud.
-  static const _baseAlpha = 0.22;
+  static const _baseAlpha = 0.215;
 
   @override
   void paint(Canvas canvas, Size size) {

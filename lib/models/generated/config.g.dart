@@ -29,6 +29,7 @@ _$AppSettingPropsImpl _$$AppSettingPropsImplFromJson(
       developerMode: json['developerMode'] as bool? ?? false,
       overrideProviderSettings:
           json['overrideProviderSettings'] as bool? ?? false,
+      applySubscriptionTheme: json['applySubscriptionTheme'] as bool? ?? true,
       overrideNetworkSettings:
           json['overrideNetworkSettings'] as bool? ?? false,
       recoveryStrategy: $enumDecodeNullable(
@@ -58,6 +59,7 @@ Map<String, dynamic> _$$AppSettingPropsImplToJson(
       'hidden': instance.hidden,
       'developerMode': instance.developerMode,
       'overrideProviderSettings': instance.overrideProviderSettings,
+      'applySubscriptionTheme': instance.applySubscriptionTheme,
       'overrideNetworkSettings': instance.overrideNetworkSettings,
       'recoveryStrategy': _$RecoveryStrategyEnumMap[instance.recoveryStrategy]!,
     };
@@ -261,6 +263,9 @@ Map<String, dynamic> _$$TextScaleImplToJson(_$TextScaleImpl instance) =>
 _$ThemePropsImpl _$$ThemePropsImplFromJson(Map<String, dynamic> json) =>
     _$ThemePropsImpl(
       primaryColor: (json['primaryColor'] as num?)?.toInt(),
+      orbColorPrimary: (json['orbColorPrimary'] as num?)?.toInt(),
+      orbColorSecondary: (json['orbColorSecondary'] as num?)?.toInt(),
+      orbBlur: (json['orbBlur'] as num?)?.toDouble() ?? 5.0,
       primaryColors: (json['primaryColors'] as List<dynamic>?)
               ?.map((e) => (e as num).toInt())
               .toList() ??
@@ -269,7 +274,7 @@ _$ThemePropsImpl _$$ThemePropsImplFromJson(Map<String, dynamic> json) =>
           ThemeMode.dark,
       schemeVariant: $enumDecodeNullable(
               _$DynamicSchemeVariantEnumMap, json['schemeVariant']) ??
-          DynamicSchemeVariant.vibrant,
+          DynamicSchemeVariant.fidelity,
       pureBlack: json['pureBlack'] as bool? ?? true,
       textScale: json['textScale'] == null
           ? const TextScale()
@@ -279,6 +284,9 @@ _$ThemePropsImpl _$$ThemePropsImplFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$$ThemePropsImplToJson(_$ThemePropsImpl instance) =>
     <String, dynamic>{
       'primaryColor': instance.primaryColor,
+      'orbColorPrimary': instance.orbColorPrimary,
+      'orbColorSecondary': instance.orbColorSecondary,
+      'orbBlur': instance.orbBlur,
       'primaryColors': instance.primaryColors,
       'themeMode': _$ThemeModeEnumMap[instance.themeMode]!,
       'schemeVariant': _$DynamicSchemeVariantEnumMap[instance.schemeVariant]!,

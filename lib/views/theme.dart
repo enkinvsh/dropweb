@@ -1,7 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
 import 'dart:math';
-import 'dart:ui' as ui;
 
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
@@ -10,9 +9,9 @@ import 'package:dropweb/providers/config.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:intl/intl.dart';
 
 class FontFamilyItem {
   const FontFamilyItem({
@@ -35,7 +34,10 @@ class ThemeView extends StatelessWidget {
         child: Column(
           spacing: 24,
           children: [
+            _ThemePresetItem(),
             _PrimaryColorItem(),
+            _OrbColorItem(),
+            _SubscriptionThemeItem(),
             _PrueBlackItem(),
             _TextScaleFactorItem(),
             SizedBox(
@@ -70,6 +72,226 @@ class ItemCard extends StatelessWidget {
       );
 }
 
+class _ThemePresetItem extends ConsumerWidget {
+  const _ThemePresetItem();
+
+  String _presetName(ThemePreset preset) {
+    switch (preset.nameKey) {
+      case 'presetEmerald':
+        return appLocalizations.presetEmerald;
+      case 'presetFrost':
+        return appLocalizations.presetFrost;
+      case 'presetAmethyst':
+        return appLocalizations.presetAmethyst;
+      case 'presetMagma':
+        return appLocalizations.presetMagma;
+      case 'presetAmber':
+        return appLocalizations.presetAmber;
+      case 'presetCrimson':
+        return appLocalizations.presetCrimson;
+      case 'presetStealth':
+        return appLocalizations.presetStealth;
+      default:
+        return preset.nameKey;
+    }
+  }
+
+  void _apply(WidgetRef ref, ThemePreset preset) {
+    ref.read(themeSettingProvider.notifier).updateState((state) {
+      final colors = [...state.primaryColors];
+      if (!colors.contains(preset.accent)) {
+        colors.add(preset.accent);
+      }
+      return state.copyWith(
+        primaryColor: preset.accent,
+        primaryColors: colors,
+        orbColorPrimary: preset.orbPrimary,
+        orbColorSecondary: preset.orbSecondary,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trio = ref.watch(
+      themeSettingProvider.select(
+        (state) => (
+          state.primaryColor,
+          state.orbColorPrimary,
+          state.orbColorSecondary,
+        ),
+      ),
+    );
+
+    return ItemCard(
+      info: Info(
+        label: appLocalizations.themePresets,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedPaintBrush01, size: 24),
+      ),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        child: LayoutBuilder(
+          builder: (_, constraints) {
+            const columns = 3;
+            final itemWidth =
+                (constraints.maxWidth - (columns - 1) * 16) / columns;
+            return Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: [
+                for (final preset in themePresets)
+                  SizedBox(
+                    width: itemWidth,
+                    child: _PresetCard(
+                      name: _presetName(preset),
+                      accent: preset.accent,
+                      orbPrimary: preset.orbPrimary,
+                      orbSecondary: preset.orbSecondary,
+                      isSelected: trio.$1 == preset.accent &&
+                          trio.$2 == preset.orbPrimary &&
+                          trio.$3 == preset.orbSecondary,
+                      onTap: () => _apply(ref, preset),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _PresetCard extends StatelessWidget {
+  const _PresetCard({
+    required this.name,
+    required this.accent,
+    required this.orbPrimary,
+    required this.orbSecondary,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String name;
+  final int accent;
+  final int orbPrimary;
+  final int orbSecondary;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = context.colorScheme;
+    return EffectGestureDetector(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AspectRatio(
+            aspectRatio: 1.45,
+            child: AnimatedContainer(
+              duration: midDuration,
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isSelected
+                      ? Color(accent)
+                      : colorScheme.outlineVariant.withOpacity(0.4),
+                  width: isSelected ? 2 : 1,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: Color(accent).withOpacity(0.35),
+                          blurRadius: 16,
+                          spreadRadius: -2,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(orbPrimary),
+                            Color(accent),
+                            Color(orbSecondary),
+                          ],
+                          stops: const [0.0, 0.5, 1.0],
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.center,
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(accent),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.85),
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.25),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (isSelected)
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(accent),
+                          ),
+                          child: Icon(
+                            Icons.check_rounded,
+                            size: 14,
+                            color: Colors.white.withOpacity(0.95),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: context.textTheme.bodyMedium?.copyWith(
+              color: isSelected
+                  ? colorScheme.onSurface
+                  : colorScheme.onSurfaceVariant,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PrimaryColorItem extends ConsumerStatefulWidget {
   const _PrimaryColorItem();
 
@@ -95,7 +317,9 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
           (state) => state.copyWith(
             primaryColors: defaultPrimaryColors,
             primaryColor: defaultPrimaryColor,
-            schemeVariant: DynamicSchemeVariant.vibrant,
+            schemeVariant: DynamicSchemeVariant.fidelity,
+            orbColorPrimary: null,
+            orbColorSecondary: null,
           ),
         );
   }
@@ -137,6 +361,28 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
     });
   }
 
+  Future<void> _handleEdit(int? color) async {
+    setState(() {
+      _removablePrimaryColor = null;
+    });
+    final res = await globalState.showCommonDialog<int>(
+      child: _PaletteDialog(
+        initialColor: color != null ? Color(color) : null,
+      ),
+    );
+    if (res == null) {
+      return;
+    }
+    ref.read(themeSettingProvider.notifier).updateState(
+          (state) => state.copyWith(
+            primaryColors: state.primaryColors.contains(res)
+                ? state.primaryColors
+                : (List.from(state.primaryColors)..add(res)),
+            primaryColor: res,
+          ),
+        );
+  }
+
   Future<void> _handleAdd() async {
     final res = await globalState.showCommonDialog<int>(
       child: const _PaletteDialog(),
@@ -168,6 +414,23 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
         );
   }
 
+  String _schemeLabel(DynamicSchemeVariant variant) {
+    switch (variant) {
+      case DynamicSchemeVariant.fidelity:
+        return appLocalizations.schemeCalm;
+      case DynamicSchemeVariant.vibrant:
+        return appLocalizations.schemeBright;
+      case DynamicSchemeVariant.monochrome:
+        return appLocalizations.schemeMono;
+      case DynamicSchemeVariant.neutral:
+        return appLocalizations.schemeNeutral;
+      case DynamicSchemeVariant.expressive:
+        return appLocalizations.schemeExpressive;
+      default:
+        return appLocalizations.schemeCalm;
+    }
+  }
+
   Future<void> _handleChangeSchemeVariant() async {
     final schemeVariant = ref.read(
       themeSettingProvider.select(
@@ -177,8 +440,14 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
     final value = await globalState.showCommonDialog<DynamicSchemeVariant>(
       child: OptionsDialog<DynamicSchemeVariant>(
         title: appLocalizations.colorSchemes,
-        options: DynamicSchemeVariant.values,
-        textBuilder: (item) => Intl.message("${item.name}Scheme"),
+        options: const [
+          DynamicSchemeVariant.fidelity,
+          DynamicSchemeVariant.vibrant,
+          DynamicSchemeVariant.monochrome,
+          DynamicSchemeVariant.neutral,
+          DynamicSchemeVariant.expressive,
+        ],
+        textBuilder: _schemeLabel,
         value: schemeVariant,
       ),
     );
@@ -233,7 +502,7 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
                   visualDensity: VisualDensity.compact,
                 ),
                 onPressed: _handleChangeSchemeVariant,
-                child: Text(Intl.message("${schemeVariant.name}Scheme")),
+                child: Text(_schemeLabel(schemeVariant)),
               ),
             if (_removablePrimaryColor != null)
               FilledButton(
@@ -286,18 +555,7 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
                             child: ColorSchemeBox(
                               isSelected: color == primaryColor,
                               primaryColor: color != null ? Color(color) : null,
-                              onPressed: () {
-                                setState(() {
-                                  _removablePrimaryColor = null;
-                                });
-                                ref
-                                    .read(themeSettingProvider.notifier)
-                                    .updateState(
-                                      (state) => state.copyWith(
-                                        primaryColor: color,
-                                      ),
-                                    );
-                              },
+                              onPressed: () => _handleEdit(color),
                             ),
                             onLongPress: () {
                               setState(() {
@@ -346,6 +604,202 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _OrbColorItem extends ConsumerWidget {
+  const _OrbColorItem();
+
+  Future<void> _handlePick(void Function(int picked) apply) async {
+    final picked = await globalState.showCommonDialog<int>(
+      child: const _PaletteDialog(),
+    );
+    if (picked == null) {
+      return;
+    }
+    apply(picked);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = ref.watch(
+      themeSettingProvider.select(
+        (state) =>
+            (state.orbColorPrimary, state.orbColorSecondary, state.orbBlur),
+      ),
+    );
+    final orbColorPrimary = colors.$1;
+    final orbColorSecondary = colors.$2;
+    final orbBlur = colors.$3;
+
+    return ItemCard(
+      info: Info(
+        label: appLocalizations.backgroundOrbs,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedBlur, size: 24),
+      ),
+      child: Container(
+        margin: const EdgeInsets.symmetric(
+          horizontal: 16,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 16,
+              children: [
+                Expanded(
+                  child: _OrbSlot(
+                    label: appLocalizations.orbOne,
+                    color: orbColorPrimary,
+                    onTap: () => _handlePick(
+                      (picked) => ref
+                          .read(themeSettingProvider.notifier)
+                          .updateState(
+                            (state) => state.copyWith(orbColorPrimary: picked),
+                          ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: _OrbSlot(
+                    label: appLocalizations.orbTwo,
+                    color: orbColorSecondary,
+                    onTap: () => _handlePick(
+                      (picked) => ref
+                          .read(themeSettingProvider.notifier)
+                          .updateState(
+                            (state) =>
+                                state.copyWith(orbColorSecondary: picked),
+                          ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              appLocalizations.orbBlur,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: context.colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisSize: MainAxisSize.max,
+              spacing: 32,
+              children: [
+                Expanded(
+                  child: SliderTheme(
+                    data: _SliderDefaultsM3(context),
+                    child: Slider(
+                      padding: EdgeInsets.zero,
+                      min: 1,
+                      max: 5,
+                      divisions: 4,
+                      value: orbBlur.clamp(1.0, 5.0),
+                      onChanged: (value) {
+                        ref.read(themeSettingProvider.notifier).updateState(
+                              (state) => state.copyWith(orbBlur: value),
+                            );
+                      },
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: SizedBox(
+                    width: 36,
+                    child: Text(
+                      "${orbBlur.round()}",
+                      textAlign: TextAlign.right,
+                      style: context.textTheme.titleMedium,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OrbSlot extends StatelessWidget {
+  const _OrbSlot({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final int? color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: context.colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 96),
+            child: EffectGestureDetector(
+              child: ColorSchemeBox(
+                isSelected: color != null,
+                primaryColor: color != null ? Color(color!) : null,
+                onPressed: onTap,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            color != null ? Color(color!).hex : appLocalizations.autoFollowAccent,
+            style: context.textTheme.bodySmall?.copyWith(
+              color: context.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+}
+
+class _SubscriptionThemeItem extends ConsumerWidget {
+  const _SubscriptionThemeItem();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final applySubscriptionTheme = ref.watch(
+      appSettingProvider.select(
+        (state) => state.applySubscriptionTheme,
+      ),
+    );
+    return ListItem.switchItem(
+      leading: HugeIcon(icon: HugeIcons.strokeRoundedPaintBoard, size: 24),
+      horizontalTitleGap: 12,
+      title: Text(
+        appLocalizations.subscriptionTheme,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: context.colorScheme.onSurfaceVariant,
+            ),
+      ),
+      delegate: SwitchDelegate(
+        value: applySubscriptionTheme,
+        onChanged: (value) {
+          ref.read(appSettingProvider.notifier).updateState(
+                (state) => state.copyWith(
+                  applySubscriptionTheme: value,
+                ),
+              );
+        },
       ),
     );
   }
@@ -468,159 +922,43 @@ class _TextScaleFactorItem extends ConsumerWidget {
 }
 
 class _PaletteDialog extends StatefulWidget {
-  const _PaletteDialog();
+  const _PaletteDialog({this.initialColor});
+
+  final Color? initialColor;
 
   @override
   State<_PaletteDialog> createState() => _PaletteDialogState();
 }
 
-/// Parse a user-entered HEX color string into an opaque ARGB int.
-///
-/// Accepts (case-insensitive, surrounding whitespace tolerated):
-/// * `#RRGGBB` / `RRGGBB`
-/// * `#RGB` / `RGB` (each digit doubled, e.g. `0F0` -> `00FF00`)
-///
-/// Alpha is forced to `0xFF`. Returns `null` for invalid input.
-int? parseHexColor(String input) {
-  final trimmed = input.trim();
-  if (trimmed.isEmpty) return null;
-  final stripped = trimmed.startsWith('#') ? trimmed.substring(1) : trimmed;
-  final hexRe = RegExp(r'^[0-9A-Fa-f]+$');
-  if (!hexRe.hasMatch(stripped)) return null;
-  String six;
-  if (stripped.length == 6) {
-    six = stripped;
-  } else if (stripped.length == 3) {
-    final r = stripped[0];
-    final g = stripped[1];
-    final b = stripped[2];
-    six = '$r$r$g$g$b$b';
-  } else {
-    return null;
-  }
-  final rgb = int.tryParse(six, radix: 16);
-  if (rgb == null) return null;
-  return 0xFF000000 | rgb;
-}
-
 class _PaletteDialogState extends State<_PaletteDialog> {
-  final _controller = ValueNotifier<ui.Color>(Colors.transparent);
-  final _hexController = TextEditingController();
-  bool _hexValid = true;
-  // True when we are mutating the text field from a palette change so we
-  // don't echo the value back into the palette and fight the user mid-drag.
-  bool _syncingFromPalette = false;
+  late Color _color = widget.initialColor ?? const Color(0xFF22C55E);
 
-  @override
-  void initState() {
-    super.initState();
-    _hexController.text = _controller.value.hex;
-    _controller.addListener(_onPaletteChanged);
-    _hexController.addListener(_onHexChanged);
-  }
-
-  @override
-  void dispose() {
-    _controller.removeListener(_onPaletteChanged);
-    _hexController.removeListener(_onHexChanged);
-    _hexController.dispose();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onPaletteChanged() {
-    final hex = _controller.value.hex;
-    if (_hexController.text.toUpperCase() == hex) return;
-    _syncingFromPalette = true;
-    _hexController.value = TextEditingValue(
-      text: hex,
-      selection: TextSelection.collapsed(offset: hex.length),
-    );
-    _syncingFromPalette = false;
-    if (!_hexValid) {
-      setState(() => _hexValid = true);
-    }
-  }
-
-  void _onHexChanged() {
-    if (_syncingFromPalette) return;
-    final parsed = parseHexColor(_hexController.text);
-    final valid = parsed != null;
-    if (valid) {
-      final color = ui.Color(parsed);
-      if (color != _controller.value) {
-        _controller.value = color;
-      }
-    }
-    if (valid != _hexValid) {
-      setState(() => _hexValid = valid);
-    }
-  }
-
-  void _handleConfirm() {
-    final parsed = parseHexColor(_hexController.text);
-    if (parsed == null) return;
-    Navigator.of(context).pop(parsed);
-  }
+  int _toArgb(Color c) =>
+      0xFF000000 | (c.toARGB32() & 0x00FFFFFF);
 
   @override
   Widget build(BuildContext context) => CommonDialog(
         title: appLocalizations.palette,
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
+            onPressed: () => Navigator.of(context).pop(),
             child: Text(appLocalizations.cancel),
           ),
           TextButton(
-            onPressed: _hexValid ? _handleConfirm : null,
+            onPressed: () => Navigator.of(context).pop(_toArgb(_color)),
             child: Text(appLocalizations.confirm),
           ),
         ],
-        child: Column(
-          children: [
-            const SizedBox(
-              height: 8,
-            ),
-            SizedBox(
-              width: 250,
-              height: 250,
-              child: Palette(
-                controller: _controller,
-              ),
-            ),
-            const SizedBox(
-              height: 16,
-            ),
-            TextField(
-              controller: _hexController,
-              textCapitalization: TextCapitalization.characters,
-              autocorrect: false,
-              maxLength: 7,
-              decoration: InputDecoration(
-                labelText: 'HEX',
-                hintText: '#22C55E',
-                counterText: '',
-                errorText: _hexValid ? null : 'Введите HEX цвет',
-              ),
-            ),
-            const SizedBox(
-              height: 16,
-            ),
-            ValueListenableBuilder(
-              valueListenable: _controller,
-              builder: (_, color, __) => PrimaryColorBox(
-                primaryColor: color,
-                child: FilledButton(
-                  onPressed: () {},
-                  child: Text(
-                    color.hex,
-                  ),
-                ),
-              ),
-            ),
-          ],
+        child: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: _color,
+            onColorChanged: (c) => setState(() => _color = c),
+            enableAlpha: false,
+            paletteType: PaletteType.hueWheel,
+            hexInputBar: true,
+            labelTypes: const [],
+            pickerAreaHeightPercent: 0.8,
+          ),
         ),
       );
 }

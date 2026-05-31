@@ -391,6 +391,15 @@ class AppController {
     _applyCustomViewSettings(profile);
   }
 
+  void applyActiveProfileHeaders() {
+    final id = _ref.read(currentProfileIdProvider);
+    if (id == null) return;
+    final profiles = _ref.read(profilesProvider);
+    final profile = profiles.where((p) => p.id == id).firstOrNull;
+    if (profile == null || profile.providerHeaders.isEmpty) return;
+    _applyAllHeaderSettings(profile, isNewProfile: false);
+  }
+
   void _applyProviderSettings(Map<String, String> headers) {
     try {
       final currentSettings = _ref.read(appSettingProvider);
@@ -416,9 +425,19 @@ class AppController {
 
   void _applyThemeColor(Map<String, String> headers) {
     try {
+      final applyTheme = _ref.read(appSettingProvider).applySubscriptionTheme;
+      if (!applyTheme) {
+        commonPrint.log(
+            "Apply subscription theme disabled - ignoring operator theme");
+        return;
+      }
       final hexHeader = headers['dropweb-hex'];
       if (hexHeader != null && hexHeader.isNotEmpty) {
         _applyThemeColorFromHex(hexHeader);
+      }
+      final themeHeader = headers['dropweb-theme'];
+      if (themeHeader != null && themeHeader.isNotEmpty) {
+        _applyDropwebTheme(themeHeader);
       }
     } catch (e) {
       commonPrint.log("Failed to apply theme color: $e");
@@ -427,7 +446,9 @@ class AppController {
 
   void _applyThemeColorFromHex(String hexHeader) {
     try {
-      final parts = hexHeader.split(':');
+      // Format: <accent>[:variant][:pureblack][,<orb1>[,<orb2>]]
+      final segments = hexHeader.split(',');
+      final parts = segments[0].split(':');
       final hexString = parts[0].trim().replaceAll('#', '');
       final variantName = parts.length > 1 ? parts[1].trim() : null;
 
@@ -441,20 +462,26 @@ class AppController {
         }
       }
 
-      if (hexString.length != 6 && hexString.length != 8) {
+      final colorValue = _parseHexColorValue(hexString);
+      if (colorValue == null) {
         commonPrint.log('Invalid hex color length: $hexString');
         return;
       }
 
-      final colorValue = int.parse(
-        hexString.length == 6 ? 'FF$hexString' : hexString,
-        radix: 16,
-      );
+      // Optional orb colors (CSV positions 1 and 2). null => follow accent.
+      final orbPrimary = segments.length > 1
+          ? _parseHexColorValue(segments[1].trim().replaceAll('#', ''))
+          : null;
+      final orbSecondary = segments.length > 2
+          ? _parseHexColorValue(segments[2].trim().replaceAll('#', ''))
+          : null;
 
       commonPrint
           .log('Applying theme from dropweb-hex: #${hexString.toUpperCase()}'
               '${variantName != null ? ', variant=$variantName' : ''}'
-              '${enablePureBlack ? ', pureBlack=true' : ''}');
+              '${enablePureBlack ? ', pureBlack=true' : ''}'
+              '${orbPrimary != null ? ', orb1=#${orbPrimary.toRadixString(16).toUpperCase()}' : ''}'
+              '${orbSecondary != null ? ', orb2=#${orbSecondary.toRadixString(16).toUpperCase()}' : ''}');
 
       _ref.read(themeSettingProvider.notifier).updateState((state) {
         final updatedColors = [...state.primaryColors];
@@ -475,13 +502,11 @@ class AppController {
           }
         }
 
-        commonPrint.log(
-            'Theme updated: primaryColor=#${colorValue.toRadixString(16).toUpperCase()}'
-            '${enablePureBlack ? ', pureBlack=true' : ''}');
-
         return state.copyWith(
           primaryColor: colorValue,
           primaryColors: updatedColors,
+          orbColorPrimary: orbPrimary,
+          orbColorSecondary: orbSecondary,
           schemeVariant: newVariant ?? state.schemeVariant,
           pureBlack: enablePureBlack,
         );
@@ -492,6 +517,72 @@ class AppController {
       commonPrint.log('Theme applied successfully');
     } catch (e) {
       commonPrint.log('Failed to parse hex color from header: $hexHeader - $e');
+    }
+  }
+
+  /// Parses `<filter>,<accentHex>,<orb1Hex>,<orb2Hex>,<blur>` (all optional).
+  void _applyDropwebTheme(String header) {
+    try {
+      final parts = header.split(',').map((s) => s.trim()).toList();
+
+      DynamicSchemeVariant? variant;
+      if (parts.isNotEmpty && parts[0].isNotEmpty) {
+        final name = parts[0].toLowerCase();
+        for (final v in DynamicSchemeVariant.values) {
+          if (v.name.toLowerCase() == name) {
+            variant = v;
+            break;
+          }
+        }
+      }
+
+      final accent = parts.length > 1 && parts[1].isNotEmpty
+          ? _parseHexColorValue(parts[1].replaceAll('#', ''))
+          : null;
+      final orb1 = parts.length > 2 && parts[2].isNotEmpty
+          ? _parseHexColorValue(parts[2].replaceAll('#', ''))
+          : null;
+      final orb2 = parts.length > 3 && parts[3].isNotEmpty
+          ? _parseHexColorValue(parts[3].replaceAll('#', ''))
+          : null;
+      final blur = parts.length > 4 && parts[4].isNotEmpty
+          ? double.tryParse(parts[4])?.clamp(1.0, 5.0)
+          : null;
+
+      commonPrint.log('Applying dropweb-theme: filter=${variant?.name}, '
+          'accent=$accent, orb1=$orb1, orb2=$orb2, blur=$blur');
+
+      _ref.read(themeSettingProvider.notifier).updateState((state) {
+        final colors = [...state.primaryColors];
+        if (accent != null && !colors.contains(accent)) colors.add(accent);
+        return state.copyWith(
+          primaryColor: accent ?? state.primaryColor,
+          primaryColors: colors,
+          orbColorPrimary: orb1 ?? state.orbColorPrimary,
+          orbColorSecondary: orb2 ?? state.orbColorSecondary,
+          schemeVariant: variant ?? state.schemeVariant,
+          orbBlur: blur ?? state.orbBlur,
+        );
+      });
+
+      savePreferencesDebounce();
+    } catch (e) {
+      commonPrint.log('Failed to parse dropweb-theme: $header - $e');
+    }
+  }
+
+  /// 6/8-digit hex (no '#') to ARGB int, or null if invalid.
+  int? _parseHexColorValue(String hexString) {
+    if (hexString.length != 6 && hexString.length != 8) {
+      return null;
+    }
+    try {
+      return int.parse(
+        hexString.length == 6 ? 'FF$hexString' : hexString,
+        radix: 16,
+      );
+    } catch (e) {
+      return null;
     }
   }
 

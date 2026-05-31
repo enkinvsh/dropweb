@@ -94,6 +94,28 @@ extension ColorExtension on Color {
   }
 }
 
+/// HSL transform of the accent per scheme variant; preserves hue/lightness.
+Color applyColorFilter(Color base, DynamicSchemeVariant variant) {
+  final hsl = HSLColor.fromColor(base);
+  switch (variant) {
+    case DynamicSchemeVariant.vibrant:
+      return hsl
+          .withSaturation((hsl.saturation * 1.4).clamp(0.0, 1.0))
+          .toColor();
+    case DynamicSchemeVariant.monochrome:
+      return hsl.withSaturation(0.0).toColor();
+    case DynamicSchemeVariant.neutral:
+      return hsl
+          .withSaturation((hsl.saturation * 0.3).clamp(0.0, 1.0))
+          .toColor();
+    case DynamicSchemeVariant.expressive:
+      return hsl.withHue((hsl.hue + 30.0) % 360.0).toColor();
+    case DynamicSchemeVariant.fidelity:
+    default:
+      return base;
+  }
+}
+
 extension ColorSchemeExtension on ColorScheme {
   ColorScheme toPureBlack(bool isPureBlack) {
     if (!isPureBlack) return this;
