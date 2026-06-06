@@ -99,3 +99,7 @@ opencode.json
 
 # Android module build output (artifacts; never track)
 /android/build/
+
+# fvm (local Flutter version pin)
+.fvm/
+.fvmrc
