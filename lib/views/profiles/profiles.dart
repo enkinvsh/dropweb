@@ -8,8 +8,6 @@ import 'package:dropweb/models/models.dart' hide Action;
 import 'package:dropweb/pages/pages.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
-import 'package:dropweb/views/profiles/edit_profile.dart';
-import 'package:dropweb/views/profiles/override_profile.dart';
 import 'package:dropweb/views/subscription.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -131,21 +129,6 @@ class _ProfileItemState extends State<ProfileItem> {
     });
   }
 
-  void _handleShowEditExtendPage(BuildContext context) {
-    showExtend(
-      context,
-      builder: (_, type) => AdaptiveSheetScaffold(
-        type: type,
-        disableBackground: false,
-        body: EditProfileView(
-          profile: widget.profile,
-          context: context,
-        ),
-        title: "${appLocalizations.edit} ${appLocalizations.profile}",
-      ),
-    );
-  }
-
   List<Widget> _buildUrlProfileInfo(BuildContext context) {
     final subscriptionInfo = widget.profile.subscriptionInfo;
 
@@ -222,16 +205,6 @@ class _ProfileItemState extends State<ProfileItem> {
     ];
   }
 
-  void _handlePushGenProfilePage(BuildContext context, String id) {
-    final overrideProfileView = OverrideProfileView(
-      profileId: id,
-    );
-    BaseNavigator.modal(
-      context,
-      overrideProfileView,
-    );
-  }
-
   @override
   Widget build(BuildContext context) => CommonCard(
         isSelected: widget.profile.id == widget.groupValue,
@@ -283,17 +256,9 @@ class _ProfileItemState extends State<ProfileItem> {
                                   },
                                 ),
                               PopupMenuItemData(
-                                label: appLocalizations.edit,
-                                onPressed: () {
-                                  _handleShowEditExtendPage(context);
-                                },
+                                label: appLocalizations.update,
+                                onPressed: updateProfile,
                               ),
-                              if (widget.profile.type == ProfileType.url) ...[
-                                PopupMenuItemData(
-                                  label: appLocalizations.sync,
-                                  onPressed: updateProfile,
-                                ),
-                              ],
                               // Android (Play target) hides LAN
                               // subscription sharing because it exposes
                               // the subscription URL over plain local
@@ -327,13 +292,6 @@ class _ProfileItemState extends State<ProfileItem> {
                                         .providerHeaders['support-url']!);
                                   },
                                 ),
-                              PopupMenuItemData(
-                                label: appLocalizations.override,
-                                onPressed: () {
-                                  _handlePushGenProfilePage(
-                                      context, widget.profile.id);
-                                },
-                              ),
                               PopupMenuItemData(
                                 label: appLocalizations.delete,
                                 onPressed: () {

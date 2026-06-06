@@ -47,34 +47,42 @@ class SecureProfileUrlStore {
     }
   }
 
-  Future<void> setUrl(String profileId, String? url) async {
+  Future<bool> setUrl(String profileId, String? url) async {
     try {
       final key = '$_urlKeyPrefix$profileId';
       if (url == null || url.isEmpty) {
         await _storage.delete(key: key);
-      } else {
-        await _storage.write(key: key, value: url);
+        return true;
       }
+      await _storage.write(key: key, value: url);
+      // Verify the write persisted — the keystore can fail silently, and the
+      // caller strips the plaintext copy only after a confirmed write.
+      final readBack = await _storage.read(key: key);
+      return readBack == url;
     } catch (e) {
       if (kDebugMode) {
         debugPrint(redactUrls('[SecureProfileStore] setUrl failed: $e'));
       }
+      return false;
     }
   }
 
-  Future<void> setFallbackUrl(String profileId, String? url) async {
+  Future<bool> setFallbackUrl(String profileId, String? url) async {
     try {
       final key = '$_fallbackKeyPrefix$profileId';
       if (url == null || url.isEmpty) {
         await _storage.delete(key: key);
-      } else {
-        await _storage.write(key: key, value: url);
+        return true;
       }
+      await _storage.write(key: key, value: url);
+      final readBack = await _storage.read(key: key);
+      return readBack == url;
     } catch (e) {
       if (kDebugMode) {
         debugPrint(
             redactUrls('[SecureProfileStore] setFallbackUrl failed: $e'));
       }
+      return false;
     }
   }
 

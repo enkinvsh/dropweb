@@ -43,11 +43,14 @@ class Window {
     // unreliable on frameless windows). The Dart-side clamp here only
     // protects against a stored windowProps.width > 600 from previous
     // releases — fresh installs never hit it.
-    final clampedWidth = props.width.clamp(380.0, 600.0);
+    // Fixed window size on Windows + Linux, matching the macOS status-bar
+    // popover (375x600) — locked via equal min/max + non-resizable below.
+    // (macOS returns earlier, so only Windows/Linux reach this code.)
+    const fixedSize = Size(375, 600);
     final windowOptions = WindowOptions(
-      size: Size(clampedWidth, props.height),
-      minimumSize: const Size(380, 400),
-      maximumSize: const Size(600, 99999),
+      size: fixedSize,
+      minimumSize: fixedSize,
+      maximumSize: fixedSize,
     );
     await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
     if (!Platform.isMacOS) {
@@ -82,6 +85,7 @@ class Window {
       }
     }
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.setResizable(false);
       await windowManager.setPreventClose(true);
     });
   }

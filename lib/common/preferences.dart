@@ -72,20 +72,24 @@ class Preferences {
 
     final config = Config.compatibleFromJson(json.decode(configString));
     var wrotePlaintext = false;
+    final stripIds = <String>{};
     for (final profile in config.profiles) {
+      var ok = true;
       if (profile.url.isNotEmpty) {
-        await secureProfileUrlStore.setUrl(profile.id, profile.url);
+        ok = await secureProfileUrlStore.setUrl(profile.id, profile.url);
         wrotePlaintext = true;
       }
       final fb = profile.fallbackUrl;
       if (fb != null && fb.isNotEmpty) {
-        await secureProfileUrlStore.setFallbackUrl(profile.id, fb);
+        final fbOk = await secureProfileUrlStore.setFallbackUrl(profile.id, fb);
+        ok = ok && fbOk;
         wrotePlaintext = true;
       }
+      if (ok) stripIds.add(profile.id);
     }
     await secureProfileUrlStore.markMigrated();
     if (wrotePlaintext) {
-      await _writeConfigStripped(config, preferences);
+      await _writeConfigStripped(config, preferences, stripIds);
     }
   }
 
@@ -94,19 +98,25 @@ class Preferences {
     final preferences = await sharedPreferencesCompleter.future;
     if (preferences == null) return false;
 
+    final stripIds = <String>{};
     for (final profile in config.profiles) {
+      var ok = true;
       if (profile.url.isNotEmpty) {
-        await secureProfileUrlStore.setUrl(profile.id, profile.url);
+        ok = await secureProfileUrlStore.setUrl(profile.id, profile.url);
       }
       if (profile.fallbackUrl != null && profile.fallbackUrl!.isNotEmpty) {
-        await secureProfileUrlStore.setFallbackUrl(
+        final fbOk = await secureProfileUrlStore.setFallbackUrl(
           profile.id,
           profile.fallbackUrl,
         );
+        ok = ok && fbOk;
       }
+      // Strip the plaintext URL only after it is safely in the encrypted store,
+      // so a transient keystore failure cannot lose the subscription URL.
+      if (ok) stripIds.add(profile.id);
     }
 
-    return _writeConfigStripped(config, preferences);
+    return _writeConfigStripped(config, preferences, stripIds);
   }
 
   /// Writes Config with empty url/fallbackUrl. Callers MUST first sync the
@@ -114,13 +124,16 @@ class Preferences {
   Future<bool> _writeConfigStripped(
     Config config,
     SharedPreferences preferences,
+    Set<String> stripIds,
   ) async {
     final strippedProfiles = config.profiles
         .map(
-          (p) => p.copyWith(
-            url: '',
-            fallbackUrl: null,
-          ),
+          (p) => stripIds.contains(p.id)
+              ? p.copyWith(
+                  url: '',
+                  fallbackUrl: null,
+                )
+              : p,
         )
         .toList();
     final strippedConfig = config.copyWith(profiles: strippedProfiles);
