@@ -96,3 +96,6 @@ opencode.json
 
 # Serena tooling metadata
 .serena/
+
+# Android module build output (artifacts; never track)
+/android/build/
