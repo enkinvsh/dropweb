@@ -20,12 +20,13 @@ class _AndroidContainerState extends ConsumerState<AndroidManager> {
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    // Phone-only product: lock to portraitUp. Manifest also pins
-    // android:screenOrientation="portrait" on MainActivity, which Android
-    // treats as portraitUp-only — listing portraitDown here would be a lie.
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    // Phone-only product: portrait is locked ONCE by the manifest
+    // (android:screenOrientation="portrait" on MainActivity). We intentionally
+    // do NOT re-assert it here via setPreferredOrientations — that redundant
+    // runtime setRequestedOrientation re-triggers Android's fixed-orientation
+    // letterbox machinery, which on some Android versions (15) leaks a compat
+    // display frame to the launcher on app exit (home-screen icons shift /
+    // black bar). See flutter/flutter#184963. Manifest lock is authoritative.
     ref.listenManual(appSettingProvider.select((state) => state.hidden),
         (prev, next) {
       app?.updateExcludeFromRecents(next);
