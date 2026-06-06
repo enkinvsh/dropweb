@@ -118,30 +118,61 @@ class Request {
     return MemoryImage(data);
   }
 
+  /// Update check against our own update server (dropweb.org/update.json,
+  /// backed by YC Object Storage) instead of the GitHub API. РФ-reliable and
+  /// independent of GitHub. The manifest is adapted to the shape
+  /// [Controller.checkUpdateResultHandle] expects (tag_name / body / html_url),
+  /// so downstream handling is unchanged. Absent manifest (404) => no update.
   Future<Map<String, dynamic>?> checkForUpdate() async {
     try {
       final response = await _dio.get(
-        "https://api.github.com/repos/$repository/releases/latest",
+        "https://dropweb.org/update.json",
         options: Options(
           responseType: ResponseType.json,
         ),
       );
       if (response.statusCode != 200) return null;
-      final data = response.data;
-      if (data is! Map<String, dynamic>) return null;
-      final rawTag = data['tag_name'];
-      if (rawTag == null) return null;
-      final remoteVersion = rawTag.toString().trim();
+      final raw = response.data;
+      final manifest = raw is Map<String, dynamic>
+          ? raw
+          : (raw is String
+              ? json.decode(raw) as Map<String, dynamic>
+              : <String, dynamic>{});
+      final remoteVersion = (manifest['version']?.toString() ?? '').trim();
       if (remoteVersion.isEmpty) return null;
       final localVersion = globalState.packageInfo.version;
-      final hasUpdate =
-          utils.compareVersions(remoteVersion, localVersion) > 0;
-      if (!hasUpdate) return null;
-      return data;
+      if (utils.compareVersions(remoteVersion, localVersion) <= 0) return null;
+
+      final notes = manifest['notes'] is List
+          ? (manifest['notes'] as List).map((e) => e.toString()).toList()
+          : const <String>[];
+      var downloadUrl = 'https://dropweb.org/downloads';
+      final platforms = manifest['platforms'];
+      if (platforms is Map) {
+        final entry = platforms[_desktopPlatformKey()];
+        if (entry is Map &&
+            entry['url'] is String &&
+            (entry['url'] as String).isNotEmpty) {
+          downloadUrl = entry['url'] as String;
+        }
+      }
+      return <String, dynamic>{
+        'tag_name':
+            remoteVersion.startsWith('v') ? remoteVersion : 'v$remoteVersion',
+        'body': notes.map((n) => '- $n').join('\n'),
+        'html_url': downloadUrl,
+      };
     } catch (e) {
       debugPrint('checkForUpdate failed: $e');
       return null;
     }
+  }
+
+  String _desktopPlatformKey() {
+    if (Platform.isWindows) return 'windows-amd64';
+    if (Platform.isMacOS) return 'macos';
+    if (Platform.isLinux) return 'linux-amd64';
+    return 'windows-amd64';
   }
 
   final Map<String, IpInfo Function(Map<String, dynamic>)> _ipInfoSources = {
