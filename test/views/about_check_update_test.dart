@@ -5,17 +5,30 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('about.shouldShowCheckForUpdate', () {
-    // Android/Play-facing builds MUST NOT expose an in-app GitHub-driven
-    // update check. Google Play policy: updates ship through Play, so the
-    // About → "Проверить обновления" entry has to be hidden there.
-    test('Android (Play target) hides the manual update entry', () {
-      expect(shouldShowCheckForUpdate(isAndroid: true), isFalse);
+    // Play builds (--dart-define=PLAY_BUILD=true) MUST NOT expose an in-app
+    // update check — Google Play policy requires updates through the store.
+    test('Android Play build hides the manual update entry', () {
+      expect(
+        shouldShowCheckForUpdate(isAndroid: true, isPlayBuild: true),
+        isFalse,
+      );
     });
 
-    // Desktop and other non-Play targets continue to ship signed binaries
-    // from GitHub releases, so the manual check stays available.
+    // The sideloaded Android build (our primary RU channel, no Play updates)
+    // shows it and self-updates from our own server.
+    test('Android sideload build keeps the manual update entry', () {
+      expect(
+        shouldShowCheckForUpdate(isAndroid: true, isPlayBuild: false),
+        isTrue,
+      );
+    });
+
+    // Desktop always shows the manual check, regardless of build flavour.
     test('non-Android keeps the manual update entry', () {
-      expect(shouldShowCheckForUpdate(isAndroid: false), isTrue);
+      expect(shouldShowCheckForUpdate(isAndroid: false, isPlayBuild: true),
+          isTrue);
+      expect(shouldShowCheckForUpdate(isAndroid: false, isPlayBuild: false),
+          isTrue);
     });
   });
 

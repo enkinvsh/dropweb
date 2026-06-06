@@ -6,18 +6,22 @@ import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+/// Play builds must hide the in-app update check (Play policy: app updates
+/// ship through the store). Every OTHER distribution shows it and self-updates
+/// from our own server (dropweb.org/update.json) — including the sideloaded
+/// Android build, which is our primary RU channel where Play updates are not
+/// available. The Play AAB build opts out via --dart-define=PLAY_BUILD=true.
+const bool kIsPlayBuild = bool.fromEnvironment('PLAY_BUILD');
+
 /// Whether the About page should show the manual "Check for updates" entry.
-///
-/// Android is the Google Play target: Play policy requires app updates to
-/// ship through the store, so the in-app GitHub-driven update check must
-/// stay hidden there. Desktop and other non-Play targets continue to ship
-/// signed binaries from GitHub releases, so the manual check stays
-/// available on those platforms.
-///
-/// [isAndroid] is injected so this helper stays testable without mocking
-/// `Platform`; production callers pass `Platform.isAndroid`.
+/// [isAndroid]/[isPlayBuild] are injected so this helper stays testable
+/// without mocking `Platform`; production callers pass `Platform.isAndroid`.
 @visibleForTesting
-bool shouldShowCheckForUpdate({required bool isAndroid}) => !isAndroid;
+bool shouldShowCheckForUpdate({
+  required bool isAndroid,
+  bool isPlayBuild = kIsPlayBuild,
+}) =>
+    !isAndroid || !isPlayBuild;
 
 class AboutView extends StatelessWidget {
   const AboutView({super.key});
@@ -37,9 +41,9 @@ class AboutView extends StatelessWidget {
 
   List<Widget> _buildMoreSection(BuildContext context) {
     final items = <Widget>[
-      // Hidden on Android (Play target) — updates ship through Google Play
-      // there. Other platforms continue to fetch from GitHub releases. See
-      // [shouldShowCheckForUpdate] for the policy.
+      // Shown everywhere except Play builds (--dart-define=PLAY_BUILD=true):
+      // sideloaded Android + desktop self-update from our server. See
+      // [shouldShowCheckForUpdate].
       if (shouldShowCheckForUpdate(isAndroid: Platform.isAndroid))
         ListItem(
           title: Text(appLocalizations.checkUpdate),

@@ -149,7 +149,7 @@ class Request {
       var downloadUrl = 'https://dropweb.org/downloads';
       final platforms = manifest['platforms'];
       if (platforms is Map) {
-        final entry = platforms[_desktopPlatformKey()];
+        final entry = platforms[_platformKey()];
         if (entry is Map &&
             entry['url'] is String &&
             (entry['url'] as String).isNotEmpty) {
@@ -168,11 +168,12 @@ class Request {
     }
   }
 
-  String _desktopPlatformKey() {
+  String _platformKey() {
+    if (Platform.isAndroid) return 'android-arm64';
     if (Platform.isWindows) return 'windows-amd64';
     if (Platform.isMacOS) return 'macos';
     if (Platform.isLinux) return 'linux-amd64';
-    return 'windows-amd64';
+    return 'android-arm64';
   }
 
   final Map<String, IpInfo Function(Map<String, dynamic>)> _ipInfoSources = {
