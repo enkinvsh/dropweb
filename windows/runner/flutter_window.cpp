@@ -4,8 +4,8 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
-// Window width is hard-capped at 600 logical px to keep the mobile-first
-// layout intact (lib/common/constant.dart maxMobileWidth=600).
+// Window width is hard-capped at 450 logical px, matching the fixed 450x720
+// size in lib/common/window.dart.
 //
 // Required because:
 //   1. window_manager.setMaximumSize() is unreliable on frameless windows
@@ -20,9 +20,9 @@
 //
 // Both hooks convert logical px → physical px via GetDpiForWindow().
 namespace {
-constexpr int kMaxLogicalWidth = 600;
-constexpr int kMinLogicalWidth = 380;
-constexpr int kMinLogicalHeight = 400;
+constexpr int kMaxLogicalWidth = 450;
+constexpr int kMinLogicalWidth = 450;
+constexpr int kMinLogicalHeight = 720;
 }  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)

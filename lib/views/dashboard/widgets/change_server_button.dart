@@ -170,7 +170,8 @@ class ChangeServerButton extends ConsumerWidget {
                     testUrl: group.testUrl,
                   ));
 
-                  if (delay == null || delay <= 0) {
+                  final label = utils.delayBadgeLabel(delay);
+                  if (label == null) {
                     return const SizedBox.shrink();
                   }
 
@@ -190,7 +191,7 @@ class ChangeServerButton extends ConsumerWidget {
                     ),
                     child: Center(
                       child: Text(
-                        '$delay ms',
+                        label,
                         style: context.textTheme.labelSmall?.copyWith(
                           color: delayColor,
                           fontWeight: FontWeight.w600,

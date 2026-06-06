@@ -874,6 +874,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "unknown": MessageLookupByLibrary.simpleMessage("Неизвестно"),
     "unnamed": MessageLookupByLibrary.simpleMessage("Без имени"),
     "update": MessageLookupByLibrary.simpleMessage("Обновить"),
+    "updateSubscription":
+        MessageLookupByLibrary.simpleMessage("Обновить подписку"),
     "updateAllGeoData": MessageLookupByLibrary.simpleMessage(
       "Обновить все геофайлы",
     ),

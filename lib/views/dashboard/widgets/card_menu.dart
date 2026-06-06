@@ -58,6 +58,30 @@ Future<void> showCardMenu(BuildContext context, WidgetRef ref) {
                 globalState.openUrl(supportUrl);
               },
             ),
+          if (currentProfile != null)
+            _buildMenuRow(
+              icon: HugeIcons.strokeRoundedRefresh,
+              label: appLocalizations.updateSubscription,
+              onTap: () {
+                Navigator.of(context).pop();
+                final appController = globalState.appController;
+                final profile = currentProfile;
+                // No `profile.type` guard (see profiles.dart updateProfile):
+                // post-migration `type` reports `file` for URL subs, which
+                // would silently no-op. update() throws if there's truly no URL.
+                globalState.safeRun(silence: false, () async {
+                  try {
+                    appController
+                        .setProfile(profile.copyWith(isUpdating: true));
+                    await appController.updateProfile(profile);
+                  } catch (e) {
+                    appController
+                        .setProfile(profile.copyWith(isUpdating: false));
+                    rethrow;
+                  }
+                });
+              },
+            ),
           _buildMenuRow(
             icon: HugeIcons.strokeRoundedSettings02,
             label: appLocalizations.tools,

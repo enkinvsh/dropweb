@@ -18,6 +18,16 @@ class Utils {
     return const Color(0xFFC57F0A);
   }
 
+  /// Short label for a latency badge.
+  /// Returns null when there is nothing to show yet (no measurement / loading),
+  /// "n/a" for an unavailable node (timeout, delay < 0), and "$delay ms" for a
+  /// real measurement (delay > 0).
+  String? delayBadgeLabel(int? delay) {
+    if (delay == null || delay == 0) return null;
+    if (delay < 0) return 'n/a';
+    return '$delay ms';
+  }
+
   String get id {
     final timestamp = DateTime.now().microsecondsSinceEpoch;
     final random = Random();

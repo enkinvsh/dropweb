@@ -231,7 +231,7 @@ class _ProfilesContentState extends ConsumerState<_ProfilesContent>
                     groupValue: state.currentProfileId,
                     onChanged: (id) {
                       ref.read(currentProfileIdProvider.notifier).value = id;
-                      globalState.appController.applyActiveProfileHeaders();
+                      globalState.appController.handleChangeProfile();
                     },
                   ),
                 ),
@@ -410,21 +410,19 @@ class _RulesGroupCard extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: group.icon.isNotEmpty && !group.icon.startsWith('http')
-                      ? Text(group.icon, style: const TextStyle(fontSize: 20))
-                      : HugeIcon(
-                          icon: HugeIcons.strokeRoundedWifiConnected01,
-                          size: 20,
-                          color: colorScheme.primary,
-                        ),
-                ),
+                if (group.icon.isNotEmpty && !group.icon.startsWith('http'))
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: EmojiText(
+                      group.icon,
+                      style: const TextStyle(fontSize: 20),
+                    ),
+                  ),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      EmojiText(
                         group.name,
                         style: context.textTheme.bodyMedium
                             ?.copyWith(fontWeight: FontWeight.w600),
@@ -432,7 +430,7 @@ class _RulesGroupCard extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
-                      Text(
+                      EmojiText(
                         selectedProxy != null
                             ? '${selectedProxy.type} · $selectedName'
                             : selectedName.isNotEmpty
@@ -454,22 +452,22 @@ class _RulesGroupCard extends ConsumerWidget {
                         proxyName: selectedName,
                         testUrl: group.testUrl,
                       ));
-                      if (delay == null || delay <= 0) {
+                      final label = utils.delayBadgeLabel(delay);
+                      if (label == null) {
                         return const SizedBox(width: 48);
                       }
+                      final delayColor = utils.getDelayColor(delay);
                       return Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: utils
-                              .getDelayColor(delay)
-                              ?.withValues(alpha: 0.15),
+                          color: delayColor?.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          '$delay ms',
+                          label,
                           style: context.textTheme.labelSmall?.copyWith(
-                            color: utils.getDelayColor(delay),
+                            color: delayColor,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -598,7 +596,7 @@ class _ProxySelectorRow extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  EmojiText(
                     proxy.name,
                     style: context.textTheme.bodyMedium?.copyWith(
                       fontWeight:
@@ -617,7 +615,7 @@ class _ProxySelectorRow extends ConsumerWidget {
                 ],
               ),
             ),
-            if (delay != null && delay > 0)
+            if (utils.delayBadgeLabel(delay) != null)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -625,7 +623,7 @@ class _ProxySelectorRow extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '$delay ms',
+                  utils.delayBadgeLabel(delay)!,
                   style: context.textTheme.labelSmall?.copyWith(
                     color: utils.getDelayColor(delay),
                     fontWeight: FontWeight.w600,
@@ -867,7 +865,7 @@ class SharedProfilesBody extends ConsumerWidget {
                     groupValue: state.currentProfileId,
                     onChanged: (id) {
                       ref.read(currentProfileIdProvider.notifier).value = id;
-                      globalState.appController.applyActiveProfileHeaders();
+                      globalState.appController.handleChangeProfile();
                     },
                   ),
                 ),

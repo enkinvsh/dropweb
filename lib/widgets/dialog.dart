@@ -28,6 +28,7 @@ class CommonDialog extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     
     return AlertDialog(
+      clipBehavior: Clip.antiAlias,
       title: title.isEmpty ? null : Text(title),
       actions: actions,
       contentPadding: padding,

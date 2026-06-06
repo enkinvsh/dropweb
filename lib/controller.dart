@@ -314,7 +314,8 @@ class AppController {
 
   Future<void> addProfile(Profile profile) async {
     _ref.read(profilesProvider.notifier).setProfile(profile);
-    if (_ref.read(currentProfileIdProvider) != null) return;
+    // Always select the freshly added profile so importing a config switches
+    // to it (previously it only auto-selected when no profile existed yet).
     _ref.read(currentProfileIdProvider.notifier).value = profile.id;
     applyProfileDebounce(silence: true);
   }
@@ -438,6 +439,23 @@ class AppController {
     } catch (e) {
       commonPrint.log("Failed to apply theme color: $e");
     }
+  }
+
+  /// Resets operator-applied (subscription) theme accents back to the dropweb
+  /// defaults. Called when switching profiles so a profile WITHOUT a
+  /// `dropweb-theme` header doesn't keep the previously selected operator's
+  /// colors. Only the subscription-controlled fields are reset; the user's
+  /// palette, text scale, pure-black and theme mode are preserved.
+  void _resetSubscriptionTheme() {
+    _ref.read(themeSettingProvider.notifier).updateState(
+          (state) => state.copyWith(
+            primaryColor: defaultPrimaryColor,
+            orbColorPrimary: 0xFF009938,
+            orbColorSecondary: 0xFF2BFF7A,
+            schemeVariant: DynamicSchemeVariant.fidelity,
+            orbBlur: 4.0,
+          ),
+        );
   }
 
   /// Parses `<filter>,<accentHex>,<orb1Hex>,<orb2Hex>,<blur>` (all optional).
@@ -956,6 +974,14 @@ class AppController {
         (p) => p.id == currentProfileId,
         orElse: () => profiles.first,
       );
+
+      // Drop the previous operator's theme first so switching to a profile
+      // without a `dropweb-theme` header reverts to the dropweb default
+      // instead of inheriting stale colors. Then re-apply this profile's own
+      // theme/header settings if it has any.
+      if (_ref.read(appSettingProvider).applySubscriptionTheme) {
+        _resetSubscriptionTheme();
+      }
 
       if (currentProfile.providerHeaders.isNotEmpty) {
         _applyAllHeaderSettings(currentProfile, isNewProfile: false);

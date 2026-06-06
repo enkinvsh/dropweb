@@ -109,7 +109,12 @@ class _ProfileItemState extends State<ProfileItem> {
 
   Future updateProfile() async {
     final appController = globalState.appController;
-    if (widget.profile.type == ProfileType.file) return;
+    // Do NOT guard on `widget.profile.type`: after the URL-encryption
+    // migration the `type` getter reports `file` for every URL subscription
+    // (url is '' in memory, resolved lazily by Profile.update()), so an
+    // `if file return` guard silently no-ops the three-dots Update — the same
+    // bug already fixed for pull-to-refresh. If the profile truly has no URL,
+    // update() throws and safeRun surfaces it.
     await globalState.safeRun(silence: false, () async {
       try {
         appController.setProfile(

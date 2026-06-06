@@ -43,10 +43,11 @@ class Window {
     // unreliable on frameless windows). The Dart-side clamp here only
     // protects against a stored windowProps.width > 600 from previous
     // releases — fresh installs never hit it.
-    // Fixed window size on Windows + Linux, matching the macOS status-bar
-    // popover (375x600) — locked via equal min/max + non-resizable below.
+    // Fixed window size on Windows + Linux: a roomier fixed 450x720 window
+    // (not the macOS 375x600 status-bar popover) — locked via equal min/max +
+    // non-resizable below.
     // (macOS returns earlier, so only Windows/Linux reach this code.)
-    const fixedSize = Size(375, 600);
+    const fixedSize = Size(450, 720);
     final windowOptions = WindowOptions(
       size: fixedSize,
       minimumSize: fixedSize,

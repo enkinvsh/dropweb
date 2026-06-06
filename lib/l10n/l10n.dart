@@ -594,6 +594,16 @@ class AppLocalizations {
     return Intl.message('Update', name: 'update', desc: '', args: []);
   }
 
+  /// `Update subscription`
+  String get updateSubscription {
+    return Intl.message(
+      'Update subscription',
+      name: 'updateSubscription',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Add`
   String get add {
     return Intl.message('Add', name: 'add', desc: '', args: []);
