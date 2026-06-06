@@ -174,7 +174,7 @@ jobs:
 
           # Find previous tag
           if [ "${{ env.IS_STABLE }}" == "true" ]; then
-            preTag=$(curl --silent "https://api.github.com/repos/enkinvsh/dropweb-app/releases/latest" | grep -Po '"tag_name": "\K.*?(?=")' || echo "")
+            preTag=$(curl --silent "https://api.github.com/repos/${{ github.repository }}/releases/latest" | grep -Po '"tag_name": "\K.*?(?=")' || echo "")
           else
             preTag=$(git tag --sort=-creatordate | grep -v "^${{ github.ref_name }}$" | head -1)
           fi
