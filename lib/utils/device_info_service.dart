@@ -122,10 +122,9 @@ class DeviceInfoService {
         return null;
       }
 
-      // For Android, use ANDROID_ID directly without hashing
-      // For other platforms, hash the device ID to 16 characters
-      final newHwid =
-          Platform.isAndroid ? deviceId : _generateCompact16CharId(deviceId);
+      // Hash every platform's stable device ID to a compact 16-char value.
+      // The raw system identifier (e.g. ANDROID_ID) is never persisted or sent.
+      final newHwid = _generateCompact16CharId(deviceId);
 
       await prefs.setString(_hwidStorageKey, newHwid);
 
