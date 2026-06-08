@@ -7,4 +7,4 @@
 [submodule "core/Clash.Meta"]
 	path = core/Clash.Meta
 	url = https://github.com/enkinvsh/xHomo.git
-	branch = main
+	branch = dropweb-core-alpha-refresh
