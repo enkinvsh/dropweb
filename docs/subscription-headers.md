@@ -136,6 +136,33 @@ dropweb-logo: https://example.com/logo.png
 
 ---
 
+## 7. dropweb-renew-url / dropweb-topup-url — кнопки монетизации
+
+Две ссылки, по которым на карточке подписки появляются **контекстные** кнопки. Логика показа — на стороне клиента; сами ссылки задаёт панель (могут быть персональными, с токеном пользователя). Кнопки показываются только когда это уместно — чтобы не быть постоянным баннером.
+
+```
+dropweb-renew-url: <HTTPS URL оплаты/продления>
+dropweb-topup-url: <HTTPS URL докупки трафика>
+```
+
+| Заголовок | Кнопка | Когда показывается |
+|---|---|---|
+| `dropweb-renew-url` | «Продлить» | до конца подписки осталось меньше **3 дней** (в т.ч. если уже истекла) |
+| `dropweb-topup-url` | «Докупить трафик» | остаётся меньше **10%** от лимита трафика |
+
+- Условия показа считаются из стандартного `subscription-userinfo` (`expire`, `total`, `upload`+`download`). Без этих данных кнопки не появляются.
+- `dropweb-renew-url` требует план с датой окончания (`expire > 0`), `dropweb-topup-url` — план с лимитом трафика (`total > 0`).
+- Сработали **оба** триггера — кнопки в один ряд; один — кнопка на всю ширину.
+- По нажатию открывается переданный URL (с подтверждением). Нет заголовка или условие не выполнено — кнопка не показывается.
+
+### Пример
+```
+dropweb-renew-url: https://panel.example.com/pay
+dropweb-topup-url: https://panel.example.com/buy-traffic
+```
+
+---
+
 ## Сводка
 
 | Заголовок | Назначение | Пример значения |
@@ -145,3 +172,5 @@ dropweb-logo: https://example.com/logo.png
 | `dropweb-disconeko` | Аварийный пул серверов (SOS) | `https://example.com/emergency-pool` |
 | `dropweb-cabinet` | Действие личного кабинета (открывает URL) | `https://cab.example.com` |
 | `dropweb-logo` | Логотип провайдера на карточке (круглый, акцентная обводка, фильтр темы) | `https://example.com/logo.png` |
+| `dropweb-renew-url` | Кнопка «Продлить» (при <3 днях до конца подписки) | `https://panel.example.com/pay` |
+| `dropweb-topup-url` | Кнопка «Докупить трафик» (при <10% трафика) | `https://panel.example.com/buy-traffic` |
