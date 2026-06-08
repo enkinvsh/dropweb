@@ -609,6 +609,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "再度更新する前に15秒お待ちください",
     ),
     "tools": MessageLookupByLibrary.simpleMessage("設定"),
+    "topUpTraffic": MessageLookupByLibrary.simpleMessage("トラフィックを追加"),
     "tproxyPort": MessageLookupByLibrary.simpleMessage("Tproxyポート"),
     "trafficUsage": MessageLookupByLibrary.simpleMessage("トラフィック使用量"),
     "tun": MessageLookupByLibrary.simpleMessage("TUN"),

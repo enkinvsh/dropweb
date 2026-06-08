@@ -471,6 +471,7 @@
   "subscriptionExpiresToday": "サブスクリプションは本日期限切れになります",
   "subscriptionExpired": "サブスクリプションが期限切れになりました",
   "renew": "更新",
+  "topUpTraffic": "トラフィックを追加",
   "announcement": "お知らせ",
   "privacyPolicy": "プライバシーポリシー",
   "vpnDisclosureTitle": "接続する前に",

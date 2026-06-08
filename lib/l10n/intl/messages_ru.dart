@@ -848,6 +848,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Пожалуйста, подождите 15 секунд перед повторным обновлением",
     ),
     "tools": MessageLookupByLibrary.simpleMessage("Настройки"),
+    "topUpTraffic": MessageLookupByLibrary.simpleMessage("Докупить трафик"),
     "tproxyPort": MessageLookupByLibrary.simpleMessage("Tproxy-порт"),
     "traffic": MessageLookupByLibrary.simpleMessage("Трафик"),
     "trafficUnlimited": MessageLookupByLibrary.simpleMessage(

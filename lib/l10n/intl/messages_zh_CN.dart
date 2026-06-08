@@ -533,6 +533,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "tonalSpotScheme": MessageLookupByLibrary.simpleMessage("调性点缀"),
     "tooFrequentOperation": MessageLookupByLibrary.simpleMessage("请等待15秒后再次刷新"),
     "tools": MessageLookupByLibrary.simpleMessage("设置"),
+    "topUpTraffic": MessageLookupByLibrary.simpleMessage("购买流量"),
     "tproxyPort": MessageLookupByLibrary.simpleMessage("Tproxy端口"),
     "trafficUsage": MessageLookupByLibrary.simpleMessage("流量统计"),
     "tun": MessageLookupByLibrary.simpleMessage("虚拟网卡"),

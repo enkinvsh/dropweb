@@ -2,8 +2,10 @@ package app.dropweb
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.appcompat.app.AppCompatDelegate
 import app.dropweb.plugins.AppPlugin
@@ -41,6 +43,15 @@ class MainActivity : FlutterActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.attributes.preferredDisplayModeId = getHighestRefreshRateDisplayMode()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Contextual battery-optimization prompt. Runs every resume but is
+        // internally gated so it fires at most once, and only after real VPN
+        // use (see maybeRequestBatteryExemption). An Activity context is
+        // guaranteed here and the app is in the foreground.
+        maybeRequestBatteryExemption()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -131,6 +142,38 @@ class MainActivity : FlutterActivity() {
         // Don't reset runState here - VPN might still be running via serviceEngine
         // The runState is managed by VpnPlugin.handleStart/handleStop
         super.onDestroy()
+    }
+
+    // Google Play rationale: always-on VPN is a core feature of this app, so a
+    // battery-optimization exemption is genuinely needed to keep the tunnel
+    // alive under Doze. To stay Play-policy compliant we make the request
+    // CONTEXTUAL and ONE-TIME — it is shown only after the user has actually
+    // started the VPN at least once (gated by `flutter.vpn_started_once`, set
+    // from the VPN service start path) and only once ever (gated by
+    // `flutter.battery_opt_prompted`). It is never an app-launch nag and is
+    // never shown again even if the user declines.
+    //
+    // Mechanics ported from pluralplay/FlClashX maybeRequestBatteryExemption(),
+    // with the added vpn_started_once gate and an onResume() (not cold-start)
+    // call site.
+    private fun maybeRequestBatteryExemption() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        val pm = getSystemService(PowerManager::class.java) ?: return
+        if (pm.isIgnoringBatteryOptimizations(packageName)) return
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        // Only prompt after the user has actually started the VPN at least once.
+        if (!prefs.getBoolean("flutter.vpn_started_once", false)) return
+        // Only prompt once ever — respected even if the user declines.
+        if (prefs.getBoolean("flutter.battery_opt_prompted", false)) return
+        prefs.edit().putBoolean("flutter.battery_opt_prompted", true).apply()
+        runCatching {
+            startActivity(
+                Intent(
+                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:$packageName")
+                )
+            )
+        }
     }
 
     companion object {

@@ -36,18 +36,30 @@ type TunHandler struct {
 }
 
 func (t *TunHandler) close() {
-	_ = t.limit.Acquire(context.TODO(), 4)
-	defer t.limit.Release(4)
+	// Bound the drain. handleProtect/handleResolveProcess hold this semaphore while
+	// calling into the JVM (Binder), which can wedge under system pressure; close()
+	// runs under tunLock, so an unbounded Acquire here would block stop AND the next
+	// start/getRunTime forever. On timeout, skip releaseObject and leak the callback
+	// global ref rather than risk a use-after-free on an in-flight Protect call.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	drained := t.limit.Acquire(ctx, 4) == nil
+	if drained {
+		defer t.limit.Release(4)
+	} else {
+		log.Warnln("TunHandler.close: drain timed out, leaking callback global ref to avoid use-after-free")
+	}
 	removeTunHook()
 	if t.listener != nil {
 		_ = t.listener.Close()
 	}
-
-	if t.callback != nil {
-		releaseObject(t.callback)
+	if drained {
+		if t.callback != nil {
+			releaseObject(t.callback)
+		}
+		t.callback = nil
+		t.listener = nil
 	}
-	t.callback = nil
-	t.listener = nil
 }
 
 func (t *TunHandler) handleProtect(fd int) {
@@ -104,20 +116,38 @@ func handleStartTun(fd int, callback unsafe.Pointer) {
 	defer tunLock.Unlock()
 	now := time.Now()
 	runTime = &now
-	if fd != 0 {
-		tunHandler = &TunHandler{
-			callback: callback,
-			limit:    semaphore.NewWeighted(4),
+
+	if fd <= 0 {
+		if fd < 0 {
+			log.Errorln("startTUN error: invalid fd %d", fd)
 		}
-		initTunHook()
-		tunListener, _ := t.Start(fd, currentConfig.General.Tun.Device, currentConfig.General.Tun.Stack)
-		if tunListener != nil {
-			log.Infoln("TUN address: %v", tunListener.Address())
-			tunHandler.listener = tunListener
-		} else {
-			removeTunHook()
-		}
+		return
 	}
+
+	tunHandler = &TunHandler{
+		callback: callback,
+		limit:    semaphore.NewWeighted(4),
+	}
+	initTunHook()
+	tunListener, err := t.Start(fd, currentConfig.General.Tun.Device, currentConfig.General.Tun.Stack)
+	if err != nil || tunListener == nil {
+		// fd belongs to sing-tun once t.Start is entered; it closes the fd exactly
+		// once via Listener.Close on a post-wrap failure. Do NOT add an unconditional
+		// syscall.Close(fd) here -- that would double-close a number sing-tun may
+		// have already closed/reused. (A rare pre-wrap sing-tun failure would leak
+		// this one fd; accepted over a double-close.)
+		if err != nil {
+			log.Errorln("startTUN error: %v", err)
+		}
+		removeTunHook()
+		if tunHandler != nil {
+			releaseObject(tunHandler.callback)
+			tunHandler = nil
+		}
+		return
+	}
+	log.Infoln("TUN address: %v", tunListener.Address())
+	tunHandler.listener = tunListener
 }
 
 func handleGetRunTime() string {

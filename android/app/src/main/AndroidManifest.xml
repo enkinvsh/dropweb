@@ -30,6 +30,11 @@
          VPN apps qualify for this exemption. The matching foregroundServiceType
          is selected at runtime in BaseServiceInterface.startForeground. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
+    <!-- Lets us prompt the user to exempt the app from battery optimizations so
+         the always-on VPN tunnel is not killed by Doze. The prompt is shown
+         CONTEXTUALLY (only after the user's first successful VPN start) and only
+         once ever — never an app-launch nag — to stay Google Play compliant. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!--
         Package visibility for per-app VPN access control and config-file
         sharing is scoped narrowly via the <queries> block below; the broad

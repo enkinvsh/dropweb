@@ -3869,6 +3869,16 @@ class AppLocalizations {
     return Intl.message('Renew', name: 'renew', desc: '', args: []);
   }
 
+  /// `Top up traffic`
+  String get topUpTraffic {
+    return Intl.message(
+      'Top up traffic',
+      name: 'topUpTraffic',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Announcement`
   String get announcement {
     return Intl.message(

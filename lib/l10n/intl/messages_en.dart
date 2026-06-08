@@ -815,6 +815,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Please wait 15 seconds before refreshing again",
     ),
     "tools": MessageLookupByLibrary.simpleMessage("Settings"),
+    "topUpTraffic": MessageLookupByLibrary.simpleMessage("Top up traffic"),
     "tproxyPort": MessageLookupByLibrary.simpleMessage("Tproxy Port"),
     "traffic": MessageLookupByLibrary.simpleMessage("Traffic"),
     "trafficUnlimited": MessageLookupByLibrary.simpleMessage(

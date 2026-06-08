@@ -266,6 +266,27 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
       }
     }
 
+    // Monetization buttons — gated by subscription state and driven by
+    // dropweb-* headers (auto-collected lowercase in profile.dart). Mechanism
+    // is ported from pluralplay/FlClashX; the Lumina visual treatment is ours.
+    final renewUrl = headers['dropweb-renew-url'];
+    final topUpUrl = headers['dropweb-topup-url'];
+
+    final now = DateTime.now();
+    final showRenew = renewUrl != null &&
+        renewUrl.isNotEmpty &&
+        subscriptionInfo.expire > 0 &&
+        DateTime.fromMillisecondsSinceEpoch(subscriptionInfo.expire * 1000)
+                .difference(now) <
+            const Duration(days: 3);
+
+    final usedTrafficTotal = subscriptionInfo.upload + subscriptionInfo.download;
+    final showTopUp = topUpUrl != null &&
+        topUpUrl.isNotEmpty &&
+        subscriptionInfo.total > 0 &&
+        (subscriptionInfo.total - usedTrafficTotal) <
+            subscriptionInfo.total * 0.1;
+
     return CommonCard(
       radius: Lumina.radiusLg,
       onPressed: () {
@@ -356,6 +377,13 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
                   : '${appLocalizations.expiresOn} ${DateFormat('dd.MM.yyyy').format(DateTime.fromMillisecondsSinceEpoch(subscriptionInfo.expire * 1000))}',
               style: theme.textTheme.bodyMedium,
             ),
+            _buildMonetizationButtons(
+              context,
+              showRenew: showRenew,
+              showTopUp: showTopUp,
+              renewUrl: renewUrl,
+              topUpUrl: topUpUrl,
+            ),
             if (hasAnnounce) ...[
               const SizedBox(height: 10),
               Divider(
@@ -433,6 +461,61 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Header-driven monetization buttons: renew (filled primary) and top-up
+  /// traffic (tonal). Both visible -> side by side; one -> full width; none ->
+  /// nothing. URLs open via globalState.openUrl (which confirms first).
+  Widget _buildMonetizationButtons(
+    BuildContext context, {
+    required bool showRenew,
+    required bool showTopUp,
+    required String? renewUrl,
+    required String? topUpUrl,
+  }) {
+    if (!showRenew && !showTopUp) {
+      return const SizedBox.shrink();
+    }
+
+    final scheme = Theme.of(context).colorScheme;
+
+    final renewButton = FilledButton.icon(
+      onPressed: () => globalState.openUrl(renewUrl!),
+      icon: HugeIcon(
+        icon: HugeIcons.strokeRoundedRefresh,
+        color: scheme.onPrimary,
+        size: 20,
+      ),
+      label: Text(appLocalizations.renew),
+    );
+
+    final topUpButton = FilledButton.tonalIcon(
+      onPressed: () => globalState.openUrl(topUpUrl!),
+      icon: HugeIcon(
+        icon: HugeIcons.strokeRoundedAddCircle,
+        color: scheme.onSecondaryContainer,
+        size: 20,
+      ),
+      label: Text(appLocalizations.topUpTraffic),
+    );
+
+    final List<Widget> children;
+    if (showRenew && showTopUp) {
+      children = [
+        Expanded(child: renewButton),
+        const SizedBox(width: 10),
+        Expanded(child: topUpButton),
+      ];
+    } else if (showRenew) {
+      children = [Expanded(child: renewButton)];
+    } else {
+      children = [Expanded(child: topUpButton)];
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(children: children),
     );
   }
 }

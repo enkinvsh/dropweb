@@ -295,6 +295,13 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             updateUnderlyingNetworks()
             registerScreenReceiver()
             startForegroundJob()
+            // Cross-file flag read by MainActivity.maybeRequestBatteryExemption()
+            // to gate the one-time, contextual battery-opt prompt after real VPN use.
+            DropwebApplication.getAppContext()
+                .getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("flutter.vpn_started_once", true)
+                .apply()
         }
     }
 

@@ -54,7 +54,10 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     private lateinit var scope: CoroutineScope
 
-    private var vpnCallBack: (() -> Unit)? = null
+    // All requesters waiting on a single in-flight VPN consent dialog. Only the
+    // first launches the dialog; the RESULT_OK result resolves every queued
+    // callback. Main-thread access only — never touch this off the UI thread.
+    private val vpnCallBacks = mutableListOf<() -> Unit>()
 
     private val iconMap = mutableMapOf<String, String?>()
 
@@ -489,13 +492,19 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
     }
 
     fun requestVpnPermission(callBack: () -> Unit) {
-        vpnCallBack = callBack
         val intent = VpnService.prepare(DropwebApplication.getAppContext())
         if (intent != null) {
-            activityRef?.get()?.startActivityForResult(intent, VPN_PERMISSION_REQUEST_CODE)
-            return
+            val activity = activityRef?.get()
+            if (activity != null) {
+                val alreadyInFlight = vpnCallBacks.isNotEmpty()
+                vpnCallBacks.add(callBack)
+                if (!alreadyInFlight) {
+                    activity.startActivityForResult(intent, VPN_PERMISSION_REQUEST_CODE)
+                }
+                return
+            }
         }
-        vpnCallBack?.invoke()
+        callBack()
     }
 
     fun requestNotificationsPermission() {
@@ -606,18 +615,28 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
         activityRef = WeakReference(binding.activity)
+        binding.addActivityResultListener(::onActivityResult)
+        binding.addRequestPermissionsResultListener(::onRequestPermissionsResultListener)
     }
 
     override fun onDetachedFromActivity() {
         channel.invokeMethod("exit", null)
         activityRef = null
+        // Our callback means "consent granted, start the VPN" — invoking it
+        // without an activity would launch the tunnel detached from any UI.
+        // Drop pending callbacks instead, re-arming the launch gate.
+        vpnCallBacks.clear()
     }
 
     private fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
         if (requestCode == VPN_PERMISSION_REQUEST_CODE) {
             if (resultCode == FlutterActivity.RESULT_OK) {
                 GlobalState.initServiceEngine()
-                vpnCallBack?.invoke()
+                val pending = vpnCallBacks.toList()
+                vpnCallBacks.clear()
+                pending.forEach { it.invoke() }
+            } else {
+                vpnCallBacks.clear()
             }
         }
         return true
