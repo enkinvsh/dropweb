@@ -904,16 +904,16 @@ class _RulesGroupCard extends ConsumerWidget {
         color: isDark
             ? Colors.white.withValues(alpha: 0.04)
             : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Lumina.radiusLg),
         child: InkWell(
           onTap: () => _openSelector(context),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(Lumina.radiusLg),
           splashColor: colorScheme.primary.withValues(alpha: 0.08),
           highlightColor: colorScheme.primary.withValues(alpha: 0.04),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(Lumina.radiusLg),
               border: Border.all(
                 color: isDark
                     ? Colors.white.withValues(alpha: 0.06)
@@ -1032,7 +1032,7 @@ class _ProxySelectorSheet extends ConsumerWidget {
       ),
       child: ListView.builder(
         shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: group.all.length,
         itemBuilder: (context, index) {
           final proxy = group.all[index];
@@ -1084,65 +1084,88 @@ class _ProxySelectorRow extends ConsumerWidget {
       testUrl: testUrl,
     ));
 
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
         color: isSelected
-            ? colorScheme.primary.withValues(alpha: isDark ? 0.08 : 0.06)
-            : null,
-        child: Row(
-          children: [
-            if (isSelected)
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: HugeIcon(
-                  icon: HugeIcons.strokeRoundedCheckmarkCircle02,
-                  size: 18,
-                  color: colorScheme.primary,
-                ),
-              )
-            else
-              const SizedBox(width: 30),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  EmojiText(
-                    proxy.name,
-                    style: context.textTheme.bodyMedium?.copyWith(
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w400,
-                      color: isSelected ? colorScheme.primary : null,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    proxy.type,
-                    style: context.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+            ? colorScheme.primary.withValues(alpha: isDark ? 0.10 : 0.08)
+            : isDark
+                ? Colors.white.withValues(alpha: 0.04)
+                : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(Lumina.radiusLg),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(Lumina.radiusLg),
+          splashColor: colorScheme.primary.withValues(alpha: 0.08),
+          highlightColor: colorScheme.primary.withValues(alpha: 0.04),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Lumina.radiusLg),
+              border: Border.all(
+                color: isSelected
+                    ? colorScheme.primary.withValues(alpha: 0.35)
+                    : isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : colorScheme.outlineVariant.withValues(alpha: 0.3),
               ),
             ),
-            if (utils.delayBadgeLabel(delay) != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: utils.getDelayColor(delay)?.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  utils.delayBadgeLabel(delay)!,
-                  style: context.textTheme.labelSmall?.copyWith(
-                    color: utils.getDelayColor(delay),
-                    fontWeight: FontWeight.w600,
+            child: Row(
+              children: [
+                if (isSelected)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: HugeIcon(
+                      icon: HugeIcons.strokeRoundedCheckmarkCircle02,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ),
+                  )
+                else
+                  const SizedBox(width: 30),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      EmojiText(
+                        proxy.name,
+                        style: context.textTheme.bodyMedium?.copyWith(
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.w400,
+                          color: isSelected ? colorScheme.primary : null,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        proxy.type,
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-          ],
+                if (utils.delayBadgeLabel(delay) != null)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color:
+                          utils.getDelayColor(delay)?.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      utils.delayBadgeLabel(delay)!,
+                      style: context.textTheme.labelSmall?.copyWith(
+                        color: utils.getDelayColor(delay),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
