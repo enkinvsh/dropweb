@@ -80,6 +80,7 @@ func handleGetIsInit() bool {
 
 func handleForceGc() {
 	go func() {
+		defer recoverGo("handleForceGc")
 		log.Infoln("[APP] request force GC")
 		runtime.GC()
 	}()
@@ -158,6 +159,7 @@ func handleGetProxies() interface{} {
 func handleChangeProxy(data string, fn func(string string)) {
 	runLock.Lock()
 	go func() {
+		defer recoverGo("handleChangeProxy")
 		defer runLock.Unlock()
 		var params = &ChangeProxyParams{}
 		err := json.Unmarshal([]byte(data), params)
@@ -228,6 +230,7 @@ func handleResetTraffic() {
 
 func handleAsyncTestDelay(paramsString string, fn func(string)) {
 	mBatch.Go(paramsString, func() (bool, error) {
+		defer recoverGo("handleAsyncTestDelay")
 		var params = &TestDelayParams{}
 		err := json.Unmarshal([]byte(paramsString), params)
 		if err != nil {
@@ -367,6 +370,7 @@ func handleGetExternalProvider(externalProviderName string) string {
 
 func handleUpdateGeoData(geoType string, geoName string, fn func(value string)) {
 	go func() {
+		defer recoverGo("handleUpdateGeoData")
 		path := constant.Path.Resolve(geoName)
 		switch geoType {
 		case "MMDB":
@@ -400,6 +404,7 @@ func handleUpdateGeoData(geoType string, geoName string, fn func(value string)) 
 
 func handleUpdateExternalProvider(providerName string, fn func(value string)) {
 	go func() {
+		defer recoverGo("handleUpdateExternalProvider")
 		externalProvider, exist := externalProviders[providerName]
 		if !exist {
 			fn("external provider is not exist")
@@ -416,6 +421,7 @@ func handleUpdateExternalProvider(providerName string, fn func(value string)) {
 
 func handleSideLoadExternalProvider(providerName string, data []byte, fn func(value string)) {
 	go func() {
+		defer recoverGo("handleSideLoadExternalProvider")
 		runLock.Lock()
 		defer runLock.Unlock()
 		externalProvider, exist := externalProviders[providerName]
@@ -439,6 +445,7 @@ func handleStartLog() {
 	}
 	logSubscriber = log.Subscribe()
 	go func() {
+		defer recoverGo("handleStartLog")
 		for logData := range logSubscriber {
 			if logData.LogLevel < log.Level() {
 				continue
@@ -461,6 +468,7 @@ func handleStopLog() {
 
 func handleGetCountryCode(ip string, fn func(value string)) {
 	go func() {
+		defer recoverGo("handleGetCountryCode")
 		runLock.Lock()
 		defer runLock.Unlock()
 		codes := mmdb.IPInstance().LookupCode(net.ParseIP(ip))
@@ -474,6 +482,7 @@ func handleGetCountryCode(ip string, fn func(value string)) {
 
 func handleGetMemory(fn func(value string)) {
 	go func() {
+		defer recoverGo("handleGetMemory")
 		fn(strconv.FormatUint(statistic.DefaultManager.Memory(), 10))
 	}()
 }
