@@ -52,6 +52,22 @@ void main() {
     });
   });
 
+  group('maskServerAddress', () {
+    test('masks last two octets of an IPv4 address', () {
+      expect(maskServerAddress('45.135.20.7'), '45.135.•.•');
+      expect(maskServerAddress('192.168.1.1'), '192.168.•.•');
+    });
+
+    test('returns a host/domain unchanged', () {
+      expect(maskServerAddress('de.meybz.asia'), 'de.meybz.asia');
+    });
+
+    test('returns a malformed address unchanged', () {
+      expect(maskServerAddress('1.2.3'), '1.2.3');
+      expect(maskServerAddress('1.2.3.999'), '1.2.3.999');
+    });
+  });
+
   group('groupNodesByCountry', () {
     test('groups a single flagged node under its flag', () {
       final result = groupNodesByCountry(['🇩🇪 Frankfurt 01']);

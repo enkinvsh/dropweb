@@ -299,10 +299,14 @@ class _AddProfileCard extends StatelessWidget {
 class _ModeProfileData {
   const _ModeProfileData({
     required this.countries,
+    required this.nodeServers,
     required this.hasSmartCandidates,
   });
 
   final Map<String, List<String>> countries;
+
+  /// node name → its `server` address (IP or host), for the strict-node list.
+  final Map<String, String> nodeServers;
   final bool hasSmartCandidates;
 }
 
@@ -318,8 +322,18 @@ final _modeProfileDataProvider =
     // (🇷🇺/🇬🇧/…) the panel subscription never offers. `interceptLeafNodes`
     // resolves rules from either the 'rules' or 'rule' key (`_resolveRules`),
     // and getProfileConfig output uses 'rules'.
+    final nodeServers = <String, String>{};
+    final proxies = cfg['proxies'];
+    if (proxies is List) {
+      for (final p in proxies) {
+        if (p is Map && p['name'] != null && p['server'] != null) {
+          nodeServers[p['name'].toString()] = p['server'].toString();
+        }
+      }
+    }
     return _ModeProfileData(
       countries: groupNodesByCountry(interceptLeafNodes(cfg)),
+      nodeServers: nodeServers,
       hasSmartCandidates: smartGroupWillInject(cfg),
     );
   },
@@ -687,12 +701,13 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
                 onTap: () {
                   final isActive = flag == activeCountry;
                   // New country → drop any strict node; same active country →
-                  // keep the current strict pick.
+                  // keep the current strict pick. Stay on the screen (no pop):
+                  // the user may want to toggle «Строгая нода» and pick a node
+                  // for the country they just selected; they return manually.
                   final strictPick =
                       isActive && strictOn ? profile.staticStrictNode : null;
                   if (!isActive) setState(() => _strictOn = null);
                   widget.onApply(flag, strictPick);
-                  Navigator.of(context).pop();
                 },
               ),
             // The no-flag bucket is shown last and is NOT selectable. Uses the
@@ -761,7 +776,7 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
                     ),
                     horizontalTitleGap: 8,
                     title: EmojiText(
-                      stripCountryFlag(node),
+                      node,
                       style: context.textTheme.bodyMedium?.copyWith(
                         fontWeight: node == profile.staticStrictNode
                             ? FontWeight.w600
@@ -773,6 +788,14 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    subtitle: data.nodeServers[node] != null
+                        ? Text(
+                            maskServerAddress(data.nodeServers[node]!),
+                            style: context.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          )
+                        : null,
                     // Apply the picked node in-place (stay on the deep screen).
                     onTap: () => widget.onApply(activeCountry, node),
                   ),
