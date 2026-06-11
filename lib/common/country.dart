@@ -16,6 +16,23 @@ const int _regionalIndicatorEnd = 0x1F1FF;
 bool _isRegionalIndicator(int rune) =>
     rune >= _regionalIndicatorStart && rune <= _regionalIndicatorEnd;
 
+/// Human-readable display name for a country bucket.
+///
+/// Subscription node names carry the localized country name after the flag
+/// (e.g. "🇩🇪 Германия" → "Германия"), so the first node's flag-stripped name
+/// is used. Falls back to the ISO letters encoded in the flag's regional
+/// indicators (🇩🇪 → "DE") when every node name is flag-only.
+String countryDisplayName(String flag, List<String> nodeNames) {
+  for (final name in nodeNames) {
+    final stripped = stripCountryFlag(name).trim();
+    if (stripped.isNotEmpty) return stripped;
+  }
+  return flag.runes
+      .where(_isRegionalIndicator)
+      .map((r) => String.fromCharCode(r - _regionalIndicatorStart + 0x41))
+      .join();
+}
+
 /// Returns the first flag emoji found in [text], or null if there is none.
 ///
 /// A flag is the first adjacent pair of regional indicator symbols.

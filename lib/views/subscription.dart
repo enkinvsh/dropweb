@@ -609,78 +609,7 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
   /// Local strict-node toggle override (null → derive from the profile).
   bool? _strictOn;
 
-  void _openStrictNodePicker(
-    List<String> nodes,
-    String? selected,
-    ValueChanged<String> onSelected,
-  ) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showSheet(
-      context: context,
-      props: const SheetProps(isScrollControlled: true),
-      builder: (_, type) => AdaptiveSheetScaffold(
-        type: type,
-        title: appLocalizations.strictNode,
-        body: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.6,
-          ),
-          child: ListView.builder(
-            shrinkWrap: true,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: nodes.length,
-            itemBuilder: (ctx, index) {
-              final node = nodes[index];
-              final isSelected = node == selected;
-              final colorScheme = Theme.of(ctx).colorScheme;
-              return InkWell(
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  onSelected(node);
-                },
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  color: isSelected
-                      ? colorScheme.primary
-                          .withValues(alpha: isDark ? 0.08 : 0.06)
-                      : null,
-                  child: Row(
-                    children: [
-                      if (isSelected)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: HugeIcon(
-                            icon: HugeIcons.strokeRoundedCheckmarkCircle02,
-                            size: 18,
-                            color: colorScheme.primary,
-                          ),
-                        )
-                      else
-                        const SizedBox(width: 30),
-                      Expanded(
-                        child: EmojiText(
-                          node,
-                          style: context.textTheme.bodyMedium?.copyWith(
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: isSelected ? colorScheme.primary : null,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -738,7 +667,7 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
                 ),
                 horizontalTitleGap: 8,
                 title: EmojiText(
-                  flag,
+                  '$flag  ${countryDisplayName(flag, data.countries[flag]!)}',
                   style: context.textTheme.titleMedium?.copyWith(
                     fontWeight: flag == activeCountry
                         ? FontWeight.w600
@@ -813,32 +742,40 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
                   },
                 ),
               ),
+              // Inline node list (no extra modal): pick the strict node right
+              // here. The country's flag is redundant inside its own section,
+              // so node titles are shown flag-stripped; the FULL node name is
+              // what gets applied.
               if (strictOn)
-                ListItem(
-                  leading: HugeIcon(
-                    icon: HugeIcons.strokeRoundedServerStack01,
-                    size: 20,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  horizontalTitleGap: 8,
-                  title: EmojiText(
-                    profile.staticStrictNode ?? '...',
-                    style: context.textTheme.bodyMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: HugeIcon(
-                    icon: HugeIcons.strokeRoundedArrowRight01,
-                    size: 16,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  onTap: () => _openStrictNodePicker(
-                    data.countries[activeCountry]!,
-                    profile.staticStrictNode,
+                for (final node in data.countries[activeCountry]!)
+                  ListItem(
+                    leading: SizedBox(
+                      width: 24,
+                      child: node == profile.staticStrictNode
+                          ? HugeIcon(
+                              icon: HugeIcons.strokeRoundedCheckmarkCircle02,
+                              size: 18,
+                              color: colorScheme.primary,
+                            )
+                          : null,
+                    ),
+                    horizontalTitleGap: 8,
+                    title: EmojiText(
+                      stripCountryFlag(node),
+                      style: context.textTheme.bodyMedium?.copyWith(
+                        fontWeight: node == profile.staticStrictNode
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        color: node == profile.staticStrictNode
+                            ? colorScheme.primary
+                            : null,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     // Apply the picked node in-place (stay on the deep screen).
-                    (node) => widget.onApply(activeCountry, node),
+                    onTap: () => widget.onApply(activeCountry, node),
                   ),
-                ),
             ],
           ],
         );

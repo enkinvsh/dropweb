@@ -34,6 +34,24 @@ void main() {
     });
   });
 
+  group('countryDisplayName', () {
+    test('uses first node name with flag stripped', () {
+      expect(
+        countryDisplayName('🇩🇪', ['🇩🇪 Германия', '🇩🇪 Германия 2']),
+        'Германия',
+      );
+    });
+
+    test('skips flag-only node names, uses next informative one', () {
+      expect(countryDisplayName('🇳🇱', ['🇳🇱', '🇳🇱 Нидерланды']), 'Нидерланды');
+    });
+
+    test('falls back to ISO letters when all names are flag-only', () {
+      expect(countryDisplayName('🇩🇪', ['🇩🇪']), 'DE');
+      expect(countryDisplayName('🇳🇱', []), 'NL');
+    });
+  });
+
   group('groupNodesByCountry', () {
     test('groups a single flagged node under its flag', () {
       final result = groupNodesByCountry(['🇩🇪 Frankfurt 01']);
