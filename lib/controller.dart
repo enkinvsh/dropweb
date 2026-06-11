@@ -954,6 +954,16 @@ class AppController {
       return;
     }
 
+    // Geo safety net: regular init now copies the bundled geo assets lazily, so
+    // a profile that enables geodata after first launch may not have the four
+    // geo files on disk yet. Stat-and-copy them here, right before core setup,
+    // only when the effective profile actually needs geodata. Sits after the
+    // hash gate on purpose: a hash hit means the effective config didn't change,
+    // so the geo state is already correct and nothing needs copying.
+    await Geodata.ensureGeoFilesIfNeeded(
+      await Geodata.currentProfileNeedsGeodata(),
+    );
+
     final params = await globalState.getSetupParams(
       pathConfig: realPatchConfig,
     );

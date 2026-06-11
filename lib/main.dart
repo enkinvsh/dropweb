@@ -90,27 +90,14 @@ Future<void> _service(List<String> flags) async {
           unawaited(app?.tip(appLocalizations.startVpn));
 
           // Initialize GeoIP/GeoSite only if profile enables it (geodata-mode == true)
-          try {
-            final currentProfileId = globalState.config.currentProfileId;
-            if (currentProfileId != null) {
-              final profileConfig =
-                  await globalState.getProfileConfig(currentProfileId);
-              final geodataMode = profileConfig["geodata-mode"];
-              if (geodataMode == true) {
-                commonPrint.log(
-                    "TileService: Initializing GeoIP/GeoSite (geodata-mode=true)...");
-                await ClashCore.initGeo();
-                commonPrint.log("TileService: GeoIP/GeoSite initialized");
-              } else {
-                commonPrint.log(
-                    "TileService: Skipping Geo init (geodata-mode != true)");
-              }
-            } else {
-              commonPrint
-                  .log("TileService: Skipping Geo init (no current profile)");
-            }
-          } catch (e) {
-            commonPrint.log("TileService: Skipping Geo init due to error: $e");
+          if (await Geodata.currentProfileNeedsGeodata()) {
+            commonPrint.log(
+                "TileService: Initializing GeoIP/GeoSite (geodata-mode=true)...");
+            await ClashCore.initGeo();
+            commonPrint.log("TileService: GeoIP/GeoSite initialized");
+          } else {
+            commonPrint.log(
+                "TileService: Skipping Geo init (geodata-mode != true)");
           }
 
           commonPrint.log("TileService: Getting paths...");

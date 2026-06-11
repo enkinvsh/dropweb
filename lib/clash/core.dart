@@ -68,7 +68,13 @@ class ClashCore {
   }
 
   Future<bool> init() async {
-    await initGeo();
+    // Lazy geo bootstrap: copy the bundled geo assets only when the active
+    // profile actually consumes geodata (same condition as the tile path). A
+    // profile that enables geodata later is covered by the safety net in
+    // AppController._setupClashConfig before core setup.
+    if (await Geodata.currentProfileNeedsGeodata()) {
+      await initGeo();
+    }
     if (globalState.config.appSetting.openLogs) {
       clashCore.startLog();
     } else {
