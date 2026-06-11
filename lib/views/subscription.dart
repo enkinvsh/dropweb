@@ -340,14 +340,6 @@ class _ModesContentState extends ConsumerState<_ModesContent>
   /// briefly so a double-tap can't race two applies.
   bool _applying = false;
 
-  /// Locally-expanded mode — drives the in-card settings reveal BEFORE the
-  /// mode is applied (tapping «Страна» expands it so a country can be picked
-  /// without applying yet). Falls back to the persisted work mode.
-  WorkMode? _expanded;
-
-  /// Local strict-node toggle override (null → derive from the profile).
-  bool? _strictOn;
-
   Future<void> _apply(
     WorkMode mode, {
     String? staticCountry,
@@ -365,6 +357,9 @@ class _ModesContentState extends ConsumerState<_ModesContent>
     }
   }
 
+  /// Deep screen for «Стандарт»: the existing proxies/groups UI
+  /// ([_RulesProxiesView]) in a sheet — reuses the exact wiring the old
+  /// bottom row used.
   void _openServersAndGroups() {
     showSheet(
       context: context,
@@ -379,6 +374,239 @@ class _ModesContentState extends ConsumerState<_ModesContent>
       ),
     );
   }
+
+  /// Deep screen for «Страна»: full-page country picker (mirrors how
+  /// [AddProfileView] is opened — [showExtend] + [AdaptiveSheetScaffold]).
+  /// Selecting a country applies [WorkMode.country] through [_apply] (so the
+  /// applying-state guard still covers the modes tab on return).
+  void _openCountryDeep(Profile profile) {
+    showExtend(
+      context,
+      builder: (_, type) => AdaptiveSheetScaffold(
+        type: type,
+        title: appLocalizations.workModeCountry,
+        body: _CountryDeepView(
+          profileId: profile.id,
+          onApply: (country, strictNode) => _apply(
+            WorkMode.country,
+            staticCountry: country,
+            staticStrictNode: strictNode,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    final profile = ref.watch(currentProfileProvider);
+    if (profile == null) {
+      return NullStatus(label: appLocalizations.nullProfileDesc);
+    }
+    final dataAsync = ref.watch(_modeProfileDataProvider(profile.id));
+
+    return dataAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => NullStatus(label: appLocalizations.nullProfileDesc),
+      data: (data) {
+        final stack = ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          children: [
+            // «Стандарт»: tap applies standard; chevron → «Серверы и группы».
+            _ModeCard(
+              icon: HugeIcons.strokeRoundedShield01,
+              title: appLocalizations.workModeStandard,
+              description: appLocalizations.workModeStandardDesc,
+              isSelected: profile.workMode == WorkMode.standard,
+              onTap: () => _apply(WorkMode.standard),
+              onChevronTap: _openServersAndGroups,
+            ),
+            const SizedBox(height: 16),
+            // «Умный»: no deep, no chevron.
+            _ModeCard(
+              icon: HugeIcons.strokeRoundedArtificialIntelligence01,
+              title: appLocalizations.workModeSmart,
+              description: appLocalizations.workModeSmartDesc,
+              isSelected: profile.workMode == WorkMode.smart,
+              enabled: data.hasSmartCandidates,
+              onTap: () => _apply(WorkMode.smart),
+            ),
+            const SizedBox(height: 16),
+            // «Страна»: selection requires a country → both card tap and
+            // chevron open the deep country picker.
+            _ModeCard(
+              icon: HugeIcons.strokeRoundedGlobe02,
+              title: appLocalizations.workModeCountry,
+              description: appLocalizations.workModeCountryDesc,
+              isSelected: profile.workMode == WorkMode.country,
+              onTap: () => _openCountryDeep(profile),
+              onChevronTap: () => _openCountryDeep(profile),
+            ),
+            const SizedBox(height: 16),
+            // «Игровой»: disabled, «скоро» badge, no chevron.
+            _ModeCard(
+              icon: HugeIcons.strokeRoundedGameController01,
+              title: appLocalizations.workModeGaming,
+              description: appLocalizations.workModeGamingDesc,
+              isSelected: false,
+              enabled: false,
+              badge: CommonChip(label: appLocalizations.comingSoon),
+              onTap: () {},
+            ),
+          ],
+        );
+
+        return IgnorePointer(
+          ignoring: _applying,
+          child: DisabledMask(status: _applying, child: stack),
+        );
+      },
+    );
+  }
+}
+
+/// A single work-mode card following the «case + deep» pattern. Composes
+/// [CommonCard] (flagship radius + selected glow) with a leading [HugeIcon],
+/// title/description, an optional [badge] (e.g. «скоро»), and — when the mode
+/// has a deep screen — a trailing chevron affordance ([onChevronTap]) styled
+/// like the [ListItem] chevron. Tapping the card fires [onTap] (select mode);
+/// tapping the chevron fires [onChevronTap] (open deep). Disabled cards are
+/// greyed with [DisabledMask] and never fire [onTap].
+class _ModeCard extends StatelessWidget {
+  const _ModeCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.isSelected,
+    required this.onTap,
+    this.enabled = true,
+    this.badge,
+    this.onChevronTap,
+  });
+
+  final List<List<dynamic>> icon;
+  final String title;
+  final String description;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final bool enabled;
+  final Widget? badge;
+  final VoidCallback? onChevronTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final card = CommonCard(
+      isSelected: isSelected,
+      radius: Lumina.radiusLg,
+      onPressed: enabled ? onTap : () {},
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            HugeIcon(
+              icon: icon,
+              size: 24,
+              color: isSelected
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: context.textTheme.titleMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (badge != null) ...[
+                        const SizedBox(width: 8),
+                        badge!,
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    style: context.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onChevronTap != null) ...[
+              const SizedBox(width: 8),
+              _ChevronAffordance(onTap: onChevronTap!),
+            ],
+          ],
+        ),
+      ),
+    );
+
+    return enabled ? card : DisabledMask(child: card);
+  }
+}
+
+/// Trailing «провалиться в deep-экран» affordance. A nested [InkWell] so the
+/// chevron tap wins the gesture arena over the card's own [CommonCard.onPressed]
+/// (lets «Стандарт» distinguish select-mode from open-deep). Mirrors the
+/// [ListItem] chevron visual (arrow-right glyph, onSurfaceVariant).
+class _ChevronAffordance extends StatelessWidget {
+  const _ChevronAffordance({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(Lumina.radiusMd),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: HugeIcon(
+          icon: HugeIcons.strokeRoundedArrowRight01,
+          size: 18,
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
+/// Deep screen for «Страна»: a full-page country picker (opened via
+/// [showExtend]). Lists detected countries as [ListItem] rows (Twemoji flag +
+/// node count); the active country is checkmarked. Below the list sits the
+/// «Строгая нода» switch and — when ON for the active country — a node-picker
+/// row. Tapping a country row applies the mode through [onApply] and pops back
+/// to the modes tab; strict-node refinements apply in-place without popping.
+class _CountryDeepView extends ConsumerStatefulWidget {
+  const _CountryDeepView({
+    required this.profileId,
+    required this.onApply,
+  });
+
+  final String profileId;
+  final void Function(String country, String? strictNode) onApply;
+
+  @override
+  ConsumerState<_CountryDeepView> createState() => _CountryDeepViewState();
+}
+
+class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
+  /// Local strict-node toggle override (null → derive from the profile).
+  bool? _strictOn;
 
   void _openStrictNodePicker(
     List<String> nodes,
@@ -453,340 +681,158 @@ class _ModesContentState extends ConsumerState<_ModesContent>
     );
   }
 
-  Widget _buildCountryExpansion(Profile profile, _ModeProfileData data) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final countryKeys =
-        data.countries.keys.where((key) => key.isNotEmpty).toList();
-
-    if (countryKeys.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 16),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            appLocalizations.countriesNotDetected,
-            style: context.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      );
-    }
-
-    final children = <Widget>[
-      const SizedBox(height: 16),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final flag in countryKeys)
-            CommonChip(
-              avatar: EmojiText(flag),
-              label: '${data.countries[flag]!.length}',
-              onPressed: () {
-                // New country → drop any strict node and re-derive the toggle.
-                setState(() => _strictOn = null);
-                _apply(
-                  WorkMode.country,
-                  staticCountry: flag,
-                  staticStrictNode: null,
-                );
-              },
-            ),
-          // The no-flag bucket is shown last and is NOT a pin target.
-          if (data.countries.containsKey(''))
-            CommonChip(
-              label:
-                  '${appLocalizations.otherCountries} ${data.countries['']!.length}',
-              onPressed: () {},
-            ),
-        ],
-      ),
-    ];
-
-    final activeCountry = profile.staticCountry;
-    final countryApplied = activeCountry != null &&
-        activeCountry.isNotEmpty &&
-        data.countries.containsKey(activeCountry);
-
-    if (countryApplied) {
-      final strictOn = _strictOn ?? (profile.staticStrictNode != null);
-      children.add(const SizedBox(height: 8));
-      children.add(
-        ListItem.switchItem(
-          padding: EdgeInsets.zero,
-          title: Text(
-            appLocalizations.strictNode,
-            style: context.textTheme.bodyMedium,
-          ),
-          subtitle: Text(
-            appLocalizations.strictNodeDesc,
-            style: context.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          delegate: SwitchDelegate(
-            value: strictOn,
-            onChanged: (value) {
-              if (value) {
-                setState(() => _strictOn = true);
-              } else {
-                setState(() => _strictOn = false);
-                _apply(
-                  WorkMode.country,
-                  staticCountry: activeCountry,
-                  staticStrictNode: null,
-                );
-              }
-            },
-          ),
-        ),
-      );
-
-      if (strictOn) {
-        final nodes = data.countries[activeCountry]!;
-        final selectedNode = profile.staticStrictNode;
-        children.add(
-          ListItem(
-            padding: EdgeInsets.zero,
-            leading: HugeIcon(
-              icon: HugeIcons.strokeRoundedServerStack01,
-              size: 20,
-              color: colorScheme.onSurfaceVariant,
-            ),
-            title: EmojiText(
-              selectedNode ?? '...',
-              style: context.textTheme.bodyMedium,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: HugeIcon(
-              icon: HugeIcons.strokeRoundedArrowRight01,
-              size: 16,
-              color: colorScheme.onSurfaceVariant,
-            ),
-            onTap: () => _openStrictNodePicker(
-              nodes,
-              selectedNode,
-              (node) => _apply(
-                WorkMode.country,
-                staticCountry: activeCountry,
-                staticStrictNode: node,
-              ),
-            ),
-          ),
-        );
-      }
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: children,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    final colorScheme = Theme.of(context).colorScheme;
     final profile = ref.watch(currentProfileProvider);
+    final dataAsync = ref.watch(_modeProfileDataProvider(widget.profileId));
+
     if (profile == null) {
       return NullStatus(label: appLocalizations.nullProfileDesc);
     }
-    final dataAsync = ref.watch(_modeProfileDataProvider(profile.id));
 
     return dataAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => NullStatus(label: appLocalizations.nullProfileDesc),
       data: (data) {
-        final expanded = _expanded ?? profile.workMode;
-        final stack = ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-          children: [
-            _ModeCard(
-              icon: HugeIcons.strokeRoundedShield01,
-              title: appLocalizations.workModeStandard,
-              description: appLocalizations.workModeStandardDesc,
-              isSelected: profile.workMode == WorkMode.standard,
-              onTap: () {
-                setState(() => _expanded = WorkMode.standard);
-                _apply(WorkMode.standard);
-              },
-            ),
-            const SizedBox(height: 16),
-            _ModeCard(
-              icon: HugeIcons.strokeRoundedArtificialIntelligence01,
-              title: appLocalizations.workModeSmart,
-              description: appLocalizations.workModeSmartDesc,
-              isSelected: profile.workMode == WorkMode.smart,
-              enabled: data.hasSmartCandidates,
-              onTap: () {
-                setState(() => _expanded = WorkMode.smart);
-                _apply(WorkMode.smart);
-              },
-            ),
-            const SizedBox(height: 16),
-            _ModeCard(
-              icon: HugeIcons.strokeRoundedGlobe02,
-              title: appLocalizations.workModeCountry,
-              description: appLocalizations.workModeCountryDesc,
-              isSelected: profile.workMode == WorkMode.country,
-              onTap: () => setState(() => _expanded = WorkMode.country),
-              expandedChild: expanded == WorkMode.country
-                  ? _buildCountryExpansion(profile, data)
-                  : null,
-            ),
-            const SizedBox(height: 16),
-            _ModeCard(
-              icon: HugeIcons.strokeRoundedGameController01,
-              title: appLocalizations.workModeGaming,
-              description: appLocalizations.workModeGamingDesc,
-              isSelected: false,
-              enabled: false,
-              badge: CommonChip(label: appLocalizations.comingSoon),
-              onTap: () {},
-            ),
-            const SizedBox(height: 24),
-            _ServersAndGroupsRow(onTap: _openServersAndGroups),
-          ],
-        );
+        final countryKeys =
+            data.countries.keys.where((key) => key.isNotEmpty).toList();
 
-        return IgnorePointer(
-          ignoring: _applying,
-          child: DisabledMask(status: _applying, child: stack),
-        );
-      },
-    );
-  }
-}
-
-/// A single work-mode card. Composes [CommonCard] (flagship radius + selected
-/// glow) with a leading [HugeIcon], title/description, an optional [badge]
-/// (e.g. «скоро»), and an [expandedChild] that animates open via [AnimatedSize]
-/// for contextual settings (Country). Disabled cards are greyed with
-/// [DisabledMask] and never fire [onTap].
-class _ModeCard extends StatelessWidget {
-  const _ModeCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.isSelected,
-    required this.onTap,
-    this.enabled = true,
-    this.badge,
-    this.expandedChild,
-  });
-
-  final List<List<dynamic>> icon;
-  final String title;
-  final String description;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final bool enabled;
-  final Widget? badge;
-  final Widget? expandedChild;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final card = CommonCard(
-      isSelected: isSelected,
-      radius: Lumina.radiusLg,
-      onPressed: enabled ? onTap : () {},
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                HugeIcon(
-                  icon: icon,
-                  size: 24,
-                  color: isSelected
-                      ? colorScheme.primary
-                      : colorScheme.onSurfaceVariant,
+        if (countryKeys.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(
+                appLocalizations.countriesNotDetected,
+                textAlign: TextAlign.center,
+                style: context.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              title,
-                              style: context.textTheme.titleMedium,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (badge != null) ...[
-                            const SizedBox(width: 8),
-                            badge!,
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        description,
-                        style: context.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+              ),
+            ),
+          );
+        }
+
+        final activeCountry = profile.staticCountry;
+        final countryApplied = activeCountry != null &&
+            activeCountry.isNotEmpty &&
+            data.countries.containsKey(activeCountry);
+        final strictOn = _strictOn ?? (profile.staticStrictNode != null);
+
+        return ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          children: [
+            for (final flag in countryKeys)
+              ListItem(
+                leading: SizedBox(
+                  width: 24,
+                  child: flag == activeCountry
+                      ? HugeIcon(
+                          icon: HugeIcons.strokeRoundedCheckmarkCircle02,
+                          size: 18,
+                          color: colorScheme.primary,
+                        )
+                      : null,
+                ),
+                horizontalTitleGap: 8,
+                title: EmojiText(
+                  flag,
+                  style: context.textTheme.titleMedium?.copyWith(
+                    fontWeight: flag == activeCountry
+                        ? FontWeight.w600
+                        : FontWeight.w400,
+                    color: flag == activeCountry ? colorScheme.primary : null,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: Text(
+                  '${data.countries[flag]!.length}',
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-              ],
-            ),
-            AnimatedSize(
-              duration: Lumina.luminaDuration,
-              curve: Lumina.luminaCurve,
-              alignment: Alignment.topCenter,
-              child: expandedChild ?? const SizedBox(width: double.infinity),
-            ),
+                onTap: () {
+                  final isActive = flag == activeCountry;
+                  // New country → drop any strict node; same active country →
+                  // keep the current strict pick.
+                  final strictPick =
+                      isActive && strictOn ? profile.staticStrictNode : null;
+                  if (!isActive) setState(() => _strictOn = null);
+                  widget.onApply(flag, strictPick);
+                  Navigator.of(context).pop();
+                },
+              ),
+            // The no-flag bucket is shown last and is NOT selectable.
+            if (data.countries.containsKey(''))
+              ListItem(
+                horizontalTitleGap: 8,
+                leading: const SizedBox(width: 24),
+                title: Text(
+                  '${appLocalizations.otherCountries} '
+                  '${data.countries['']!.length}',
+                  style: context.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            if (countryApplied) ...[
+              const Divider(height: 0),
+              ListItem.switchItem(
+                title: Text(
+                  appLocalizations.strictNode,
+                  style: context.textTheme.bodyMedium,
+                ),
+                subtitle: Text(
+                  appLocalizations.strictNodeDesc,
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                delegate: SwitchDelegate(
+                  value: strictOn,
+                  onChanged: (value) {
+                    if (value) {
+                      setState(() => _strictOn = true);
+                    } else {
+                      setState(() => _strictOn = false);
+                      // Drop the strict node in-place (stay on the deep screen).
+                      widget.onApply(activeCountry, null);
+                    }
+                  },
+                ),
+              ),
+              if (strictOn)
+                ListItem(
+                  leading: HugeIcon(
+                    icon: HugeIcons.strokeRoundedServerStack01,
+                    size: 20,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  horizontalTitleGap: 8,
+                  title: EmojiText(
+                    profile.staticStrictNode ?? '...',
+                    style: context.textTheme.bodyMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: HugeIcon(
+                    icon: HugeIcons.strokeRoundedArrowRight01,
+                    size: 16,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  onTap: () => _openStrictNodePicker(
+                    data.countries[activeCountry]!,
+                    profile.staticStrictNode,
+                    // Apply the picked node in-place (stay on the deep screen).
+                    (node) => widget.onApply(activeCountry, node),
+                  ),
+                ),
+            ],
           ],
-        ),
-      ),
-    );
-
-    return enabled ? card : DisabledMask(child: card);
-  }
-}
-
-/// Power-user access row at the bottom of the modes tab: opens the existing
-/// proxies/groups UI ([_RulesProxiesView]) in a sheet.
-class _ServersAndGroupsRow extends StatelessWidget {
-  const _ServersAndGroupsRow({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return CommonCard(
-      radius: Lumina.radiusLg,
-      onPressed: onTap,
-      child: ListItem(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: HugeIcon(
-          icon: HugeIcons.strokeRoundedServerStack01,
-          size: 24,
-          color: colorScheme.onSurfaceVariant,
-        ),
-        title: Text(
-          appLocalizations.serversAndGroups,
-          style: context.textTheme.titleMedium,
-        ),
-        trailing: HugeIcon(
-          icon: HugeIcons.strokeRoundedArrowRight01,
-          size: 18,
-          color: colorScheme.onSurfaceVariant,
-        ),
-      ),
+        );
+      },
     );
   }
 }
