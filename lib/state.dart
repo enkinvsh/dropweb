@@ -213,10 +213,15 @@ class GlobalState {
       return startTime != null;
     }
     _vpnTransitionInFlight = true;
-    // Wait for the native TUN listener readiness ack only on Android when
-    // TUN mode is actually enabled. Desktop and Android non-TUN (proxy-only)
-    // starts never block on the ack and behave exactly as before.
-    final needsTunAck = Platform.isAndroid && appState.realTunEnable;
+    // Wait for the native TUN listener readiness ack only on Android when the
+    // VPN(TUN) *service mode* is selected — `config.vpnProps.enable`, which is
+    // what VpnPlugin.kt uses to choose handleStartVpn() (real TUN fd) over the
+    // proxy-only service. This is NOT the clash-config `tun.enable` flag: in
+    // proxy-only mode Kotlin still calls startTun(fd=0) and Go emits
+    // {"status":"error","message":"invalid fd 0"}, so gating on the config flag
+    // would wrongly roll back a valid proxy-only start. Desktop and Android
+    // proxy-only starts never block on the ack and behave exactly as before.
+    final needsTunAck = Platform.isAndroid && config.vpnProps.enable;
     if (needsTunAck) {
       _tunAck = Completer<String?>();
       isConnecting.value = true;
