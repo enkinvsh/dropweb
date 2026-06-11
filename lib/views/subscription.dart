@@ -339,6 +339,16 @@ final _modeProfileDataProvider =
   },
 );
 
+/// DNS-pool unrolling (ИТЕРАЦИЯ 3): resolves a pooled country domain (e.g.
+/// `de.meybz.asia`) into its individual server IPs via Cloudflare DoH, so the
+/// strict-node picker can pin ONE fixed IP. `autoDispose.family` keyed by host
+/// so the 60s in-memory cache in [resolvePoolIps] is shared and a spinner shows
+/// while resolving. Returns `[]` on failure → UI falls back to the pooled node.
+final _poolIpsProvider =
+    FutureProvider.autoDispose.family<List<String>, String>(
+  (ref, host) => resolvePoolIps(host),
+);
+
 class _ModesContent extends ConsumerStatefulWidget {
   const _ModesContent();
 
@@ -758,51 +768,192 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
                 ),
               ),
               // Inline node list (no extra modal): pick the strict node right
-              // here. The country's flag is redundant inside its own section,
-              // so node titles are shown flag-stripped; the FULL node name is
-              // what gets applied.
+              // here. Two shapes (ИТЕРАЦИЯ 3):
+              //  • POOLED country (exactly 1 leaf whose server is a DOMAIN) →
+              //    DoH-resolve the pool domain and offer one row per real IP;
+              //    the pin IS the IP (variant proxy built engine-side).
+              //  • DISCRETE country (>1 leaf, or a leaf with an IP server) →
+              //    the classic per-node-name rows.
               if (strictOn)
-                for (final node in data.countries[activeCountry]!)
-                  ListItem(
-                    leading: SizedBox(
-                      width: 24,
-                      child: node == profile.staticStrictNode
-                          ? HugeIcon(
-                              icon: HugeIcons.strokeRoundedCheckmarkCircle02,
-                              size: 18,
-                              color: colorScheme.primary,
-                            )
-                          : null,
-                    ),
-                    horizontalTitleGap: 8,
-                    title: EmojiText(
-                      node,
-                      style: context.textTheme.bodyMedium?.copyWith(
-                        fontWeight: node == profile.staticStrictNode
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: node == profile.staticStrictNode
-                            ? colorScheme.primary
-                            : null,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: data.nodeServers[node] != null
-                        ? Text(
-                            maskServerAddress(data.nodeServers[node]!),
-                            style: context.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          )
-                        : null,
-                    // Apply the picked node in-place (stay on the deep screen).
-                    onTap: () => widget.onApply(activeCountry, node),
-                  ),
+                ..._buildStrictRows(
+                  context: context,
+                  colorScheme: colorScheme,
+                  data: data,
+                  profile: profile,
+                  activeCountry: activeCountry,
+                ),
             ],
           ],
         );
       },
+    );
+  }
+
+  /// Builds the strict-node picker rows for the active country, branching on
+  /// pooled vs discrete shape (ИТЕРАЦИЯ 3). Returns the rows in display order.
+  List<Widget> _buildStrictRows({
+    required BuildContext context,
+    required ColorScheme colorScheme,
+    required _ModeProfileData data,
+    required Profile profile,
+    required String activeCountry,
+  }) {
+    final nodes = data.countries[activeCountry] ?? const <String>[];
+    if (nodes.isEmpty) return const [];
+
+    // POOLED iff exactly one leaf whose server is a DOMAIN (not an IP) → the
+    // single node hides a DNS pool of real server IPs we must unroll.
+    final poolDomain = nodes.length == 1 ? data.nodeServers[nodes.first] : null;
+    final isPooled =
+        poolDomain != null && poolDomain.isNotEmpty && !isIpv4(poolDomain);
+
+    if (!isPooled) {
+      // DISCRETE: classic per-node-name rows (flag is redundant inside the
+      // country's own section, so the full node name is the title; the masked
+      // server is the subtitle). The FULL node name is what gets applied.
+      return [
+        for (final node in nodes)
+          _StrictRow(
+            selected: node == profile.staticStrictNode,
+            colorScheme: colorScheme,
+            title: node,
+            subtitle: data.nodeServers[node] != null
+                ? maskServerAddress(data.nodeServers[node]!)
+                : null,
+            onTap: () => widget.onApply(activeCountry, node),
+          ),
+      ];
+    }
+
+    // POOLED: DoH-resolve the pool domain → one row per resolved IP. The pin is
+    // the exact IP; the engine builds a «Страна <flag> <ip>» variant from it.
+    final label = '$activeCountry  ${countryDisplayName(activeCountry, nodes)}';
+    final ipsAsync = ref.watch(_poolIpsProvider(poolDomain));
+    return ipsAsync.when(
+      loading: () => [
+        const ListItem(
+          leading: SizedBox(width: 24),
+          title: Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      ],
+      error: (_, __) => _pooledFallbackRows(
+        context: context,
+        colorScheme: colorScheme,
+        nodes: nodes,
+        data: data,
+        profile: profile,
+        activeCountry: activeCountry,
+      ),
+      data: (ips) {
+        if (ips.isEmpty) {
+          // DoH returned nothing (offline / blocked) → fall back to pinning the
+          // pooled node itself (classic behavior) with a subtle hint.
+          return _pooledFallbackRows(
+            context: context,
+            colorScheme: colorScheme,
+            nodes: nodes,
+            data: data,
+            profile: profile,
+            activeCountry: activeCountry,
+          );
+        }
+        return [
+          for (final ip in ips)
+            _StrictRow(
+              selected: ip == profile.staticStrictNode,
+              colorScheme: colorScheme,
+              title: label,
+              // Strict pin: the user WANTS the exact IP — show it in full.
+              subtitle: ip,
+              onTap: () => widget.onApply(activeCountry, ip),
+            ),
+        ];
+      },
+    );
+  }
+
+  /// Fallback rows when DoH resolution fails/empties for a pooled country:
+  /// offer the pooled node itself (classic name pin) with a subtle hint that
+  /// the IP list is unavailable.
+  List<Widget> _pooledFallbackRows({
+    required BuildContext context,
+    required ColorScheme colorScheme,
+    required List<String> nodes,
+    required _ModeProfileData data,
+    required Profile profile,
+    required String activeCountry,
+  }) {
+    final node = nodes.first;
+    return [
+      _StrictRow(
+        selected: node == profile.staticStrictNode,
+        colorScheme: colorScheme,
+        title: node,
+        subtitle: data.nodeServers[node] != null
+            ? '${maskServerAddress(data.nodeServers[node]!)} · ${appLocalizations.strictNodeDesc}'
+            : null,
+        onTap: () => widget.onApply(activeCountry, node),
+      ),
+    ];
+  }
+}
+
+/// A single strict-node picker row: checkmark when [selected], an [EmojiText]
+/// title (flags render via Twemoji) and an optional server [subtitle].
+class _StrictRow extends StatelessWidget {
+  const _StrictRow({
+    required this.selected,
+    required this.colorScheme,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final bool selected;
+  final ColorScheme colorScheme;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListItem(
+      leading: SizedBox(
+        width: 24,
+        child: selected
+            ? HugeIcon(
+                icon: HugeIcons.strokeRoundedCheckmarkCircle02,
+                size: 18,
+                color: colorScheme.primary,
+              )
+            : null,
+      ),
+      horizontalTitleGap: 8,
+      title: EmojiText(
+        title,
+        style: context.textTheme.bodyMedium?.copyWith(
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+          color: selected ? colorScheme.primary : null,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle!,
+              style: context.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            )
+          : null,
+      onTap: onTap,
     );
   }
 }
