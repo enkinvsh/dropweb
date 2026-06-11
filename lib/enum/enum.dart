@@ -87,6 +87,8 @@ extension UsedProxyExtension on UsedProxy {
 
 enum Mode { rule, global, direct }
 
+enum WorkMode { standard, smart, country, gaming }
+
 enum ViewMode { mobile, laptop, desktop }
 
 enum LogLevel {

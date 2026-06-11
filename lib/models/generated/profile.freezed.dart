@@ -243,6 +243,10 @@ mixin _$Profile {
   bool get isUpdating => throw _privateConstructorUsedError;
   Map<String, String> get providerHeaders => throw _privateConstructorUsedError;
   String? get fallbackUrl => throw _privateConstructorUsedError;
+  @JsonKey(unknownEnumValue: WorkMode.standard)
+  WorkMode get workMode => throw _privateConstructorUsedError;
+  String? get staticCountry => throw _privateConstructorUsedError;
+  String? get staticStrictNode => throw _privateConstructorUsedError;
 
   /// Serializes this Profile to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -272,7 +276,10 @@ abstract class $ProfileCopyWith<$Res> {
       OverrideData overrideData,
       @JsonKey(includeToJson: false, includeFromJson: false) bool isUpdating,
       Map<String, String> providerHeaders,
-      String? fallbackUrl});
+      String? fallbackUrl,
+      @JsonKey(unknownEnumValue: WorkMode.standard) WorkMode workMode,
+      String? staticCountry,
+      String? staticStrictNode});
 
   $SubscriptionInfoCopyWith<$Res>? get subscriptionInfo;
   $OverrideDataCopyWith<$Res> get overrideData;
@@ -307,6 +314,9 @@ class _$ProfileCopyWithImpl<$Res, $Val extends Profile>
     Object? isUpdating = null,
     Object? providerHeaders = null,
     Object? fallbackUrl = freezed,
+    Object? workMode = null,
+    Object? staticCountry = freezed,
+    Object? staticStrictNode = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -365,6 +375,18 @@ class _$ProfileCopyWithImpl<$Res, $Val extends Profile>
           ? _value.fallbackUrl
           : fallbackUrl // ignore: cast_nullable_to_non_nullable
               as String?,
+      workMode: null == workMode
+          ? _value.workMode
+          : workMode // ignore: cast_nullable_to_non_nullable
+              as WorkMode,
+      staticCountry: freezed == staticCountry
+          ? _value.staticCountry
+          : staticCountry // ignore: cast_nullable_to_non_nullable
+              as String?,
+      staticStrictNode: freezed == staticStrictNode
+          ? _value.staticStrictNode
+          : staticStrictNode // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 
@@ -414,7 +436,10 @@ abstract class _$$ProfileImplCopyWith<$Res> implements $ProfileCopyWith<$Res> {
       OverrideData overrideData,
       @JsonKey(includeToJson: false, includeFromJson: false) bool isUpdating,
       Map<String, String> providerHeaders,
-      String? fallbackUrl});
+      String? fallbackUrl,
+      @JsonKey(unknownEnumValue: WorkMode.standard) WorkMode workMode,
+      String? staticCountry,
+      String? staticStrictNode});
 
   @override
   $SubscriptionInfoCopyWith<$Res>? get subscriptionInfo;
@@ -449,6 +474,9 @@ class __$$ProfileImplCopyWithImpl<$Res>
     Object? isUpdating = null,
     Object? providerHeaders = null,
     Object? fallbackUrl = freezed,
+    Object? workMode = null,
+    Object? staticCountry = freezed,
+    Object? staticStrictNode = freezed,
   }) {
     return _then(_$ProfileImpl(
       id: null == id
@@ -507,6 +535,18 @@ class __$$ProfileImplCopyWithImpl<$Res>
           ? _value.fallbackUrl
           : fallbackUrl // ignore: cast_nullable_to_non_nullable
               as String?,
+      workMode: null == workMode
+          ? _value.workMode
+          : workMode // ignore: cast_nullable_to_non_nullable
+              as WorkMode,
+      staticCountry: freezed == staticCountry
+          ? _value.staticCountry
+          : staticCountry // ignore: cast_nullable_to_non_nullable
+              as String?,
+      staticStrictNode: freezed == staticStrictNode
+          ? _value.staticStrictNode
+          : staticStrictNode // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -529,7 +569,11 @@ class _$ProfileImpl implements _Profile {
       @JsonKey(includeToJson: false, includeFromJson: false)
       this.isUpdating = false,
       final Map<String, String> providerHeaders = const {},
-      this.fallbackUrl})
+      this.fallbackUrl,
+      @JsonKey(unknownEnumValue: WorkMode.standard)
+      this.workMode = WorkMode.standard,
+      this.staticCountry,
+      this.staticStrictNode})
       : _selectedMap = selectedMap,
         _unfoldSet = unfoldSet,
         _providerHeaders = providerHeaders;
@@ -590,10 +634,17 @@ class _$ProfileImpl implements _Profile {
 
   @override
   final String? fallbackUrl;
+  @override
+  @JsonKey(unknownEnumValue: WorkMode.standard)
+  final WorkMode workMode;
+  @override
+  final String? staticCountry;
+  @override
+  final String? staticStrictNode;
 
   @override
   String toString() {
-    return 'Profile(id: $id, label: $label, currentGroupName: $currentGroupName, url: $url, lastUpdateDate: $lastUpdateDate, autoUpdateDuration: $autoUpdateDuration, subscriptionInfo: $subscriptionInfo, autoUpdate: $autoUpdate, selectedMap: $selectedMap, unfoldSet: $unfoldSet, overrideData: $overrideData, isUpdating: $isUpdating, providerHeaders: $providerHeaders, fallbackUrl: $fallbackUrl)';
+    return 'Profile(id: $id, label: $label, currentGroupName: $currentGroupName, url: $url, lastUpdateDate: $lastUpdateDate, autoUpdateDuration: $autoUpdateDuration, subscriptionInfo: $subscriptionInfo, autoUpdate: $autoUpdate, selectedMap: $selectedMap, unfoldSet: $unfoldSet, overrideData: $overrideData, isUpdating: $isUpdating, providerHeaders: $providerHeaders, fallbackUrl: $fallbackUrl, workMode: $workMode, staticCountry: $staticCountry, staticStrictNode: $staticStrictNode)';
   }
 
   @override
@@ -625,7 +676,13 @@ class _$ProfileImpl implements _Profile {
             const DeepCollectionEquality()
                 .equals(other._providerHeaders, _providerHeaders) &&
             (identical(other.fallbackUrl, fallbackUrl) ||
-                other.fallbackUrl == fallbackUrl));
+                other.fallbackUrl == fallbackUrl) &&
+            (identical(other.workMode, workMode) ||
+                other.workMode == workMode) &&
+            (identical(other.staticCountry, staticCountry) ||
+                other.staticCountry == staticCountry) &&
+            (identical(other.staticStrictNode, staticStrictNode) ||
+                other.staticStrictNode == staticStrictNode));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -645,7 +702,10 @@ class _$ProfileImpl implements _Profile {
       overrideData,
       isUpdating,
       const DeepCollectionEquality().hash(_providerHeaders),
-      fallbackUrl);
+      fallbackUrl,
+      workMode,
+      staticCountry,
+      staticStrictNode);
 
   /// Create a copy of Profile
   /// with the given fields replaced by the non-null parameter values.
@@ -679,7 +739,10 @@ abstract class _Profile implements Profile {
       @JsonKey(includeToJson: false, includeFromJson: false)
       final bool isUpdating,
       final Map<String, String> providerHeaders,
-      final String? fallbackUrl}) = _$ProfileImpl;
+      final String? fallbackUrl,
+      @JsonKey(unknownEnumValue: WorkMode.standard) final WorkMode workMode,
+      final String? staticCountry,
+      final String? staticStrictNode}) = _$ProfileImpl;
 
   factory _Profile.fromJson(Map<String, dynamic> json) = _$ProfileImpl.fromJson;
 
@@ -712,6 +775,13 @@ abstract class _Profile implements Profile {
   Map<String, String> get providerHeaders;
   @override
   String? get fallbackUrl;
+  @override
+  @JsonKey(unknownEnumValue: WorkMode.standard)
+  WorkMode get workMode;
+  @override
+  String? get staticCountry;
+  @override
+  String? get staticStrictNode;
 
   /// Create a copy of Profile
   /// with the given fields replaced by the non-null parameter values.

@@ -67,6 +67,11 @@ class Profile with _$Profile {
     bool isUpdating,
     @Default({}) Map<String, String> providerHeaders,
     String? fallbackUrl,
+    @JsonKey(unknownEnumValue: WorkMode.standard)
+    @Default(WorkMode.standard)
+    WorkMode workMode,
+    String? staticCountry,
+    String? staticStrictNode,
   }) = _Profile;
 
   factory Profile.fromJson(Map<String, Object?> json) =>
