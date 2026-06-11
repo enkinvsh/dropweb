@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"time"
@@ -45,6 +46,13 @@ func handleInitClash(paramsString string) bool {
 	constant.SetHomeDir(params.HomeDir)
 	if !isInit {
 		isInit = true
+		// Bound the Go heap: without a limit the default GOGC=100 lets the heap
+		// double before each GC cycle, which on a config-heavy VPN core inflates
+		// RSS on mid-range Android devices. 192 MiB is a soft limit for the Go
+		// runtime only (not total app RSS); the runtime GCs harder as it
+		// approaches the limit instead of OOM-ing.
+		debug.SetMemoryLimit(192 << 20)
+		debug.SetGCPercent(70)
 	}
 	return isInit
 }
