@@ -8,6 +8,8 @@ import 'package:dropweb/clash/clash.dart';
 import 'package:dropweb/common/archive.dart';
 import 'package:dropweb/common/connect_trace.dart';
 import 'package:dropweb/common/error_mapper.dart';
+import 'package:dropweb/common/smart_pool_patch.dart';
+import 'package:dropweb/common/work_mode_patch.dart';
 import 'package:dropweb/services/subscription_notification_service.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/plugins/app.dart';
@@ -553,9 +555,9 @@ class AppController {
       _showHwidLimitNotice(announceText, headers['support-url']);
     }
 
-    _ref
-        .read(profilesProvider.notifier)
-        .setProfile(newProfile.copyWith(isUpdating: false));
+    final finalProfile =
+        await _revalidateWorkMode(newProfile.copyWith(isUpdating: false));
+    _ref.read(profilesProvider.notifier).setProfile(finalProfile);
 
     if (profile.id == _ref.read(currentProfileIdProvider)) {
       applyProfileDebounce(silence: true);
@@ -940,7 +942,17 @@ class AppController {
       return;
     }
     final realTunEnable = _ref.read(realTunEnableProvider);
-    final realPatchConfig = patchConfig.copyWith.tun(enable: realTunEnable);
+    // The effective mihomo mode is DERIVED from the current profile's work mode
+    // (Country ⇒ global, everything else ⇒ rule), mirroring how realTunEnable
+    // overrides tun.enable. The persisted patchClashConfig.mode (the old
+    // rule/global UI axis) is irrelevant on this path — work mode owns it now.
+    final workMode =
+        _ref.read(currentProfileProvider)?.workMode ?? WorkMode.standard;
+    final effectiveMode =
+        workMode == WorkMode.country ? Mode.global : Mode.rule;
+    final realPatchConfig = patchConfig.copyWith
+        .tun(enable: realTunEnable)
+        .copyWith(mode: effectiveMode);
 
     // Content-hash gate: skip the expensive full core setup when nothing that
     // affects the effective config changed. checkAndUpdate (may rewrite the
@@ -1022,6 +1034,13 @@ class AppController {
       'overrideDns': config.overrideDns,
       'scriptId': currentScript?.id,
       'scriptContent': currentScript?.content,
+      // Work mode lives on Profile in config JSON (NOT the profile file), and
+      // it drives both `applyWorkModePatch` (additive group) and the derived
+      // mihomo mode. Without these in the hash a mode switch would not rebuild
+      // the config (Block A cache would short-circuit it). CRITICAL.
+      'workMode': profile.workMode.name,
+      'staticCountry': profile.staticCountry,
+      'staticStrictNode': profile.staticStrictNode,
     };
 
     return computeSetupHash(
@@ -1903,6 +1922,136 @@ class AppController {
             ),
           );
     }
+  }
+
+  /// Applies a per-profile work mode. Persists the mode fields, rewrites only
+  /// the `selectedMap` keys WE own (the main router + `GLOBAL`) without touching
+  /// the user's other selections, invalidates the Block A setup-hash cache and
+  /// triggers a full re-setup. The additive YAML group itself is injected by
+  /// [applyWorkModePatch] in the config-build path (`patchRawConfig`).
+  Future<void> applyWorkMode(
+    WorkMode mode, {
+    String? staticCountry,
+    String? staticStrictNode,
+  }) async {
+    final currentProfile = _ref.read(currentProfileProvider);
+    if (currentProfile == null) return;
+
+    // Resolve the main router + node names from the profile's parsed config so
+    // we manage exactly the selectedMap key we own and can validate a strict
+    // node selection.
+    String? mainRouter;
+    var proxyNames = const <String>[];
+    try {
+      final cfg = await globalState.getProfileConfig(currentProfile.id);
+      mainRouter = detectPrimaryRouter(cfg['proxy-groups'], cfg['rules']);
+      final proxies = cfg['proxies'];
+      if (proxies is List) {
+        proxyNames = [
+          for (final p in proxies)
+            if (p is Map && p['name'] != null) p['name'].toString(),
+        ];
+      }
+    } catch (e) {
+      commonPrint.log('applyWorkMode: failed to read profile config: $e');
+    }
+
+    final selectedMap = Map<String, String>.from(currentProfile.selectedMap);
+    // Clear OUR keys first (main-router selection + GLOBAL); never touch others.
+    if (mainRouter != null) selectedMap.remove(mainRouter);
+    selectedMap.remove(GroupName.GLOBAL.name);
+
+    switch (mode) {
+      case WorkMode.smart:
+        if (mainRouter != null) {
+          selectedMap[mainRouter] = workModeSmartGroupName;
+        }
+        break;
+      case WorkMode.country:
+        if (staticCountry != null && staticCountry.isNotEmpty) {
+          final String value;
+          if (staticStrictNode != null &&
+              staticStrictNode.isNotEmpty &&
+              proxyNames.contains(staticStrictNode)) {
+            value = staticStrictNode;
+          } else {
+            value = workModeCountryGroupName(staticCountry);
+          }
+          selectedMap[GroupName.GLOBAL.name] = value;
+        }
+        break;
+      case WorkMode.standard:
+      case WorkMode.gaming:
+        break;
+    }
+
+    _ref.read(profilesProvider.notifier).setProfile(
+          currentProfile.copyWith(
+            workMode: mode,
+            staticCountry: staticCountry,
+            staticStrictNode: staticStrictNode,
+            selectedMap: selectedMap,
+          ),
+        );
+
+    // Work-mode fields feed _computeSetupHash; invalidate so the next setup
+    // rebuilds the config rather than short-circuiting on the Block A cache.
+    _lastSetupHash = null;
+    await applyProfile();
+  }
+
+  /// After a subscription refresh, verifies the profile's work mode is still
+  /// satisfiable against the fresh config. A Country mode whose country no
+  /// longer has nodes, or a Smart mode whose main router can't be found, is
+  /// silently reset to Standard with a user notification. Returns the
+  /// (possibly reset) profile; other modes pass through untouched.
+  Future<Profile> _revalidateWorkMode(Profile profile) async {
+    if (profile.workMode != WorkMode.country &&
+        profile.workMode != WorkMode.smart) {
+      return profile;
+    }
+    try {
+      final cfg = await globalState.getProfileConfig(profile.id);
+      if (profile.workMode == WorkMode.country) {
+        final names = <String>[];
+        final proxies = cfg['proxies'];
+        if (proxies is List) {
+          for (final p in proxies) {
+            if (p is Map && p['name'] != null) names.add(p['name'].toString());
+          }
+        }
+        final country = profile.staticCountry;
+        final hasNodes = country != null &&
+            (groupNodesByCountry(names)[country]?.isNotEmpty ?? false);
+        if (!hasNodes) {
+          // TODO(B8): replace with l10n string once work-mode strings land.
+          globalState.showNotifier(
+            'Страна недоступна в обновлённой подписке — режим сброшен на «Стандарт»',
+          );
+          final selectedMap = Map<String, String>.from(profile.selectedMap)
+            ..remove(GroupName.GLOBAL.name);
+          return profile.copyWith(
+            workMode: WorkMode.standard,
+            staticCountry: null,
+            staticStrictNode: null,
+            selectedMap: selectedMap,
+          );
+        }
+      } else if (profile.workMode == WorkMode.smart) {
+        final mainRouter =
+            detectPrimaryRouter(cfg['proxy-groups'], cfg['rules']);
+        if (mainRouter == null) {
+          // TODO(B8): replace with l10n string once work-mode strings land.
+          globalState.showNotifier(
+            'Главный маршрут не найден — режим сброшен на «Стандарт»',
+          );
+          return profile.copyWith(workMode: WorkMode.standard);
+        }
+      }
+    } catch (e) {
+      commonPrint.log('work-mode revalidation skipped: $e');
+    }
+    return profile;
   }
 
   void updateCurrentUnfoldSet(Set<String> value) {

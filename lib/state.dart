@@ -10,6 +10,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:dropweb/clash/clash.dart';
 import 'package:dropweb/common/connect_trace.dart';
 import 'package:dropweb/common/theme.dart';
+import 'package:dropweb/common/work_mode_patch.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/plugins/service.dart';
@@ -709,7 +710,16 @@ class GlobalState {
     }
     rawConfig["rule"] = rules;
 
-    return rawConfig;
+    // Additive work-mode group injection. Runs on EVERY setup over the parsed
+    // config (the download-time `patchSmartPool` output is already baked into
+    // the profile file, so its groups are present here). NEVER reshapes the
+    // panel's existing groups/rules — only appends our `Умный` / `Страна <flag>`
+    // group. Mode + selectedMap wiring lives in the controller, not here.
+    return applyWorkModePatch(
+      rawConfig,
+      workMode: profile.workMode,
+      staticCountry: profile.staticCountry,
+    );
   }
 
   Future<Map<String, dynamic>> getProfileConfig(String profileId) async {

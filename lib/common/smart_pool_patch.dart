@@ -77,14 +77,10 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
 
   // Map of proxy-group name -> its member list (as plain strings).
   final groupMembers = <String, List<String>>{};
-  final groupTypes = <String, String>{};
-  final groupOrder = <String>[];
   for (final g in groups) {
     if (g is! Map) continue;
     final name = g['name']?.toString();
     if (name == null) continue;
-    groupOrder.add(name);
-    groupTypes[name] = g['type']?.toString() ?? '';
     final members = <String>[];
     final ps = g['proxies'];
     if (ps is List) {
@@ -95,36 +91,8 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
     groupMembers[name] = members;
   }
 
-  // A group qualifies as a router target only if it has at least one member
-  // that is NOT a built-in target (i.e. it can actually carry proxied traffic).
-  bool isQualifyingGroup(String name) {
-    final members = groupMembers[name];
-    if (members == null) return false;
-    return members.any((m) => !mihomoBuiltinTargets.contains(m));
-  }
-
-  // Count how many rules target each qualifying proxy-group.
-  final ruleCounts = <String, int>{};
-  for (final rule in rules) {
-    final target = ruleTarget(rule?.toString() ?? '');
-    if (target == null) continue;
-    if (mihomoBuiltinTargets.contains(target)) continue;
-    if (!groupMembers.containsKey(target)) continue;
-    if (!isQualifyingGroup(target)) continue;
-    ruleCounts[target] = (ruleCounts[target] ?? 0) + 1;
-  }
-
-  // Primary = highest rule-count; tie → earliest in proxy-groups order.
-  String? primary;
-  var primaryCount = -1;
-  for (final name in groupOrder) {
-    final count = ruleCounts[name];
-    if (count == null) continue;
-    if (count > primaryCount) {
-      primaryCount = count;
-      primary = name;
-    }
-  }
+  // Primary router = the group most rules target (single-sourced detection).
+  final primary = detectPrimaryRouter(groups, rules);
   final hasSmart = groupMembers.containsKey(_smartGroupName);
   final hasFirstAvail = groupMembers.containsKey(_firstAvailableGroupName);
 
@@ -273,6 +241,64 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
   }
 
   return editor.toString();
+}
+
+/// Detects the "primary router" proxy-group from a parsed Mihomo config's
+/// [proxyGroups] and [rules] lists: the qualifying group the most rules target
+/// (tie → earliest in `proxy-groups` order). Returns `null` when none qualifies.
+///
+/// A group QUALIFIES only if it carries at least one member that is NOT a
+/// built-in target (`DIRECT`/`REJECT`/...), i.e. it can actually route proxied
+/// traffic. This is the single source of truth for "which group is the user's
+/// main route" — shared by [patchSmartPool] and the work-mode engine so the two
+/// never diverge.
+String? detectPrimaryRouter(Object? proxyGroups, Object? rules) {
+  if (proxyGroups is! List || rules is! List) return null;
+
+  final groupMembers = <String, List<String>>{};
+  final groupOrder = <String>[];
+  for (final g in proxyGroups) {
+    if (g is! Map) continue;
+    final name = g['name']?.toString();
+    if (name == null) continue;
+    groupOrder.add(name);
+    final members = <String>[];
+    final ps = g['proxies'];
+    if (ps is List) {
+      for (final m in ps) {
+        if (m != null) members.add(m.toString());
+      }
+    }
+    groupMembers[name] = members;
+  }
+
+  bool isQualifyingGroup(String name) {
+    final members = groupMembers[name];
+    if (members == null) return false;
+    return members.any((m) => !mihomoBuiltinTargets.contains(m));
+  }
+
+  final ruleCounts = <String, int>{};
+  for (final rule in rules) {
+    final target = ruleTarget(rule?.toString() ?? '');
+    if (target == null) continue;
+    if (mihomoBuiltinTargets.contains(target)) continue;
+    if (!groupMembers.containsKey(target)) continue;
+    if (!isQualifyingGroup(target)) continue;
+    ruleCounts[target] = (ruleCounts[target] ?? 0) + 1;
+  }
+
+  String? primary;
+  var primaryCount = -1;
+  for (final name in groupOrder) {
+    final count = ruleCounts[name];
+    if (count == null) continue;
+    if (count > primaryCount) {
+      primaryCount = count;
+      primary = name;
+    }
+  }
+  return primary;
 }
 
 /// Derives the display name for an emergency proxy from its [original] label.
