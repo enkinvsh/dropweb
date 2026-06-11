@@ -127,6 +127,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "color": MessageLookupByLibrary.simpleMessage("颜色"),
     "colorSchemes": MessageLookupByLibrary.simpleMessage("配色方案"),
     "columns": MessageLookupByLibrary.simpleMessage("列数"),
+    "comingSoon": MessageLookupByLibrary.simpleMessage("soon"),
     "compatible": MessageLookupByLibrary.simpleMessage("兼容模式"),
     "compatibleDesc": MessageLookupByLibrary.simpleMessage(
       "开启将失去部分应用能力，并提升对VPN配置的兼容性",
@@ -148,6 +149,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "copySuccess": MessageLookupByLibrary.simpleMessage("复制成功"),
     "core": MessageLookupByLibrary.simpleMessage("内核"),
     "coreInfo": MessageLookupByLibrary.simpleMessage("内核信息"),
+    "countriesNotDetected": MessageLookupByLibrary.simpleMessage(
+      "Countries not detected. Update your subscription.",
+    ),
     "country": MessageLookupByLibrary.simpleMessage("区域"),
     "crashTest": MessageLookupByLibrary.simpleMessage("崩溃测试"),
     "create": MessageLookupByLibrary.simpleMessage("创建"),
@@ -340,6 +344,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "originalRepository": MessageLookupByLibrary.simpleMessage("原始存储库"),
     "other": MessageLookupByLibrary.simpleMessage("其他"),
     "otherContributors": MessageLookupByLibrary.simpleMessage("贡献者"),
+    "otherCountries": MessageLookupByLibrary.simpleMessage("Other"),
     "outboundMode": MessageLookupByLibrary.simpleMessage("出站模式"),
     "override": MessageLookupByLibrary.simpleMessage("覆写"),
     "overrideDesc": MessageLookupByLibrary.simpleMessage("覆写代理相关配置"),
@@ -472,6 +477,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("全选"),
     "selected": MessageLookupByLibrary.simpleMessage("已选择"),
     "selectedCountTitle": m7,
+    "serversAndGroups": MessageLookupByLibrary.simpleMessage(
+      "Servers & groups",
+    ),
     "settings": MessageLookupByLibrary.simpleMessage("设置"),
     "show": MessageLookupByLibrary.simpleMessage("显示"),
     "shrink": MessageLookupByLibrary.simpleMessage("紧凑"),
@@ -492,6 +500,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "stop": MessageLookupByLibrary.simpleMessage("暂停"),
     "stopVpn": MessageLookupByLibrary.simpleMessage("正在停止VPN..."),
     "stopped": MessageLookupByLibrary.simpleMessage("已停止"),
+    "strictNode": MessageLookupByLibrary.simpleMessage("Strict node"),
+    "strictNodeDesc": MessageLookupByLibrary.simpleMessage(
+      "IP won\'t change even if the server fails.",
+    ),
     "style": MessageLookupByLibrary.simpleMessage("风格"),
     "subRule": MessageLookupByLibrary.simpleMessage("子规则"),
     "submit": MessageLookupByLibrary.simpleMessage("提交"),
@@ -549,6 +561,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "unnamed": MessageLookupByLibrary.simpleMessage("未命名"),
     "update": MessageLookupByLibrary.simpleMessage("更新"),
     "updateAllGeoData": MessageLookupByLibrary.simpleMessage("更新所有地理数据"),
+    "updateSubscription": MessageLookupByLibrary.simpleMessage(
+      "Update subscription",
+    ),
     "upload": MessageLookupByLibrary.simpleMessage("上传"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
     "urlDesc": MessageLookupByLibrary.simpleMessage("通过URL获取配置文件"),
@@ -573,6 +588,26 @@ class MessageLookup extends MessageLookupByLibrary {
     "vpnTip": MessageLookupByLibrary.simpleMessage("重启VPN后改变生效"),
     "webDAVConfiguration": MessageLookupByLibrary.simpleMessage("WebDAV配置"),
     "whitelistMode": MessageLookupByLibrary.simpleMessage("白名单模式"),
+    "workModeCountry": MessageLookupByLibrary.simpleMessage("Country"),
+    "workModeCountryDesc": MessageLookupByLibrary.simpleMessage(
+      "Pins the exit country. Geo and IP never change on their own.",
+    ),
+    "workModeGaming": MessageLookupByLibrary.simpleMessage("Gaming"),
+    "workModeGamingDesc": MessageLookupByLibrary.simpleMessage(
+      "Lowest ping for gaming.",
+    ),
+    "workModeResetNotice": MessageLookupByLibrary.simpleMessage(
+      "Mode reset to Standard: settings unavailable after subscription update.",
+    ),
+    "workModeSmart": MessageLookupByLibrary.simpleMessage("Smart"),
+    "workModeSmartDesc": MessageLookupByLibrary.simpleMessage(
+      "Picks the best server by connection quality.",
+    ),
+    "workModeStandard": MessageLookupByLibrary.simpleMessage("Standard"),
+    "workModeStandardDesc": MessageLookupByLibrary.simpleMessage(
+      "Recommended. Unblocking and protection — everything is preconfigured.",
+    ),
+    "workModes": MessageLookupByLibrary.simpleMessage("Modes"),
     "years": MessageLookupByLibrary.simpleMessage("年"),
     "zh_CN": MessageLookupByLibrary.simpleMessage("中文简体"),
   };

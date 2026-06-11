@@ -137,6 +137,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "color": MessageLookupByLibrary.simpleMessage("カラー"),
     "colorSchemes": MessageLookupByLibrary.simpleMessage("カラースキーム"),
     "columns": MessageLookupByLibrary.simpleMessage("列"),
+    "comingSoon": MessageLookupByLibrary.simpleMessage("soon"),
     "compatible": MessageLookupByLibrary.simpleMessage("互換モード"),
     "compatibleDesc": MessageLookupByLibrary.simpleMessage(
       "有効化すると一部機能を失いますが、VPN設定との互換性が向上します",
@@ -158,6 +159,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "copySuccess": MessageLookupByLibrary.simpleMessage("コピー成功"),
     "core": MessageLookupByLibrary.simpleMessage("コア"),
     "coreInfo": MessageLookupByLibrary.simpleMessage("コア情報"),
+    "countriesNotDetected": MessageLookupByLibrary.simpleMessage(
+      "Countries not detected. Update your subscription.",
+    ),
     "country": MessageLookupByLibrary.simpleMessage("国"),
     "crashTest": MessageLookupByLibrary.simpleMessage("クラッシュテスト"),
     "create": MessageLookupByLibrary.simpleMessage("作成"),
@@ -382,6 +386,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "originalRepository": MessageLookupByLibrary.simpleMessage("オリジナルリポジトリ"),
     "other": MessageLookupByLibrary.simpleMessage("その他"),
     "otherContributors": MessageLookupByLibrary.simpleMessage("貢献者"),
+    "otherCountries": MessageLookupByLibrary.simpleMessage("Other"),
     "outboundMode": MessageLookupByLibrary.simpleMessage("アウトバウンドモード"),
     "override": MessageLookupByLibrary.simpleMessage("上書き"),
     "overrideDesc": MessageLookupByLibrary.simpleMessage("プロキシ関連設定を上書き"),
@@ -540,6 +545,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("すべて選択"),
     "selected": MessageLookupByLibrary.simpleMessage("選択済み"),
     "selectedCountTitle": m7,
+    "serversAndGroups": MessageLookupByLibrary.simpleMessage(
+      "Servers & groups",
+    ),
     "settings": MessageLookupByLibrary.simpleMessage("設定"),
     "show": MessageLookupByLibrary.simpleMessage("表示"),
     "shrink": MessageLookupByLibrary.simpleMessage("縮小"),
@@ -560,6 +568,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "stop": MessageLookupByLibrary.simpleMessage("停止"),
     "stopVpn": MessageLookupByLibrary.simpleMessage("VPNを停止中..."),
     "stopped": MessageLookupByLibrary.simpleMessage("停止中"),
+    "strictNode": MessageLookupByLibrary.simpleMessage("Strict node"),
+    "strictNodeDesc": MessageLookupByLibrary.simpleMessage(
+      "IP won\'t change even if the server fails.",
+    ),
     "style": MessageLookupByLibrary.simpleMessage("スタイル"),
     "subRule": MessageLookupByLibrary.simpleMessage("サブルール"),
     "submit": MessageLookupByLibrary.simpleMessage("送信"),
@@ -627,6 +639,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "unnamed": MessageLookupByLibrary.simpleMessage("無題"),
     "update": MessageLookupByLibrary.simpleMessage("更新"),
     "updateAllGeoData": MessageLookupByLibrary.simpleMessage("すべての地理データを更新"),
+    "updateSubscription": MessageLookupByLibrary.simpleMessage(
+      "Update subscription",
+    ),
     "upload": MessageLookupByLibrary.simpleMessage("アップロード"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
     "urlDesc": MessageLookupByLibrary.simpleMessage("URL経由でプロファイルを取得"),
@@ -651,6 +666,26 @@ class MessageLookup extends MessageLookupByLibrary {
     "vpnTip": MessageLookupByLibrary.simpleMessage("変更はVPN再起動後に有効"),
     "webDAVConfiguration": MessageLookupByLibrary.simpleMessage("WebDAV設定"),
     "whitelistMode": MessageLookupByLibrary.simpleMessage("ホワイトリストモード"),
+    "workModeCountry": MessageLookupByLibrary.simpleMessage("Country"),
+    "workModeCountryDesc": MessageLookupByLibrary.simpleMessage(
+      "Pins the exit country. Geo and IP never change on their own.",
+    ),
+    "workModeGaming": MessageLookupByLibrary.simpleMessage("Gaming"),
+    "workModeGamingDesc": MessageLookupByLibrary.simpleMessage(
+      "Lowest ping for gaming.",
+    ),
+    "workModeResetNotice": MessageLookupByLibrary.simpleMessage(
+      "Mode reset to Standard: settings unavailable after subscription update.",
+    ),
+    "workModeSmart": MessageLookupByLibrary.simpleMessage("Smart"),
+    "workModeSmartDesc": MessageLookupByLibrary.simpleMessage(
+      "Picks the best server by connection quality.",
+    ),
+    "workModeStandard": MessageLookupByLibrary.simpleMessage("Standard"),
+    "workModeStandardDesc": MessageLookupByLibrary.simpleMessage(
+      "Recommended. Unblocking and protection — everything is preconfigured.",
+    ),
+    "workModes": MessageLookupByLibrary.simpleMessage("Modes"),
     "years": MessageLookupByLibrary.simpleMessage("年"),
     "zh_CN": MessageLookupByLibrary.simpleMessage("簡体字中国語"),
   };

@@ -2024,9 +2024,8 @@ class AppController {
         final hasNodes = country != null &&
             (groupNodesByCountry(names)[country]?.isNotEmpty ?? false);
         if (!hasNodes) {
-          // TODO(B8): replace with l10n string once work-mode strings land.
           globalState.showNotifier(
-            'Страна недоступна в обновлённой подписке — режим сброшен на «Стандарт»',
+            appLocalizations.workModeResetNotice,
           );
           final selectedMap = Map<String, String>.from(profile.selectedMap)
             ..remove(GroupName.GLOBAL.name);
@@ -2041,9 +2040,8 @@ class AppController {
         final mainRouter =
             detectPrimaryRouter(cfg['proxy-groups'], cfg['rules']);
         if (mainRouter == null) {
-          // TODO(B8): replace with l10n string once work-mode strings land.
           globalState.showNotifier(
-            'Главный маршрут не найден — режим сброшен на «Стандарт»',
+            appLocalizations.workModeResetNotice,
           );
           return profile.copyWith(workMode: WorkMode.standard);
         }

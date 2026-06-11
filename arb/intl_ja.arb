@@ -476,5 +476,22 @@
   "privacyPolicy": "プライバシーポリシー",
   "vpnDisclosureTitle": "接続する前に",
   "vpnDisclosureBody": "Dropweb は Android の VPN 権限を使用して、ユーザーが制御するローカル VPN トンネルを作成します。ネットワーク通信は、選択した接続またはサブスクリプションに従ってルーティングされます。この画面または端末の VPN 設定からいつでも切断できます。診断、アカウント、キャビネットなどの任意機能はそれぞれ別個に提供され、該当箇所で説明されます。",
-  "vpnDisclosureContinue": "続行"
+  "vpnDisclosureContinue": "続行",
+  "updateSubscription": "Update subscription",
+  "workModes": "Modes",
+  "workModeStandard": "Standard",
+  "workModeStandardDesc": "Recommended. Unblocking and protection — everything is preconfigured.",
+  "workModeSmart": "Smart",
+  "workModeSmartDesc": "Picks the best server by connection quality.",
+  "workModeCountry": "Country",
+  "workModeCountryDesc": "Pins the exit country. Geo and IP never change on their own.",
+  "workModeGaming": "Gaming",
+  "workModeGamingDesc": "Lowest ping for gaming.",
+  "comingSoon": "soon",
+  "strictNode": "Strict node",
+  "strictNodeDesc": "IP won't change even if the server fails.",
+  "serversAndGroups": "Servers & groups",
+  "countriesNotDetected": "Countries not detected. Update your subscription.",
+  "workModeResetNotice": "Mode reset to Standard: settings unavailable after subscription update.",
+  "otherCountries": "Other"
 }

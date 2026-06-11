@@ -188,6 +188,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "color": MessageLookupByLibrary.simpleMessage("Color"),
     "colorSchemes": MessageLookupByLibrary.simpleMessage("Color schemes"),
     "columns": MessageLookupByLibrary.simpleMessage("Columns"),
+    "comingSoon": MessageLookupByLibrary.simpleMessage("soon"),
     "compatible": MessageLookupByLibrary.simpleMessage("Compatibility mode"),
     "compatibleDesc": MessageLookupByLibrary.simpleMessage(
       "Opening it will lose part of custom app functionality in exchange for full routing compatibility.",
@@ -213,6 +214,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "copySuccess": MessageLookupByLibrary.simpleMessage("Copy success"),
     "core": MessageLookupByLibrary.simpleMessage("Core"),
     "coreInfo": MessageLookupByLibrary.simpleMessage("Core info"),
+    "countriesNotDetected": MessageLookupByLibrary.simpleMessage(
+      "Countries not detected. Update your subscription.",
+    ),
     "country": MessageLookupByLibrary.simpleMessage("Country"),
     "crashTest": MessageLookupByLibrary.simpleMessage("Crash test"),
     "create": MessageLookupByLibrary.simpleMessage("Create"),
@@ -509,6 +513,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "other": MessageLookupByLibrary.simpleMessage("Other"),
     "otherContributors": MessageLookupByLibrary.simpleMessage("Contributors"),
+    "otherCountries": MessageLookupByLibrary.simpleMessage("Other"),
     "outboundMode": MessageLookupByLibrary.simpleMessage("Outbound mode"),
     "override": MessageLookupByLibrary.simpleMessage("Override"),
     "overrideDesc": MessageLookupByLibrary.simpleMessage(
@@ -717,6 +722,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "sentSuccessfullyMessage": MessageLookupByLibrary.simpleMessage(
       "Sent successfully",
     ),
+    "serversAndGroups": MessageLookupByLibrary.simpleMessage(
+      "Servers & groups",
+    ),
     "settings": MessageLookupByLibrary.simpleMessage("Settings"),
     "settingsSendDeviceDataSubtitle": MessageLookupByLibrary.simpleMessage(
       "Send device identifier, app version and device name to proxy provider server",
@@ -747,6 +755,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "stop": MessageLookupByLibrary.simpleMessage("Stop"),
     "stopVpn": MessageLookupByLibrary.simpleMessage("Stopping VPN..."),
     "stopped": MessageLookupByLibrary.simpleMessage("Stopped"),
+    "strictNode": MessageLookupByLibrary.simpleMessage("Strict node"),
+    "strictNodeDesc": MessageLookupByLibrary.simpleMessage(
+      "IP won\'t change even if the server fails.",
+    ),
     "style": MessageLookupByLibrary.simpleMessage("Style"),
     "subRule": MessageLookupByLibrary.simpleMessage("Sub rule"),
     "submit": MessageLookupByLibrary.simpleMessage("Submit"),
@@ -838,10 +850,11 @@ class MessageLookup extends MessageLookupByLibrary {
     "unknown": MessageLookupByLibrary.simpleMessage("Unknown"),
     "unnamed": MessageLookupByLibrary.simpleMessage("Unnamed"),
     "update": MessageLookupByLibrary.simpleMessage("Update"),
-    "updateSubscription":
-        MessageLookupByLibrary.simpleMessage("Update subscription"),
     "updateAllGeoData": MessageLookupByLibrary.simpleMessage(
       "Update All Geo Files",
+    ),
+    "updateSubscription": MessageLookupByLibrary.simpleMessage(
+      "Update subscription",
     ),
     "updated": MessageLookupByLibrary.simpleMessage("Updated"),
     "upload": MessageLookupByLibrary.simpleMessage("Upload"),
@@ -878,6 +891,26 @@ class MessageLookup extends MessageLookupByLibrary {
       "WebDAV configuration",
     ),
     "whitelistMode": MessageLookupByLibrary.simpleMessage("Whitelist mode"),
+    "workModeCountry": MessageLookupByLibrary.simpleMessage("Country"),
+    "workModeCountryDesc": MessageLookupByLibrary.simpleMessage(
+      "Pins the exit country. Geo and IP never change on their own.",
+    ),
+    "workModeGaming": MessageLookupByLibrary.simpleMessage("Gaming"),
+    "workModeGamingDesc": MessageLookupByLibrary.simpleMessage(
+      "Lowest ping for gaming.",
+    ),
+    "workModeResetNotice": MessageLookupByLibrary.simpleMessage(
+      "Mode reset to Standard: settings unavailable after subscription update.",
+    ),
+    "workModeSmart": MessageLookupByLibrary.simpleMessage("Smart"),
+    "workModeSmartDesc": MessageLookupByLibrary.simpleMessage(
+      "Picks the best server by connection quality.",
+    ),
+    "workModeStandard": MessageLookupByLibrary.simpleMessage("Standard"),
+    "workModeStandardDesc": MessageLookupByLibrary.simpleMessage(
+      "Recommended. Unblocking and protection — everything is preconfigured.",
+    ),
+    "workModes": MessageLookupByLibrary.simpleMessage("Modes"),
     "years": MessageLookupByLibrary.simpleMessage("Years"),
     "zh_CN": MessageLookupByLibrary.simpleMessage("Simplified Chinese"),
   };

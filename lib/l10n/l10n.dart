@@ -594,16 +594,6 @@ class AppLocalizations {
     return Intl.message('Update', name: 'update', desc: '', args: []);
   }
 
-  /// `Update subscription`
-  String get updateSubscription {
-    return Intl.message(
-      'Update subscription',
-      name: 'updateSubscription',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `Add`
   String get add {
     return Intl.message('Add', name: 'add', desc: '', args: []);
@@ -3927,6 +3917,141 @@ class AppLocalizations {
       desc: '',
       args: [],
     );
+  }
+
+  /// `Update subscription`
+  String get updateSubscription {
+    return Intl.message(
+      'Update subscription',
+      name: 'updateSubscription',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Modes`
+  String get workModes {
+    return Intl.message('Modes', name: 'workModes', desc: '', args: []);
+  }
+
+  /// `Standard`
+  String get workModeStandard {
+    return Intl.message(
+      'Standard',
+      name: 'workModeStandard',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Recommended. Unblocking and protection — everything is preconfigured.`
+  String get workModeStandardDesc {
+    return Intl.message(
+      'Recommended. Unblocking and protection — everything is preconfigured.',
+      name: 'workModeStandardDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Smart`
+  String get workModeSmart {
+    return Intl.message('Smart', name: 'workModeSmart', desc: '', args: []);
+  }
+
+  /// `Picks the best server by connection quality.`
+  String get workModeSmartDesc {
+    return Intl.message(
+      'Picks the best server by connection quality.',
+      name: 'workModeSmartDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Country`
+  String get workModeCountry {
+    return Intl.message('Country', name: 'workModeCountry', desc: '', args: []);
+  }
+
+  /// `Pins the exit country. Geo and IP never change on their own.`
+  String get workModeCountryDesc {
+    return Intl.message(
+      'Pins the exit country. Geo and IP never change on their own.',
+      name: 'workModeCountryDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Gaming`
+  String get workModeGaming {
+    return Intl.message('Gaming', name: 'workModeGaming', desc: '', args: []);
+  }
+
+  /// `Lowest ping for gaming.`
+  String get workModeGamingDesc {
+    return Intl.message(
+      'Lowest ping for gaming.',
+      name: 'workModeGamingDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `soon`
+  String get comingSoon {
+    return Intl.message('soon', name: 'comingSoon', desc: '', args: []);
+  }
+
+  /// `Strict node`
+  String get strictNode {
+    return Intl.message('Strict node', name: 'strictNode', desc: '', args: []);
+  }
+
+  /// `IP won't change even if the server fails.`
+  String get strictNodeDesc {
+    return Intl.message(
+      'IP won\'t change even if the server fails.',
+      name: 'strictNodeDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Servers & groups`
+  String get serversAndGroups {
+    return Intl.message(
+      'Servers & groups',
+      name: 'serversAndGroups',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Countries not detected. Update your subscription.`
+  String get countriesNotDetected {
+    return Intl.message(
+      'Countries not detected. Update your subscription.',
+      name: 'countriesNotDetected',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Mode reset to Standard: settings unavailable after subscription update.`
+  String get workModeResetNotice {
+    return Intl.message(
+      'Mode reset to Standard: settings unavailable after subscription update.',
+      name: 'workModeResetNotice',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Other`
+  String get otherCountries {
+    return Intl.message('Other', name: 'otherCountries', desc: '', args: []);
   }
 }
 

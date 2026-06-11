@@ -195,6 +195,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "color": MessageLookupByLibrary.simpleMessage("Цвет"),
     "colorSchemes": MessageLookupByLibrary.simpleMessage("Цветовые схемы"),
     "columns": MessageLookupByLibrary.simpleMessage("Столбцы"),
+    "comingSoon": MessageLookupByLibrary.simpleMessage("скоро"),
     "compatible": MessageLookupByLibrary.simpleMessage("Режим совместимости"),
     "compatibleDesc": MessageLookupByLibrary.simpleMessage(
       "Включение приведет к потере части индивидуальных настроек приложения во имя максимальной совместимости с протоколами",
@@ -220,6 +221,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "copySuccess": MessageLookupByLibrary.simpleMessage("Копирование успешно"),
     "core": MessageLookupByLibrary.simpleMessage("Ядро"),
     "coreInfo": MessageLookupByLibrary.simpleMessage("Информация о ядре"),
+    "countriesNotDetected": MessageLookupByLibrary.simpleMessage(
+      "Страны не определены. Обновите подписку.",
+    ),
     "country": MessageLookupByLibrary.simpleMessage("Страна"),
     "crashTest": MessageLookupByLibrary.simpleMessage("Тест на сбои"),
     "create": MessageLookupByLibrary.simpleMessage("Создать"),
@@ -536,6 +540,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "other": MessageLookupByLibrary.simpleMessage("Другое"),
     "otherContributors": MessageLookupByLibrary.simpleMessage("Контрибьюторы"),
+    "otherCountries": MessageLookupByLibrary.simpleMessage("Другое"),
     "outboundMode": MessageLookupByLibrary.simpleMessage(
       "Режим исходящих подключений",
     ),
@@ -752,6 +757,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "sentSuccessfullyMessage": MessageLookupByLibrary.simpleMessage(
       "Отправлено успешно",
     ),
+    "serversAndGroups": MessageLookupByLibrary.simpleMessage(
+      "Серверы и группы",
+    ),
     "settings": MessageLookupByLibrary.simpleMessage("Настройки"),
     "settingsSendDeviceDataSubtitle": MessageLookupByLibrary.simpleMessage(
       "Отправлять идентификатор устройства, версию приложения и название устройства на сервер прокси-провайдера",
@@ -782,6 +790,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "stop": MessageLookupByLibrary.simpleMessage("Стоп"),
     "stopVpn": MessageLookupByLibrary.simpleMessage("Остановка VPN..."),
     "stopped": MessageLookupByLibrary.simpleMessage("Остановлено"),
+    "strictNode": MessageLookupByLibrary.simpleMessage("Строгая нода"),
+    "strictNodeDesc": MessageLookupByLibrary.simpleMessage(
+      "IP не сменится даже при сбое сервера.",
+    ),
     "style": MessageLookupByLibrary.simpleMessage("Стиль"),
     "subRule": MessageLookupByLibrary.simpleMessage("Подправило"),
     "submit": MessageLookupByLibrary.simpleMessage("Отправить"),
@@ -875,10 +887,11 @@ class MessageLookup extends MessageLookupByLibrary {
     "unknown": MessageLookupByLibrary.simpleMessage("Неизвестно"),
     "unnamed": MessageLookupByLibrary.simpleMessage("Без имени"),
     "update": MessageLookupByLibrary.simpleMessage("Обновить"),
-    "updateSubscription":
-        MessageLookupByLibrary.simpleMessage("Обновить подписку"),
     "updateAllGeoData": MessageLookupByLibrary.simpleMessage(
       "Обновить все геофайлы",
+    ),
+    "updateSubscription": MessageLookupByLibrary.simpleMessage(
+      "Обновить подписку",
     ),
     "updated": MessageLookupByLibrary.simpleMessage("Обновлено"),
     "upload": MessageLookupByLibrary.simpleMessage("Отправка"),
@@ -917,6 +930,26 @@ class MessageLookup extends MessageLookupByLibrary {
     "whitelistMode": MessageLookupByLibrary.simpleMessage(
       "Режим белого списка",
     ),
+    "workModeCountry": MessageLookupByLibrary.simpleMessage("Страна"),
+    "workModeCountryDesc": MessageLookupByLibrary.simpleMessage(
+      "Фиксирует страну выхода. Гео и IP не меняются сами.",
+    ),
+    "workModeGaming": MessageLookupByLibrary.simpleMessage("Игровой"),
+    "workModeGamingDesc": MessageLookupByLibrary.simpleMessage(
+      "Минимальный пинг для игр.",
+    ),
+    "workModeResetNotice": MessageLookupByLibrary.simpleMessage(
+      "Режим сброшен на Стандарт: настройки недоступны после обновления подписки.",
+    ),
+    "workModeSmart": MessageLookupByLibrary.simpleMessage("Умный"),
+    "workModeSmartDesc": MessageLookupByLibrary.simpleMessage(
+      "Сам выбирает лучший сервер по качеству соединения.",
+    ),
+    "workModeStandard": MessageLookupByLibrary.simpleMessage("Стандарт"),
+    "workModeStandardDesc": MessageLookupByLibrary.simpleMessage(
+      "Рекомендуем. Обход блокировок и защита — всё настроено за вас.",
+    ),
+    "workModes": MessageLookupByLibrary.simpleMessage("Режимы"),
     "years": MessageLookupByLibrary.simpleMessage("Лет"),
     "zh_CN": MessageLookupByLibrary.simpleMessage("Упрощенный китайский"),
   };
