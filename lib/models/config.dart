@@ -51,11 +51,18 @@ const List<DashboardWidget> defaultDashboardWidgets = [
 List<DashboardWidget> dashboardWidgetsSafeFormJson(
   List<dynamic>? dashboardWidgets,
 ) {
+  if (dashboardWidgets == null) {
+    return defaultDashboardWidgets;
+  }
   try {
+    // Degrade-to-skip: a persisted layout may reference a widget that no longer
+    // exists (e.g. the removed rule/global `outboundMode`/`outboundModeV2`).
+    // Drop unknown names instead of resetting the whole layout to defaults.
+    final known = _$DashboardWidgetEnumMap.values.toSet();
     return dashboardWidgets
-            ?.map((e) => $enumDecode(_$DashboardWidgetEnumMap, e))
-            .toList() ??
-        defaultDashboardWidgets;
+        .where(known.contains)
+        .map((e) => $enumDecode(_$DashboardWidgetEnumMap, e))
+        .toList();
   } catch (_) {
     return defaultDashboardWidgets;
   }

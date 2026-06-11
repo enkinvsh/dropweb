@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dropweb/common/common.dart';
+import 'package:dropweb/common/smart_pool_patch.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart' hide Action;
 import 'package:dropweb/plugins/app.dart';
@@ -14,7 +15,6 @@ import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:intl/intl.dart';
 
 class SubscriptionPage extends ConsumerStatefulWidget {
   const SubscriptionPage({super.key});
@@ -86,8 +86,8 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                   isDark: isDark,
                   colorScheme: colorScheme,
                   tabs: [
-                    appLocalizations.profiles,
-                    appLocalizations.proxies,
+                    appLocalizations.workModes,
+                    appLocalizations.profile,
                   ],
                 ),
               ),
@@ -96,8 +96,8 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
+                    const _ModesContent(),
                     _ProfilesContent(onAdd: _handleShowAddProfilePage),
-                    const _ProxiesContent(),
                   ],
                 ),
               ),
@@ -284,32 +284,508 @@ class _AddProfileCard extends StatelessWidget {
   }
 }
 
-// ── Proxies content ───────────────────────────────────────────────────────
+// ── Work modes content ────────────────────────────────────────────────────
 
-class _ProxiesContent extends StatefulWidget {
-  const _ProxiesContent();
+/// Parsed work-mode inputs for the current profile, read from the profile's
+/// resolved config so they reflect the actual subscription nodes:
+/// - [countries]: flag-emoji → node names (plus the no-flag `''` bucket),
+///   produced by [groupNodesByCountry];
+/// - [hasPrimaryRouter]: whether [detectPrimaryRouter] finds a main router
+///   (Smart mode is unavailable without one).
+class _ModeProfileData {
+  const _ModeProfileData({
+    required this.countries,
+    required this.hasPrimaryRouter,
+  });
 
-  @override
-  State<_ProxiesContent> createState() => _ProxiesContentState();
+  final Map<String, List<String>> countries;
+  final bool hasPrimaryRouter;
 }
 
-class _ProxiesContentState extends State<_ProxiesContent>
+/// File-scoped: only the modes tab consumes this. Keyed by profile id so a
+/// profile switch re-reads the right config.
+final _modeProfileDataProvider =
+    FutureProvider.autoDispose.family<_ModeProfileData, String>(
+  (ref, profileId) async {
+    final cfg = await globalState.getProfileConfig(profileId);
+    final names = <String>[];
+    final proxies = cfg['proxies'];
+    if (proxies is List) {
+      for (final p in proxies) {
+        if (p is Map && p['name'] != null) names.add(p['name'].toString());
+      }
+    }
+    return _ModeProfileData(
+      countries: groupNodesByCountry(names),
+      hasPrimaryRouter:
+          detectPrimaryRouter(cfg['proxy-groups'], cfg['rules']) != null,
+    );
+  },
+);
+
+class _ModesContent extends ConsumerStatefulWidget {
+  const _ModesContent();
+
+  @override
+  ConsumerState<_ModesContent> createState() => _ModesContentState();
+}
+
+class _ModesContentState extends ConsumerState<_ModesContent>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
+  /// Applying a work mode is fast (a config rebuild). We disable the stack
+  /// briefly so a double-tap can't race two applies.
+  bool _applying = false;
+
+  /// Locally-expanded mode — drives the in-card settings reveal BEFORE the
+  /// mode is applied (tapping «Страна» expands it so a country can be picked
+  /// without applying yet). Falls back to the persisted work mode.
+  WorkMode? _expanded;
+
+  /// Local strict-node toggle override (null → derive from the profile).
+  bool? _strictOn;
+
+  Future<void> _apply(
+    WorkMode mode, {
+    String? staticCountry,
+    String? staticStrictNode,
+  }) async {
+    setState(() => _applying = true);
+    try {
+      await globalState.appController.applyWorkMode(
+        mode,
+        staticCountry: staticCountry,
+        staticStrictNode: staticStrictNode,
+      );
+    } finally {
+      if (mounted) setState(() => _applying = false);
+    }
+  }
+
+  void _openServersAndGroups() {
+    showSheet(
+      context: context,
+      props: const SheetProps(isScrollControlled: true),
+      builder: (_, type) => AdaptiveSheetScaffold(
+        type: type,
+        title: appLocalizations.serversAndGroups,
+        body: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.7,
+          child: const _RulesProxiesView(),
+        ),
+      ),
+    );
+  }
+
+  void _openStrictNodePicker(
+    List<String> nodes,
+    String? selected,
+    ValueChanged<String> onSelected,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showSheet(
+      context: context,
+      props: const SheetProps(isScrollControlled: true),
+      builder: (_, type) => AdaptiveSheetScaffold(
+        type: type,
+        title: appLocalizations.strictNode,
+        body: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.6,
+          ),
+          child: ListView.builder(
+            shrinkWrap: true,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: nodes.length,
+            itemBuilder: (ctx, index) {
+              final node = nodes[index];
+              final isSelected = node == selected;
+              final colorScheme = Theme.of(ctx).colorScheme;
+              return InkWell(
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  onSelected(node);
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  color: isSelected
+                      ? colorScheme.primary
+                          .withValues(alpha: isDark ? 0.08 : 0.06)
+                      : null,
+                  child: Row(
+                    children: [
+                      if (isSelected)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: HugeIcon(
+                            icon: HugeIcons.strokeRoundedCheckmarkCircle02,
+                            size: 18,
+                            color: colorScheme.primary,
+                          ),
+                        )
+                      else
+                        const SizedBox(width: 30),
+                      Expanded(
+                        child: EmojiText(
+                          node,
+                          style: context.textTheme.bodyMedium?.copyWith(
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            color: isSelected ? colorScheme.primary : null,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCountryExpansion(Profile profile, _ModeProfileData data) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final countryKeys =
+        data.countries.keys.where((key) => key.isNotEmpty).toList();
+
+    if (countryKeys.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            appLocalizations.countriesNotDetected,
+            style: context.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final children = <Widget>[
+      const SizedBox(height: 16),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final flag in countryKeys)
+            CommonChip(
+              avatar: EmojiText(flag),
+              label: '${data.countries[flag]!.length}',
+              onPressed: () {
+                // New country → drop any strict node and re-derive the toggle.
+                setState(() => _strictOn = null);
+                _apply(
+                  WorkMode.country,
+                  staticCountry: flag,
+                  staticStrictNode: null,
+                );
+              },
+            ),
+          // The no-flag bucket is shown last and is NOT a pin target.
+          if (data.countries.containsKey(''))
+            CommonChip(
+              label:
+                  '${appLocalizations.otherCountries} ${data.countries['']!.length}',
+              onPressed: () {},
+            ),
+        ],
+      ),
+    ];
+
+    final activeCountry = profile.staticCountry;
+    final countryApplied = activeCountry != null &&
+        activeCountry.isNotEmpty &&
+        data.countries.containsKey(activeCountry);
+
+    if (countryApplied) {
+      final strictOn = _strictOn ?? (profile.staticStrictNode != null);
+      children.add(const SizedBox(height: 8));
+      children.add(
+        ListItem.switchItem(
+          padding: EdgeInsets.zero,
+          title: Text(
+            appLocalizations.strictNode,
+            style: context.textTheme.bodyMedium,
+          ),
+          subtitle: Text(
+            appLocalizations.strictNodeDesc,
+            style: context.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          delegate: SwitchDelegate(
+            value: strictOn,
+            onChanged: (value) {
+              if (value) {
+                setState(() => _strictOn = true);
+              } else {
+                setState(() => _strictOn = false);
+                _apply(
+                  WorkMode.country,
+                  staticCountry: activeCountry,
+                  staticStrictNode: null,
+                );
+              }
+            },
+          ),
+        ),
+      );
+
+      if (strictOn) {
+        final nodes = data.countries[activeCountry]!;
+        final selectedNode = profile.staticStrictNode;
+        children.add(
+          ListItem(
+            padding: EdgeInsets.zero,
+            leading: HugeIcon(
+              icon: HugeIcons.strokeRoundedServerStack01,
+              size: 20,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            title: EmojiText(
+              selectedNode ?? '...',
+              style: context.textTheme.bodyMedium,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: HugeIcon(
+              icon: HugeIcons.strokeRoundedArrowRight01,
+              size: 16,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            onTap: () => _openStrictNodePicker(
+              nodes,
+              selectedNode,
+              (node) => _apply(
+                WorkMode.country,
+                staticCountry: activeCountry,
+                staticStrictNode: node,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: children,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-    // Original behavior: the proxies UI is the same for all
-    // three modes (rule / direct / global). Mode only changes mihomo
-    // routing, never the on-screen proxy list. The bottom mode bar
-    // (_ModeBottomBar) watches mode internally for its tab highlight.
-    return const Column(
-      children: [
-        Expanded(child: _RulesProxiesView()),
-        _ModeBottomBar(),
-      ],
+    final profile = ref.watch(currentProfileProvider);
+    if (profile == null) {
+      return NullStatus(label: appLocalizations.nullProfileDesc);
+    }
+    final dataAsync = ref.watch(_modeProfileDataProvider(profile.id));
+
+    return dataAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => NullStatus(label: appLocalizations.nullProfileDesc),
+      data: (data) {
+        final expanded = _expanded ?? profile.workMode;
+        final stack = ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          children: [
+            _ModeCard(
+              icon: HugeIcons.strokeRoundedShield01,
+              title: appLocalizations.workModeStandard,
+              description: appLocalizations.workModeStandardDesc,
+              isSelected: profile.workMode == WorkMode.standard,
+              onTap: () {
+                setState(() => _expanded = WorkMode.standard);
+                _apply(WorkMode.standard);
+              },
+            ),
+            const SizedBox(height: 16),
+            _ModeCard(
+              icon: HugeIcons.strokeRoundedArtificialIntelligence01,
+              title: appLocalizations.workModeSmart,
+              description: appLocalizations.workModeSmartDesc,
+              isSelected: profile.workMode == WorkMode.smart,
+              enabled: data.hasPrimaryRouter,
+              onTap: () {
+                setState(() => _expanded = WorkMode.smart);
+                _apply(WorkMode.smart);
+              },
+            ),
+            const SizedBox(height: 16),
+            _ModeCard(
+              icon: HugeIcons.strokeRoundedGlobe02,
+              title: appLocalizations.workModeCountry,
+              description: appLocalizations.workModeCountryDesc,
+              isSelected: profile.workMode == WorkMode.country,
+              onTap: () => setState(() => _expanded = WorkMode.country),
+              expandedChild: expanded == WorkMode.country
+                  ? _buildCountryExpansion(profile, data)
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            _ModeCard(
+              icon: HugeIcons.strokeRoundedGameController01,
+              title: appLocalizations.workModeGaming,
+              description: appLocalizations.workModeGamingDesc,
+              isSelected: false,
+              enabled: false,
+              badge: CommonChip(label: appLocalizations.comingSoon),
+              onTap: () {},
+            ),
+            const SizedBox(height: 24),
+            _ServersAndGroupsRow(onTap: _openServersAndGroups),
+          ],
+        );
+
+        return IgnorePointer(
+          ignoring: _applying,
+          child: DisabledMask(status: _applying, child: stack),
+        );
+      },
+    );
+  }
+}
+
+/// A single work-mode card. Composes [CommonCard] (flagship radius + selected
+/// glow) with a leading [HugeIcon], title/description, an optional [badge]
+/// (e.g. «скоро»), and an [expandedChild] that animates open via [AnimatedSize]
+/// for contextual settings (Country). Disabled cards are greyed with
+/// [DisabledMask] and never fire [onTap].
+class _ModeCard extends StatelessWidget {
+  const _ModeCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.isSelected,
+    required this.onTap,
+    this.enabled = true,
+    this.badge,
+    this.expandedChild,
+  });
+
+  final List<List<dynamic>> icon;
+  final String title;
+  final String description;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final bool enabled;
+  final Widget? badge;
+  final Widget? expandedChild;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final card = CommonCard(
+      isSelected: isSelected,
+      radius: Lumina.radiusLg,
+      onPressed: enabled ? onTap : () {},
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                HugeIcon(
+                  icon: icon,
+                  size: 24,
+                  color: isSelected
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              style: context.textTheme.titleMedium,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (badge != null) ...[
+                            const SizedBox(width: 8),
+                            badge!,
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        description,
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            AnimatedSize(
+              duration: Lumina.luminaDuration,
+              curve: Lumina.luminaCurve,
+              alignment: Alignment.topCenter,
+              child: expandedChild ?? const SizedBox(width: double.infinity),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return enabled ? card : DisabledMask(child: card);
+  }
+}
+
+/// Power-user access row at the bottom of the modes tab: opens the existing
+/// proxies/groups UI ([_RulesProxiesView]) in a sheet.
+class _ServersAndGroupsRow extends StatelessWidget {
+  const _ServersAndGroupsRow({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return CommonCard(
+      radius: Lumina.radiusLg,
+      onPressed: onTap,
+      child: ListItem(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: HugeIcon(
+          icon: HugeIcons.strokeRoundedServerStack01,
+          size: 24,
+          color: colorScheme.onSurfaceVariant,
+        ),
+        title: Text(
+          appLocalizations.serversAndGroups,
+          style: context.textTheme.titleMedium,
+        ),
+        trailing: HugeIcon(
+          icon: HugeIcons.strokeRoundedArrowRight01,
+          size: 18,
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
     );
   }
 }
@@ -710,94 +1186,6 @@ class _GlassTabBar extends StatelessWidget {
   }
 }
 
-// ── Mode bottom bar ───────────────────────────────────────────────────────
-
-const _modeOrder = [Mode.rule, Mode.global];
-
-String _modeLabel(Mode mode) => switch (mode) {
-      Mode.rule => Intl.message("rules"),
-      Mode.global => Intl.message("global"),
-      _ => "",
-    };
-
-class _ModeBottomBar extends ConsumerWidget {
-  const _ModeBottomBar();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final mode =
-        ref.watch(patchClashConfigProvider.select((state) => state.mode));
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final content = Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: Lumina.glassOpacity)
-            : colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(Lumina.radiusLg),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: Lumina.glassBorderOpacity)
-              : colorScheme.outlineVariant.withValues(alpha: 0.3),
-        ),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        children: [
-          for (final m in _modeOrder)
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => globalState.appController.changeMode(m),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: m == mode
-                        ? (isDark
-                            ? colorScheme.primary.withValues(alpha: 0.15)
-                            : colorScheme.primary.withValues(alpha: 0.12))
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(Lumina.radiusLg - 6),
-                  ),
-                  child: Text(
-                    _modeLabel(m),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: m == mode ? FontWeight.w600 : FontWeight.w400,
-                      color: m == mode
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-          16, 8, 16, MediaQuery.of(context).padding.bottom + 8),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(Lumina.radiusLg),
-          boxShadow: isDark ? Lumina.glassShadow : null,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(Lumina.radiusLg),
-          // BackdropFilter disabled for perf test
-          child: content,
-        ),
-      ),
-    );
-  }
-}
-
 // ── Shared body widgets for desktop pages ─────────────────────────────────
 
 class SharedProxiesBody extends StatelessWidget {
@@ -805,13 +1193,10 @@ class SharedProxiesBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Same content for all three modes — see _ProxiesContent comment.
-    return const Column(
-      children: [
-        Expanded(child: _RulesProxiesView()),
-        _ModeBottomBar(),
-      ],
-    );
+    // The proxy/group list is the same regardless of work mode — mode only
+    // changes mihomo routing, never the on-screen list. The rule/global mode
+    // switch is gone (mode is now derived from the per-profile work mode).
+    return const _RulesProxiesView();
   }
 }
 

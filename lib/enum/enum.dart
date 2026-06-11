@@ -326,18 +326,6 @@ enum DashboardWidget {
       child: NetworkSpeed(),
     ),
   ),
-  outboundModeV2(
-    GridItem(
-      crossAxisCellCount: 8,
-      child: OutboundModeV2(),
-    ),
-  ),
-  outboundMode(
-    GridItem(
-      crossAxisCellCount: 4,
-      child: OutboundMode(),
-    ),
-  ),
   trafficUsage(
     GridItem(
       crossAxisCellCount: 4,

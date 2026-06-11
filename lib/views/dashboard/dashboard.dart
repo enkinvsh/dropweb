@@ -102,19 +102,11 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
 
   bool _isAllowedWidget(
     DashboardWidget item, {
-    required bool globalModeEnabled,
     required bool hasServiceInfoData,
     required bool hasServerInfoData,
   }) {
     if (!item.platforms.contains(SupportPlatform.currentPlatform)) {
       return false;
-    }
-
-    if (!globalModeEnabled) {
-      if (item == DashboardWidget.outboundMode ||
-          item == DashboardWidget.outboundModeV2) {
-        return false;
-      }
     }
 
     if (item == DashboardWidget.serviceInfo && !hasServiceInfoData) {
@@ -130,7 +122,6 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
   @override
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(dashboardStateProvider);
-    final globalModeEnabled = ref.watch(globalModeEnabledProvider);
     final hasServiceInfo = ref.watch(hasServiceInfoDataProvider);
     final hasServerInfo = ref.watch(hasServerInfoDataProvider);
     final hasNoProfiles = ref.watch(
@@ -160,7 +151,6 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
 
     bool isAllowed(DashboardWidget item) => _isAllowedWidget(
           item,
-          globalModeEnabled: globalModeEnabled,
           hasServiceInfoData: hasServiceInfo,
           hasServerInfoData: hasServerInfo,
         );
