@@ -101,6 +101,15 @@ bool shouldRunAutoUpdateCheck({
 class AppController {
   AppController(this.context, WidgetRef ref) : _ref = ref;
   int? lastProfileModified;
+
+  /// In-memory hash of the last *effective* config that was successfully pushed
+  /// to the core via [_setupClashConfig]. When the freshly computed hash matches
+  /// this value we skip the expensive full setup (Go YAML read → JSON → Dart map
+  /// patch → JSON → Go ParseRawConfig/ApplyConfig). Never persisted: a fresh app
+  /// start always re-runs the full setup. Invalidated on profile switch and on
+  /// any setup error.
+  String? _lastSetupHash;
+
   Timer? _profileUpdateTimer;
   final BuildContext context;
   final WidgetRef _ref;
@@ -932,6 +941,19 @@ class AppController {
     }
     final realTunEnable = _ref.read(realTunEnableProvider);
     final realPatchConfig = patchConfig.copyWith.tun(enable: realTunEnable);
+
+    // Content-hash gate: skip the expensive full core setup when nothing that
+    // affects the effective config changed. checkAndUpdate (may rewrite the
+    // profile file → new mtime) and _requestAdmin (sets realTunEnable →
+    // realPatchConfig) have already run above, so their side effects are
+    // reflected in the inputs below. Only getSetupParams + setupConfig +
+    // lastProfileModified bookkeeping are skipped on a hit.
+    final setupHash = await _computeSetupHash(realPatchConfig);
+    if (setupHash != null && setupHash == _lastSetupHash) {
+      commonPrint.log('[trace] setup skipped (hash match)');
+      return;
+    }
+
     final params = await globalState.getSetupParams(
       pathConfig: realPatchConfig,
     );
@@ -942,8 +964,64 @@ class AppController {
       ),
     );
     if (message.isNotEmpty) {
+      // Setup failed — do not record the hash, so the next attempt re-runs.
+      _lastSetupHash = null;
       throw message;
     }
+    // Only record the hash after a successful core setup.
+    _lastSetupHash = setupHash;
+  }
+
+  /// Builds the content hash for [_setupClashConfig]'s cache gate over the
+  /// inputs that actually feed `patchRawConfig`. Returns null when there is no
+  /// current profile (nothing meaningful to cache), forcing a full setup.
+  ///
+  /// `appFlags` enumerates exactly the `config.appSetting` / `config.networkProps`
+  /// / script reads inside `patchRawConfig` that branch the patching logic:
+  ///   * overrideNetworkSettings — gates the find-process/allow-lan/ipv6/
+  ///     mixed-port + tun.stack override branches.
+  ///   * routeMode — feeds `tun.getRealTun(...)`.
+  ///   * overrideDns — gates the DNS override branch.
+  ///   * scriptId / scriptContent — `handleEvaluate` runs the current script;
+  ///     editing it (same id, new content) changes the patched output.
+  /// selectedMap is deliberately excluded (applied via changeProxy).
+  Future<String?> _computeSetupHash(ClashConfig realPatchConfig) async {
+    final profile = _ref.read(currentProfileProvider);
+    if (profile == null) {
+      return null;
+    }
+    int profileFileLength = 0;
+    DateTime? profileFileLastModified;
+    try {
+      final path = await appPath.getProfilePath(profile.id);
+      final file = File(path);
+      if (await file.exists()) {
+        profileFileLength = await file.length();
+        profileFileLastModified = await file.lastModified();
+      }
+    } catch (_) {
+      // If the file can't be stat'd, fall through with zero/null markers; the
+      // hash stays deterministic for that (degenerate) state.
+    }
+
+    final config = globalState.config;
+    final currentScript = config.scriptProps.currentScript;
+    final appFlags = <String, dynamic>{
+      'overrideNetworkSettings': config.appSetting.overrideNetworkSettings,
+      'routeMode': config.networkProps.routeMode.name,
+      'overrideDns': config.overrideDns,
+      'scriptId': currentScript?.id,
+      'scriptContent': currentScript?.content,
+    };
+
+    return computeSetupHash(
+      profileId: profile.id,
+      profileFileLastModified: profileFileLastModified,
+      profileFileLength: profileFileLength,
+      patchConfigJson: realPatchConfig.toJson(),
+      overrideDataJson: profile.overrideData.toJson(),
+      appFlagsJson: appFlags,
+    );
   }
 
   Future _applyProfile() async {
@@ -967,6 +1045,9 @@ class AppController {
   }
 
   void handleChangeProfile() {
+    // Switching profiles changes the effective config independently of any
+    // single hashed input, so force a full setup on the next run.
+    _lastSetupHash = null;
     _ref.read(delayDataSourceProvider.notifier).value = {};
 
     final currentProfileId = _ref.read(currentProfileIdProvider);

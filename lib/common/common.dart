@@ -34,6 +34,7 @@ export 'proxy.dart';
 export 'render.dart';
 export 'request.dart';
 export 'scroll.dart';
+export 'setup_hash.dart';
 export 'statusbar.dart';
 export 'string.dart';
 export 'system.dart';
