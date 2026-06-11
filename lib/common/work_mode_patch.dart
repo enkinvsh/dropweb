@@ -37,10 +37,11 @@ String workModeCountryGroupName(String flag) =>
 ///     found or the leaf list resolves empty, nothing is injected (smart
 ///     unavailable; mirrors the country-no-nodes behavior).
 ///   * [WorkMode.country] — ensures an additive `Страна <flag>` group
-///     (`type: fallback`) whose members are exactly the subscription nodes of
-///     [staticCountry] (the flag-emoji key, grouped via [groupNodesByCountry]).
-///     When [staticCountry] is null/unknown or has no nodes, nothing is
-///     injected (the caller is expected to have revalidated first).
+///     (`type: fallback`) whose members are exactly the [interceptLeafNodes]
+///     of [staticCountry] (the flag-emoji key, grouped via [groupNodesByCountry]
+///     over the rule-group leaves — NOT the raw `proxies`, which carry the SOS
+///     pool). When [staticCountry] is null/unknown or has no such nodes, nothing
+///     is injected (the caller is expected to have revalidated first).
 ///
 /// Idempotent: re-applying never duplicates an already-present group.
 Map<String, dynamic> applyWorkModePatch(
@@ -57,7 +58,7 @@ Map<String, dynamic> applyWorkModePatch(
       if (interceptGroups.isEmpty) {
         return Map<String, dynamic>.from(rawConfig);
       }
-      final leaves = _smartInterceptLeaves(rawConfig, interceptGroups);
+      final leaves = _unionLeafNodes(rawConfig, interceptGroups);
       if (leaves.isEmpty) {
         // Smart unavailable (no intercept group resolves to a top-level leaf
         // node) — inject nothing, mirroring the country-no-nodes path.
@@ -135,7 +136,7 @@ bool smartGroupWillInject(Map<String, dynamic> rawConfig) {
   }
   final interceptGroups = smartInterceptGroups(rawConfig);
   if (interceptGroups.isEmpty) return false;
-  return _smartInterceptLeaves(rawConfig, interceptGroups).isNotEmpty;
+  return _unionLeafNodes(rawConfig, interceptGroups).isNotEmpty;
 }
 
 /// Group names the `Умный` work mode must NEVER intercept: the emergency-pool
@@ -225,12 +226,27 @@ List<String> smartInterceptGroups(Map<String, dynamic> rawConfig) {
   return [for (final name in order) if (qualifies(name)) name];
 }
 
-/// The de-duplicated UNION of the leaf nodes resolved for each of
-/// [interceptGroups] (see [_smartLeafNodes]), in first-seen order. This is the
-/// explicit membership of the injected `Умный` smart group, so it can pick the
-/// best live node across the entire rule-referenced surface — never just the
-/// primary router's slice.
-List<String> _smartInterceptLeaves(
+/// The de-duplicated UNION of the leaf nodes routed through EVERY
+/// rule-referenced intercept group of [rawConfig] (see [smartInterceptGroups] /
+/// [_smartLeafNodes]), in first-seen order.
+///
+/// This is the single structurally-SOS-free candidate set shared by BOTH work
+/// modes:
+///   * Smart — the explicit membership of the injected `Умный` group;
+///   * Country — the node pool `groupNodesByCountry` buckets per flag.
+///
+/// disconeko / emergency-pool nodes that `patchSmartPool` appends to top-level
+/// `proxies` are NEVER members of a rule-referenced group, so they are excluded
+/// here by construction — closing the leak in which Country mode would otherwise
+/// source candidates from the raw `proxies` list (which includes the SOS pool).
+/// No name/flag regex is used (SOS names collide with real country names).
+List<String> interceptLeafNodes(Map<String, dynamic> rawConfig) =>
+    _unionLeafNodes(rawConfig, smartInterceptGroups(rawConfig));
+
+/// The de-duplicated UNION of the leaf nodes resolved for each of the
+/// already-computed [interceptGroups], in first-seen order. Internal helper for
+/// callers that have the group list in hand (avoids recomputing it).
+List<String> _unionLeafNodes(
   Map<String, dynamic> rawConfig,
   List<String> interceptGroups,
 ) {
@@ -387,19 +403,18 @@ Map _withAppendedMember(Map group, String member) {
   return copy;
 }
 
-/// Returns the subscription node names (top-level `proxies[*].name`) that belong
-/// to the country keyed by flag-emoji [flag], in subscription order.
-List<String> _countryNodes(Map<String, dynamic> rawConfig, String flag) {
-  final proxies = rawConfig['proxies'];
-  if (proxies is! List) return const <String>[];
-  final names = <String>[];
-  for (final p in proxies) {
-    if (p is Map && p['name'] != null) {
-      names.add(p['name'].toString());
-    }
-  }
-  return groupNodesByCountry(names)[flag] ?? const <String>[];
-}
+/// Returns the candidate node names that belong to the country keyed by
+/// flag-emoji [flag], in rule-group order.
+///
+/// Candidates are drawn from [interceptLeafNodes] — the nodes actually routed
+/// through the rule-referenced groups — NOT from the raw top-level `proxies`
+/// list. This is the structural fix for the disconeko leak: `patchSmartPool`
+/// bakes ~57 SOS emergency nodes (with real country flags like 🇷🇺/🇬🇧) into
+/// top-level `proxies`, so a raw-`proxies` source would let Country mode route
+/// all traffic through the emergency pool. Those SOS nodes are never members of
+/// a rule-referenced group, so this excludes them by construction.
+List<String> _countryNodes(Map<String, dynamic> rawConfig, String flag) =>
+    groupNodesByCountry(interceptLeafNodes(rawConfig))[flag] ?? const <String>[];
 
 /// Returns a shallow copy of [rawConfig] whose `proxy-groups` list has the group
 /// produced by [buildGroup] appended — unless a group named [groupName] already

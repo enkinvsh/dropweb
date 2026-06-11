@@ -1991,7 +1991,11 @@ class AppController {
     // config so we manage exactly the selectedMap keys we own and can validate
     // a strict node selection.
     var smartGroups = const <String>[];
-    var proxyNames = const <String>[];
+    // Candidate nodes = the rule-group leaves (same structurally-SOS-free set
+    // Country candidates are bucketed from). A strict-node pin is validated
+    // against THIS, not the raw `proxies` list — otherwise a pin could still
+    // point at a disconeko SOS node that the picker never legitimately offered.
+    var candidateNodes = const <String>[];
     // Whether the smart `Умный` group will actually be injected for this config
     // (≥1 qualifying rule-referenced group resolves to ≥1 leaf node). Must match
     // the patch's injection condition exactly so we never point selectedMap at a
@@ -2004,13 +2008,7 @@ class AppController {
       // Discord / etc. route through «Умный» too (ИТЕРАЦИЯ 2).
       smartGroups = smartInterceptGroups(cfg);
       smartAvailable = smartGroupWillInject(cfg);
-      final proxies = cfg['proxies'];
-      if (proxies is List) {
-        proxyNames = [
-          for (final p in proxies)
-            if (p is Map && p['name'] != null) p['name'].toString(),
-        ];
-      }
+      candidateNodes = interceptLeafNodes(cfg);
     } catch (e) {
       commonPrint.log('applyWorkMode: failed to read profile config: $e');
     }
@@ -2045,7 +2043,7 @@ class AppController {
           final String value;
           if (staticStrictNode != null &&
               staticStrictNode.isNotEmpty &&
-              proxyNames.contains(staticStrictNode)) {
+              candidateNodes.contains(staticStrictNode)) {
             value = staticStrictNode;
           } else {
             value = workModeCountryGroupName(staticCountry);
@@ -2112,17 +2110,21 @@ class AppController {
       }
       if (profile.workMode == WorkMode.country) {
         final proxies = cfg['proxies'];
-        // FAIL-OPEN: a missing/odd `proxies` section can't positively prove the
-        // country lost its nodes — preserve Country mode.
-        if (proxies is! List) {
+        final groups = cfg['proxy-groups'];
+        final rules = cfg['rules'] ?? cfg['rule'];
+        // FAIL-OPEN: country candidates come from the rule-group leaves, which
+        // are only decidable over a well-formed proxies + proxy-groups + rules
+        // triple. If any is missing/odd, we can't positively prove the country
+        // lost its nodes — preserve Country mode.
+        if (proxies is! List || groups is! List || rules is! List) {
           commonPrint.log(
-              'work-mode revalidation: proxies missing, preserving country');
+              'work-mode revalidation: config sections missing, preserving country');
           return profile;
         }
-        final names = <String>[];
-        for (final p in proxies) {
-          if (p is Map && p['name'] != null) names.add(p['name'].toString());
-        }
+        // Candidate nodes = rule-group leaves only (disconeko SOS pool in raw
+        // `proxies` is structurally excluded). Validate BOTH country presence
+        // and the strict-node pin against this set, never the raw proxies.
+        final names = interceptLeafNodes(cfg);
         final country = profile.staticCountry;
         final hasNodes = country != null &&
             (groupNodesByCountry(names)[country]?.isNotEmpty ?? false);

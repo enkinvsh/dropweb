@@ -1,3 +1,4 @@
+import 'package:dropweb/common/country.dart';
 import 'package:dropweb/common/work_mode_patch.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -116,10 +117,16 @@ Map<String, dynamic> buildProdTemplate() {
       {'name': '🇩🇪 A', 'type': 'vless', 'server': 'de', 'port': 443},
       {'name': '🇳🇱 B', 'type': 'vless', 'server': 'nl', 'port': 443},
       {'name': '🇸🇪 C', 'type': 'vless', 'server': 'se', 'port': 443},
-      // SOS-like emergency nodes — top-level proxies NOT in any rule-referenced
-      // group. They must NEVER end up in «Умный».
+      // SOS-like emergency nodes (disconeko pool) — top-level proxies NOT in
+      // any rule-referenced group. They must NEVER end up in «Умный» NOR in a
+      // «Страна <flag>» group. 🇷🇺/🇬🇧 are flags the panel sub never carries;
+      // 🇩🇪 SOS Berlin deliberately COLLIDES with the curated 🇩🇪 A to prove
+      // exclusion is structural (membership), not by flag/name regex.
       {'name': '🇫🇮 SOS1', 'type': 'vless', 'server': 'sos1', 'port': 443},
       {'name': '🇪🇪 SOS2', 'type': 'vless', 'server': 'sos2', 'port': 443},
+      {'name': '🇷🇺 SOS Moscow', 'type': 'vless', 'server': 'sos3', 'port': 443},
+      {'name': '🇬🇧 SOS London', 'type': 'vless', 'server': 'sos4', 'port': 443},
+      {'name': '🇩🇪 SOS Berlin', 'type': 'vless', 'server': 'sos5', 'port': 443},
     ],
     'proxy-groups': <Map<String, dynamic>>[
       {
@@ -365,7 +372,8 @@ void main() {
       }
     });
 
-    test('country: injects fallback group with only that country nodes, order preserved', () {
+    test('country: injects fallback group with only that country RULE-GROUP '
+        'LEAF nodes (🇩🇪 Frankfurt 02 is not a router member → excluded)', () {
       final out = applyWorkModePatch(
         buildConfig(),
         workMode: WorkMode.country,
@@ -377,9 +385,11 @@ void main() {
       expect(country!['type'], 'fallback');
       expect(country['url'], 'https://cp.cloudflare.com/generate_204');
       expect(country['interval'], 180);
+      // Only 🇩🇪 Frankfurt 01 is routed through the rule-referenced 🌍 VPN
+      // (via ⚡ Fastest). 🇩🇪 Frankfurt 02 is a bare top-level proxy → excluded.
       expect(
         (country['proxies'] as List).toList(),
-        ['🇩🇪 Frankfurt 01', '🇩🇪 Frankfurt 02'],
+        ['🇩🇪 Frankfurt 01'],
       );
 
       // Existing groups untouched.
@@ -711,6 +721,119 @@ void main() {
 
     test('smartGroupWillInject agrees on production template', () {
       expect(smartGroupWillInject(buildProdTemplate()), isTrue);
+    });
+  });
+
+  group('interceptLeafNodes / country — disconeko leak (D1 in country branch)',
+      () {
+    test('interceptLeafNodes == the union of rule-group leaves; ALL SOS nodes '
+        'structurally excluded', () {
+      final leaves = interceptLeafNodes(buildProdTemplate());
+      expect(leaves, _prodUnionLeaves);
+      // disconeko emergency nodes never appear — they are not members of any
+      // rule-referenced group.
+      for (final sos in [
+        '🇫🇮 SOS1',
+        '🇪🇪 SOS2',
+        '🇷🇺 SOS Moscow',
+        '🇬🇧 SOS London',
+        '🇩🇪 SOS Berlin',
+      ]) {
+        expect(leaves, isNot(contains(sos)), reason: '$sos leaked into leaves');
+      }
+    });
+
+    test('country «Страна» candidates come ONLY from rule-group leaves '
+        '(groupNodesByCountry over interceptLeafNodes)', () {
+      final byCountry = groupNodesByCountry(interceptLeafNodes(buildProdTemplate()));
+      // Panel-curated flags present; SOS-only flags absent entirely.
+      expect(byCountry.keys, containsAll(<String>['🇩🇪', '🇳🇱', '🇸🇪']));
+      expect(byCountry.containsKey('🇷🇺'), isFalse);
+      expect(byCountry.containsKey('🇬🇧'), isFalse);
+      expect(byCountry.containsKey('🇫🇮'), isFalse);
+      // Same-flag collision: 🇩🇪 resolves to the curated leaf, NOT the SOS node.
+      expect(byCountry['🇩🇪'], ['🇩🇪 A']);
+      expect(byCountry['🇩🇪'], isNot(contains('🇩🇪 SOS Berlin')));
+    });
+
+    test('applyWorkModePatch country 🇷🇺 (SOS-only flag) → injects NOTHING', () {
+      final input = buildProdTemplate();
+      final before = (input['proxy-groups'] as List).length;
+      final out = applyWorkModePatch(input,
+          workMode: WorkMode.country, staticCountry: '🇷🇺');
+      expect(_group(out, 'Страна 🇷🇺'), isNull);
+      expect((out['proxy-groups'] as List).length, before);
+    });
+
+    test('applyWorkModePatch country 🇩🇪 → «Страна 🇩🇪» holds the curated leaf '
+        'only (SOS 🇩🇪 Berlin excluded)', () {
+      final out = applyWorkModePatch(buildProdTemplate(),
+          workMode: WorkMode.country, staticCountry: '🇩🇪');
+      final country = _group(out, 'Страна 🇩🇪');
+      expect(country, isNotNull);
+      expect(country!['type'], 'fallback');
+      expect(_members(country), ['🇩🇪 A']);
+      expect(_members(country), isNot(contains('🇩🇪 SOS Berlin')));
+    });
+
+    test('countryGroupWillInject: SOS-only flags false, curated flags true', () {
+      Map<String, dynamic> cfg() => buildProdTemplate();
+      for (final sos in ['🇷🇺', '🇬🇧', '🇫🇮']) {
+        expect(
+          countryGroupWillInject(cfg(),
+              workMode: WorkMode.country, staticCountry: sos),
+          isFalse,
+          reason: '$sos is SOS-only → must not inject',
+        );
+      }
+      for (final ok in ['🇩🇪', '🇳🇱', '🇸🇪']) {
+        expect(
+          countryGroupWillInject(cfg(),
+              workMode: WorkMode.country, staticCountry: ok),
+          isTrue,
+          reason: '$ok is panel-curated → must inject',
+        );
+      }
+    });
+
+    test('multi-node country preserves order AND excludes same-flag SOS nodes',
+        () {
+      // Curated router routes through TWO 🇷🇺 panel nodes (in order); the SOS
+      // pool also carries 🇷🇺 nodes as bare top-level proxies. Country 🇷🇺 must
+      // pick exactly the two curated nodes, in order, never the SOS ones.
+      final input = <String, dynamic>{
+        'proxies': <Map<String, dynamic>>[
+          {'name': '🇷🇺 Panel 1', 'type': 'vless', 'server': 'p1', 'port': 443},
+          {'name': '🇷🇺 Panel 2', 'type': 'vless', 'server': 'p2', 'port': 443},
+          {'name': '🇷🇺 SOS X', 'type': 'vless', 'server': 'x', 'port': 443},
+          {'name': '🇷🇺 SOS Y', 'type': 'vless', 'server': 'y', 'port': 443},
+        ],
+        'proxy-groups': <Map<String, dynamic>>[
+          {
+            'name': '🌍 VPN',
+            'type': 'select',
+            'proxies': ['🇷🇺 Panel 1', '🇷🇺 Panel 2'],
+          },
+        ],
+        'rules': <String>['MATCH,🌍 VPN'],
+      };
+      final out = applyWorkModePatch(input,
+          workMode: WorkMode.country, staticCountry: '🇷🇺');
+      expect(_members(_group(out, 'Страна 🇷🇺')), ['🇷🇺 Panel 1', '🇷🇺 Panel 2']);
+    });
+
+    test('build-path "rule" key still filters country candidates', () {
+      final cfg = buildProdTemplate();
+      cfg['rule'] = cfg.remove('rules');
+      // Curated 🇩🇪 injects; SOS-only 🇷🇺 does not — even via the renamed key.
+      final outDe = applyWorkModePatch(cfg,
+          workMode: WorkMode.country, staticCountry: '🇩🇪');
+      expect(_members(_group(outDe, 'Страна 🇩🇪')), ['🇩🇪 A']);
+      final cfg2 = buildProdTemplate();
+      cfg2['rule'] = cfg2.remove('rules');
+      final outRu = applyWorkModePatch(cfg2,
+          workMode: WorkMode.country, staticCountry: '🇷🇺');
+      expect(_group(outRu, 'Страна 🇷🇺'), isNull);
     });
   });
 }

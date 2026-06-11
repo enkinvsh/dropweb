@@ -289,7 +289,9 @@ class _AddProfileCard extends StatelessWidget {
 /// Parsed work-mode inputs for the current profile, read from the profile's
 /// resolved config so they reflect the actual subscription nodes:
 /// - [countries]: flag-emoji → node names (plus the no-flag `''` bucket),
-///   produced by [groupNodesByCountry];
+///   produced by [groupNodesByCountry] over [interceptLeafNodes] (rule-group
+///   leaves only — the disconeko SOS pool baked into raw `proxies` is excluded
+///   so the picker shows only panel-curated countries);
 /// - [hasSmartCandidates]: whether the smart «Умный» group will be injectable
 ///   (a primary router exists AND resolves to ≥1 leaf node). Smart mode is
 ///   unavailable otherwise — matches [smartGroupWillInject], the exact
@@ -310,15 +312,14 @@ final _modeProfileDataProvider =
     FutureProvider.autoDispose.family<_ModeProfileData, String>(
   (ref, profileId) async {
     final cfg = await globalState.getProfileConfig(profileId);
-    final names = <String>[];
-    final proxies = cfg['proxies'];
-    if (proxies is List) {
-      for (final p in proxies) {
-        if (p is Map && p['name'] != null) names.add(p['name'].toString());
-      }
-    }
+    // Country candidates come from the rule-group leaves only (same structurally
+    // SOS-free set as Smart) — NOT raw cfg['proxies'], which carries the
+    // disconeko emergency pool. Otherwise the picker would surface SOS flags
+    // (🇷🇺/🇬🇧/…) the panel subscription never offers. `interceptLeafNodes`
+    // resolves rules from either the 'rules' or 'rule' key (`_resolveRules`),
+    // and getProfileConfig output uses 'rules'.
     return _ModeProfileData(
-      countries: groupNodesByCountry(names),
+      countries: groupNodesByCountry(interceptLeafNodes(cfg)),
       hasSmartCandidates: smartGroupWillInject(cfg),
     );
   },
