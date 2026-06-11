@@ -749,8 +749,9 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
                 ),
                 trailing: Text(
                   '${data.countries[flag]!.length}',
-                  style: context.textTheme.bodySmall?.copyWith(
+                  style: context.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 onTap: () {
@@ -764,16 +765,24 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
                   Navigator.of(context).pop();
                 },
               ),
-            // The no-flag bucket is shown last and is NOT selectable.
+            // The no-flag bucket is shown last and is NOT selectable. Uses the
+            // SAME trailing-count convention as the country rows for a uniform
+            // list (label-only title + trailing count, not count-in-label).
             if (data.countries.containsKey(''))
               ListItem(
                 horizontalTitleGap: 8,
                 leading: const SizedBox(width: 24),
                 title: Text(
-                  '${appLocalizations.otherCountries} '
+                  appLocalizations.otherCountries,
+                  style: context.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                trailing: Text(
                   '${data.countries['']!.length}',
                   style: context.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
