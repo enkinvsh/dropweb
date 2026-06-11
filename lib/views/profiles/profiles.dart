@@ -168,11 +168,12 @@ class _ProfileItemState extends State<ProfileItem> {
           }
           progress = progress.clamp(0.0, 1.0);
 
-          Color progressColor = Colors.green;
+          final colorScheme = context.colorScheme;
+          Color progressColor = colorScheme.primary;
           if (progress > 0.9) {
-            progressColor = Colors.red;
+            progressColor = colorScheme.error;
           } else if (progress > 0.7) {
-            progressColor = Colors.orange;
+            progressColor = colorScheme.tertiary;
           }
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,7 +184,7 @@ class _ProfileItemState extends State<ProfileItem> {
               ),
               const SizedBox(height: 6),
               ClipRRect(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(Lumina.radiusMd - 6),
                 child: LinearProgressIndicator(
                   value: progress,
                   minHeight: 6,
@@ -212,6 +213,7 @@ class _ProfileItemState extends State<ProfileItem> {
 
   @override
   Widget build(BuildContext context) => CommonCard(
+        radius: Lumina.radiusLg,
         isSelected: widget.profile.id == widget.groupValue,
         onPressed: _isTV
             ? null
@@ -219,7 +221,7 @@ class _ProfileItemState extends State<ProfileItem> {
                 widget.onChanged(widget.profile.id);
               },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
               Expanded(
@@ -312,7 +314,8 @@ class _ProfileItemState extends State<ProfileItem> {
                               color: _isMenuFocused
                                   ? Theme.of(context).focusColor
                                   : Colors.transparent,
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius:
+                                  BorderRadius.circular(Lumina.radiusLg - 6),
                               child: IconButton(
                                 onPressed: open,
                                 icon: HugeIcon(

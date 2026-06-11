@@ -356,7 +356,7 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
                     ),
                     const SizedBox(height: 6),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(Lumina.radiusMd - 6),
                       child: LinearProgressIndicator(
                         value: progress,
                         minHeight: 6,

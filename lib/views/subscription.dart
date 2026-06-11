@@ -256,15 +256,15 @@ class _AddProfileCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(Lumina.radiusLg),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Lumina.radiusLg),
         splashColor: colorScheme.primary.withValues(alpha: 0.08),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Lumina.radiusLg),
             border: Border.all(
               color: isDark
                   ? Colors.white.withValues(alpha: 0.08)
