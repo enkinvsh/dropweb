@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/connect_trace.dart';
-import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
@@ -58,11 +57,7 @@ class _StartButtonState extends ConsumerState<StartButton>
     if (!next) {
       unawaited(App().performHapticFeedback(DropwebHapticCue.confirm));
       unawaited(App().playUiSound(DropwebSoundCue.powerOff));
-      debouncer.call(
-        FunctionTag.updateStatus,
-        () => globalState.appController.updateStatus(false),
-        duration: commonDuration,
-      );
+      unawaited(globalState.appController.updateStatus(false));
       return;
     }
 
@@ -75,11 +70,7 @@ class _StartButtonState extends ConsumerState<StartButton>
     ConnectTrace.start();
     unawaited(App().performHapticFeedback(DropwebHapticCue.confirm));
     unawaited(App().playUiSound(DropwebSoundCue.powerOn));
-    debouncer.call(
-      FunctionTag.updateStatus,
-      () => globalState.appController.updateStatus(true),
-      duration: commonDuration,
-    );
+    unawaited(globalState.appController.updateStatus(true));
   }
 
   /// Returns true when the user has previously accepted the disclosure OR
