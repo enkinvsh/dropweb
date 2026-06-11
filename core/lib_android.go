@@ -207,6 +207,7 @@ func handleGetAndroidVpnOptions() string {
 
 func handleUpdateDns(value string) {
 	go func() {
+		defer recoverGo("updateDns")
 		log.Infoln("[DNS] updateDns %s", value)
 		dns.UpdateSystemDNS(strings.Split(value, ","))
 		dns.FlushCacheWithDefaultResolver()
@@ -247,6 +248,7 @@ func quickStart(initParamsChar *C.char, paramsChar *C.char, stateParamsChar *C.c
 	bytes := []byte(C.GoString(paramsChar))
 	stateParams := C.GoString(stateParamsChar)
 	go func() {
+		defer recoverGo("quickStart")
 		res := handleInitClash(paramsString)
 		if res == false {
 			bridge.SendToPort(i, "init error")
@@ -259,6 +261,7 @@ func quickStart(initParamsChar *C.char, paramsChar *C.char, stateParamsChar *C.c
 //export startTUN
 func startTUN(fd C.int, callback unsafe.Pointer) bool {
 	go func() {
+		defer recoverGo("startTUN")
 		handleStartTun(int(fd), callback)
 	}()
 	return true
@@ -272,6 +275,7 @@ func getRunTime() *C.char {
 //export stopTun
 func stopTun() {
 	go func() {
+		defer recoverGo("stopTun")
 		handleStopTun()
 	}()
 }

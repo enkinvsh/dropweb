@@ -2,6 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"runtime/debug"
+
+	"github.com/metacubex/mihomo/log"
 )
 
 type Action struct {
@@ -36,6 +40,15 @@ func (result ActionResult) error(data interface{}) {
 }
 
 func handleAction(action *Action, result ActionResult) {
+	defer func() {
+		if r := recover(); r != nil {
+			if action.Method == crashMethod {
+				panic(r) // keep the intentional test-crash honest
+			}
+			log.Errorln("[panic] action %s recovered: %v\n%s", action.Method, r, debug.Stack())
+			result.error(fmt.Sprintf("panic: %v", r))
+		}
+	}()
 	switch action.Method {
 	case initClashMethod:
 		paramsString := action.Data.(string)

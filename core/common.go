@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"runtime/debug"
 	"sync"
 
 	"github.com/metacubex/mihomo/adapter"
@@ -34,6 +35,14 @@ var (
 	runLock       sync.Mutex
 	mBatch, _     = batch.New[bool](context.Background(), batch.WithConcurrencyNum[bool](50))
 )
+
+// recoverGo logs a recovered panic from a bridge goroutine instead of
+// letting it kill the whole app process.
+func recoverGo(name string) {
+	if r := recover(); r != nil {
+		log.Errorln("[panic] %s recovered: %v\n%s", name, r, debug.Stack())
+	}
+}
 
 type ExternalProviders []ExternalProvider
 
