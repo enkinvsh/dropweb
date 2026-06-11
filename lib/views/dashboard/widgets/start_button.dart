@@ -25,6 +25,11 @@ class StartButton extends ConsumerStatefulWidget {
 
 class _StartButtonState extends ConsumerState<StartButton>
     with SingleTickerProviderStateMixin {
+  /// Power-glyph drop shadow (lab `icon shadow` dials): a blurred dark copy
+  /// of the glyph painted underneath, since HugeIcon (SVG) has no shadows.
+  static const double _iconShadowBlur = 5.9;
+  static const double _iconShadowAlpha = 0.81;
+
   late AnimationController _pressController;
   late Animation<double> _scaleAnimation;
 
@@ -197,15 +202,15 @@ class _StartButtonState extends ConsumerState<StartButton>
                           // since HugeIcon (SVG) doesn't accept shadows.
                           ImageFiltered(
                             imageFilter: ui.ImageFilter.blur(
-                              sigmaX: 5.5,
-                              sigmaY: 5.5,
+                              sigmaX: _iconShadowBlur,
+                              sigmaY: _iconShadowBlur,
                             ),
                             child: HugeIcon(
                               icon: iconData,
                               size: widget.iconSize,
                               strokeWidth: strokeWidth,
                               color: const Color(0xFF000000)
-                                  .withValues(alpha: 0.72),
+                                  .withValues(alpha: _iconShadowAlpha),
                             ),
                           ),
                           HugeIcon(
