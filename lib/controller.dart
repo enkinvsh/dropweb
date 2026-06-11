@@ -538,9 +538,21 @@ class AppController {
   }
 
   Future<void> updateProfile(Profile profile) async {
+    // Re-read the latest profile state by id rather than trusting the passed
+    // snapshot. Callers (auto-update timer loop, dashboard pull-to-refresh,
+    // card/subscription/profiles/edit menus) capture a Profile possibly long
+    // before this runs; a concurrent applyWorkMode / selectedMap edit may have
+    // landed in between. Using the stale snapshot here would overwrite those
+    // fresh workMode/staticCountry/staticStrictNode/selectedMap values and
+    // silently revert the user's choice. `profile.id` is only an identity key.
+    // (A tiny residual window also exists inside applyWorkMode between its
+    // currentProfileProvider read and setProfile; user-initiated + sub-second,
+    // accepted for now without locking.)
+    final latest =
+        _ref.read(profilesProvider).getProfile(profile.id) ?? profile;
     final prefs = await SharedPreferences.getInstance();
     final shouldSend = prefs.getBool('sendDeviceHeaders') ?? true;
-    final newProfile = await profile.update(
+    final newProfile = await latest.update(
       shouldSendHeaders: shouldSend,
     );
 
