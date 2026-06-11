@@ -8,6 +8,7 @@ import 'package:animations/animations.dart';
 import 'package:dio/dio.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:dropweb/clash/clash.dart';
+import 'package:dropweb/common/connect_trace.dart';
 import 'package:dropweb/common/theme.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/l10n/l10n.dart';
@@ -196,7 +197,9 @@ class GlobalState {
     try {
       startTime ??= DateTime.now();
       await clashCore.startListener();
+      ConnectTrace.mark('startListener.done');
       final started = await service?.startVpn();
+      ConnectTrace.mark('startVpn.done');
       if (started == false) {
         startTime = null;
         await clashCore.stopListener();

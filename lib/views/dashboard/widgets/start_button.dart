@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:dropweb/common/common.dart';
+import 'package:dropweb/common/connect_trace.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
@@ -70,6 +71,7 @@ class _StartButtonState extends ConsumerState<StartButton>
     final allowed = await _ensureVpnConsent();
     if (!allowed) return;
 
+    ConnectTrace.start();
     unawaited(App().performHapticFeedback(DropwebHapticCue.confirm));
     unawaited(App().playUiSound(DropwebSoundCue.powerOn));
     debouncer.call(

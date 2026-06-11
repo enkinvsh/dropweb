@@ -114,6 +114,7 @@ func handleStartTun(fd int, callback unsafe.Pointer) {
 	handleStopTun()
 	tunLock.Lock()
 	defer tunLock.Unlock()
+	start := time.Now()
 	now := time.Now()
 	runTime = &now
 
@@ -148,6 +149,7 @@ func handleStartTun(fd int, callback unsafe.Pointer) {
 	}
 	log.Infoln("TUN address: %v", tunListener.Address())
 	tunHandler.listener = tunListener
+	log.Infoln("[trace] tun ready in %s", time.Since(start))
 }
 
 func handleGetRunTime() string {

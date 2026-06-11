@@ -6,6 +6,7 @@ import 'dart:isolate';
 import 'package:archive/archive.dart';
 import 'package:dropweb/clash/clash.dart';
 import 'package:dropweb/common/archive.dart';
+import 'package:dropweb/common/connect_trace.dart';
 import 'package:dropweb/common/error_mapper.dart';
 import 'package:dropweb/services/subscription_notification_service.dart';
 import 'package:dropweb/enum/enum.dart';
@@ -241,6 +242,7 @@ class AppController {
 
   Future<void> updateStatus(bool isStart) async {
     if (isStart) {
+      ConnectTrace.mark('updateStatus');
       // Central safety gate: every code path that turns the VPN on must
       // pass through here, so first-run disclosure consent is enforced
       // even for non-UI entry points (Quick Settings tile, desktop tray,
