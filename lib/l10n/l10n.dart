@@ -3944,10 +3944,10 @@ class AppLocalizations {
     );
   }
 
-  /// `Recommended. Unblocking and protection — everything is preconfigured.`
+  /// `Recommended.\nEverything is set up for you.`
   String get workModeStandardDesc {
     return Intl.message(
-      'Recommended. Unblocking and protection — everything is preconfigured.',
+      'Recommended.\nEverything is set up for you.',
       name: 'workModeStandardDesc',
       desc: '',
       args: [],
@@ -3959,10 +3959,10 @@ class AppLocalizations {
     return Intl.message('Smart', name: 'workModeSmart', desc: '', args: []);
   }
 
-  /// `Picks the best server by connection quality.`
+  /// `Picks the best automatically.`
   String get workModeSmartDesc {
     return Intl.message(
-      'Picks the best server by connection quality.',
+      'Picks the best automatically.',
       name: 'workModeSmartDesc',
       desc: '',
       args: [],
@@ -3974,10 +3974,10 @@ class AppLocalizations {
     return Intl.message('Country', name: 'workModeCountry', desc: '', args: []);
   }
 
-  /// `Pins the exit country. Geo and IP never change on their own.`
+  /// `Choose a country.`
   String get workModeCountryDesc {
     return Intl.message(
-      'Pins the exit country. Geo and IP never change on their own.',
+      'Choose a country.',
       name: 'workModeCountryDesc',
       desc: '',
       args: [],

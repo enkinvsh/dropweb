@@ -935,7 +935,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "workModeCountry": MessageLookupByLibrary.simpleMessage("Страна"),
     "workModeCountryDesc": MessageLookupByLibrary.simpleMessage(
-      "Фиксирует страну выхода. Гео и IP не меняются сами.",
+      "Выберите страну.",
     ),
     "workModeGaming": MessageLookupByLibrary.simpleMessage("Игровой"),
     "workModeGamingDesc": MessageLookupByLibrary.simpleMessage(
@@ -946,11 +946,11 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "workModeSmart": MessageLookupByLibrary.simpleMessage("Умный"),
     "workModeSmartDesc": MessageLookupByLibrary.simpleMessage(
-      "Сам выбирает лучший сервер по качеству соединения.",
+      "Сам выбирает лучший.",
     ),
     "workModeStandard": MessageLookupByLibrary.simpleMessage("Стандарт"),
     "workModeStandardDesc": MessageLookupByLibrary.simpleMessage(
-      "Рекомендуем. Обход блокировок и защита — всё настроено за вас.",
+      "Рекомендуем.\nВсё настроено за вас.",
     ),
     "workModes": MessageLookupByLibrary.simpleMessage("Режимы"),
     "years": MessageLookupByLibrary.simpleMessage("Лет"),

@@ -452,17 +452,6 @@ class _ModesContentState extends ConsumerState<_ModesContent>
               onTap: () => _openCountryDeep(profile),
               onChevronTap: () => _openCountryDeep(profile),
             ),
-            const SizedBox(height: 16),
-            // «Игровой»: disabled, «скоро» badge, no chevron.
-            _ModeCard(
-              icon: HugeIcons.strokeRoundedGameController01,
-              title: appLocalizations.workModeGaming,
-              description: appLocalizations.workModeGamingDesc,
-              isSelected: false,
-              enabled: false,
-              badge: CommonChip(label: appLocalizations.comingSoon),
-              onTap: () {},
-            ),
           ],
         );
 

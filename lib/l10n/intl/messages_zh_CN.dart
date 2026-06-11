@@ -593,7 +593,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "whitelistMode": MessageLookupByLibrary.simpleMessage("白名单模式"),
     "workModeCountry": MessageLookupByLibrary.simpleMessage("Country"),
     "workModeCountryDesc": MessageLookupByLibrary.simpleMessage(
-      "Pins the exit country. Geo and IP never change on their own.",
+      "Choose a country.",
     ),
     "workModeGaming": MessageLookupByLibrary.simpleMessage("Gaming"),
     "workModeGamingDesc": MessageLookupByLibrary.simpleMessage(
@@ -604,11 +604,11 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "workModeSmart": MessageLookupByLibrary.simpleMessage("Smart"),
     "workModeSmartDesc": MessageLookupByLibrary.simpleMessage(
-      "Picks the best server by connection quality.",
+      "Picks the best automatically.",
     ),
     "workModeStandard": MessageLookupByLibrary.simpleMessage("Standard"),
     "workModeStandardDesc": MessageLookupByLibrary.simpleMessage(
-      "Recommended. Unblocking and protection — everything is preconfigured.",
+      "Recommended.\nEverything is set up for you.",
     ),
     "workModes": MessageLookupByLibrary.simpleMessage("Modes"),
     "years": MessageLookupByLibrary.simpleMessage("年"),
