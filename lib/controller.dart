@@ -826,6 +826,18 @@ class AppController {
     }
   }
 
+  /// Like [setProfileAndAutoApply] but first re-validates the profile's work
+  /// mode against the FRESH on-disk config. Use this on the LOCAL profile-edit
+  /// save path (file edit / upload) — a country whose nodes vanished, or a strict
+  /// node that disappeared, would otherwise dangle (revalidation only runs on the
+  /// subscription-update path). Mirrors [updateProfile]'s revalidate-then-persist
+  /// order. The revalidation reads the config via `getProfileConfig`, so it must
+  /// run AFTER the new file bytes are written (i.e. after `profile.saveFile`).
+  Future<void> setProfileWithRevalidationAndAutoApply(Profile profile) async {
+    final revalidated = await _revalidateWorkMode(profile);
+    setProfileAndAutoApply(revalidated);
+  }
+
   void setProfiles(List<Profile> profiles) {
     _ref.read(profilesProvider.notifier).value = profiles;
   }
@@ -2024,19 +2036,33 @@ class AppController {
         break;
     }
 
-    _ref.read(profilesProvider.notifier).setProfile(
-          currentProfile.copyWith(
-            workMode: mode,
-            staticCountry: staticCountry,
-            staticStrictNode: staticStrictNode,
-            selectedMap: selectedMap,
-          ),
-        );
+    // Rollback on failure (B-12): keep the pre-mutation profile so a failed
+    // apply can't leave the UI on a mode the core never accepted. The
+    // `currentProfile` snapshot is captured BEFORE mutating (and copyWith is
+    // non-destructive), so restoring it rolls back workMode, staticCountry,
+    // staticStrictNode and selectedMap in one shot. applyProfile() surfaces
+    // setup errors to the user itself (nested loadingRun → showMessage), so we
+    // only restore state + reset the cache here; no duplicate notifier, and we
+    // deliberately do NOT rethrow so the calling UI (_apply) settles.
+    try {
+      _ref.read(profilesProvider.notifier).setProfile(
+            currentProfile.copyWith(
+              workMode: mode,
+              staticCountry: staticCountry,
+              staticStrictNode: staticStrictNode,
+              selectedMap: selectedMap,
+            ),
+          );
 
-    // Work-mode fields feed _computeSetupHash; invalidate so the next setup
-    // rebuilds the config rather than short-circuiting on the Block A cache.
-    _lastSetupHash = null;
-    await applyProfile();
+      // Work-mode fields feed _computeSetupHash; invalidate so the next setup
+      // rebuilds the config rather than short-circuiting on the Block A cache.
+      _lastSetupHash = null;
+      await applyProfile();
+    } catch (e) {
+      commonPrint.log('applyWorkMode failed, rolling back work mode: $e');
+      _ref.read(profilesProvider.notifier).setProfile(currentProfile);
+      _lastSetupHash = null;
+    }
   }
 
   /// After a subscription refresh, verifies the profile's work mode is still
@@ -2071,6 +2097,24 @@ class AppController {
           return profile.copyWith(
             workMode: WorkMode.standard,
             staticCountry: null,
+            staticStrictNode: null,
+            selectedMap: selectedMap,
+          );
+        }
+        // Country survives but a pinned strict node vanished from the fresh
+        // config. Keep Country mode — just drop the dead strict pin and repoint
+        // GLOBAL at the in-country failover group so routing stays valid. This
+        // is NOT a reset-to-Standard, so it uses its own notice.
+        final strictNode = profile.staticStrictNode;
+        if (strictNode != null &&
+            strictNode.isNotEmpty &&
+            !names.contains(strictNode)) {
+          globalState.showNotifier(
+            appLocalizations.strictNodeResetNotice,
+          );
+          final selectedMap = Map<String, String>.from(profile.selectedMap)
+            ..[GroupName.GLOBAL.name] = workModeCountryGroupName(country);
+          return profile.copyWith(
             staticStrictNode: null,
             selectedMap: selectedMap,
           );

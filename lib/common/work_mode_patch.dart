@@ -77,6 +77,34 @@ Map<String, dynamic> applyWorkModePatch(
   }
 }
 
+/// Whether the `Страна <flag>` group will be PRESENT in [applyWorkModePatch]'s
+/// output for the given [workMode]/[staticCountry] over [rawConfig] — i.e. it is
+/// already defined, or it is injectable because the country has ≥1 matching
+/// subscription node.
+///
+/// Returns false for non-country modes, a null/empty country, or a country with
+/// no matching nodes and no pre-existing group. When this is false but the
+/// profile's `selectedMap[GLOBAL]` points at that group, the Mihomo core does
+/// NOT error: its GLOBAL selector silently falls back to its first proxy (see
+/// `Selector.selectedProxy` → `proxies[0]`). This lets the config-build path log
+/// the dangling-group case without re-parsing.
+bool countryGroupWillInject(
+  Map<String, dynamic> rawConfig, {
+  required WorkMode workMode,
+  String? staticCountry,
+}) {
+  if (workMode != WorkMode.country) return false;
+  if (staticCountry == null || staticCountry.isEmpty) return false;
+  final groupName = workModeCountryGroupName(staticCountry);
+  final groups = rawConfig['proxy-groups'];
+  if (groups is List) {
+    for (final g in groups) {
+      if (g is Map && g['name']?.toString() == groupName) return true;
+    }
+  }
+  return _countryNodes(rawConfig, staticCountry).isNotEmpty;
+}
+
 /// Returns the subscription node names (top-level `proxies[*].name`) that belong
 /// to the country keyed by flag-emoji [flag], in subscription order.
 List<String> _countryNodes(Map<String, dynamic> rawConfig, String flag) {

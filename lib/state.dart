@@ -715,6 +715,21 @@ class GlobalState {
     // the profile file, so its groups are present here). NEVER reshapes the
     // panel's existing groups/rules — only appends our `Умный` / `Страна <flag>`
     // group. Mode + selectedMap wiring lives in the controller, not here.
+    //
+    // Defensive backstop (B-3): a Country profile whose country lost all its
+    // nodes (e.g. a LOCAL file edit between revalidation chokepoints) injects no
+    // group, yet selectedMap[GLOBAL] may still point at it. That does NOT break
+    // core startup — the GLOBAL selector silently falls back to its first proxy
+    // — but log it so the dangle is visible. The revalidation chokepoints are
+    // the primary fix; this is only a cheap last-line warning.
+    if (profile.workMode == WorkMode.country &&
+        !countryGroupWillInject(
+          rawConfig,
+          workMode: profile.workMode,
+          staticCountry: profile.staticCountry,
+        )) {
+      commonPrint.log('[workmode] country group missing, config falls back');
+    }
     return applyWorkModePatch(
       rawConfig,
       workMode: profile.workMode,

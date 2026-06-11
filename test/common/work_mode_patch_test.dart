@@ -155,4 +155,85 @@ void main() {
           (buildConfig()['proxy-groups'] as List).length);
     });
   });
+
+  group('countryGroupWillInject', () {
+    test('country with matching nodes → true', () {
+      expect(
+        countryGroupWillInject(
+          buildConfig(),
+          workMode: WorkMode.country,
+          staticCountry: '🇩🇪',
+        ),
+        isTrue,
+      );
+    });
+
+    test('country with no matching nodes → false', () {
+      expect(
+        countryGroupWillInject(
+          buildConfig(),
+          workMode: WorkMode.country,
+          staticCountry: '🇫🇷',
+        ),
+        isFalse,
+      );
+    });
+
+    test('non-country mode → false', () {
+      expect(
+        countryGroupWillInject(
+          buildConfig(),
+          workMode: WorkMode.smart,
+          staticCountry: '🇩🇪',
+        ),
+        isFalse,
+      );
+    });
+
+    test('null staticCountry → false', () {
+      expect(
+        countryGroupWillInject(
+          buildConfig(),
+          workMode: WorkMode.country,
+        ),
+        isFalse,
+      );
+    });
+
+    test('group already present (no nodes) → true', () {
+      // A country whose nodes vanished but whose group is already defined in the
+      // config still counts as present — the core has a valid target.
+      final config = buildConfig();
+      (config['proxy-groups'] as List).add(<String, dynamic>{
+        'name': 'Страна 🇫🇷',
+        'type': 'fallback',
+        'proxies': <String>[],
+      });
+      expect(
+        countryGroupWillInject(
+          config,
+          workMode: WorkMode.country,
+          staticCountry: '🇫🇷', // no French nodes in fixture
+        ),
+        isTrue,
+      );
+    });
+
+    test('agrees with applyWorkModePatch output presence', () {
+      for (final flag in ['🇩🇪', '🇸🇪', '🇷🇺', '🇫🇷']) {
+        final willInject = countryGroupWillInject(
+          buildConfig(),
+          workMode: WorkMode.country,
+          staticCountry: flag,
+        );
+        final out = applyWorkModePatch(
+          buildConfig(),
+          workMode: WorkMode.country,
+          staticCountry: flag,
+        );
+        final present = _group(out, 'Страна $flag') != null;
+        expect(willInject, present, reason: 'mismatch for $flag');
+      }
+    });
+  });
 }

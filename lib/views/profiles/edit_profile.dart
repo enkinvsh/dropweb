@@ -95,7 +95,12 @@ class _EditProfileViewState extends State<EditProfileView> {
           );
         }
       }
-      appController.setProfileAndAutoApply(await profile.saveFile(fileData!));
+      // File content changed locally (edit/upload). Re-validate the work mode
+      // against the freshly-saved config before persisting — a country that
+      // lost its nodes, or a vanished strict node, must not dangle (B-3).
+      await appController.setProfileWithRevalidationAndAutoApply(
+        await profile.saveFile(fileData!),
+      );
     } else if (!hasUpdate) {
       appController.setProfileAndAutoApply(profile);
     } else {
