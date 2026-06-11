@@ -613,8 +613,12 @@ ProxyCardState _getProxyCardState(
       groups.indexWhere((element) => element.name == proxyDelayState.proxyName);
   if (index == -1) return proxyDelayState;
   final group = groups[index];
-  final currentSelectedName = group
-      .getCurrentSelectedName(selectedMap[proxyDelayState.proxyName] ?? '');
+  // resolveSelectedName (NOT getCurrentSelectedName): an unpinned smart group
+  // yields "" here, terminating resolution at the group itself so delay tests
+  // and badge lookups target a name the core can actually URLTest. The
+  // display label "Auto" must never leak into this chain.
+  final currentSelectedName =
+      group.resolveSelectedName(selectedMap[proxyDelayState.proxyName] ?? '');
   if (currentSelectedName.isEmpty) {
     return proxyDelayState;
   }

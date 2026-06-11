@@ -277,18 +277,35 @@ extension GroupsExt on List<Group> {
 extension GroupExt on Group {
   String get realNow => now ?? "";
 
-  String getCurrentSelectedName(String proxyName) {
+  /// Resolution-safe selection: the name of the member this group currently
+  /// routes through, or "" when there is no single such member.
+  ///
+  /// A `smart` group with no pinned node picks per destination, so the core
+  /// returns the placeholder "Smart - Select" as `now`. That placeholder is
+  /// NOT a proxy name — returning it (or any display label) from here would
+  /// poison `_getProxyCardState` recursion and delay tests with a name the
+  /// core cannot resolve. Returning "" lets callers terminate at the group
+  /// itself, which the core can URLTest directly (it dials through the
+  /// group's own auto-selection).
+  String resolveSelectedName(String proxyName) {
     if (type.isComputedSelected) {
-      // A `smart` group has no single "current" node — it picks per destination,
-      // so the core returns the placeholder "Smart - Select". Surface it as an
-      // explicit auto label instead of a fake selection that highlights nothing
-      // (which read as an empty manual selector "awaiting a pick").
       if (type == GroupType.Smart && realNow == _smartAutoPlaceholder) {
-        return appLocalizations.smartAuto;
+        return "";
       }
       return realNow.isNotEmpty ? realNow : proxyName;
     }
     return proxyName.isNotEmpty ? proxyName : realNow;
+  }
+
+  /// Display-only variant: like [resolveSelectedName], but surfaces an
+  /// explicit localized auto label for an unpinned `smart` group instead of
+  /// a fake selection that highlights nothing (which read as an empty manual
+  /// selector "awaiting a pick"). Never feed this into delay resolution.
+  String getCurrentSelectedName(String proxyName) {
+    if (type == GroupType.Smart && realNow == _smartAutoPlaceholder) {
+      return appLocalizations.smartAuto;
+    }
+    return resolveSelectedName(proxyName);
   }
 }
 
