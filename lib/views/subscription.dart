@@ -374,21 +374,25 @@ class _ModesContentState extends ConsumerState<_ModesContent>
     );
   }
 
-  /// Deep screen for «Страна»: full-page country picker (mirrors how
-  /// [AddProfileView] is opened — [showExtend] + [AdaptiveSheetScaffold]).
+  /// Country picker: a popup modal sheet (same presentation as «Серверы и
+  /// группы» — [showSheet] + [AdaptiveSheetScaffold], NOT a full-page push).
   /// Selecting a country applies [WorkMode.country] through [_apply] (so the
-  /// applying-state guard still covers the modes tab on return).
+  /// applying-state guard still covers the modes tab) and closes the sheet.
   void _openCountryDeep(Profile profile) {
-    showExtend(
-      context,
+    showSheet(
+      context: context,
+      props: const SheetProps(isScrollControlled: true),
       builder: (_, type) => AdaptiveSheetScaffold(
         type: type,
         title: appLocalizations.workModeCountry,
-        body: _CountryDeepView(
-          profileId: profile.id,
-          onApply: (country) => _apply(
-            WorkMode.country,
-            staticCountry: country,
+        body: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.7,
+          child: _CountryDeepView(
+            profileId: profile.id,
+            onApply: (country) => _apply(
+              WorkMode.country,
+              staticCountry: country,
+            ),
           ),
         ),
       ),
@@ -419,7 +423,13 @@ class _ModesContentState extends ConsumerState<_ModesContent>
               description: appLocalizations.workModeStandardDesc,
               isSelected: profile.workMode == WorkMode.standard,
               onTap: () => _apply(WorkMode.standard),
-              onChevronTap: _openServersAndGroups,
+              // «Серверы и группы» (manual group/server picking) is only
+              // meaningful in Standard mode → the chevron is tappable only when
+              // Standard is the active mode; otherwise it's shown disabled.
+              onChevronTap: profile.workMode == WorkMode.standard
+                  ? _openServersAndGroups
+                  : null,
+              chevronDisabled: profile.workMode != WorkMode.standard,
             ),
             const SizedBox(height: 16),
             // «Умный»: no deep, no chevron.
@@ -482,6 +492,7 @@ class _ModeCard extends StatelessWidget {
     this.enabled = true,
     this.badge,
     this.onChevronTap,
+    this.chevronDisabled = false,
   });
 
   final List<List<dynamic>> icon;
@@ -492,6 +503,11 @@ class _ModeCard extends StatelessWidget {
   final bool enabled;
   final Widget? badge;
   final VoidCallback? onChevronTap;
+
+  /// When true, the chevron is rendered but greyed and non-tappable (the deep
+  /// screen is gated until this mode is selected — e.g. «Серверы и группы»
+  /// only applies in Standard mode).
+  final bool chevronDisabled;
 
   @override
   Widget build(BuildContext context) {
@@ -543,9 +559,12 @@ class _ModeCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (onChevronTap != null) ...[
+            if (onChevronTap != null || chevronDisabled) ...[
               const SizedBox(width: 8),
-              _ChevronAffordance(onTap: onChevronTap!),
+              _ChevronAffordance(
+                onTap: onChevronTap,
+                disabled: chevronDisabled,
+              ),
             ],
           ],
         ),
@@ -561,22 +580,25 @@ class _ModeCard extends StatelessWidget {
 /// (lets «Стандарт» distinguish select-mode from open-deep). Mirrors the
 /// [ListItem] chevron visual (arrow-right glyph, onSurfaceVariant).
 class _ChevronAffordance extends StatelessWidget {
-  const _ChevronAffordance({required this.onTap});
+  const _ChevronAffordance({this.onTap, this.disabled = false});
 
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool disabled;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
-      onTap: onTap,
+      onTap: disabled ? null : onTap,
       borderRadius: BorderRadius.circular(Lumina.radiusMd),
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: HugeIcon(
           icon: HugeIcons.strokeRoundedArrowRight01,
           size: 18,
-          color: colorScheme.onSurfaceVariant,
+          color: disabled
+              ? colorScheme.onSurfaceVariant.withValues(alpha: 0.35)
+              : colorScheme.onSurfaceVariant,
         ),
       ),
     );
