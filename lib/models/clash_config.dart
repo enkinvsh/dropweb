@@ -474,7 +474,7 @@ class ClashConfig with _$ClashConfig {
     @Default(false) @JsonKey(name: "allow-lan") bool allowLan,
     @Default(LogLevel.error) @JsonKey(name: "log-level") LogLevel logLevel,
     @Default(true) bool ipv6,
-    @Default(FindProcessMode.always)
+    @Default(FindProcessMode.strict)
     @JsonKey(
       name: "find-process-mode",
       unknownEnumValue: FindProcessMode.always,
