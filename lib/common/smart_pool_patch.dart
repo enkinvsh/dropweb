@@ -128,6 +128,13 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
     'type': 'smart',
     'uselightgbm': false,
     'include-all': true,
+    // Emergency-pool plumbing only: keep it referenceable by `📶 First
+    // Available` (fallback), but hide its card from the «Серверы и группы»
+    // sheet so it is NOT a user-selectable group / drill-in. `currentGroupsState`
+    // filters `hidden == false`; the core honors `hidden` on smart groups. The
+    // panel hides `♻️ DIRECT` the same way. It auto-ranks its own members; the
+    // user never picks a node inside it.
+    'hidden': true,
   };
 
   // Build the `📶 First Available` fallback group spec (used only when no such
@@ -191,6 +198,12 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
           ['proxy-groups', smartIndex, 'include-all'],
           true,
         );
+      }
+      // Hide the pre-existing `🧠 Smart` card too (see smartGroup spec): it must
+      // remain a fallback member of `📶 First Available`, never a selectable row.
+      final alreadyHidden = existing is Map && existing['hidden'] == true;
+      if (!alreadyHidden) {
+        editor.update(['proxy-groups', smartIndex, 'hidden'], true);
       }
     }
   }

@@ -112,6 +112,8 @@ rules:
       expect(smart!['type'], 'smart');
       expect(smart['uselightgbm'], false);
       expect(smart['include-all'], true);
+      // Hidden: emergency-pool plumbing, not a user-selectable group/drill-in.
+      expect(smart['hidden'], true);
 
       // Primary router `🌍 VPN` is left UNCHANGED — `🧠 Smart` must NOT be
       // injected as its default; an existing `📶 First Available` is the
@@ -140,10 +142,10 @@ rules:
       expect(out, isNot(contains('@YoutubeUnBlockRu')));
       expect(out, isNot(contains('SNI-VK')));
 
-      // No legacy `🆘 SOS` group, and no `hidden: true` injected by the patch
-      // (the only `hidden: true` is the pre-existing `♻️ DIRECT` group).
+      // No legacy `🆘 SOS` group. Two `hidden: true` now: the pre-existing
+      // `♻️ DIRECT` group and the injected `🧠 Smart` emergency-pool group.
       expect(_group(doc, '🆘 SOS'), isNull);
-      expect('hidden: true'.allMatches(out).length, 1);
+      expect('hidden: true'.allMatches(out).length, 2);
 
       // `⚡ Fastest` and `📶 First Available` are otherwise unchanged.
       final fastest = _group(doc, '⚡ Fastest');
@@ -311,11 +313,12 @@ rules:
       final out = patchSmartPool(yaml, sosProxies);
       final doc = loadYaml(out) as YamlMap;
 
-      // The pre-existing smart group must gain `include-all: true`.
+      // The pre-existing smart group must gain `include-all: true` and `hidden`.
       final smart = _group(doc, '🧠 Smart');
       expect(smart, isNotNull);
       expect(smart!['type'], 'smart');
       expect(smart['include-all'], true);
+      expect(smart['hidden'], true);
 
       // Exactly one `🧠 Smart` group — no duplicate appended.
       final smartCount = [
