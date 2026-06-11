@@ -962,6 +962,33 @@ class AppController {
         _ref.read(currentProfileProvider)?.workMode ?? WorkMode.standard;
     final effectiveMode =
         workMode == WorkMode.country ? Mode.global : Mode.rule;
+    // Write the derived mode back into the provider so EVERY consumer reads the
+    // mode the core actually runs, not the stale rule/global UI axis:
+    //   • currentGroupsState (state.dart) filters groups on patchConfig.mode —
+    //     a Country profile runs global, so GroupName.GLOBAL must be visible.
+    //   • trayState.mode (the desktop checkmark) and the VPN notification's
+    //     mode label (service isolate, fed via the 'updateMode' IPC below).
+    // Loop-safety: this mutates only `mode`. It does NOT touch needSetupProvider
+    // (the only trigger for handleChangeProfile → _setupClashConfig), so it can
+    // never re-enter this method. It DOES change updateParamsProvider (which
+    // selects `mode`), whose ClashManager listener fires updateClashConfigDebounce
+    // → _updateClashConfig → core.updateConfig — the correct live mode-change
+    // effect. That path never writes `mode` back, and copyWith with an unchanged
+    // mode yields a value-equal (Freezed) state Riverpod drops, so the write is
+    // idempotent and cannot loop. The `!= ` guard keeps it a no-op on steady state.
+    if (patchConfig.mode != effectiveMode) {
+      _ref
+          .read(patchClashConfigProvider.notifier)
+          .updateState((state) => state.copyWith(mode: effectiveMode));
+      patchConfig = patchConfig.copyWith(mode: effectiveMode);
+      // Keep the service-isolate notification label in sync. The deleted
+      // changeMode() used to send this; mode is derived now, so the single
+      // place that changes mode is also the single place that emits the IPC.
+      clashLib?.sendIpcMessage({
+        'action': 'updateMode',
+        'mode': effectiveMode.name,
+      });
+    }
     final realPatchConfig = patchConfig.copyWith
         .tun(enable: realTunEnable)
         .copyWith(mode: effectiveMode);
@@ -2076,37 +2103,11 @@ class AppController {
         );
   }
 
-  void changeMode(Mode mode) {
-    _ref.read(patchClashConfigProvider.notifier).updateState(
-          (state) => state.copyWith(mode: mode),
-        );
-    // Sync mode to service isolate for notification display
-    clashLib?.sendIpcMessage({
-      'action': 'updateMode',
-      'mode': mode.name,
-    });
-    if (mode == Mode.global) {
-      updateCurrentGroupName(GroupName.GLOBAL.name);
-      _autoSelectFastestForGlobal();
-    }
-    addCheckIpNumDebounce();
-  }
-
-  /// When switching to Global mode, auto-select the first url-test group
-  /// (e.g. "⚡ Fastest") so the user doesn't have to pick manually.
-  void _autoSelectFastestForGlobal() {
-    final groups = _ref.read(groupsProvider);
-    final urlTestGroup = groups.cast<Group?>().firstWhere(
-          (g) => g!.type == GroupType.URLTest,
-          orElse: () => null,
-        );
-    if (urlTestGroup != null) {
-      changeProxy(
-        groupName: GroupName.GLOBAL.name,
-        proxyName: urlTestGroup.name,
-      );
-    }
-  }
+  // changeMode / _autoSelectFastestForGlobal removed: the rule/global/direct
+  // axis is dead. Mode is DERIVED from the current profile's work mode in
+  // _setupClashConfig, which writes it back to patchClashConfigProvider and
+  // emits the 'updateMode' IPC. Nothing switches mode imperatively anymore, so
+  // the GLOBAL selectedMap auto-select (our key) is gone too.
 
   void updateAutoLaunch() {
     _ref.read(appSettingProvider.notifier).updateState(
@@ -2131,20 +2132,8 @@ class AppController {
     }
   }
 
-  void updateMode() {
-    _ref.read(patchClashConfigProvider.notifier).updateState(
-      (state) {
-        final index = Mode.values.indexWhere((item) => item == state.mode);
-        if (index == -1) {
-          return null;
-        }
-        final nextIndex = index + 1 > Mode.values.length - 1 ? 0 : index + 1;
-        return state.copyWith(
-          mode: Mode.values[nextIndex],
-        );
-      },
-    );
-  }
+  // updateMode removed: mode is derived (see _setupClashConfig). The desktop
+  // hotkey (HotAction.mode) is now a no-op and the tray submenu is gone.
 
   Future<void> handleAddOrUpdate(WidgetRef ref, [Rule? rule]) async {
     final res = await globalState.showCommonDialog<Rule>(

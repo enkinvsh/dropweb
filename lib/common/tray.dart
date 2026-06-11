@@ -1,12 +1,10 @@
 import 'dart:io';
 
 import 'package:dropweb/common/utils.dart';
-import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:tray_manager/tray_manager.dart';
 
 import 'app_localizations.dart';
@@ -72,20 +70,9 @@ class Tray {
       checked: false,
     );
     menuItems.add(startMenuItem);
-    if (trayState.globalModeEnabled) {
-      menuItems.add(MenuItem.separator());
-      for (final mode in Mode.values) {
-        menuItems.add(
-          MenuItem.checkbox(
-            label: Intl.message(mode.name),
-            onClick: (_) {
-              globalState.appController.changeMode(mode);
-            },
-            checked: mode == trayState.mode,
-          ),
-        );
-      }
-    }
+    // The rule/global/direct mode axis is dead — mode is DERIVED from the
+    // current profile's work mode (Country ⇒ global, else rule) in
+    // AppController._setupClashConfig. The tray must not switch it independently.
     menuItems.add(MenuItem.separator());
     if (trayState.isStart) {
       menuItems.add(

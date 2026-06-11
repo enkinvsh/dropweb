@@ -38,7 +38,12 @@ class _HotKeyManagerState extends ConsumerState<HotKeyManager> {
   Future<void> _handleHotKeyAction(HotAction action) async {
     switch (action) {
       case HotAction.mode:
-        globalState.appController.updateMode();
+        // No-op: the rule/global/direct mode axis is dead — mode is DERIVED
+        // from the current profile's work mode in _setupClashConfig. The enum
+        // value is retained (persisted keybindings deserialize it via
+        // $enumDecode with no unknownEnumValue fallback, so removing it would
+        // throw on load), but the hotkey no longer cycles mode.
+        commonPrint.log('HotAction.mode ignored: mode is derived from work mode');
       case HotAction.start:
         globalState.appController.updateStart();
       case HotAction.view:
