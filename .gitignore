@@ -97,6 +97,9 @@ opencode.json
 # Serena tooling metadata
 .serena/
 
+# code-graph-mcp local code index
+.code-graph/
+
 # Android module build output (artifacts; never track)
 /android/build/
 
