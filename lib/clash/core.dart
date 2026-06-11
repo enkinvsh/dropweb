@@ -63,7 +63,12 @@ class ClashCore {
         await geoFile.writeAsBytes(bytes, flush: true);
       }
     } catch (e) {
-      exit(0);
+      // Fail loudly instead of exit(0): since lazy geodata, initGeo can run
+      // from _setupClashConfig's safety net at connect time, where a transient
+      // FS error must surface as a connect error rather than silently killing
+      // the app mid-session.
+      commonPrint.log("ClashCore.initGeo: geodata copy failed: $e");
+      throw Exception("ClashCore.initGeo: geodata copy failed: $e");
     }
   }
 
@@ -73,7 +78,15 @@ class ClashCore {
     // profile that enables geodata later is covered by the safety net in
     // AppController._setupClashConfig before core setup.
     if (await Geodata.currentProfileNeedsGeodata()) {
-      await initGeo();
+      // Boot must not die because of a failed geo copy: log and continue.
+      // Geodata profiles are still covered by the safety net in
+      // _setupClashConfig at connect time, where a failure now surfaces as a
+      // connect error through ensureGeoFilesIfNeeded's propagation.
+      try {
+        await initGeo();
+      } catch (e) {
+        commonPrint.log("ClashCore.init: initGeo failed, continuing boot: $e");
+      }
     }
     if (globalState.config.appSetting.openLogs) {
       clashCore.startLog();
