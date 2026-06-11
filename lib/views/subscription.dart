@@ -376,8 +376,10 @@ class _ModesContentState extends ConsumerState<_ModesContent>
       builder: (_, type) => AdaptiveSheetScaffold(
         type: type,
         title: appLocalizations.serversAndGroups,
-        body: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.7,
+        body: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
           child: const _RulesProxiesView(),
         ),
       ),
@@ -395,11 +397,12 @@ class _ModesContentState extends ConsumerState<_ModesContent>
       builder: (_, type) => AdaptiveSheetScaffold(
         type: type,
         title: appLocalizations.workModeCountry,
-        // Adaptive height: wrap the content (few countries → short sheet), cap
-        // at 70% so a long list still scrolls instead of overflowing.
+        // Adaptive: shrinkWrap content hugs the sheet to its height (few
+        // countries → short, bottom-anchored sheet) capped at 85% where it
+        // scrolls.
         body: ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.7,
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
           ),
           child: _CountryDeepView(
             profileId: profile.id,
@@ -699,10 +702,10 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
         final activeCountry = profile.staticCountry;
 
         return ListView(
-          // shrinkWrap so the sheet sizes to the content (few countries → short
-          // sheet); the parent ConstrainedBox caps it at 70% where it scrolls.
+          // shrinkWrap so the sheet hugs its content (few countries → short,
+          // bottom-anchored sheet); the parent ConstrainedBox caps + scrolls.
           shrinkWrap: true,
-          physics: const ClampingScrollPhysics(),
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
             for (final flag in countryKeys)
@@ -794,7 +797,10 @@ class _CountryAvailabilityBadge extends ConsumerWidget {
 }
 
 Future<void> _pingAllProxies(WidgetRef ref) async {
-  final groups = ref.read(currentGroupsStateProvider).value;
+  // Use the RAW groups (not currentGroupsState, which drops hidden:true groups)
+  // so the disconeko 🧠 Smart pool is still delay-tested — otherwise the
+  // 📶 First Available row (now = 🧠 Smart) loses its availability badge.
+  final groups = ref.read(groupsProvider);
   final allProxies = <Proxy>[];
   final seenNames = <String>{};
   for (final group in groups) {
@@ -810,11 +816,18 @@ Future<void> _pingAllProxies(WidgetRef ref) async {
 
 // ── Proxies view (shared across all 3 modes) ─────────────────────────────
 
-class _RulesProxiesView extends ConsumerWidget {
+class _RulesProxiesView extends ConsumerStatefulWidget {
   const _RulesProxiesView();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_RulesProxiesView> createState() => _RulesProxiesViewState();
+}
+
+class _RulesProxiesViewState extends ConsumerState<_RulesProxiesView> {
+  bool _pingTriggered = false;
+
+  @override
+  Widget build(BuildContext context) {
     final groups = ref.watch(currentGroupsStateProvider).value;
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -823,10 +836,21 @@ class _RulesProxiesView extends ConsumerWidget {
       return NullStatus(label: appLocalizations.nullProfileDesc);
     }
 
+    // Populate availability badges on open (incl. the hidden 🧠 Smart pool that
+    // backs 📶 First Available), once per open — matching the old behavior
+    // where badges showed immediately. Pull-to-refresh re-tests.
+    if (!_pingTriggered) {
+      _pingTriggered = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _pingAllProxies(ref));
+    }
+
     return RefreshIndicator(
       onRefresh: () => _pingAllProxies(ref),
       color: colorScheme.primary,
       child: ListView.builder(
+        // shrinkWrap so the sheet hugs its content (few groups → short sheet,
+        // anchored to the bottom); the parent ConstrainedBox caps + scrolls.
+        shrinkWrap: true,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: groups.length,
