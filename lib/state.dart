@@ -734,6 +734,7 @@ class GlobalState {
       rawConfig,
       workMode: profile.workMode,
       staticCountry: profile.staticCountry,
+      staticStrictNode: profile.staticStrictNode,
     );
   }
 

@@ -40,11 +40,22 @@ String countryDisplayName(String flag, List<String> nodeNames) {
 /// exposing the full IP. Non-IP hosts (e.g. a pooled domain `de.meybz.asia`)
 /// are returned unchanged.
 String maskServerAddress(String server) {
-  final parts = server.split('.');
-  if (parts.length == 4 && parts.every(_isByte)) {
+  if (isIpv4(server)) {
+    final parts = server.split('.');
     return '${parts[0]}.${parts[1]}.•.•';
   }
   return server;
+}
+
+/// Whether [s] is a well-formed IPv4 dotted-quad (four 0..255 octets).
+///
+/// Used to distinguish a pooled domain server (e.g. `de.meybz.asia` → DoH
+/// unrolling applies) from a discrete node's real IP, and to validate a
+/// strict-node pin that is a pinned IP (DNS-pool unrolling) rather than a
+/// member node name.
+bool isIpv4(String s) {
+  final parts = s.split('.');
+  return parts.length == 4 && parts.every(_isByte);
 }
 
 bool _isByte(String s) {

@@ -2041,10 +2041,19 @@ class AppController {
       case WorkMode.country:
         if (staticCountry != null && staticCountry.isNotEmpty) {
           final String value;
-          if (staticStrictNode != null &&
-              staticStrictNode.isNotEmpty &&
-              candidateNodes.contains(staticStrictNode)) {
-            value = staticStrictNode;
+          if (staticStrictNode != null && staticStrictNode.isNotEmpty) {
+            if (candidateNodes.contains(staticStrictNode)) {
+              // Discrete multi-node country: pin a real member node by NAME.
+              value = staticStrictNode;
+            } else if (isIpv4(staticStrictNode)) {
+              // DNS-pool unrolling (ИТЕРАЦИЯ 3): pin a resolved IP. The variant
+              // proxy named «Страна <flag> <ip>» is injected by
+              // applyWorkModePatch from the country's pooled BASE leaf, so the
+              // selectedMap target is that deterministic variant name directly.
+              value = countryStrictProxyName(staticCountry, staticStrictNode);
+            } else {
+              value = workModeCountryGroupName(staticCountry);
+            }
           } else {
             value = workModeCountryGroupName(staticCountry);
           }
@@ -2145,9 +2154,17 @@ class AppController {
         // config. Keep Country mode — just drop the dead strict pin and repoint
         // GLOBAL at the in-country failover group so routing stays valid. This
         // is NOT a reset-to-Standard, so it uses its own notice.
+        // A pinned strict node that is a resolved IP (DNS-pool unrolling,
+        // ИТЕРАЦИЯ 3) is NOT a member name, so it will never be in `names` —
+        // keep it. The variant proxy «Страна <flag> <ip>» is rebuilt every
+        // setup from the country's BASE leaf (which still exists as long as the
+        // country survives, asserted by `hasNodes` above), so we can't and
+        // needn't cheaply re-resolve it here. Only a vanished MEMBER-NAME pin
+        // is dropped.
         final strictNode = profile.staticStrictNode;
         if (strictNode != null &&
             strictNode.isNotEmpty &&
+            !isIpv4(strictNode) &&
             !names.contains(strictNode)) {
           globalState.showNotifier(
             appLocalizations.strictNodeResetNotice,
