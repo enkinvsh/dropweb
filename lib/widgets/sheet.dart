@@ -56,14 +56,19 @@ Future<T?> showSheet<T>({
         context: context,
         isScrollControlled: props.isScrollControlled,
         backgroundColor: Colors.transparent,
+        // Top-only safe area + useSafeArea:false so the sheet container fills
+        // edge-to-edge down to the screen bottom (no barrier strip showing
+        // below it). The bottom gesture-nav inset is applied as content padding
+        // inside AdaptiveSheetScaffold so the last item still clears the pill.
         builder: (_) => BackdropFilter(
           filter: props.blur ? commonFilter : ImageFilter.blur(),
           child: SafeArea(
+            bottom: false,
             child: builder(context, SheetType.bottomSheet),
           ),
         ),
         showDragHandle: false,
-        useSafeArea: props.useSafeArea,
+        useSafeArea: false,
       ),
     false => showModalSideSheet<T>(
         useSafeArea: props.useSafeArea,
@@ -190,7 +195,15 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
             appBar,
             Flexible(
               flex: 1,
-              child: widget.body,
+              // Pad the bottom by the gesture-nav inset (the sheet now extends
+              // edge-to-edge; this keeps the last item above the pill while the
+              // container background fills behind it).
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewPaddingOf(context).bottom,
+                ),
+                child: widget.body,
+              ),
             )
           ],
         ),
