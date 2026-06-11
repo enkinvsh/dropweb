@@ -951,7 +951,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "workModeStandard": MessageLookupByLibrary.simpleMessage("Стандарт"),
     "workModeStandardDesc": MessageLookupByLibrary.simpleMessage(
-      "Рекомендуем.\nВсё настроено за вас.",
+      "Всё настроено за вас.",
     ),
     "workModes": MessageLookupByLibrary.simpleMessage("Режимы"),
     "years": MessageLookupByLibrary.simpleMessage("Лет"),

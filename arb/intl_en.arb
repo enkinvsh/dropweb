@@ -508,7 +508,7 @@
   "updateSubscription": "Update subscription",
   "workModes": "Modes",
   "workModeStandard": "Standard",
-  "workModeStandardDesc": "Recommended.\nEverything is set up for you.",
+  "workModeStandardDesc": "Everything is set up for you.",
   "workModeSmart": "Smart",
   "workModeSmartDesc": "Picks the best automatically.",
   "workModeCountry": "Country",

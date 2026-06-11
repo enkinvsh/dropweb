@@ -509,7 +509,7 @@
   "updateSubscription": "Обновить подписку",
   "workModes": "Режимы",
   "workModeStandard": "Стандарт",
-  "workModeStandardDesc": "Рекомендуем.\nВсё настроено за вас.",
+  "workModeStandardDesc": "Всё настроено за вас.",
   "workModeSmart": "Умный",
   "workModeSmartDesc": "Сам выбирает лучший.",
   "workModeCountry": "Страна",

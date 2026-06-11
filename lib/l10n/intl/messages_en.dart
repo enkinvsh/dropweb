@@ -912,7 +912,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "workModeStandard": MessageLookupByLibrary.simpleMessage("Standard"),
     "workModeStandardDesc": MessageLookupByLibrary.simpleMessage(
-      "Recommended.\nEverything is set up for you.",
+      "Everything is set up for you.",
     ),
     "workModes": MessageLookupByLibrary.simpleMessage("Modes"),
     "years": MessageLookupByLibrary.simpleMessage("Years"),

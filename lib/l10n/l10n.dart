@@ -3944,10 +3944,10 @@ class AppLocalizations {
     );
   }
 
-  /// `Recommended.\nEverything is set up for you.`
+  /// `Everything is set up for you.`
   String get workModeStandardDesc {
     return Intl.message(
-      'Recommended.\nEverything is set up for you.',
+      'Everything is set up for you.',
       name: 'workModeStandardDesc',
       desc: '',
       args: [],
