@@ -395,8 +395,12 @@ class _ModesContentState extends ConsumerState<_ModesContent>
       builder: (_, type) => AdaptiveSheetScaffold(
         type: type,
         title: appLocalizations.workModeCountry,
-        body: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.7,
+        // Adaptive height: wrap the content (few countries → short sheet), cap
+        // at 70% so a long list still scrolls instead of overflowing.
+        body: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.7,
+          ),
           child: _CountryDeepView(
             profileId: profile.id,
             onApply: (country) => _apply(
@@ -695,7 +699,10 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
         final activeCountry = profile.staticCountry;
 
         return ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
+          // shrinkWrap so the sheet sizes to the content (few countries → short
+          // sheet); the parent ConstrainedBox caps it at 70% where it scrolls.
+          shrinkWrap: true,
+          physics: const ClampingScrollPhysics(),
           padding: const EdgeInsets.symmetric(vertical: 8),
           children: [
             for (final flag in countryKeys)
