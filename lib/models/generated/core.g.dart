@@ -215,6 +215,7 @@ const _$AppMessageTypeEnumMap = {
   AppMessageType.delay: 'delay',
   AppMessageType.request: 'request',
   AppMessageType.loaded: 'loaded',
+  AppMessageType.tun: 'tun',
 };
 
 _$InvokeMessageImpl _$$InvokeMessageImplFromJson(Map<String, dynamic> json) =>

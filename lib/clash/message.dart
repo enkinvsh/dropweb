@@ -27,6 +27,9 @@ class ClashMessage {
             case AppMessageType.loaded:
               listener.onLoaded(m.data);
               break;
+            case AppMessageType.tun:
+              listener.onTun(Map<String, dynamic>.from(m.data as Map));
+              break;
           }
         }
       },

@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/connect_trace.dart';
 import 'package:dropweb/enum/enum.dart';
+import 'package:dropweb/models/models.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
@@ -132,12 +133,31 @@ class _StartButtonState extends ConsumerState<StartButton>
     final isStart = ref.watch(runTimeProvider.select((state) => state != null));
     if (!state.isInit) return const SizedBox.shrink();
 
+    // Connecting affordance: while handleStart is waiting on the native TUN
+    // readiness ack, reuse the existing dimmed/disabled look and swallow taps.
+    // No new colors/animations — just the opacity60 extension + null onTap.
+    return ValueListenableBuilder<bool>(
+      valueListenable: globalState.isConnecting,
+      builder: (context, isConnecting, _) =>
+          _buildButton(context, state, isStart, isConnecting),
+    );
+  }
+
+  Widget _buildButton(
+    BuildContext context,
+    StartButtonSelectorState state,
+    bool isStart,
+    bool isConnecting,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
     final hasProfile = state.hasProfile;
     final isInactive = hasProfile && !isStart;
-    final iconColor = isInactive
+    final baseIconColor = isInactive
         ? Color.lerp(const Color(0xFF15151D), colorScheme.primary, 0.28)!
         : colorScheme.primary;
+    // While connecting, dim the icon with the existing opacity extension so it
+    // reads as a pending/disabled affordance.
+    final iconColor = isConnecting ? baseIconColor.opacity60 : baseIconColor;
 
     const motionDuration = Duration(milliseconds: 180);
     const motionCurve = Curves.easeOutCubic;
@@ -150,10 +170,14 @@ class _StartButtonState extends ConsumerState<StartButton>
       ),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => _handleTapDown(),
-        onTapUp: (_) => _pressController.reverse(),
-        onTapCancel: () => _pressController.reverse(),
-        onTap: hasProfile ? handleSwitchStart : _handleAddProfile,
+        // Ignore press feedback + taps while connecting so a second tap can't
+        // race the in-flight start transition.
+        onTapDown: isConnecting ? null : (_) => _handleTapDown(),
+        onTapUp: isConnecting ? null : (_) => _pressController.reverse(),
+        onTapCancel: isConnecting ? null : () => _pressController.reverse(),
+        onTap: isConnecting
+            ? null
+            : (hasProfile ? handleSwitchStart : _handleAddProfile),
         child: SizedBox.expand(
           child: Center(
             child: RepaintBoundary(

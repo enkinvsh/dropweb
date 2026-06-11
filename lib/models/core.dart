@@ -15,6 +15,8 @@ abstract mixin class AppMessageListener {
   void onRequest(Connection connection) {}
 
   void onLoaded(String providerName) {}
+
+  void onTun(Map<String, dynamic> data) {}
 }
 
 @freezed

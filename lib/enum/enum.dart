@@ -128,6 +128,7 @@ enum AppMessageType {
   delay,
   request,
   loaded,
+  tun,
 }
 
 enum InvokeMessageType {

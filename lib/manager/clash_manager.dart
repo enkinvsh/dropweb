@@ -121,4 +121,21 @@ class _ClashContainerState extends ConsumerState<ClashManager>
     globalState.appController.updateGroupsDebounce();
     super.onLoaded(providerName);
   }
+
+  @override
+  void onTun(Map<String, dynamic> data) {
+    super.onTun(data);
+    final status = data['status']?.toString();
+    if (status == 'ready') {
+      // null error == TUN listener is up; honest connected state can proceed.
+      globalState.completeTunAck(null);
+    } else if (status == 'error') {
+      final message = data['message']?.toString() ?? 'tun error';
+      globalState.completeTunAck(message);
+    } else {
+      commonPrint.log('onTun: unexpected status payload: $data');
+    }
+    // If no start transition is in flight, completeTunAck() is a no-op — a late
+    // TUN status (e.g. tunnel death, not currently emitted) just gets logged.
+  }
 }

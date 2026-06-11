@@ -61,6 +61,25 @@ class GlobalState {
   CorePalette? corePalette;
   DateTime? startTime;
   UpdateTasks tasks = [];
+
+  /// Pending TUN-listener readiness ack for the in-flight Android VPN start.
+  /// Completed with `null` on ready, a non-null error string on failure.
+  /// Only created when [handleStart] needs to wait for the native TUN ack.
+  Completer<String?>? _tunAck;
+
+  /// True while [handleStart] is waiting on the native TUN readiness ack.
+  /// Drives the start button's connecting affordance. Plain [ValueNotifier]
+  /// so [handleStart] (which has no Riverpod ref) can flip it directly and the
+  /// dashboard listens via [ValueListenableBuilder].
+  final ValueNotifier<bool> isConnecting = ValueNotifier<bool>(false);
+
+  /// Completes the pending TUN ack (no-op if none is in flight, e.g. a late
+  /// TUN status arriving outside a start transition).
+  void completeTunAck(String? error) {
+    final ack = _tunAck;
+    if (ack == null || ack.isCompleted) return;
+    ack.complete(error);
+  }
   final navigatorKey = GlobalKey<NavigatorState>();
   AppController? _appController;
   GlobalKey<CommonScaffoldState> homeScaffoldKey = GlobalKey();
@@ -194,8 +213,22 @@ class GlobalState {
       return startTime != null;
     }
     _vpnTransitionInFlight = true;
+    // Wait for the native TUN listener readiness ack only on Android when
+    // TUN mode is actually enabled. Desktop and Android non-TUN (proxy-only)
+    // starts never block on the ack and behave exactly as before.
+    final needsTunAck = Platform.isAndroid && appState.realTunEnable;
+    if (needsTunAck) {
+      _tunAck = Completer<String?>();
+      isConnecting.value = true;
+    }
     try {
-      startTime ??= DateTime.now();
+      // For the non-ack path keep the original semantics: startTime is set
+      // before startVpn so runTime/UI flips to connected immediately. For the
+      // ack path startTime is deliberately deferred until the ack succeeds so
+      // the UI never shows "connected" before the TUN listener is up.
+      if (!needsTunAck) {
+        startTime ??= DateTime.now();
+      }
       await clashCore.startListener();
       ConnectTrace.mark('startListener.done');
       final started = await service?.startVpn();
@@ -205,9 +238,37 @@ class GlobalState {
         await clashCore.stopListener();
         return false;
       }
+      if (needsTunAck) {
+        final ackError = await _tunAck!.future.timeout(
+          const Duration(seconds: 15),
+          onTimeout: () => 'tun start timeout',
+        );
+        if (ackError != null) {
+          // TUN failed to come up — roll back exactly like the started==false
+          // branch, plus tear down the native VPN service (5s cap, mirroring
+          // handleStop) so we don't leave a half-up tunnel behind.
+          startTime = null;
+          await clashCore.stopListener();
+          try {
+            await service?.stopVpn().timeout(const Duration(seconds: 5));
+          } on TimeoutException {
+            commonPrint
+                .log('service.stopVpn() timed out during TUN-ack rollback');
+          } catch (e) {
+            commonPrint.log('service.stopVpn() failed during TUN-ack rollback: $e');
+          }
+          showNotifier(ackError);
+          return false;
+        }
+        // Ack succeeded: now it's honest to mark the connection as started.
+        startTime ??= DateTime.now();
+        ConnectTrace.end('tunReady');
+      }
       startUpdateTasks(tasks);
       return true;
     } finally {
+      _tunAck = null;
+      isConnecting.value = false;
       _vpnTransitionInFlight = false;
     }
   }
