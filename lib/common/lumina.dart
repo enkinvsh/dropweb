@@ -41,7 +41,7 @@ class Lumina {
 
   // Radii
   static const double radiusMd = 16.0;
-  static const double radiusLg = 24.0;
+  static const double radiusLg = 26.0;
   static const double radiusXl = 32.0;
   static const double radiusXxl = 48.0;
 
