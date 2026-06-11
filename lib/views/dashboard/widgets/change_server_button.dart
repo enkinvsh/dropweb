@@ -23,48 +23,6 @@ class ChangeServerButton extends ConsumerWidget {
     }
   }
 
-  String? _extractFlag(String text) {
-    final runes = text.runes.toList();
-
-    for (var i = 0; i < runes.length - 1; i++) {
-      final first = runes[i];
-      final second = runes[i + 1];
-
-      if (first >= 0x1F1E6 &&
-          first <= 0x1F1FF &&
-          second >= 0x1F1E6 &&
-          second <= 0x1F1FF) {
-        return String.fromCharCodes([first, second]);
-      }
-    }
-
-    return null;
-  }
-
-  String _removeFlagFromText(String text) {
-    final runes = text.runes.toList();
-    final result = <int>[];
-
-    var i = 0;
-    while (i < runes.length) {
-      final current = runes[i];
-
-      if (current >= 0x1F1E6 && current <= 0x1F1FF && i + 1 < runes.length) {
-        final next = runes[i + 1];
-
-        if (next >= 0x1F1E6 && next <= 0x1F1FF) {
-          i += 2;
-          continue;
-        }
-      }
-
-      result.add(current);
-      i++;
-    }
-
-    return String.fromCharCodes(result).trim();
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(currentProfileProvider);
@@ -102,12 +60,12 @@ class ChangeServerButton extends ConsumerWidget {
       ),
     );
 
-    var flag = _extractFlag(currentProxy.name);
+    var flag = extractCountryFlag(currentProxy.name);
     if (flag == null && currentProxy.serverDescription != null) {
-      flag = _extractFlag(currentProxy.serverDescription!);
+      flag = extractCountryFlag(currentProxy.serverDescription!);
     }
 
-    final nameWithoutFlag = _removeFlagFromText(currentProxy.name);
+    final nameWithoutFlag = stripCountryFlag(currentProxy.name);
 
     return SizedBox(
       height: getWidgetHeight(1),
