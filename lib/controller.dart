@@ -1993,9 +1993,15 @@ class AppController {
     // node selection.
     String? mainRouter;
     var proxyNames = const <String>[];
+    // Whether the smart `Умный` group will actually be injected for this config
+    // (router exists AND resolves to ≥1 leaf node). Must match the patch's
+    // injection condition exactly so we never point selectedMap at a group that
+    // was never created.
+    var smartAvailable = false;
     try {
       final cfg = await globalState.getProfileConfig(currentProfile.id);
       mainRouter = detectPrimaryRouter(cfg['proxy-groups'], cfg['rules']);
+      smartAvailable = smartGroupWillInject(cfg);
       final proxies = cfg['proxies'];
       if (proxies is List) {
         proxyNames = [
@@ -2014,7 +2020,11 @@ class AppController {
 
     switch (mode) {
       case WorkMode.smart:
-        if (mainRouter != null) {
+        // Only bind when «Умный» will actually be injected AS A MEMBER of the
+        // router (smartAvailable). The core honors a forced `selected` only
+        // among the group's own members, so binding without the injected member
+        // would be inert (D2); binding when smart is unavailable would dangle.
+        if (mainRouter != null && smartAvailable) {
           selectedMap[mainRouter] = workModeSmartGroupName;
         }
         break;
@@ -2120,9 +2130,11 @@ class AppController {
           );
         }
       } else if (profile.workMode == WorkMode.smart) {
-        final mainRouter =
-            detectPrimaryRouter(cfg['proxy-groups'], cfg['rules']);
-        if (mainRouter == null) {
+        // Smart survives only if «Умный» is still injectable on the fresh
+        // config (router present AND ≥1 resolvable leaf node) — same condition
+        // the patch and applyWorkMode use, so a refresh that strips the router
+        // or its leaves resets cleanly to Standard instead of going inert.
+        if (!smartGroupWillInject(cfg)) {
           globalState.showNotifier(
             appLocalizations.workModeResetNotice,
           );

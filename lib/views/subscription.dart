@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dropweb/common/common.dart';
-import 'package:dropweb/common/smart_pool_patch.dart';
+import 'package:dropweb/common/work_mode_patch.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart' hide Action;
 import 'package:dropweb/plugins/app.dart';
@@ -290,16 +290,18 @@ class _AddProfileCard extends StatelessWidget {
 /// resolved config so they reflect the actual subscription nodes:
 /// - [countries]: flag-emoji → node names (plus the no-flag `''` bucket),
 ///   produced by [groupNodesByCountry];
-/// - [hasPrimaryRouter]: whether [detectPrimaryRouter] finds a main router
-///   (Smart mode is unavailable without one).
+/// - [hasSmartCandidates]: whether the smart «Умный» group will be injectable
+///   (a primary router exists AND resolves to ≥1 leaf node). Smart mode is
+///   unavailable otherwise — matches [smartGroupWillInject], the exact
+///   condition the work-mode patch uses to inject.
 class _ModeProfileData {
   const _ModeProfileData({
     required this.countries,
-    required this.hasPrimaryRouter,
+    required this.hasSmartCandidates,
   });
 
   final Map<String, List<String>> countries;
-  final bool hasPrimaryRouter;
+  final bool hasSmartCandidates;
 }
 
 /// File-scoped: only the modes tab consumes this. Keyed by profile id so a
@@ -317,8 +319,7 @@ final _modeProfileDataProvider =
     }
     return _ModeProfileData(
       countries: groupNodesByCountry(names),
-      hasPrimaryRouter:
-          detectPrimaryRouter(cfg['proxy-groups'], cfg['rules']) != null,
+      hasSmartCandidates: smartGroupWillInject(cfg),
     );
   },
 );
@@ -619,7 +620,7 @@ class _ModesContentState extends ConsumerState<_ModesContent>
               title: appLocalizations.workModeSmart,
               description: appLocalizations.workModeSmartDesc,
               isSelected: profile.workMode == WorkMode.smart,
-              enabled: data.hasPrimaryRouter,
+              enabled: data.hasSmartCandidates,
               onTap: () {
                 setState(() => _expanded = WorkMode.smart);
                 _apply(WorkMode.smart);
