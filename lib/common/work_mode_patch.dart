@@ -1,8 +1,7 @@
 import 'package:dropweb/enum/enum.dart';
 
 import 'country.dart';
-import 'mihomo_yaml_splice.dart' show mihomoBuiltinTargets;
-import 'smart_pool_patch.dart' show detectPrimaryRouter;
+import 'mihomo_yaml_splice.dart' show mihomoBuiltinTargets, ruleTarget;
 
 /// Name of the additive smart auto-selecting group injected for [WorkMode.smart].
 /// Distinct from `smart_pool_patch.dart`'s `🧠 Smart` (emergency-pool surface):
@@ -54,18 +53,17 @@ Map<String, dynamic> applyWorkModePatch(
     case WorkMode.gaming:
       return Map<String, dynamic>.from(rawConfig);
     case WorkMode.smart:
-      final primary =
-          detectPrimaryRouter(rawConfig['proxy-groups'], rawConfig['rules']);
-      if (primary == null) {
+      final interceptGroups = smartInterceptGroups(rawConfig);
+      if (interceptGroups.isEmpty) {
         return Map<String, dynamic>.from(rawConfig);
       }
-      final leaves = _smartLeafNodes(rawConfig, primary);
+      final leaves = _smartInterceptLeaves(rawConfig, interceptGroups);
       if (leaves.isEmpty) {
-        // Smart unavailable (router resolves to no top-level leaf nodes) — inject
-        // nothing, mirroring the country-no-nodes path.
+        // Smart unavailable (no intercept group resolves to a top-level leaf
+        // node) — inject nothing, mirroring the country-no-nodes path.
         return Map<String, dynamic>.from(rawConfig);
       }
-      return _injectSmartGroup(rawConfig, primary, leaves);
+      return _injectSmartGroup(rawConfig, interceptGroups, leaves);
     case WorkMode.country:
       if (staticCountry == null || staticCountry.isEmpty) {
         return Map<String, dynamic>.from(rawConfig);
@@ -119,8 +117,8 @@ bool countryGroupWillInject(
 
 /// Whether the `Умный` smart group will be PRESENT in [applyWorkModePatch]'s
 /// `WorkMode.smart` output over [rawConfig] — i.e. it is already defined, or it
-/// is injectable because the detected primary router resolves to ≥1 leaf node
-/// (see [_smartLeafNodes]).
+/// is injectable because ≥1 qualifying rule-referenced group resolves to ≥1
+/// leaf node (see [smartInterceptGroups] / [_smartInterceptLeaves]).
 ///
 /// Mirror of [countryGroupWillInject] for smart mode: lets the UI gate Smart
 /// availability and the controller decide whether to wire `selectedMap`, using
@@ -135,9 +133,115 @@ bool smartGroupWillInject(Map<String, dynamic> rawConfig) {
       }
     }
   }
-  final primary = detectPrimaryRouter(groups, rawConfig['rules']);
-  if (primary == null) return false;
-  return _smartLeafNodes(rawConfig, primary).isNotEmpty;
+  final interceptGroups = smartInterceptGroups(rawConfig);
+  if (interceptGroups.isEmpty) return false;
+  return _smartInterceptLeaves(rawConfig, interceptGroups).isNotEmpty;
+}
+
+/// Group names the `Умный` work mode must NEVER intercept: the emergency-pool
+/// surface (`patchSmartPool`'s `🧠 Smart` smart group and its `📶 First
+/// Available` fallback wrapper) and the injected `Умный` group itself. These
+/// are excluded BY CONSTRUCTION (the SOS chain is never rule-referenced) — this
+/// set is a belt-and-suspenders hard-exclude so a future template that DOES
+/// rule-reference them still cannot leak SOS nodes into normal routing.
+const _smartHardExcludedGroups = <String>{
+  '🧠 Smart',
+  '📶 First Available',
+  workModeSmartGroupName,
+};
+
+/// Proxy-group `type`s the `Умный` work mode is allowed to intercept. A `smart`
+/// group already rotates its own members, so it is never re-pointed;
+/// relay/load-balance are out of scope per design (ИТЕРАЦИЯ 2).
+const _smartInterceptableTypes = <String>{'select', 'url-test', 'fallback'};
+
+/// Resolves the rules list from [rawConfig], accepting BOTH the parsed-config
+/// key `rules` (used by `getProfileConfig` consumers and tests) AND `rule` (the
+/// key the config-build path `patchRawConfig` has renamed it to by the time
+/// [applyWorkModePatch] runs). Without this, smart-mode detection silently
+/// no-ops in the real build path (where only `rule` is present).
+Object? _resolveRules(Map<String, dynamic> rawConfig) =>
+    rawConfig['rules'] ?? rawConfig['rule'];
+
+/// The ordered set of proxy-groups the `Умный` work mode intercepts: EVERY
+/// group that is directly rule-referenced AND can actually route proxied
+/// traffic, smart-rotating all of them rather than only the primary router
+/// (ИТЕРАЦИЯ 2). Returned in `proxy-groups` declaration order for determinism.
+///
+/// A group QUALIFIES iff:
+///   * it is NOT in [_smartHardExcludedGroups] (the SOS chain / `Умный` itself);
+///   * it is the TARGET of ≥1 rule (resolved via [ruleTarget]; builtin targets
+///     like DIRECT/REJECT are ignored);
+///   * its `type` is one of [_smartInterceptableTypes];
+///   * it carries ≥1 member that is not a mihomo builtin (so it can route).
+///
+/// The SOS chain (`🧠 Smart` / `📶 First Available`) is excluded both because
+/// it is never rule-referenced and via the explicit hard-exclude. Groups that
+/// are only reachable as a MEMBER of another group (e.g. `🌀 Cascade`) are NOT
+/// intercepted, but their leaf nodes still flow into `Умный` via
+/// [_smartInterceptLeaves]'s one-level resolution.
+List<String> smartInterceptGroups(Map<String, dynamic> rawConfig) {
+  final groups = rawConfig['proxy-groups'];
+  final rules = _resolveRules(rawConfig);
+  if (groups is! List || rules is! List) return const <String>[];
+
+  final groupType = <String, String?>{};
+  final groupMembers = <String, List<String>>{};
+  final order = <String>[];
+  for (final g in groups) {
+    if (g is! Map) continue;
+    final name = g['name']?.toString();
+    if (name == null) continue;
+    order.add(name);
+    groupType[name] = g['type']?.toString();
+    final members = <String>[];
+    final ps = g['proxies'];
+    if (ps is List) {
+      for (final m in ps) {
+        if (m != null) members.add(m.toString());
+      }
+    }
+    groupMembers[name] = members;
+  }
+
+  // Group names that ≥1 rule directly targets (non-builtin, names a group).
+  final referenced = <String>{};
+  for (final rule in rules) {
+    final target = ruleTarget(rule?.toString() ?? '');
+    if (target == null) continue;
+    if (mihomoBuiltinTargets.contains(target)) continue;
+    if (!groupMembers.containsKey(target)) continue;
+    referenced.add(target);
+  }
+
+  bool qualifies(String name) {
+    if (_smartHardExcludedGroups.contains(name)) return false;
+    if (!referenced.contains(name)) return false;
+    if (!_smartInterceptableTypes.contains(groupType[name])) return false;
+    final members = groupMembers[name] ?? const <String>[];
+    return members.any((m) => !mihomoBuiltinTargets.contains(m));
+  }
+
+  return [for (final name in order) if (qualifies(name)) name];
+}
+
+/// The de-duplicated UNION of the leaf nodes resolved for each of
+/// [interceptGroups] (see [_smartLeafNodes]), in first-seen order. This is the
+/// explicit membership of the injected `Умный` smart group, so it can pick the
+/// best live node across the entire rule-referenced surface — never just the
+/// primary router's slice.
+List<String> _smartInterceptLeaves(
+  Map<String, dynamic> rawConfig,
+  List<String> interceptGroups,
+) {
+  final leaves = <String>[];
+  final seen = <String>{};
+  for (final group in interceptGroups) {
+    for (final leaf in _smartLeafNodes(rawConfig, group)) {
+      if (seen.add(leaf)) leaves.add(leaf);
+    }
+  }
+  return leaves;
 }
 
 /// Resolves the LEAF proxy nodes routed through the [primaryRouter] group of
@@ -217,32 +321,34 @@ List<String> _smartLeafNodes(
 /// Returns a shallow copy of [rawConfig] with two additive smart-mode edits to
 /// `proxy-groups`:
 ///   1. appends the `Умный` smart group (members == [leaves]) unless present;
-///   2. appends `Умный` as the LAST member of the [primaryRouter] group
+///   2. appends `Умный` as the LAST member of EACH group in [interceptGroups]
 ///      (non-destructive copy; idempotent; never reorders/removes existing
 ///      members).
 ///
 /// Because [applyWorkModePatch] is workMode-gated and runs per-setup, the
 /// Standard/Country/Gaming setups never carry the appended router member — so
-/// the router's url-test never races `Умный` outside Smart mode. Every other
-/// group is preserved by reference (deep-equal to the input).
+/// the routers' url-test never race `Умный` outside Smart mode. Every group
+/// NOT in [interceptGroups] is preserved by reference (deep-equal to the input).
 Map<String, dynamic> _injectSmartGroup(
   Map<String, dynamic> rawConfig,
-  String primaryRouter,
+  List<String> interceptGroups,
   List<String> leaves,
 ) {
+  final interceptSet = interceptGroups.toSet();
   final result = Map<String, dynamic>.from(rawConfig);
   final groups = rawConfig['proxy-groups'];
   final newGroups = <dynamic>[];
   var smartPresent = false;
   if (groups is List) {
     for (final g in groups) {
-      if (g is Map && g['name']?.toString() == workModeSmartGroupName) {
+      final name = g is Map ? g['name']?.toString() : null;
+      if (name == workModeSmartGroupName) {
         smartPresent = true;
         newGroups.add(g);
         continue;
       }
-      if (g is Map && g['name']?.toString() == primaryRouter) {
-        newGroups.add(_withAppendedMember(g, workModeSmartGroupName));
+      if (name != null && interceptSet.contains(name)) {
+        newGroups.add(_withAppendedMember(g as Map, workModeSmartGroupName));
         continue;
       }
       newGroups.add(g);

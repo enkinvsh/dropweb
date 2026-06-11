@@ -8,7 +8,6 @@ import 'package:dropweb/clash/clash.dart';
 import 'package:dropweb/common/archive.dart';
 import 'package:dropweb/common/connect_trace.dart';
 import 'package:dropweb/common/error_mapper.dart';
-import 'package:dropweb/common/smart_pool_patch.dart';
 import 'package:dropweb/common/work_mode_patch.dart';
 import 'package:dropweb/services/subscription_notification_service.dart';
 import 'package:dropweb/enum/enum.dart';
@@ -1988,19 +1987,22 @@ class AppController {
     final currentProfile = _ref.read(currentProfileProvider);
     if (currentProfile == null) return;
 
-    // Resolve the main router + node names from the profile's parsed config so
-    // we manage exactly the selectedMap key we own and can validate a strict
-    // node selection.
-    String? mainRouter;
+    // Resolve the intercept groups + node names from the profile's parsed
+    // config so we manage exactly the selectedMap keys we own and can validate
+    // a strict node selection.
+    var smartGroups = const <String>[];
     var proxyNames = const <String>[];
     // Whether the smart `Умный` group will actually be injected for this config
-    // (router exists AND resolves to ≥1 leaf node). Must match the patch's
-    // injection condition exactly so we never point selectedMap at a group that
-    // was never created.
+    // (≥1 qualifying rule-referenced group resolves to ≥1 leaf node). Must match
+    // the patch's injection condition exactly so we never point selectedMap at a
+    // group that was never created.
     var smartAvailable = false;
     try {
       final cfg = await globalState.getProfileConfig(currentProfile.id);
-      mainRouter = detectPrimaryRouter(cfg['proxy-groups'], cfg['rules']);
+      // ALL rule-referenced groups «Умный» is injected into (not just the
+      // primary router) — the controller binds selectedMap for each so YouTube /
+      // Discord / etc. route through «Умный» too (ИТЕРАЦИЯ 2).
+      smartGroups = smartInterceptGroups(cfg);
       smartAvailable = smartGroupWillInject(cfg);
       final proxies = cfg['proxies'];
       if (proxies is List) {
@@ -2014,18 +2016,28 @@ class AppController {
     }
 
     final selectedMap = Map<String, String>.from(currentProfile.selectedMap);
-    // Clear OUR keys first (main-router selection + GLOBAL); never touch others.
-    if (mainRouter != null) selectedMap.remove(mainRouter);
-    selectedMap.remove(GroupName.GLOBAL.name);
+    // Clear OUR keys by VALUE-ownership: any key a prior work mode pointed at
+    // «Умный» or a «Страна <flag>» group is ours to drop, regardless of which
+    // group name carried it (the rule-referenced set can shift between applies,
+    // e.g. after a subscription update). Plus GLOBAL (country strict-node pins a
+    // bare node name there, which value-matching can't recognise). Never touch
+    // the user's own manual selections.
+    selectedMap
+      ..removeWhere((_, v) =>
+          v == workModeSmartGroupName ||
+          v.startsWith('$workModeCountryGroupPrefix '))
+      ..remove(GroupName.GLOBAL.name);
 
     switch (mode) {
       case WorkMode.smart:
-        // Only bind when «Умный» will actually be injected AS A MEMBER of the
-        // router (smartAvailable). The core honors a forced `selected` only
-        // among the group's own members, so binding without the injected member
-        // would be inert (D2); binding when smart is unavailable would dangle.
-        if (mainRouter != null && smartAvailable) {
-          selectedMap[mainRouter] = workModeSmartGroupName;
+        // Only bind when «Умный» will actually be injected AS A MEMBER of each
+        // group (smartAvailable). The core honors a forced `selected` only among
+        // a group's own members, so binding without the injected member would be
+        // inert (D2); binding when smart is unavailable would dangle.
+        if (smartAvailable) {
+          for (final group in smartGroups) {
+            selectedMap[group] = workModeSmartGroupName;
+          }
         }
         break;
       case WorkMode.country:
@@ -2076,10 +2088,14 @@ class AppController {
   }
 
   /// After a subscription refresh, verifies the profile's work mode is still
-  /// satisfiable against the fresh config. A Country mode whose country no
-  /// longer has nodes, or a Smart mode whose main router can't be found, is
-  /// silently reset to Standard with a user notification. Returns the
-  /// (possibly reset) profile; other modes pass through untouched.
+  /// satisfiable against the fresh config. FAIL-OPEN (ИТЕРАЦИЯ 2): the mode is
+  /// reset to Standard ONLY on POSITIVE proof of invalidity (a well-formed fresh
+  /// config that genuinely can no longer satisfy the mode). An empty, missing or
+  /// odd-shaped config — which can also mean the read raced an in-flight rebuild
+  /// — is NOT proof; the mode is preserved and the anomaly logged. (A device
+  /// repro showed a spurious smart→standard reset after restart when the read
+  /// returned a not-yet-rebuilt config.) Returns the (possibly reset) profile;
+  /// other modes pass through untouched.
   Future<Profile> _revalidateWorkMode(Profile profile) async {
     if (profile.workMode != WorkMode.country &&
         profile.workMode != WorkMode.smart) {
@@ -2087,13 +2103,25 @@ class AppController {
     }
     try {
       final cfg = await globalState.getProfileConfig(profile.id);
+      // FAIL-OPEN: an empty config is not positive proof the mode is invalid
+      // (e.g. the read raced a rebuild). Preserve the mode.
+      if (cfg.isEmpty) {
+        commonPrint.log(
+            'work-mode revalidation: empty config, preserving ${profile.workMode.name}');
+        return profile;
+      }
       if (profile.workMode == WorkMode.country) {
-        final names = <String>[];
         final proxies = cfg['proxies'];
-        if (proxies is List) {
-          for (final p in proxies) {
-            if (p is Map && p['name'] != null) names.add(p['name'].toString());
-          }
+        // FAIL-OPEN: a missing/odd `proxies` section can't positively prove the
+        // country lost its nodes — preserve Country mode.
+        if (proxies is! List) {
+          commonPrint.log(
+              'work-mode revalidation: proxies missing, preserving country');
+          return profile;
+        }
+        final names = <String>[];
+        for (final p in proxies) {
+          if (p is Map && p['name'] != null) names.add(p['name'].toString());
         }
         final country = profile.staticCountry;
         final hasNodes = country != null &&
@@ -2130,10 +2158,21 @@ class AppController {
           );
         }
       } else if (profile.workMode == WorkMode.smart) {
+        final groups = cfg['proxy-groups'];
+        final rules = cfg['rules'] ?? cfg['rule'];
+        // FAIL-OPEN: smart-availability is only decidable over a well-formed
+        // proxy-groups + rules pair. If either is missing/odd, we can't prove
+        // «Умный» is uninjectable — preserve Smart mode and log.
+        if (groups is! List || rules is! List) {
+          commonPrint.log(
+              'work-mode revalidation: proxy-groups/rules missing, preserving smart');
+          return profile;
+        }
         // Smart survives only if «Умный» is still injectable on the fresh
-        // config (router present AND ≥1 resolvable leaf node) — same condition
-        // the patch and applyWorkMode use, so a refresh that strips the router
-        // or its leaves resets cleanly to Standard instead of going inert.
+        // config (≥1 qualifying rule-referenced group resolves to ≥1 leaf node)
+        // — same condition the patch and applyWorkMode use, so a refresh that
+        // strips every router or its leaves resets cleanly to Standard instead
+        // of going inert. This is the ONLY positive-proof reset path for smart.
         if (!smartGroupWillInject(cfg)) {
           globalState.showNotifier(
             appLocalizations.workModeResetNotice,

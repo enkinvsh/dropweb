@@ -88,6 +88,98 @@ const _templateLeaves = <String>[
   '🇪🇺 ✨ Умный режим',
 ];
 
+/// Builds a fixture mirroring the FULL PRODUCTION subscription template so the
+/// ИТЕРАЦИЯ-2 "intercept ALL rule-referenced groups" behavior can be asserted:
+///   * `🌍 VPN` (fallback) — MATCH catch-all → [⚡ Fastest, 📶 First Available]
+///   * `▶️ YouTube` / `💬 Discord` (fallback) → [🌀 Cascade, ⚡ Fastest]
+///   * `⚡ Fastest` (url-test) — the leaf-node router [🇩🇪 A, 🇳🇱 B]
+///   * `🌀 Cascade` (url-test) — its own leaf [🇸🇪 C] (NOT directly
+///     rule-referenced; reachable only as a member of YouTube/Discord)
+///   * `♻️ DIRECT` (select, hidden) → [DIRECT] (builtin-only → never qualifies)
+///   * `📶 First Available` (fallback) → [🧠 Smart] (SOS surface — NOT
+///     rule-referenced; hard-excluded)
+///   * `🧠 Smart` (smart, include-all) — the SOS pool (hard-excluded)
+/// `proxies` carries the 3 leaf nodes + 2 SOS-like emergency nodes.
+/// Rules target VPN / Fastest / YouTube / Discord; MATCH → VPN.
+/// A new instance is returned on every call so mutation tests stay isolated.
+Map<String, dynamic> buildProdTemplate() {
+  final rules = <String>[
+    'DOMAIN-SUFFIX,youtube.com,▶️ YouTube',
+    'DOMAIN-SUFFIX,discord.com,💬 Discord',
+    for (var i = 0; i < 10; i++) 'DOMAIN-SUFFIX,site$i.com,⚡ Fastest',
+    'DOMAIN-SUFFIX,corp.com,🌍 VPN',
+    'MATCH,🌍 VPN',
+  ];
+  return <String, dynamic>{
+    'mixed-port': 7890,
+    'proxies': <Map<String, dynamic>>[
+      {'name': '🇩🇪 A', 'type': 'vless', 'server': 'de', 'port': 443},
+      {'name': '🇳🇱 B', 'type': 'vless', 'server': 'nl', 'port': 443},
+      {'name': '🇸🇪 C', 'type': 'vless', 'server': 'se', 'port': 443},
+      // SOS-like emergency nodes — top-level proxies NOT in any rule-referenced
+      // group. They must NEVER end up in «Умный».
+      {'name': '🇫🇮 SOS1', 'type': 'vless', 'server': 'sos1', 'port': 443},
+      {'name': '🇪🇪 SOS2', 'type': 'vless', 'server': 'sos2', 'port': 443},
+    ],
+    'proxy-groups': <Map<String, dynamic>>[
+      {
+        'name': '🌍 VPN',
+        'type': 'fallback',
+        'proxies': ['⚡ Fastest', '📶 First Available'],
+      },
+      {
+        'name': '▶️ YouTube',
+        'type': 'fallback',
+        'proxies': ['🌀 Cascade', '⚡ Fastest'],
+      },
+      {
+        'name': '💬 Discord',
+        'type': 'fallback',
+        'proxies': ['🌀 Cascade', '⚡ Fastest'],
+      },
+      {
+        'name': '⚡ Fastest',
+        'type': 'url-test',
+        'proxies': ['🇩🇪 A', '🇳🇱 B'],
+      },
+      {
+        'name': '🌀 Cascade',
+        'type': 'url-test',
+        'proxies': ['🇸🇪 C'],
+      },
+      {
+        'name': '♻️ DIRECT',
+        'type': 'select',
+        'proxies': ['DIRECT'],
+      },
+      {
+        'name': '📶 First Available',
+        'type': 'fallback',
+        'proxies': ['🧠 Smart'],
+      },
+      {
+        'name': '🧠 Smart',
+        'type': 'smart',
+        'include-all': true,
+      },
+    ],
+    'rules': rules,
+  };
+}
+
+/// The intercept-group set «Умный» must bind, in proxy-groups declaration order.
+const _prodInterceptGroups = <String>[
+  '🌍 VPN',
+  '▶️ YouTube',
+  '💬 Discord',
+  '⚡ Fastest',
+];
+
+/// The union of leaf nodes «Умный» must rotate over for [buildProdTemplate],
+/// first-seen order across the intercept groups: VPN→Fastest's leaves, then
+/// YouTube/Discord→Cascade's leaf, then Fastest's leaves.
+const _prodUnionLeaves = <String>['🇩🇪 A', '🇳🇱 B', '🇸🇪 C'];
+
 Map? _group(Map<String, dynamic> doc, String name) {
   final groups = doc['proxy-groups'] as List;
   for (final g in groups) {
@@ -131,35 +223,44 @@ void main() {
       expect(_members(smart), isNot(contains('🇫🇮 Finland')));
     });
 
-    test('smart: appends "Умный" to the primary router members once, idempotent',
-        () {
+    test('smart: appends "Умный" to EVERY rule-referenced router once, '
+        'idempotent (ИТЕРАЦИЯ 2)', () {
       final out =
           applyWorkModePatch(buildSmartTemplate(), workMode: WorkMode.smart);
 
-      // D2 fix: «Умный» is now a MEMBER of the primary router (⚡ Fastest),
-      // appended at the END, with existing members preserved in order.
-      final router = _group(out, '⚡ Fastest');
-      expect(_members(router), [..._templateLeaves, 'Умный']);
-      expect(_members(router).where((m) => m == 'Умный').length, 1);
+      // buildSmartTemplate is rule-referenced on BOTH ⚡ Fastest (×25) and
+      // 🌍 VPN (MATCH). «Умный» is appended at the END of each, existing
+      // members preserved in order; 📶 First Available (SOS) is untouched.
+      final fastest = _group(out, '⚡ Fastest');
+      expect(_members(fastest), [..._templateLeaves, 'Умный']);
+      expect(_members(fastest).where((m) => m == 'Умный').length, 1);
 
-      // Re-apply must NOT duplicate the group nor the appended member.
+      final vpn = _group(out, '🌍 VPN');
+      expect(_members(vpn), ['⚡ Fastest', '📶 First Available', 'Умный']);
+      expect(_members(vpn).where((m) => m == 'Умный').length, 1);
+
+      // SOS surface must NOT gain «Умный».
+      expect(_members(_group(out, '📶 First Available')), ['🧠 Smart']);
+
+      // Re-apply must NOT duplicate the group nor any appended member.
       final out2 = applyWorkModePatch(out, workMode: WorkMode.smart);
       final groupCount = (out2['proxy-groups'] as List)
           .where((g) => g is Map && g['name'] == 'Умный')
           .length;
       expect(groupCount, 1);
-      final router2 = _group(out2, '⚡ Fastest');
-      expect(_members(router2), [..._templateLeaves, 'Умный']);
-      expect(_members(router2).where((m) => m == 'Умный').length, 1);
+      expect(_members(_group(out2, '⚡ Fastest')), [..._templateLeaves, 'Умный']);
+      expect(_members(_group(out2, '🌍 VPN')),
+          ['⚡ Fastest', '📶 First Available', 'Умный']);
       // Injected group membership stays exactly the leaves on re-apply.
       expect(_members(_group(out2, 'Умный')), _templateLeaves);
     });
 
-    test('smart: leaves every group except the primary router byte-for-byte; '
-        'rules untouched', () {
+    test('smart: only rule-referenced routers gain "Умный"; every other group '
+        'byte-for-byte; rules untouched', () {
       final input = buildSmartTemplate();
       final original = buildSmartTemplate();
       final originalGroups = original['proxy-groups'] as List;
+      const referenced = {'⚡ Fastest', '🌍 VPN'};
 
       final out = applyWorkModePatch(input, workMode: WorkMode.smart);
       final outGroups = out['proxy-groups'] as List;
@@ -168,11 +269,14 @@ void main() {
       expect(outGroups.length, originalGroups.length + 1);
       for (var i = 0; i < originalGroups.length; i++) {
         final origGroup = originalGroups[i] as Map;
-        if (origGroup['name'] == '⚡ Fastest') {
+        if (referenced.contains(origGroup['name'])) {
           // The sole permitted change: 'Умный' appended to the router members.
           final expected = Map<String, dynamic>.from(
               origGroup.cast<String, dynamic>())
-            ..['proxies'] = [..._templateLeaves, 'Умный'];
+            ..['proxies'] = [
+              ...(origGroup['proxies'] as List).map((e) => e.toString()),
+              'Умный',
+            ];
           expect(outGroups[i], expected);
         } else {
           expect(outGroups[i], origGroup);
@@ -195,6 +299,10 @@ void main() {
       // 'Умный' appended to the router (🌍 VPN) members.
       expect(_members(_group(out, '🌍 VPN')),
           ['⚡ Fastest', '📶 First Available', 'Умный']);
+      // ⚡ Fastest is NOT directly rule-referenced in buildConfig (only reached
+      // as a member of 🌍 VPN) → it must NOT gain «Умный».
+      expect(_members(_group(out, '⚡ Fastest')),
+          ['🇩🇪 Frankfurt 01', '🇸🇪 Stockholm 01']);
     });
 
     test('smart: no primary router → NO «Умный» group and NO append', () {
@@ -472,6 +580,137 @@ void main() {
         final present = _group(out, 'Умный') != null;
         expect(willInject, present);
       }
+    });
+  });
+
+  group('smartInterceptGroups (ИТЕРАЦИЯ 2)', () {
+    test('returns ALL qualifying rule-referenced groups in declaration order',
+        () {
+      expect(smartInterceptGroups(buildProdTemplate()), _prodInterceptGroups);
+    });
+
+    test('excludes the SOS chain (🧠 Smart / 📶 First Available)', () {
+      final got = smartInterceptGroups(buildProdTemplate());
+      expect(got, isNot(contains('🧠 Smart')));
+      expect(got, isNot(contains('📶 First Available')));
+    });
+
+    test('excludes a builtin-only group (♻️ DIRECT)', () {
+      expect(smartInterceptGroups(buildProdTemplate()),
+          isNot(contains('♻️ DIRECT')));
+    });
+
+    test('excludes a group reachable only via membership (🌀 Cascade), not '
+        'directly rule-referenced', () {
+      expect(smartInterceptGroups(buildProdTemplate()),
+          isNot(contains('🌀 Cascade')));
+    });
+
+    test('resolves rules from the build-path "rule" key as well as "rules"', () {
+      final cfg = buildProdTemplate();
+      cfg['rule'] = cfg.remove('rules');
+      expect(smartInterceptGroups(cfg), _prodInterceptGroups);
+    });
+
+    test('no rules / malformed config → empty', () {
+      expect(smartInterceptGroups(<String, dynamic>{}), isEmpty);
+      expect(
+        smartInterceptGroups(<String, dynamic>{
+          'proxy-groups': <dynamic>[],
+          'rules': <dynamic>[],
+        }),
+        isEmpty,
+      );
+    });
+
+    test('never names a group applyWorkModePatch did not actually patch', () {
+      final out = applyWorkModePatch(buildProdTemplate(), workMode: WorkMode.smart);
+      for (final g in smartInterceptGroups(buildProdTemplate())) {
+        expect(_members(_group(out, g)), contains('Умный'),
+            reason: '$g claimed as intercept target but not patched');
+      }
+    });
+  });
+
+  group('applyWorkModePatch — production template multi-interception', () {
+    test('appends «Умный» to VPN, YouTube, Discord, Fastest; SOS/DIRECT/Cascade '
+        'untouched', () {
+      final out =
+          applyWorkModePatch(buildProdTemplate(), workMode: WorkMode.smart);
+
+      expect(_members(_group(out, '🌍 VPN')),
+          ['⚡ Fastest', '📶 First Available', 'Умный']);
+      expect(_members(_group(out, '▶️ YouTube')),
+          ['🌀 Cascade', '⚡ Fastest', 'Умный']);
+      expect(_members(_group(out, '💬 Discord')),
+          ['🌀 Cascade', '⚡ Fastest', 'Умный']);
+      expect(_members(_group(out, '⚡ Fastest')), ['🇩🇪 A', '🇳🇱 B', 'Умный']);
+
+      // Non-intercepted groups stay byte-for-byte.
+      expect(_members(_group(out, '🌀 Cascade')), ['🇸🇪 C']);
+      expect(_members(_group(out, '♻️ DIRECT')), ['DIRECT']);
+      expect(_members(_group(out, '📶 First Available')), ['🧠 Smart']);
+      expect(_group(out, '🧠 Smart')!['include-all'], true);
+    });
+
+    test('«Умный» group rotates over the UNION of all intercept-group leaves; '
+        'SOS nodes absent', () {
+      final out =
+          applyWorkModePatch(buildProdTemplate(), workMode: WorkMode.smart);
+      final smart = _group(out, 'Умный');
+      expect(smart, isNotNull);
+      expect(smart!['type'], 'smart');
+      expect(smart['collectdata'], false);
+      expect(smart.containsKey('include-all'), isFalse);
+      expect(_members(smart), _prodUnionLeaves);
+      // SOS pool never leaks into «Умный».
+      expect(_members(smart), isNot(contains('🇫🇮 SOS1')));
+      expect(_members(smart), isNot(contains('🇪🇪 SOS2')));
+    });
+
+    test('build-path "rule" key still drives full interception', () {
+      final cfg = buildProdTemplate();
+      cfg['rule'] = cfg.remove('rules');
+      final out = applyWorkModePatch(cfg, workMode: WorkMode.smart);
+      expect(_members(_group(out, '🌍 VPN')), contains('Умный'));
+      expect(_members(_group(out, '▶️ YouTube')), contains('Умный'));
+      expect(_members(_group(out, '💬 Discord')), contains('Умный'));
+      expect(_members(_group(out, '⚡ Fastest')), contains('Умный'));
+      expect(_members(_group(out, 'Умный')), _prodUnionLeaves);
+    });
+
+    test('idempotent on re-apply over production template', () {
+      final out =
+          applyWorkModePatch(buildProdTemplate(), workMode: WorkMode.smart);
+      final out2 = applyWorkModePatch(out, workMode: WorkMode.smart);
+      expect(
+        (out2['proxy-groups'] as List)
+            .where((g) => g is Map && g['name'] == 'Умный')
+            .length,
+        1,
+      );
+      for (final g in _prodInterceptGroups) {
+        expect(_members(_group(out2, g)).where((m) => m == 'Умный').length, 1);
+      }
+      expect(_members(_group(out2, 'Умный')), _prodUnionLeaves);
+    });
+
+    test('standard/gaming/country: no group gains «Умный» on prod template', () {
+      for (final out in [
+        applyWorkModePatch(buildProdTemplate(), workMode: WorkMode.standard),
+        applyWorkModePatch(buildProdTemplate(), workMode: WorkMode.gaming),
+        applyWorkModePatch(buildProdTemplate(),
+            workMode: WorkMode.country, staticCountry: '🇩🇪'),
+      ]) {
+        for (final g in _prodInterceptGroups) {
+          expect(_members(_group(out, g)), isNot(contains('Умный')));
+        }
+        expect(_group(out, 'Умный'), isNull);
+      }
+    });
+
+    test('smartGroupWillInject agrees on production template', () {
+      expect(smartGroupWillInject(buildProdTemplate()), isTrue);
     });
   });
 }
