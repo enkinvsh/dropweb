@@ -311,6 +311,16 @@ class _ModeProfileData {
 final _modeProfileDataProvider =
     FutureProvider.autoDispose.family<_ModeProfileData, String>(
   (ref, profileId) async {
+    // Re-evaluate when THIS profile's subscription is updated: getProfileConfig
+    // reads the saved file, whose content changes on update while `profileId`
+    // (the family key) does NOT — without this watch the provider would keep a
+    // stale (possibly mid-update empty) result, which is what made the country
+    // list transiently vanish after a refresh. `lastUpdateDate` changes on every
+    // successful update; `providerHeaders` covers a disconeko-header flip.
+    ref.watch(profilesProvider.select((profiles) {
+      final p = profiles.getProfile(profileId);
+      return (p?.lastUpdateDate, p?.providerHeaders.length);
+    }));
     final cfg = await globalState.getProfileConfig(profileId);
     // Country candidates come from the rule-group leaves only (same structurally
     // SOS-free set as Smart) — NOT raw cfg['proxies'], which carries the
