@@ -127,6 +127,7 @@ const (
 	DelayMessage   MessageType = "delay"
 	RequestMessage MessageType = "request"
 	LoadedMessage  MessageType = "loaded"
+	TunMessage     MessageType = "tun"
 )
 
 func (message *Message) Json() (string, error) {

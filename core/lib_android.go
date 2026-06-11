@@ -122,6 +122,7 @@ func handleStartTun(fd int, callback unsafe.Pointer) {
 		if fd < 0 {
 			log.Errorln("startTUN error: invalid fd %d", fd)
 		}
+		sendMessage(Message{Type: TunMessage, Data: map[string]any{"status": "error", "message": fmt.Sprintf("invalid fd %d", fd)}})
 		return
 	}
 
@@ -145,11 +146,17 @@ func handleStartTun(fd int, callback unsafe.Pointer) {
 			releaseObject(tunHandler.callback)
 			tunHandler = nil
 		}
+		errMsg := "tun listener is nil"
+		if err != nil {
+			errMsg = err.Error()
+		}
+		sendMessage(Message{Type: TunMessage, Data: map[string]any{"status": "error", "message": errMsg}})
 		return
 	}
 	log.Infoln("TUN address: %v", tunListener.Address())
 	tunHandler.listener = tunListener
 	log.Infoln("[trace] tun ready in %s", time.Since(start))
+	sendMessage(Message{Type: TunMessage, Data: map[string]any{"status": "ready"}})
 }
 
 func handleGetRunTime() string {
