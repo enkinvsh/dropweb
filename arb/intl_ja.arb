@@ -488,6 +488,7 @@
   "workModeGaming": "Gaming",
   "workModeGamingDesc": "Lowest ping for gaming.",
   "comingSoon": "soon",
+  "smartAuto": "Auto",
   "strictNode": "Strict node",
   "strictNodeDesc": "IP won't change even if the server fails.",
   "serversAndGroups": "Servers & groups",

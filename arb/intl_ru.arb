@@ -517,6 +517,7 @@
   "workModeGaming": "Игровой",
   "workModeGamingDesc": "Минимальный пинг для игр.",
   "comingSoon": "скоро",
+  "smartAuto": "Авто",
   "strictNode": "Строгая нода",
   "strictNodeDesc": "IP не сменится даже при сбое сервера.",
   "serversAndGroups": "Серверы и группы",

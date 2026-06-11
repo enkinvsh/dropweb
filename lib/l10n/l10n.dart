@@ -4004,6 +4004,11 @@ class AppLocalizations {
     return Intl.message('soon', name: 'comingSoon', desc: '', args: []);
   }
 
+  /// `Auto`
+  String get smartAuto {
+    return Intl.message('Auto', name: 'smartAuto', desc: '', args: []);
+  }
+
   /// `Strict node`
   String get strictNode {
     return Intl.message('Strict node', name: 'strictNode', desc: '', args: []);

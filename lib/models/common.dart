@@ -279,11 +279,21 @@ extension GroupExt on Group {
 
   String getCurrentSelectedName(String proxyName) {
     if (type.isComputedSelected) {
+      // A `smart` group has no single "current" node — it picks per destination,
+      // so the core returns the placeholder "Smart - Select". Surface it as an
+      // explicit auto label instead of a fake selection that highlights nothing
+      // (which read as an empty manual selector "awaiting a pick").
+      if (type == GroupType.Smart && realNow == _smartAutoPlaceholder) {
+        return appLocalizations.smartAuto;
+      }
       return realNow.isNotEmpty ? realNow : proxyName;
     }
     return proxyName.isNotEmpty ? proxyName : realNow;
   }
 }
+
+/// Literal the mihomo core's `Smart.Now()` returns when no manual node is pinned.
+const _smartAutoPlaceholder = 'Smart - Select';
 
 @immutable
 class TrafficValue {

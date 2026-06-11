@@ -775,6 +775,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "size": MessageLookupByLibrary.simpleMessage("Размер"),
     "smart": MessageLookupByLibrary.simpleMessage("Умный"),
+    "smartAuto": MessageLookupByLibrary.simpleMessage("Авто"),
     "socksPort": MessageLookupByLibrary.simpleMessage("Socks-порт"),
     "sort": MessageLookupByLibrary.simpleMessage("Сортировка"),
     "source": MessageLookupByLibrary.simpleMessage("Источник"),
