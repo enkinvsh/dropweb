@@ -33,36 +33,6 @@ String countryDisplayName(String flag, List<String> nodeNames) {
       .join();
 }
 
-/// Masks a server address for display in the strict-node list.
-///
-/// For an IPv4 address, keeps the first two octets and masks the rest
-/// (`45.135.20.7` → `45.135.•.•`) so the user recognizes the server without
-/// exposing the full IP. Non-IP hosts (e.g. a pooled domain `de.meybz.asia`)
-/// are returned unchanged.
-String maskServerAddress(String server) {
-  if (isIpv4(server)) {
-    final parts = server.split('.');
-    return '${parts[0]}.${parts[1]}.•.•';
-  }
-  return server;
-}
-
-/// Whether [s] is a well-formed IPv4 dotted-quad (four 0..255 octets).
-///
-/// Used to distinguish a pooled domain server (e.g. `de.meybz.asia` → DoH
-/// unrolling applies) from a discrete node's real IP, and to validate a
-/// strict-node pin that is a pinned IP (DNS-pool unrolling) rather than a
-/// member node name.
-bool isIpv4(String s) {
-  final parts = s.split('.');
-  return parts.length == 4 && parts.every(_isByte);
-}
-
-bool _isByte(String s) {
-  final n = int.tryParse(s);
-  return n != null && n >= 0 && n <= 255;
-}
-
 /// Returns the first flag emoji found in [text], or null if there is none.
 ///
 /// A flag is the first adjacent pair of regional indicator symbols.

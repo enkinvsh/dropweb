@@ -52,51 +52,6 @@ void main() {
     });
   });
 
-  group('isIpv4', () {
-    test('accepts a well-formed dotted-quad address', () {
-      expect(isIpv4('152.53.155.182'), isTrue);
-      expect(isIpv4('1.2.3.4'), isTrue);
-      expect(isIpv4('255.255.255.255'), isTrue);
-      expect(isIpv4('0.0.0.0'), isTrue);
-    });
-
-    test('rejects a domain host', () {
-      expect(isIpv4('de.meybz.asia'), isFalse);
-    });
-
-    test('rejects octet out of range', () {
-      expect(isIpv4('1.2.3.999'), isFalse);
-      expect(isIpv4('256.1.1.1'), isFalse);
-    });
-
-    test('rejects wrong segment count', () {
-      expect(isIpv4('1.2.3'), isFalse);
-      expect(isIpv4('1.2.3.4.5'), isFalse);
-    });
-
-    test('rejects empty / non-numeric segments', () {
-      expect(isIpv4(''), isFalse);
-      expect(isIpv4('1.2.3.'), isFalse);
-      expect(isIpv4('a.b.c.d'), isFalse);
-    });
-  });
-
-  group('maskServerAddress', () {
-    test('masks last two octets of an IPv4 address', () {
-      expect(maskServerAddress('45.135.20.7'), '45.135.•.•');
-      expect(maskServerAddress('192.168.1.1'), '192.168.•.•');
-    });
-
-    test('returns a host/domain unchanged', () {
-      expect(maskServerAddress('de.meybz.asia'), 'de.meybz.asia');
-    });
-
-    test('returns a malformed address unchanged', () {
-      expect(maskServerAddress('1.2.3'), '1.2.3');
-      expect(maskServerAddress('1.2.3.999'), '1.2.3.999');
-    });
-  });
-
   group('groupNodesByCountry', () {
     test('groups a single flagged node under its flag', () {
       final result = groupNodesByCountry(['🇩🇪 Frankfurt 01']);

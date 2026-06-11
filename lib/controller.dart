@@ -1090,7 +1090,6 @@ class AppController {
       // the config (Block A cache would short-circuit it). CRITICAL.
       'workMode': profile.workMode.name,
       'staticCountry': profile.staticCountry,
-      'staticStrictNode': profile.staticStrictNode,
     };
 
     return computeSetupHash(
@@ -1982,20 +1981,13 @@ class AppController {
   Future<void> applyWorkMode(
     WorkMode mode, {
     String? staticCountry,
-    String? staticStrictNode,
   }) async {
     final currentProfile = _ref.read(currentProfileProvider);
     if (currentProfile == null) return;
 
-    // Resolve the intercept groups + node names from the profile's parsed
-    // config so we manage exactly the selectedMap keys we own and can validate
-    // a strict node selection.
+    // Resolve the intercept groups from the profile's parsed config so we
+    // manage exactly the selectedMap keys we own.
     var smartGroups = const <String>[];
-    // Candidate nodes = the rule-group leaves (same structurally-SOS-free set
-    // Country candidates are bucketed from). A strict-node pin is validated
-    // against THIS, not the raw `proxies` list — otherwise a pin could still
-    // point at a disconeko SOS node that the picker never legitimately offered.
-    var candidateNodes = const <String>[];
     // Whether the smart `Умный` group will actually be injected for this config
     // (≥1 qualifying rule-referenced group resolves to ≥1 leaf node). Must match
     // the patch's injection condition exactly so we never point selectedMap at a
@@ -2008,7 +2000,6 @@ class AppController {
       // Discord / etc. route through «Умный» too (ИТЕРАЦИЯ 2).
       smartGroups = smartInterceptGroups(cfg);
       smartAvailable = smartGroupWillInject(cfg);
-      candidateNodes = interceptLeafNodes(cfg);
     } catch (e) {
       commonPrint.log('applyWorkMode: failed to read profile config: $e');
     }
@@ -2017,9 +2008,8 @@ class AppController {
     // Clear OUR keys by VALUE-ownership: any key a prior work mode pointed at
     // «Умный» or a «Страна <flag>» group is ours to drop, regardless of which
     // group name carried it (the rule-referenced set can shift between applies,
-    // e.g. after a subscription update). Plus GLOBAL (country strict-node pins a
-    // bare node name there, which value-matching can't recognise). Never touch
-    // the user's own manual selections.
+    // e.g. after a subscription update). Plus GLOBAL. Never touch the user's
+    // own manual selections.
     selectedMap
       ..removeWhere((_, v) =>
           v == workModeSmartGroupName ||
@@ -2040,24 +2030,10 @@ class AppController {
         break;
       case WorkMode.country:
         if (staticCountry != null && staticCountry.isNotEmpty) {
-          final String value;
-          if (staticStrictNode != null && staticStrictNode.isNotEmpty) {
-            if (candidateNodes.contains(staticStrictNode)) {
-              // Discrete multi-node country: pin a real member node by NAME.
-              value = staticStrictNode;
-            } else if (isIpv4(staticStrictNode)) {
-              // DNS-pool unrolling (ИТЕРАЦИЯ 3): pin a resolved IP. The variant
-              // proxy named «Страна <flag> <ip>» is injected by
-              // applyWorkModePatch from the country's pooled BASE leaf, so the
-              // selectedMap target is that deterministic variant name directly.
-              value = countryStrictProxyName(staticCountry, staticStrictNode);
-            } else {
-              value = workModeCountryGroupName(staticCountry);
-            }
-          } else {
-            value = workModeCountryGroupName(staticCountry);
-          }
-          selectedMap[GroupName.GLOBAL.name] = value;
+          // Point GLOBAL at the additive «Страна <flag>» fallback group injected
+          // by applyWorkModePatch (in-country failover). No per-node/IP pin.
+          selectedMap[GroupName.GLOBAL.name] =
+              workModeCountryGroupName(staticCountry);
         }
         break;
       case WorkMode.standard:
@@ -2068,17 +2044,16 @@ class AppController {
     // Rollback on failure (B-12): keep the pre-mutation profile so a failed
     // apply can't leave the UI on a mode the core never accepted. The
     // `currentProfile` snapshot is captured BEFORE mutating (and copyWith is
-    // non-destructive), so restoring it rolls back workMode, staticCountry,
-    // staticStrictNode and selectedMap in one shot. applyProfile() surfaces
-    // setup errors to the user itself (nested loadingRun → showMessage), so we
-    // only restore state + reset the cache here; no duplicate notifier, and we
-    // deliberately do NOT rethrow so the calling UI (_apply) settles.
+    // non-destructive), so restoring it rolls back workMode, staticCountry and
+    // selectedMap in one shot. applyProfile() surfaces setup errors to the user
+    // itself (nested loadingRun → showMessage), so we only restore state + reset
+    // the cache here; no duplicate notifier, and we deliberately do NOT rethrow
+    // so the calling UI (_apply) settles.
     try {
       _ref.read(profilesProvider.notifier).setProfile(
             currentProfile.copyWith(
               workMode: mode,
               staticCountry: staticCountry,
-              staticStrictNode: staticStrictNode,
               selectedMap: selectedMap,
             ),
           );
@@ -2131,8 +2106,8 @@ class AppController {
           return profile;
         }
         // Candidate nodes = rule-group leaves only (disconeko SOS pool in raw
-        // `proxies` is structurally excluded). Validate BOTH country presence
-        // and the strict-node pin against this set, never the raw proxies.
+        // `proxies` is structurally excluded). Validate country presence
+        // against this set, never the raw proxies.
         final names = interceptLeafNodes(cfg);
         final country = profile.staticCountry;
         final hasNodes = country != null &&
@@ -2146,33 +2121,6 @@ class AppController {
           return profile.copyWith(
             workMode: WorkMode.standard,
             staticCountry: null,
-            staticStrictNode: null,
-            selectedMap: selectedMap,
-          );
-        }
-        // Country survives but a pinned strict node vanished from the fresh
-        // config. Keep Country mode — just drop the dead strict pin and repoint
-        // GLOBAL at the in-country failover group so routing stays valid. This
-        // is NOT a reset-to-Standard, so it uses its own notice.
-        // A pinned strict node that is a resolved IP (DNS-pool unrolling,
-        // ИТЕРАЦИЯ 3) is NOT a member name, so it will never be in `names` —
-        // keep it. The variant proxy «Страна <flag> <ip>» is rebuilt every
-        // setup from the country's BASE leaf (which still exists as long as the
-        // country survives, asserted by `hasNodes` above), so we can't and
-        // needn't cheaply re-resolve it here. Only a vanished MEMBER-NAME pin
-        // is dropped.
-        final strictNode = profile.staticStrictNode;
-        if (strictNode != null &&
-            strictNode.isNotEmpty &&
-            !isIpv4(strictNode) &&
-            !names.contains(strictNode)) {
-          globalState.showNotifier(
-            appLocalizations.strictNodeResetNotice,
-          );
-          final selectedMap = Map<String, String>.from(profile.selectedMap)
-            ..[GroupName.GLOBAL.name] = workModeCountryGroupName(country);
-          return profile.copyWith(
-            staticStrictNode: null,
             selectedMap: selectedMap,
           );
         }

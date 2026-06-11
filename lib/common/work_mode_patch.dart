@@ -16,16 +16,6 @@ const workModeCountryGroupPrefix = 'Страна';
 String workModeCountryGroupName(String flag) =>
     '$workModeCountryGroupPrefix $flag';
 
-/// Deterministic name for the DNS-pool-unrolled strict-node VARIANT proxy: a
-/// clone of a country's pooled leaf node whose `server` is pinned to one
-/// resolved IP (see [applyWorkModePatch]'s country branch / ИТЕРАЦИЯ 3).
-///
-/// MUST start with `'$workModeCountryGroupPrefix '` so the controller's
-/// value-ownership `selectedMap` cleanup (`v.startsWith('Страна ')`) recognizes
-/// a GLOBAL selection pointing at this variant as ours to drop on mode change.
-String countryStrictProxyName(String flag, String ip) =>
-    '$workModeCountryGroupPrefix $flag $ip';
-
 /// Additively patches a parsed Mihomo/Clash config [rawConfig] for the given
 /// [workMode]. PURE: returns a new top-level map; the input map and its nested
 /// lists/maps are never mutated.
@@ -58,7 +48,6 @@ Map<String, dynamic> applyWorkModePatch(
   Map<String, dynamic> rawConfig, {
   required WorkMode workMode,
   String? staticCountry,
-  String? staticStrictNode,
 }) {
   switch (workMode) {
     case WorkMode.standard:
@@ -84,11 +73,9 @@ Map<String, dynamic> applyWorkModePatch(
       if (nodes.isEmpty) {
         return Map<String, dynamic>.from(rawConfig);
       }
-      // Always ensure the country fallback group (in-country failover safety
-      // net). The strict-node pin — IP variant or member-name — points
-      // selectedMap[GLOBAL] elsewhere (controller), but the group must exist so
-      // a dropped/dead pin degrades to failover, never to GLOBAL's proxies[0].
-      var result = _injectGroup(
+      // Ensure the country fallback group (in-country failover safety net).
+      // selectedMap[GLOBAL] is pointed at this group elsewhere (controller).
+      return _injectGroup(
         rawConfig,
         workModeCountryGroupName(staticCountry),
         () => <String, dynamic>{
@@ -100,113 +87,7 @@ Map<String, dynamic> applyWorkModePatch(
           'proxies': List<String>.from(nodes),
         },
       );
-      // DNS-pool unrolling (ИТЕРАЦИЯ 3): when the pin is a resolved IPv4 (not a
-      // member node NAME) and not already a top-level proxy, clone the country's
-      // pooled BASE leaf node with `server` set to that exact IP, so the exit IP
-      // is FIXED instead of raced by tcp-concurrent across the DNS pool. The
-      // member-name path (discrete multi-node country) is untouched: a non-IPv4
-      // pin, or an IPv4 that already names a proxy, builds no variant.
-      if (staticStrictNode != null &&
-          staticStrictNode.isNotEmpty &&
-          isIpv4(staticStrictNode) &&
-          !_proxyNameExists(result, staticStrictNode)) {
-        result = _injectCountryStrictVariant(
-          result,
-          staticCountry,
-          nodes.first,
-          staticStrictNode,
-        );
-      }
-      return result;
   }
-}
-
-/// Whether a top-level proxy named [name] exists in [rawConfig]'s `proxies`.
-bool _proxyNameExists(Map<String, dynamic> rawConfig, String name) {
-  final proxies = rawConfig['proxies'];
-  if (proxies is List) {
-    for (final p in proxies) {
-      if (p is Map && p['name']?.toString() == name) return true;
-    }
-  }
-  return false;
-}
-
-/// Appends a DNS-pool-unrolled strict-node VARIANT proxy to top-level
-/// `proxies`: a deep clone of the country's pooled BASE leaf ([baseLeafName])
-/// whose `server` is pinned to [ip] and whose name is
-/// [countryStrictProxyName].
-///
-/// SNI PRESERVATION (critical for VLESS/Reality): if the clone has NEITHER an
-/// explicit `servername` NOR an `sni`, `servername` is set to the base node's
-/// original `server` (the pool domain) BEFORE the `server` override — otherwise
-/// the TLS/Reality SNI would silently become the bare IP and the handshake
-/// breaks. An already-present `servername`/`sni` (steal-domain) is preserved
-/// verbatim.
-///
-/// Idempotent (no duplicate variant) and additive: only the `proxies` list is
-/// reallocated; every existing entry is preserved by reference. If the base
-/// leaf cannot be found in `proxies`, the config is returned unchanged.
-Map<String, dynamic> _injectCountryStrictVariant(
-  Map<String, dynamic> rawConfig,
-  String flag,
-  String baseLeafName,
-  String ip,
-) {
-  final variantName = countryStrictProxyName(flag, ip);
-  final proxies = rawConfig['proxies'];
-  if (proxies is! List) return rawConfig;
-
-  Map? baseLeaf;
-  for (final p in proxies) {
-    if (p is Map && p['name']?.toString() == variantName) {
-      return rawConfig; // variant already present — idempotent no-op.
-    }
-    if (p is Map && p['name']?.toString() == baseLeafName) {
-      baseLeaf = p;
-    }
-  }
-  if (baseLeaf == null) return rawConfig; // base leaf vanished — nothing to clone.
-
-  final variant = _deepCopyMap(baseLeaf.cast<String, dynamic>());
-  // SNI preservation BEFORE the server override.
-  final hasServername = variant['servername'] != null &&
-      variant['servername'].toString().isNotEmpty;
-  final hasSni = variant['sni'] != null && variant['sni'].toString().isNotEmpty;
-  if (!hasServername && !hasSni) {
-    final baseServer = baseLeaf['server'];
-    if (baseServer != null && baseServer.toString().isNotEmpty) {
-      variant['servername'] = baseServer.toString();
-    }
-  }
-  variant['server'] = ip;
-  variant['name'] = variantName;
-
-  final newProxies = <dynamic>[...proxies, variant];
-  final result = Map<String, dynamic>.from(rawConfig);
-  result['proxies'] = newProxies;
-  return result;
-}
-
-/// Recursively deep-copies a JSON-like map (nested `Map`/`List` are copied;
-/// scalars are shared). Ensures the cloned variant never aliases the base
-/// node's nested structures (e.g. `reality-opts`).
-Map<String, dynamic> _deepCopyMap(Map<String, dynamic> src) {
-  final out = <String, dynamic>{};
-  for (final entry in src.entries) {
-    out[entry.key] = _deepCopyValue(entry.value);
-  }
-  return out;
-}
-
-Object? _deepCopyValue(Object? value) {
-  if (value is Map) {
-    return _deepCopyMap(value.cast<String, dynamic>());
-  }
-  if (value is List) {
-    return <dynamic>[for (final e in value) _deepCopyValue(e)];
-  }
-  return value;
 }
 
 /// Whether the `Страна <flag>` group will be PRESENT in [applyWorkModePatch]'s

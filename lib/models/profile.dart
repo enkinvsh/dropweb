@@ -71,7 +71,6 @@ class Profile with _$Profile {
     @Default(WorkMode.standard)
     WorkMode workMode,
     String? staticCountry,
-    String? staticStrictNode,
   }) = _Profile;
 
   factory Profile.fromJson(Map<String, Object?> json) =>

@@ -19,14 +19,12 @@ void main() {
 
       expect(profile.workMode, WorkMode.standard);
       expect(profile.staticCountry, isNull);
-      expect(profile.staticStrictNode, isNull);
     });
 
     test('toJson/fromJson roundtrip preserves workMode + static fields', () {
       final original = Profile.fromJson(baseJson()).copyWith(
         workMode: WorkMode.country,
         staticCountry: 'NL',
-        staticStrictNode: '🇳🇱 Amsterdam-01',
       );
 
       // Roundtrip through the real persistence path: profiles are stored as
@@ -38,7 +36,6 @@ void main() {
 
       expect(restored.workMode, WorkMode.country);
       expect(restored.staticCountry, 'NL');
-      expect(restored.staticStrictNode, '🇳🇱 Amsterdam-01');
       expect(restored, original);
     });
 

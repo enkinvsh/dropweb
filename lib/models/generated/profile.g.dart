@@ -60,7 +60,6 @@ _$ProfileImpl _$$ProfileImplFromJson(Map<String, dynamic> json) =>
               unknownValue: WorkMode.standard) ??
           WorkMode.standard,
       staticCountry: json['staticCountry'] as String?,
-      staticStrictNode: json['staticStrictNode'] as String?,
     );
 
 Map<String, dynamic> _$$ProfileImplToJson(_$ProfileImpl instance) =>
@@ -80,7 +79,6 @@ Map<String, dynamic> _$$ProfileImplToJson(_$ProfileImpl instance) =>
       'fallbackUrl': instance.fallbackUrl,
       'workMode': _$WorkModeEnumMap[instance.workMode]!,
       'staticCountry': instance.staticCountry,
-      'staticStrictNode': instance.staticStrictNode,
     };
 
 const _$WorkModeEnumMap = {

@@ -299,14 +299,10 @@ class _AddProfileCard extends StatelessWidget {
 class _ModeProfileData {
   const _ModeProfileData({
     required this.countries,
-    required this.nodeServers,
     required this.hasSmartCandidates,
   });
 
   final Map<String, List<String>> countries;
-
-  /// node name → its `server` address (IP or host), for the strict-node list.
-  final Map<String, String> nodeServers;
   final bool hasSmartCandidates;
 }
 
@@ -322,31 +318,11 @@ final _modeProfileDataProvider =
     // (🇷🇺/🇬🇧/…) the panel subscription never offers. `interceptLeafNodes`
     // resolves rules from either the 'rules' or 'rule' key (`_resolveRules`),
     // and getProfileConfig output uses 'rules'.
-    final nodeServers = <String, String>{};
-    final proxies = cfg['proxies'];
-    if (proxies is List) {
-      for (final p in proxies) {
-        if (p is Map && p['name'] != null && p['server'] != null) {
-          nodeServers[p['name'].toString()] = p['server'].toString();
-        }
-      }
-    }
     return _ModeProfileData(
       countries: groupNodesByCountry(interceptLeafNodes(cfg)),
-      nodeServers: nodeServers,
       hasSmartCandidates: smartGroupWillInject(cfg),
     );
   },
-);
-
-/// DNS-pool unrolling (ИТЕРАЦИЯ 3): resolves a pooled country domain (e.g.
-/// `de.meybz.asia`) into its individual server IPs via Cloudflare DoH, so the
-/// strict-node picker can pin ONE fixed IP. `autoDispose.family` keyed by host
-/// so the 60s in-memory cache in [resolvePoolIps] is shared and a spinner shows
-/// while resolving. Returns `[]` on failure → UI falls back to the pooled node.
-final _poolIpsProvider =
-    FutureProvider.autoDispose.family<List<String>, String>(
-  (ref, host) => resolvePoolIps(host),
 );
 
 class _ModesContent extends ConsumerStatefulWidget {
@@ -368,14 +344,12 @@ class _ModesContentState extends ConsumerState<_ModesContent>
   Future<void> _apply(
     WorkMode mode, {
     String? staticCountry,
-    String? staticStrictNode,
   }) async {
     setState(() => _applying = true);
     try {
       await globalState.appController.applyWorkMode(
         mode,
         staticCountry: staticCountry,
-        staticStrictNode: staticStrictNode,
       );
     } finally {
       if (mounted) setState(() => _applying = false);
@@ -412,10 +386,9 @@ class _ModesContentState extends ConsumerState<_ModesContent>
         title: appLocalizations.workModeCountry,
         body: _CountryDeepView(
           profileId: profile.id,
-          onApply: (country, strictNode) => _apply(
+          onApply: (country) => _apply(
             WorkMode.country,
             staticCountry: country,
-            staticStrictNode: strictNode,
           ),
         ),
       ),
@@ -612,10 +585,9 @@ class _ChevronAffordance extends StatelessWidget {
 
 /// Deep screen for «Страна»: a full-page country picker (opened via
 /// [showExtend]). Lists detected countries as [ListItem] rows (Twemoji flag +
-/// node count); the active country is checkmarked. Below the list sits the
-/// «Строгая нода» switch and — when ON for the active country — a node-picker
-/// row. Tapping a country row applies the mode through [onApply] and pops back
-/// to the modes tab; strict-node refinements apply in-place without popping.
+/// an availability delay badge — the same delay/ms surface the proxy-group
+/// rows use); the active country is checkmarked. Tapping a country row applies
+/// the mode through [onApply] (flag only) and pops back to the modes tab.
 class _CountryDeepView extends ConsumerStatefulWidget {
   const _CountryDeepView({
     required this.profileId,
@@ -623,17 +595,36 @@ class _CountryDeepView extends ConsumerStatefulWidget {
   });
 
   final String profileId;
-  final void Function(String country, String? strictNode) onApply;
+  final ValueChanged<String> onApply;
 
   @override
   ConsumerState<_CountryDeepView> createState() => _CountryDeepViewState();
 }
 
 class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
-  /// Local strict-node toggle override (null → derive from the profile).
-  bool? _strictOn;
+  /// One-shot guard so the availability delay test fires once per screen open
+  /// (not on every rebuild). Mirrors `_pingAllProxies`'s single-shot intent.
+  bool _pingTriggered = false;
 
-  
+  /// Fires a delay test for the given country leaf node names so the
+  /// availability badges populate. Reuses the proxy objects from the live
+  /// groups state (same source as [_pingAllProxies]) and the existing
+  /// [delayTest] primitive — passing `null` testUrl lets it resolve the app's
+  /// default test URL.
+  Future<void> _pingCountryNodes(Set<String> nodeNames) async {
+    if (nodeNames.isEmpty) return;
+    final groups = ref.read(currentGroupsStateProvider).value;
+    final proxies = <Proxy>[];
+    final seen = <String>{};
+    for (final group in groups) {
+      for (final proxy in group.all) {
+        if (nodeNames.contains(proxy.name) && seen.add(proxy.name)) {
+          proxies.add(proxy);
+        }
+      }
+    }
+    if (proxies.isNotEmpty) await delayTest(proxies, null);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -667,11 +658,20 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
           );
         }
 
+        // Trigger the availability delay test once per open, after the first
+        // frame, for the leaf node backing each country's badge.
+        if (!_pingTriggered) {
+          _pingTriggered = true;
+          final leafNames = <String>{
+            for (final flag in countryKeys)
+              if (data.countries[flag]!.isNotEmpty) data.countries[flag]!.first,
+          };
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _pingCountryNodes(leafNames);
+          });
+        }
+
         final activeCountry = profile.staticCountry;
-        final countryApplied = activeCountry != null &&
-            activeCountry.isNotEmpty &&
-            data.countries.containsKey(activeCountry);
-        final strictOn = _strictOn ?? (profile.staticStrictNode != null);
 
         return ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -701,29 +701,17 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                trailing: Text(
-                  '${data.countries[flag]!.length}',
-                  style: context.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                  ),
+                trailing: _CountryAvailabilityBadge(
+                  proxyName: data.countries[flag]!.first,
                 ),
                 onTap: () {
-                  final isActive = flag == activeCountry;
-                  // New country → drop any strict node; same active country →
-                  // keep the current strict pick. Stay on the screen (no pop):
-                  // the user may want to toggle «Строгая нода» and pick a node
-                  // for the country they just selected; they return manually.
-                  final strictPick =
-                      isActive && strictOn ? profile.staticStrictNode : null;
-                  if (!isActive) setState(() => _strictOn = null);
-                  widget.onApply(flag, strictPick);
+                  widget.onApply(flag);
+                  Navigator.of(context).pop();
                 },
               ),
-            // The no-flag bucket is shown last and is NOT selectable. Uses the
-            // SAME trailing-count convention as the country rows for a uniform
-            // list (label-only title + trailing count, not count-in-label).
-            if (data.countries.containsKey(''))
+            // The no-flag bucket is shown last and is NOT selectable. Hidden
+            // when empty; otherwise rendered label-only (no count, no badge).
+            if (data.countries['']?.isNotEmpty ?? false)
               ListItem(
                 horizontalTitleGap: 8,
                 leading: const SizedBox(width: 24),
@@ -733,227 +721,46 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-                trailing: Text(
-                  '${data.countries['']!.length}',
-                  style: context.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
               ),
-            if (countryApplied) ...[
-              const Divider(height: 0),
-              ListItem.switchItem(
-                title: Text(
-                  appLocalizations.strictNode,
-                  style: context.textTheme.bodyMedium,
-                ),
-                subtitle: Text(
-                  appLocalizations.strictNodeDesc,
-                  style: context.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                delegate: SwitchDelegate(
-                  value: strictOn,
-                  onChanged: (value) {
-                    if (value) {
-                      setState(() => _strictOn = true);
-                    } else {
-                      setState(() => _strictOn = false);
-                      // Drop the strict node in-place (stay on the deep screen).
-                      widget.onApply(activeCountry, null);
-                    }
-                  },
-                ),
-              ),
-              // Inline node list (no extra modal): pick the strict node right
-              // here. Two shapes (ИТЕРАЦИЯ 3):
-              //  • POOLED country (exactly 1 leaf whose server is a DOMAIN) →
-              //    DoH-resolve the pool domain and offer one row per real IP;
-              //    the pin IS the IP (variant proxy built engine-side).
-              //  • DISCRETE country (>1 leaf, or a leaf with an IP server) →
-              //    the classic per-node-name rows.
-              if (strictOn)
-                ..._buildStrictRows(
-                  context: context,
-                  colorScheme: colorScheme,
-                  data: data,
-                  profile: profile,
-                  activeCountry: activeCountry,
-                ),
-            ],
           ],
         );
       },
     );
   }
-
-  /// Builds the strict-node picker rows for the active country, branching on
-  /// pooled vs discrete shape (ИТЕРАЦИЯ 3). Returns the rows in display order.
-  List<Widget> _buildStrictRows({
-    required BuildContext context,
-    required ColorScheme colorScheme,
-    required _ModeProfileData data,
-    required Profile profile,
-    required String activeCountry,
-  }) {
-    final nodes = data.countries[activeCountry] ?? const <String>[];
-    if (nodes.isEmpty) return const [];
-
-    // POOLED iff exactly one leaf whose server is a DOMAIN (not an IP) → the
-    // single node hides a DNS pool of real server IPs we must unroll.
-    final poolDomain = nodes.length == 1 ? data.nodeServers[nodes.first] : null;
-    final isPooled =
-        poolDomain != null && poolDomain.isNotEmpty && !isIpv4(poolDomain);
-
-    if (!isPooled) {
-      // DISCRETE: classic per-node-name rows (flag is redundant inside the
-      // country's own section, so the full node name is the title; the masked
-      // server is the subtitle). The FULL node name is what gets applied.
-      return [
-        for (final node in nodes)
-          _StrictRow(
-            selected: node == profile.staticStrictNode,
-            colorScheme: colorScheme,
-            title: node,
-            subtitle: data.nodeServers[node] != null
-                ? maskServerAddress(data.nodeServers[node]!)
-                : null,
-            onTap: () => widget.onApply(activeCountry, node),
-          ),
-      ];
-    }
-
-    // POOLED: DoH-resolve the pool domain → one row per resolved IP. The pin is
-    // the exact IP; the engine builds a «Страна <flag> <ip>» variant from it.
-    final label = '$activeCountry  ${countryDisplayName(activeCountry, nodes)}';
-    final ipsAsync = ref.watch(_poolIpsProvider(poolDomain));
-    return ipsAsync.when(
-      loading: () => [
-        const ListItem(
-          leading: SizedBox(width: 24),
-          title: Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ),
-        ),
-      ],
-      error: (_, __) => _pooledFallbackRows(
-        context: context,
-        colorScheme: colorScheme,
-        nodes: nodes,
-        data: data,
-        profile: profile,
-        activeCountry: activeCountry,
-      ),
-      data: (ips) {
-        if (ips.isEmpty) {
-          // DoH returned nothing (offline / blocked) → fall back to pinning the
-          // pooled node itself (classic behavior) with a subtle hint.
-          return _pooledFallbackRows(
-            context: context,
-            colorScheme: colorScheme,
-            nodes: nodes,
-            data: data,
-            profile: profile,
-            activeCountry: activeCountry,
-          );
-        }
-        return [
-          for (final ip in ips)
-            _StrictRow(
-              selected: ip == profile.staticStrictNode,
-              colorScheme: colorScheme,
-              title: label,
-              // Strict pin: the user WANTS the exact IP — show it in full.
-              subtitle: ip,
-              onTap: () => widget.onApply(activeCountry, ip),
-            ),
-        ];
-      },
-    );
-  }
-
-  /// Fallback rows when DoH resolution fails/empties for a pooled country:
-  /// offer the pooled node itself (classic name pin) with a subtle hint that
-  /// the IP list is unavailable.
-  List<Widget> _pooledFallbackRows({
-    required BuildContext context,
-    required ColorScheme colorScheme,
-    required List<String> nodes,
-    required _ModeProfileData data,
-    required Profile profile,
-    required String activeCountry,
-  }) {
-    final node = nodes.first;
-    return [
-      _StrictRow(
-        selected: node == profile.staticStrictNode,
-        colorScheme: colorScheme,
-        title: node,
-        subtitle: data.nodeServers[node] != null
-            ? '${maskServerAddress(data.nodeServers[node]!)} · ${appLocalizations.strictNodeDesc}'
-            : null,
-        onTap: () => widget.onApply(activeCountry, node),
-      ),
-    ];
-  }
 }
 
-/// A single strict-node picker row: checkmark when [selected], an [EmojiText]
-/// title (flags render via Twemoji) and an optional server [subtitle].
-class _StrictRow extends StatelessWidget {
-  const _StrictRow({
-    required this.selected,
-    required this.colorScheme,
-    required this.title,
-    required this.onTap,
-    this.subtitle,
-  });
+/// Availability delay badge for a country row. Reuses the EXACT mechanism the
+/// proxy-group rows use ([_ProxySelectorRow] / [_RulesGroupCard]):
+/// [getDelayProvider] for the country's leaf node (default test URL),
+/// [utils.delayBadgeLabel] for the ms label and [utils.getDelayColor] for the
+/// tint. Renders nothing (a fixed-width spacer for alignment) until a delay
+/// sample exists.
+class _CountryAvailabilityBadge extends ConsumerWidget {
+  const _CountryAvailabilityBadge({required this.proxyName});
 
-  final bool selected;
-  final ColorScheme colorScheme;
-  final String title;
-  final String? subtitle;
-  final VoidCallback onTap;
+  final String proxyName;
 
   @override
-  Widget build(BuildContext context) {
-    return ListItem(
-      leading: SizedBox(
-        width: 24,
-        child: selected
-            ? HugeIcon(
-                icon: HugeIcons.strokeRoundedCheckmarkCircle02,
-                size: 18,
-                color: colorScheme.primary,
-              )
-            : null,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final delay = ref.watch(getDelayProvider(proxyName: proxyName));
+    final label = utils.delayBadgeLabel(delay);
+    if (label == null) {
+      return const SizedBox(width: 48);
+    }
+    final delayColor = utils.getDelayColor(delay);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: delayColor?.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
       ),
-      horizontalTitleGap: 8,
-      title: EmojiText(
-        title,
-        style: context.textTheme.bodyMedium?.copyWith(
-          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-          color: selected ? colorScheme.primary : null,
+      child: Text(
+        label,
+        style: context.textTheme.labelSmall?.copyWith(
+          color: delayColor,
+          fontWeight: FontWeight.w600,
         ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
       ),
-      subtitle: subtitle != null
-          ? Text(
-              subtitle!,
-              style: context.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            )
-          : null,
-      onTap: onTap,
     );
   }
 }
