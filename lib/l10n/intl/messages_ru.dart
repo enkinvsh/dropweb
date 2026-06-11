@@ -794,6 +794,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "strictNodeDesc": MessageLookupByLibrary.simpleMessage(
       "IP не сменится даже при сбое сервера.",
     ),
+    "strictNodeResetNotice": MessageLookupByLibrary.simpleMessage(
+      "Строгая нода недоступна после обновления — выбран failover внутри страны.",
+    ),
     "style": MessageLookupByLibrary.simpleMessage("Стиль"),
     "subRule": MessageLookupByLibrary.simpleMessage("Подправило"),
     "submit": MessageLookupByLibrary.simpleMessage("Отправить"),

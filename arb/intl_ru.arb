@@ -522,5 +522,6 @@
   "serversAndGroups": "Серверы и группы",
   "countriesNotDetected": "Страны не определены. Обновите подписку.",
   "workModeResetNotice": "Режим сброшен на Стандарт: настройки недоступны после обновления подписки.",
+  "strictNodeResetNotice": "Строгая нода недоступна после обновления — выбран failover внутри страны.",
   "otherCountries": "Другое"
 }

@@ -4049,6 +4049,16 @@ class AppLocalizations {
     );
   }
 
+  /// `Strict node unavailable after update — switched to in-country failover.`
+  String get strictNodeResetNotice {
+    return Intl.message(
+      'Strict node unavailable after update — switched to in-country failover.',
+      name: 'strictNodeResetNotice',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Other`
   String get otherCountries {
     return Intl.message('Other', name: 'otherCountries', desc: '', args: []);

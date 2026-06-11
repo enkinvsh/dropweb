@@ -572,6 +572,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "strictNodeDesc": MessageLookupByLibrary.simpleMessage(
       "IP won\'t change even if the server fails.",
     ),
+    "strictNodeResetNotice": MessageLookupByLibrary.simpleMessage(
+      "Strict node unavailable after update — switched to in-country failover.",
+    ),
     "style": MessageLookupByLibrary.simpleMessage("スタイル"),
     "subRule": MessageLookupByLibrary.simpleMessage("サブルール"),
     "submit": MessageLookupByLibrary.simpleMessage("送信"),
