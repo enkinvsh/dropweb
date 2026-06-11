@@ -7,7 +7,14 @@ import 'mihomo_yaml_splice.dart';
 /// Mirrors the `🧠 Smart` group the raw-subscription synthesizer emits in
 /// `share_link_profile`, which is proven to pick the best live foreign server
 /// on device.
-const _smartGroupName = '🧠 Smart';
+const _smartGroupName = disconekoSmartGroupName;
+
+/// Public name of the disconeko emergency-pool smart group. It must stay a
+/// real, NON-hidden top-level group so the Mihomo core health-checks it (and
+/// `📶 First Available`, which references it, shows a delay). It is filtered
+/// from the user-facing groups list purely in the UI layer (by this name) so it
+/// is never a standalone selectable row — see `_RulesProxiesView`.
+const disconekoSmartGroupName = '🧠 Smart';
 
 /// Name of the `fallback` group that surfaces the emergency pool — mirrors the
 /// `📶 First Available` group in the dropweb panel template. Offered as a
@@ -128,13 +135,11 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
     'type': 'smart',
     'uselightgbm': false,
     'include-all': true,
-    // Emergency-pool plumbing only: keep it referenceable by `📶 First
-    // Available` (fallback), but hide its card from the «Серверы и группы»
-    // sheet so it is NOT a user-selectable group / drill-in. `currentGroupsState`
-    // filters `hidden == false`; the core honors `hidden` on smart groups. The
-    // panel hides `♻️ DIRECT` the same way. It auto-ranks its own members; the
-    // user never picks a node inside it.
-    'hidden': true,
+    // NOTE: intentionally NOT `hidden: true`. A config-level hidden flag makes
+    // the core deprioritize the group and stops reporting its delay, which
+    // broke the `📶 First Available` availability badge (and its selection
+    // surfacing). The group stays a normal health-checked group; it's filtered
+    // from the user-facing list purely in the UI (`_RulesProxiesView`) by name.
   };
 
   // Build the `📶 First Available` fallback group spec (used only when no such
@@ -198,12 +203,6 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
           ['proxy-groups', smartIndex, 'include-all'],
           true,
         );
-      }
-      // Hide the pre-existing `🧠 Smart` card too (see smartGroup spec): it must
-      // remain a fallback member of `📶 First Available`, never a selectable row.
-      final alreadyHidden = existing is Map && existing['hidden'] == true;
-      if (!alreadyHidden) {
-        editor.update(['proxy-groups', smartIndex, 'hidden'], true);
       }
     }
   }

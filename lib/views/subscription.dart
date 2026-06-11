@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/work_mode_patch.dart';
+import 'package:dropweb/common/smart_pool_patch.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart' hide Action;
 import 'package:dropweb/plugins/app.dart';
@@ -828,7 +829,15 @@ class _RulesProxiesViewState extends ConsumerState<_RulesProxiesView> {
 
   @override
   Widget build(BuildContext context) {
-    final groups = ref.watch(currentGroupsStateProvider).value;
+    // Filter the disconeko 🧠 Smart pool out of the LIST (UI-only, by name) so
+    // it is never a standalone selectable row — while it stays a real,
+    // health-checked group in the config so 📶 First Available (which
+    // references it) still auto-selects and shows its availability badge.
+    final groups = ref
+        .watch(currentGroupsStateProvider)
+        .value
+        .where((g) => g.name != disconekoSmartGroupName)
+        .toList();
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -836,9 +845,9 @@ class _RulesProxiesViewState extends ConsumerState<_RulesProxiesView> {
       return NullStatus(label: appLocalizations.nullProfileDesc);
     }
 
-    // Populate availability badges on open (incl. the hidden 🧠 Smart pool that
-    // backs 📶 First Available), once per open — matching the old behavior
-    // where badges showed immediately. Pull-to-refresh re-tests.
+    // Populate availability badges on open (incl. the 🧠 Smart pool that backs
+    // 📶 First Available), once per open — matching the old behavior where
+    // badges showed immediately. Pull-to-refresh re-tests.
     if (!_pingTriggered) {
       _pingTriggered = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _pingAllProxies(ref));
