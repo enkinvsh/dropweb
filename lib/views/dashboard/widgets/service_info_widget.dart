@@ -85,10 +85,15 @@ class _ServiceInfoWidgetState extends ConsumerState<ServiceInfoWidget> {
         ),
       );
     } else {
+      // Logo renders at logoSize logical px; decode at its physical pixel size.
+      final logoCacheSize =
+          (logoSize * MediaQuery.devicePixelRatioOf(context)).round();
       logoWidget = CachedNetworkImage(
         imageUrl: logoUrl,
         width: logoSize,
         height: logoSize,
+        memCacheWidth: logoCacheSize,
+        memCacheHeight: logoCacheSize,
         fit: BoxFit.cover,
         placeholder: (context, url) => HugeIcon(
           icon: HugeIcons.strokeRoundedMail01,

@@ -48,6 +48,9 @@ class ApplicationState extends ConsumerState<Application> {
   void initState() {
     super.initState();
 
+    // Cap the global decoded-image cache to bound PSS from network logos/bg.
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 50 << 20;
+
     if (Platform.isWindows) {
       windows?.enableDarkModeForApp();
     }

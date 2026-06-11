@@ -63,6 +63,8 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
     bool lit,
   ) {
     final isSvg = logoUrl.toLowerCase().endsWith('.svg');
+    // Logo renders at 36 logical px; decode at its physical pixel size.
+    final logoCacheSize = (36 * MediaQuery.devicePixelRatioOf(context)).round();
     final image = isSvg
         ? SvgPicture.network(
             logoUrl,
@@ -75,6 +77,8 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
             imageUrl: logoUrl,
             width: 36,
             height: 36,
+            memCacheWidth: logoCacheSize,
+            memCacheHeight: logoCacheSize,
             fit: BoxFit.cover,
             placeholder: (_, __) => const SizedBox(width: 36, height: 36),
             errorWidget: (_, __, ___) => const SizedBox(width: 36, height: 36),

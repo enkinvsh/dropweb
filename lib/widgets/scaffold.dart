@@ -412,14 +412,21 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
     );
   }
 
-  Widget _buildBackground(String? backgroundUrl) {
+  Widget _buildBackground(BuildContext context, String? backgroundUrl) {
     if (backgroundUrl == null || backgroundUrl.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    // Decode the full-bleed background at physical screen width only; no height
+    // cap so BoxFit.cover keeps the aspect ratio.
+    final memCacheWidth = (MediaQuery.sizeOf(context).width *
+            MediaQuery.devicePixelRatioOf(context))
+        .round();
+
     return Positioned.fill(
       child: CachedNetworkImage(
         imageUrl: backgroundUrl,
+        memCacheWidth: memCacheWidth,
         fit: BoxFit.cover,
         placeholder: (context, url) => const SizedBox.shrink(),
         errorWidget: (context, url, error) => const SizedBox.shrink(),
@@ -563,7 +570,7 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
     final scaffoldWithBackground = backgroundUrl != null
         ? Stack(
             children: [
-              _buildBackground(backgroundUrl),
+              _buildBackground(context, backgroundUrl),
               _buildOverlay(context),
               Theme(
                 data: Theme.of(context).copyWith(
