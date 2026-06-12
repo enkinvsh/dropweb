@@ -55,7 +55,7 @@ Hard rules (anti-slop):
 - No `Color(0xFF...)` outside `lumina.dart` — use `Lumina.*` / `context.colorScheme.*` / opacity extensions.
 - No inline `TextStyle(...)` for ad-hoc size/color — use `Theme.of(context).textTheme.*` + text atoms. Fonts via `FontFamily` enum (Onest / JetBrainsMono / Twemoji), never literal family strings.
 - Radii from `Lumina.radius*`; spacing on the existing 8-scale (16/24/64) already in use.
-- Glass is intentional but ONLY via `Lumina.glass*`/`glassBlur`; never raw `BackdropFilter` with arbitrary sigma. Blur is GPU-quadratic and deliberately capped (4/8) for mid-range Android (Skia, no Impeller) — do not raise it.
+- Glass is intentional but ONLY via `Lumina.glass*`/`glassBlur`; never raw `BackdropFilter` with arbitrary sigma. Blur is GPU-quadratic and deliberately capped (4/8) for mid-range Android — do not raise it. The cap stands regardless of renderer. (Production renders with **Impeller** — Vulkan on modern devices, GLES fallback — set by `EnableImpeller=true` in the Android manifest; verified clean on-device. See the `flutter-dropweb-dev` skill.)
 - Dark-only: no light/system-mode branches. Signature motion via `Lumina.luminaCurve`/`luminaDuration`.
 
 Visual QA (Flutter, not browser): verify with `flutter_screenshot` (flutter-dev MCP) on device, NOT design-cockpit browser capture. Cover states default/pressed/disabled/loading/empty/error. For non-trivial UI, route to the `visual-engineering` category with the `design-workflow` skill and produce a project-native Design Brief first.
