@@ -1,15 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SECURITY: cleartext only for loopback (mihomo control API has no TLS). -->
-<network-security-config xmlns:tools="http://schemas.android.com/tools"
-    tools:ignore="AcceptsUserCertificates">
+<network-security-config>
+    <!-- Production: system CAs only. User-installed CAs are NOT trusted to
+         resist MITM on hostile networks. -->
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
-            <certificates src="user" />
         </trust-anchors>
     </base-config>
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">localhost</domain>
         <domain includeSubdomains="false">127.0.0.1</domain>
     </domain-config>
+    <!-- Debug builds (android:debuggable=true) additionally trust user CAs so
+         devs can intercept traffic with mitmproxy. Ignored in release. -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
 </network-security-config>
