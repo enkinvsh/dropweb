@@ -94,4 +94,101 @@ void main() {
       expect(groupNodesByCountry(<String>[]), <String, List<String>>{});
     });
   });
+
+  group('resolveCountryKeyNodes', () {
+    const nodes = [
+      '🇩🇪 Германия-1',
+      '🇩🇪 Германия-2',
+      '🇳🇱 Нидерланды',
+      'balancer-host',
+    ];
+
+    test('flag key resolves to all same-flag nodes', () {
+      expect(
+        resolveCountryKeyNodes(nodes, '🇩🇪'),
+        ['🇩🇪 Германия-1', '🇩🇪 Германия-2'],
+      );
+    });
+
+    test('flagged node NAME resolves to exactly that node', () {
+      expect(
+        resolveCountryKeyNodes(nodes, '🇩🇪 Германия-2'),
+        ['🇩🇪 Германия-2'],
+      );
+    });
+
+    test('flagless node name resolves to itself (group key)', () {
+      expect(resolveCountryKeyNodes(nodes, 'balancer-host'), ['balancer-host']);
+    });
+
+    test('unknown key resolves to empty', () {
+      expect(resolveCountryKeyNodes(nodes, '🇫🇷'), isEmpty);
+      expect(resolveCountryKeyNodes(nodes, 'nope'), isEmpty);
+    });
+  });
+
+  group('countryPickerEntries', () {
+    test('single-node flag group stays one country row keyed by flag', () {
+      final entries = countryPickerEntries(
+        groupNodesByCountry(['🇳🇱 Нидерланды']),
+      );
+      expect(entries, hasLength(1));
+      expect(entries.single.key, '🇳🇱');
+      expect(entries.single.flagged, isTrue);
+      expect(entries.single.label, 'Нидерланды');
+      expect(entries.single.proxyName, '🇳🇱 Нидерланды');
+    });
+
+    test('multi-node flag group expands to one row per server', () {
+      final entries = countryPickerEntries(
+        groupNodesByCountry(['🇩🇪 Германия-1', '🇩🇪 Германия-2']),
+      );
+      expect(entries, hasLength(2));
+      expect(entries[0].key, '🇩🇪 Германия-1');
+      expect(entries[0].flagged, isTrue);
+      expect(entries[0].flag, '🇩🇪');
+      expect(entries[0].label, 'Германия-1');
+      expect(entries[0].proxyName, '🇩🇪 Германия-1');
+      expect(entries[1].key, '🇩🇪 Германия-2');
+      expect(entries[1].label, 'Германия-2');
+    });
+
+    test('expanded row with flag-only name falls back to ISO label', () {
+      final entries = countryPickerEntries(
+        groupNodesByCountry(['🇩🇪', '🇩🇪 Берлин']),
+      );
+      expect(entries[0].label, 'DE');
+      expect(entries[1].label, 'Берлин');
+    });
+
+    test('flagless nodes stay individual unflagged rows after flagged ones',
+        () {
+      final entries = countryPickerEntries(
+        groupNodesByCountry(
+          ['balancer-host', '🇩🇪 Германия-1', '🇩🇪 Германия-2'],
+        ),
+      );
+      expect(entries, hasLength(3));
+      expect(entries[0].flagged, isTrue);
+      expect(entries[1].flagged, isTrue);
+      expect(entries[2].flagged, isFalse);
+      expect(entries[2].key, 'balancer-host');
+      expect(entries[2].label, 'balancer-host');
+    });
+
+    test('config order is preserved within and across flag groups', () {
+      final entries = countryPickerEntries(
+        groupNodesByCountry([
+          '🇳🇱 Нидерланды',
+          '🇩🇪 Германия-1',
+          '🇩🇪 Германия-2',
+        ]),
+      );
+      expect(entries.map((e) => e.key).toList(), [
+        '🇳🇱',
+        '🇩🇪 Германия-1',
+        '🇩🇪 Германия-2',
+      ]);
+    });
+  });
 }

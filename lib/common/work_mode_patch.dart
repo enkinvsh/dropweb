@@ -415,8 +415,10 @@ Map _withAppendedMember(Map group, String member) {
 /// top-level `proxies`, so a raw-`proxies` source would let Country mode route
 /// all traffic through the emergency pool. Those SOS nodes are never members of
 /// a rule-referenced group, so this excludes them by construction.
+/// [flag] may also be an exact node name (the picker offers same-flag servers
+/// individually) — [resolveCountryKeyNodes] handles both key kinds.
 List<String> _countryNodes(Map<String, dynamic> rawConfig, String flag) =>
-    groupNodesByCountry(interceptLeafNodes(rawConfig))[flag] ?? const <String>[];
+    resolveCountryKeyNodes(interceptLeafNodes(rawConfig), flag);
 
 /// Returns a shallow copy of [rawConfig] whose `proxy-groups` list has the group
 /// produced by [buildGroup] appended — unless a group named [groupName] already

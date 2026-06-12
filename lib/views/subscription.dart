@@ -697,17 +697,19 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
         // real live flagless server appears as soon as its ping lands (the
         // delay cache is session-wide, so reopening the sheet is instant).
         // The active selection is always shown so it can't silently vanish.
-        final countryKeys = [
-          for (final key in data.countries.keys)
-            if (isCountryFlagKey(key)) key,
-          for (final key in data.countries.keys)
-            if (!isCountryFlagKey(key) &&
-                (key == activeCountry ||
-                    (ref.watch(getDelayProvider(proxyName: key)) ?? 0) > 0))
-              key,
+        // Same-flag servers must NOT collapse into one country row: a flag
+        // group with >1 node expands into one row per server (key = node
+        // name), see countryPickerEntries. Flagged rows are always visible;
+        // flagless rows keep the delay gate below.
+        final entries = [
+          for (final entry in countryPickerEntries(data.countries))
+            if (entry.flagged ||
+                entry.key == activeCountry ||
+                (ref.watch(getDelayProvider(proxyName: entry.key)) ?? 0) > 0)
+              entry,
         ];
 
-        if (countryKeys.isEmpty) {
+        if (entries.isEmpty) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(32),
@@ -729,45 +731,44 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
         // min-size Column instead hugs the content when short (few countries →
         // bottom-anchored short sheet) AND establishes a real maxScrollExtent
         // so the list scrolls once it hits the parent ConstrainedBox cap.
-        Widget buildRow(String flag) => ListItem(
+        Widget buildRow(CountryPickerEntry entry) => ListItem(
               // No reserved leading checkmark column: it skewed the row inset
               // (~48px left vs 16px right). The active row is marked by the
               // primary color + weight instead, keeping insets symmetric.
               title: EmojiText(
-                // Flag countries: «<flag>  <name>». Flagless node keys: the
-                // single 🏴 black flag + the actual server name (the pirate
-                // ZWJ ligature is missing from Twemoji and split into two
-                // glyphs, so plain 🏴 is used deliberately).
-                isCountryFlagKey(flag)
-                    ? '$flag  ${countryDisplayName(flag, data.countries[flag]!)}'
-                    : '$kNoFlagDisplayFlag  $flag',
+                // «<flag>  <name>» for both kinds: a country/server row keeps
+                // its real flag, a flagless node renders the single 🏴 black
+                // flag (the pirate ZWJ ligature is missing from Twemoji and
+                // split into two glyphs, so plain 🏴 is used deliberately).
+                '${entry.flag}  ${entry.label}',
                 style: context.textTheme.titleMedium?.copyWith(
-                  fontWeight: flag == activeCountry
+                  fontWeight: entry.key == activeCountry
                       ? FontWeight.w600
                       : FontWeight.w400,
-                  color: flag == activeCountry ? colorScheme.primary : null,
+                  color:
+                      entry.key == activeCountry ? colorScheme.primary : null,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               trailing: _CountryAvailabilityBadge(
-                proxyName: data.countries[flag]!.first,
+                proxyName: entry.proxyName,
               ),
               onTap: () {
-                widget.onApply(flag);
+                widget.onApply(entry.key);
                 Navigator.of(context).pop();
               },
             );
 
-        // Flag rows render plain (present from the first frame). Flagless
+        // Flagged rows render plain (present from the first frame). Flagless
         // rows enter the list asynchronously — once their delay test
         // succeeds — so they fade in ([_RowReveal]) while the [AnimatedSize]
         // below grows the sheet to fit, both on the Lumina motion tokens.
         final rows = <Widget>[
-          for (final flag in countryKeys)
-            isCountryFlagKey(flag)
-                ? KeyedSubtree(key: ValueKey(flag), child: buildRow(flag))
-                : _RowReveal(key: ValueKey(flag), child: buildRow(flag)),
+          for (final entry in entries)
+            entry.flagged
+                ? KeyedSubtree(key: ValueKey(entry.key), child: buildRow(entry))
+                : _RowReveal(key: ValueKey(entry.key), child: buildRow(entry)),
         ];
 
         return SingleChildScrollView(

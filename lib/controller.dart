@@ -2120,7 +2120,7 @@ class AppController {
         final names = interceptLeafNodes(cfg);
         final country = profile.staticCountry;
         final hasNodes = country != null &&
-            (groupNodesByCountry(names)[country]?.isNotEmpty ?? false);
+            resolveCountryKeyNodes(names, country).isNotEmpty;
         if (!hasNodes) {
           globalState.showNotifier(
             appLocalizations.workModeResetNotice,

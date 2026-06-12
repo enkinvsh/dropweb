@@ -111,3 +111,98 @@ Map<String, List<String>> groupNodesByCountry(Iterable<String> nodeNames) {
 
   return groups;
 }
+
+/// Resolves a stored work-mode country key to its node pool.
+///
+/// Three key kinds are accepted:
+///  * a flag-emoji key — all nodes carrying that flag (the country pool);
+///  * an exact node name of a FLAGGED node — that single node (the picker
+///    offers same-flag servers individually, so the stored key may be a
+///    node name even though the node has a flag);
+///  * a flagless node name — that single node (its own group key already).
+///
+/// Unknown keys resolve to an empty list. mihomo requires unique proxy
+/// names, so a node-name key is unambiguous.
+List<String> resolveCountryKeyNodes(Iterable<String> nodeNames, String key) {
+  final direct = groupNodesByCountry(nodeNames)[key];
+  if (direct != null) return direct;
+  return nodeNames.contains(key) ? <String>[key] : const <String>[];
+}
+
+/// One selectable row of the country picker.
+class CountryPickerEntry {
+  const CountryPickerEntry({
+    required this.key,
+    required this.flag,
+    required this.label,
+    required this.flagged,
+    required this.proxyName,
+  });
+
+  /// Work-mode key stored on apply: a flag emoji (single-server country),
+  /// or an exact node name (expanded same-flag server / flagless node).
+  final String key;
+
+  /// Flag rendered before [label] (🏴 for flagless nodes).
+  final String flag;
+
+  /// Human-readable row text (flag-stripped node name or ISO fallback).
+  final String label;
+
+  /// True for rows backed by a flag-carrying node; false for flagless rows
+  /// (which the picker gates behind a successful delay test).
+  final bool flagged;
+
+  /// The node whose health the availability badge probes.
+  final String proxyName;
+}
+
+/// Flattens [groups] (from [groupNodesByCountry]) into picker rows.
+///
+/// Servers must NOT collapse: a flag group with more than one node expands
+/// into one row PER server («🇩🇪 Германия-1», «🇩🇪 Германия-2»), each keyed by
+/// its node name. Only a single-node flag group renders as a classic country
+/// row keyed by the flag itself. Flagless node groups keep their existing
+/// individual-row behavior and are emitted AFTER all flagged rows. Input
+/// order is preserved.
+List<CountryPickerEntry> countryPickerEntries(
+  Map<String, List<String>> groups,
+) {
+  final flagged = <CountryPickerEntry>[];
+  final flagless = <CountryPickerEntry>[];
+
+  groups.forEach((key, nodes) {
+    if (!isCountryFlagKey(key)) {
+      flagless.add(CountryPickerEntry(
+        key: key,
+        flag: kNoFlagDisplayFlag,
+        label: key,
+        flagged: false,
+        proxyName: key,
+      ));
+      return;
+    }
+    if (nodes.length == 1) {
+      flagged.add(CountryPickerEntry(
+        key: key,
+        flag: key,
+        label: countryDisplayName(key, nodes),
+        flagged: true,
+        proxyName: nodes.single,
+      ));
+      return;
+    }
+    for (final node in nodes) {
+      final stripped = stripCountryFlag(node);
+      flagged.add(CountryPickerEntry(
+        key: node,
+        flag: key,
+        label: stripped.isNotEmpty ? stripped : countryDisplayName(key, const []),
+        flagged: true,
+        proxyName: node,
+      ));
+    }
+  });
+
+  return [...flagged, ...flagless];
+}
