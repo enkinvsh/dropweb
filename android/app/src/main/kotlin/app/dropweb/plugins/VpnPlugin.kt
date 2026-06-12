@@ -17,6 +17,7 @@ import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
+import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.getSystemService
@@ -56,6 +57,8 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private val uidPageNameMap = mutableMapOf<Int, String>()
     private val networks = mutableSetOf<Network>()
     private var screenReceiverRegistered: Boolean = false
+    private var startRequested: Boolean = false
+    private var attachCount = 0
 
     private val connectivity by lazy {
         DropwebApplication.getAppContext().getSystemService<ConnectivityManager>()
@@ -75,21 +78,37 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         override fun onServiceDisconnected(arg: ComponentName) {
             isBind = false
             dropwebService = null
+            stopForegroundJob()
         }
     }
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-        scope = CoroutineScope(Dispatchers.Default)
-        scope.launch {
-            registerNetworkCallback()
+        // This singleton is attached to BOTH the main engine and the service engine.
+        // Create the scope and register the network callback only once (first attach)
+        // so we never overwrite the live scope (leak) nor register `callback` twice
+        // (Android throws IllegalArgumentException → unhandled-coroutine crash).
+        attachCount++
+        if (attachCount == 1) {
+            scope = CoroutineScope(Dispatchers.Default)
+            scope.launch {
+                registerNetworkCallback()
+            }
         }
+        // Channel assignment stays last-wins by design: the service engine attaches
+        // later and is the correct receiver for VPN logic (service isolate runs it).
         flutterMethodChannel = MethodChannel(flutterPluginBinding.binaryMessenger, "vpn")
         flutterMethodChannel.setMethodCallHandler(this)
     }
 
     override fun onDetachedFromEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-        unRegisterNetworkCallback()
-        flutterMethodChannel.setMethodCallHandler(null)
+        attachCount--
+        // Only tear down once the last engine detaches; otherwise the surviving
+        // engine keeps its handler and the shared network callback stays registered.
+        if (attachCount <= 0) {
+            attachCount = 0
+            unRegisterNetworkCallback()
+            flutterMethodChannel.setMethodCallHandler(null)
+        }
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -120,6 +139,7 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     }
 
     fun handleStart(options: VpnOptions): Boolean {
+        startRequested = true
         onUpdateNetwork();
         if (options.enable != this.options?.enable) {
             this.dropwebService = null
@@ -224,11 +244,22 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     private fun registerNetworkCallback() {
         networks.clear()
-        connectivity?.registerNetworkCallback(request, callback)
+        // Defense in depth: a registration error must never escape and crash the
+        // process via an unhandled coroutine.
+        try {
+            connectivity?.registerNetworkCallback(request, callback)
+        } catch (e: Exception) {
+            Log.e("VpnPlugin", "registerNetworkCallback failed", e)
+        }
     }
 
     private fun unRegisterNetworkCallback() {
-        connectivity?.unregisterNetworkCallback(callback)
+        // IllegalArgumentException if `callback` was never registered.
+        try {
+            connectivity?.unregisterNetworkCallback(callback)
+        } catch (e: IllegalArgumentException) {
+            Log.w("VpnPlugin", "unregisterNetworkCallback: callback not registered", e)
+        }
         networks.clear()
         onUpdateNetwork()
     }
@@ -285,13 +316,28 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         }
         GlobalState.runLock.withLock {
             if (GlobalState.runState.value == RunState.START) return
+            // A stop() arrived while bindService() was in flight; onServiceConnected
+            // re-entered here after the bind completed. Honor that stop intent.
+            if (!startRequested) return
             GlobalState.runState.value = RunState.START
+            // start() returns a detached fd (service uses establish()?.detachFd()).
+            // If startTun throws we own that fd and must close it, else it leaks and
+            // runState would stay START with no live tun.
             val fd = dropwebService?.start(options!!)
-            Core.startTun(
-                fd = fd ?: 0,
-                protect = this::protect,
-                resolverProcess = this::resolverProcess,
-            )
+            try {
+                Core.startTun(
+                    fd = fd ?: 0,
+                    protect = this::protect,
+                    resolverProcess = this::resolverProcess,
+                )
+            } catch (e: Exception) {
+                Log.e("VpnPlugin", "Core.startTun failed", e)
+                if (fd != null && fd > 0) {
+                    runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
+                }
+                GlobalState.runState.value = RunState.STOP
+                return
+            }
             updateUnderlyingNetworks()
             registerScreenReceiver()
             startForegroundJob()
@@ -326,12 +372,13 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         if (!uidPageNameMap.containsKey(nextUid)) {
             uidPageNameMap[nextUid] =
                 DropwebApplication.getAppContext().packageManager?.getPackagesForUid(nextUid)
-                    ?.first() ?: ""
+                    ?.firstOrNull() ?: ""
         }
         return uidPageNameMap[nextUid] ?: ""
     }
 
     fun handleStop() {
+        startRequested = false
         GlobalState.runLock.withLock {
             if (GlobalState.runState.value == RunState.STOP) return
             GlobalState.runState.value = RunState.STOP
@@ -339,6 +386,16 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             unregisterScreenReceiver()
             stopForegroundJob()
             Core.stopTun()
+            // UID→package mappings go stale across sessions.
+            uidPageNameMap.clear()
+            // With BIND_AUTO_CREATE the binding keeps the stopped service instance
+            // alive forever unless we unbind. After this isBind=false so bindService()
+            // won't double-unbind; dropwebService=null forces a clean rebind on next start.
+            if (isBind) {
+                runCatching { DropwebApplication.getAppContext().unbindService(connection) }
+                isBind = false
+            }
+            dropwebService = null
             GlobalState.handleTryDestroy()
         }
     }
