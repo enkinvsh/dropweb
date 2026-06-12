@@ -197,6 +197,8 @@ func handleAction(action *Action, result ActionResult) {
 		result.success(true)
 		handleCrash()
 	default:
-		nextHandle(action, result)
+		if !nextHandle(action, result) {
+			result.error(fmt.Sprintf("unsupported method: %s", action.Method))
+		}
 	}
 }
