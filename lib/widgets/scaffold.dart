@@ -26,6 +26,7 @@ class CommonScaffold extends ConsumerStatefulWidget {
     this.bottomNavigationBar,
     this.leading,
     this.title,
+    this.titleBuilder,
     this.actions,
     this.automaticallyImplyLeading = true,
     this.centerTitle,
@@ -40,11 +41,13 @@ class CommonScaffold extends ConsumerStatefulWidget {
     required String title,
     required Function onBack,
     required List<Widget> actions,
+    String Function(BuildContext context)? titleBuilder,
     bool disableBackground = false,
   }) : this(
           key: key,
           body: body,
           title: title,
+          titleBuilder: titleBuilder,
           automaticallyImplyLeading: false,
           actions: actions,
           disableBackground: disableBackground,
@@ -61,6 +64,12 @@ class CommonScaffold extends ConsumerStatefulWidget {
   final Widget? sideNavigationBar;
   final Color? backgroundColor;
   final String? title;
+
+  /// Optional locale-reactive title resolver. When supplied, the app-bar
+  /// title is re-resolved on each build so a page that was pushed before a
+  /// language change re-localizes its header without remounting. Falls back
+  /// to [title] when null.
+  final String Function(BuildContext context)? titleBuilder;
   final Widget? leading;
   final List<Widget>? actions;
   final bool automaticallyImplyLeading;
@@ -277,7 +286,7 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
         )
       : Text(
           !_isEdit
-              ? widget.title!
+              ? (widget.titleBuilder?.call(context) ?? widget.title!)
               : appLocalizations.selectedCountTitle(
                   "${_appBarState.value.editState?.editCount ?? 0}",
                 ),

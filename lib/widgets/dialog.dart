@@ -9,6 +9,7 @@ class CommonDialog extends ConsumerWidget {
   const CommonDialog({
     super.key,
     required this.title,
+    this.titleBuilder,
     this.actions,
     this.child,
     this.padding,
@@ -16,6 +17,10 @@ class CommonDialog extends ConsumerWidget {
     this.backgroundColor,
   });
   final String title;
+
+  /// Optional locale-reactive title resolver; falls back to [title]. Lets a
+  /// dialog re-localize its title in place when the app language changes.
+  final String Function(BuildContext context)? titleBuilder;
   final Widget? child;
   final List<Widget>? actions;
   final EdgeInsets? padding;
@@ -26,7 +31,8 @@ class CommonDialog extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final size = ref.watch(viewSizeProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    
+    final title = titleBuilder?.call(context) ?? this.title;
+
     return AlertDialog(
       clipBehavior: Clip.antiAlias,
       title: title.isEmpty ? null : Text(title),

@@ -112,6 +112,7 @@ class AdaptiveSheetScaffold extends StatefulWidget {
     required this.type,
     required this.body,
     required this.title,
+    this.titleBuilder,
     this.actions = const [],
     this.disableBackground = true,
     this.onTitleTap,
@@ -119,6 +120,11 @@ class AdaptiveSheetScaffold extends StatefulWidget {
   final SheetType type;
   final Widget body;
   final String title;
+
+  /// Optional locale-reactive title resolver. When supplied the header
+  /// title is re-resolved on each build, so a sheet/page pushed before a
+  /// language change re-localizes its title in place. Falls back to [title].
+  final String Function(BuildContext context)? titleBuilder;
   final List<Widget> actions;
   final bool disableBackground;
 
@@ -135,6 +141,7 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = context.colorScheme;
+    final title = widget.titleBuilder?.call(context) ?? widget.title;
     final bottomSheet = widget.type == SheetType.bottomSheet;
     final sideSheet = widget.type == SheetType.sideSheet;
     final page = widget.type == SheetType.page;
@@ -157,9 +164,9 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
           ? GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: widget.onTitleTap,
-              child: Text(widget.title),
+              child: Text(title),
             )
-          : Text(widget.title),
+          : Text(title),
       actions: genActions([
         if (widget.actions.isEmpty && sideSheet) const CloseButton(),
         ...widget.actions,

@@ -19,8 +19,12 @@ class OptionsDialog<T> extends StatelessWidget {
     required this.options,
     required this.textBuilder,
     required this.value,
+    this.titleBuilder,
   });
   final String title;
+
+  /// Optional locale-reactive title resolver; falls back to [title].
+  final String Function(BuildContext context)? titleBuilder;
   final List<T> options;
   final T value;
   final String Function(T value) textBuilder;
@@ -28,6 +32,7 @@ class OptionsDialog<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) => CommonDialog(
         title: title,
+        titleBuilder: titleBuilder,
         padding: const EdgeInsets.symmetric(
           horizontal: 8,
           vertical: 16,

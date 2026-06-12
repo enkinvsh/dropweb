@@ -1,5 +1,6 @@
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/dev_unlock_counter.dart';
+import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/cabinet/cabinet_browser_entry.dart';
@@ -115,6 +116,7 @@ void _openToolsSheet(BuildContext context, WidgetRef ref) {
       disableBackground: false,
       body: const ToolsView(),
       title: appLocalizations.tools,
+      titleBuilder: (context) => AppLocalizations.of(context).tools,
       onTitleTap: () => _onSettingsTitleTap(ref),
     ),
   );

@@ -51,12 +51,20 @@ class OpenDelegate extends Delegate {
   const OpenDelegate({
     required this.title,
     required this.widget,
+    this.titleBuilder,
     this.maxWidth,
     this.action,
     this.blur = true,
   });
   final Widget widget;
   final String title;
+
+  /// Optional locale-reactive title resolver. When provided, the rendered
+  /// scaffold re-resolves the title on every build (e.g. via
+  /// `AppLocalizations.of(context)`), so already-pushed pages re-localize
+  /// their app-bar title when the app language changes. Falls back to
+  /// [title] when null.
+  final String Function(BuildContext context)? titleBuilder;
   final double? maxWidth;
   final Widget? action;
   final bool blur;
@@ -86,9 +94,13 @@ class OptionsDelegate<T> extends Delegate {
     required this.textBuilder,
     required this.value,
     required this.onChanged,
+    this.titleBuilder,
   });
   final List<T> options;
   final String title;
+
+  /// Optional locale-reactive title resolver; see [OpenDelegate.titleBuilder].
+  final String Function(BuildContext context)? titleBuilder;
   final T value;
   final String Function(T value) textBuilder;
   final Function(T? value) onChanged;
@@ -292,6 +304,7 @@ class ListItem<T> extends StatelessWidget {
                     type: type,
                     body: child,
                     title: openDelegate.title,
+                    titleBuilder: openDelegate.titleBuilder,
                   ),
               );
               return;
@@ -307,6 +320,7 @@ class ListItem<T> extends StatelessWidget {
             key: Key(openDelegate.title),
             onBack: action,
             title: openDelegate.title,
+            titleBuilder: openDelegate.titleBuilder,
             body: child,
             disableBackground: true,
             actions: [
@@ -348,6 +362,7 @@ class ListItem<T> extends StatelessWidget {
           final value = await globalState.showCommonDialog<T>(
             child: OptionsDialog<T>(
               title: optionsDelegate.title,
+              titleBuilder: optionsDelegate.titleBuilder,
               options: optionsDelegate.options,
               textBuilder: optionsDelegate.textBuilder,
               value: optionsDelegate.value,

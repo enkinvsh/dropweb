@@ -35,6 +35,12 @@ class _ToolboxViewState extends ConsumerState<ToolsView> {
         title: Text(Intl.message(navigationItem.label.name)),
         delegate: OpenDelegate(
           title: Intl.message(navigationItem.label.name),
+          titleBuilder: (context) {
+            // Subscribe to Localizations so the pushed page re-resolves its
+            // header when the app language changes.
+            Localizations.localeOf(context);
+            return Intl.message(navigationItem.label.name);
+          },
           widget: navigationItem.view,
         ),
       );
@@ -154,6 +160,7 @@ class _LocaleItem extends ConsumerWidget {
       title: Text(appLocale.language),
       delegate: OptionsDelegate(
         title: appLocale.language,
+        titleBuilder: (context) => AppLocalizations.of(context).language,
         options: [null, ...AppLocalizations.delegate.supportedLocales],
         onChanged: (locale) {
           ref.read(appSettingProvider.notifier).updateState(
@@ -178,6 +185,7 @@ class _ThemeItem extends StatelessWidget {
       title: Text(appLocale.theme),
       delegate: OpenDelegate(
         title: appLocale.theme,
+        titleBuilder: (context) => AppLocalizations.of(context).theme,
         widget: const ThemeView(),
       ),
     );
@@ -215,6 +223,7 @@ class _AccessItem extends StatelessWidget {
       title: Text(appLocale.accessControl),
       delegate: OpenDelegate(
         title: appLocale.accessControl,
+        titleBuilder: (context) => AppLocalizations.of(context).accessControl,
         widget: const AccessView(),
       ),
     );
@@ -232,6 +241,7 @@ class _ConfigItem extends StatelessWidget {
       title: Text(appLocale.basicConfig),
       delegate: OpenDelegate(
         title: appLocale.override,
+        titleBuilder: (context) => AppLocalizations.of(context).override,
         widget: const ConfigView(),
       ),
     );
@@ -249,6 +259,7 @@ class _SettingItem extends StatelessWidget {
       title: Text(appLocale.application),
       delegate: OpenDelegate(
         title: appLocale.application,
+        titleBuilder: (context) => AppLocalizations.of(context).application,
         widget: const ApplicationSettingView(),
       ),
     );
@@ -289,6 +300,7 @@ class _InfoItem extends StatelessWidget {
       title: Text(appLocale.about),
       delegate: OpenDelegate(
         title: appLocale.about,
+        titleBuilder: (context) => AppLocalizations.of(context).about,
         widget: const AboutView(),
       ),
     );
@@ -306,6 +318,7 @@ class _DeveloperItem extends StatelessWidget {
       title: Text(appLocale.developerMode),
       delegate: OpenDelegate(
         title: appLocale.developerMode,
+        titleBuilder: (context) => AppLocalizations.of(context).developerMode,
         widget: const DeveloperView(),
       ),
     );
