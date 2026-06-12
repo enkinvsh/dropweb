@@ -198,6 +198,10 @@ abstract class ClashHandlerInterface with ClashInterface {
         method: ActionMethod.updateConfig,
         data: json.encode(updateParams),
         timeout: const Duration(minutes: 2),
+        // A timed-out mutating call must surface as an error, not the empty
+        // string (which callers treat as success and would then cache the
+        // setup hash, suppressing the next real setup). Fail closed.
+        onTimeout: () => "error: core call timed out (updateConfig)",
       );
 
   @override
@@ -215,6 +219,10 @@ abstract class ClashHandlerInterface with ClashInterface {
       method: ActionMethod.setupConfig,
       data: data,
       timeout: const Duration(minutes: 2),
+      // A timed-out mutating call must surface as an error, not the empty
+      // string (which callers treat as success and would then cache the
+      // setup hash, suppressing the next real setup). Fail closed.
+      onTimeout: () => "error: core call timed out (setupConfig)",
     );
   }
 
