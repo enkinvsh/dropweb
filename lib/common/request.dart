@@ -197,49 +197,44 @@ class Request {
   };
 
   Future<Result<IpInfo?>> checkIp({CancelToken? cancelToken}) async {
-    var failureCount = 0;
-    final futures = _ipInfoSources.entries.map((source) async {
-      final completer = Completer<Result<IpInfo?>>();
-      final future = Dio().get<Map<String, dynamic>>(
-        source.key,
-        cancelToken: cancelToken,
-        options: Options(
-          responseType: ResponseType.json,
-        ),
-      );
-      future.then((res) {
-        final data = res.data;
-        if (res.statusCode == HttpStatus.ok && data != null) {
-          try {
-            final info = source.value(data);
-            if (!completer.isCompleted) {
-              completer.complete(Result.success(info));
-            }
-            return;
-          } catch (_) {
-            // Malformed payload — fall through to failure counter.
+    // Dedicated Dio with per-request timeouts so a hung geo endpoint can never
+    // stall the check indefinitely (the previous bare Dio() had no timeouts).
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 5),
+        receiveTimeout: const Duration(seconds: 3),
+      ),
+    );
+    try {
+      // Try each source sequentially, stopping at the first success. This avoids
+      // firing all four geo APIs through the proxy on every check.
+      for (final source in _ipInfoSources.entries) {
+        try {
+          final res = await dio.get<Map<String, dynamic>>(
+            source.key,
+            cancelToken: cancelToken,
+            options: Options(
+              responseType: ResponseType.json,
+            ),
+          );
+          final data = res.data;
+          if (res.statusCode == HttpStatus.ok && data != null) {
+            return Result.success(source.value(data));
           }
+        } on DioException catch (e) {
+          // Honor caller cancellation; do NOT cancel the token ourselves.
+          if (e.type == DioExceptionType.cancel) {
+            return Result.error("cancelled");
+          }
+          // Timeout / network error — fall through and try the next source.
+        } catch (_) {
+          // Malformed payload — fall through and try the next source.
         }
-        failureCount++;
-        if (failureCount == _ipInfoSources.length && !completer.isCompleted) {
-          completer.complete(Result.success(null));
-        }
-      }).catchError((e) {
-        failureCount++;
-        if (completer.isCompleted) return;
-        if (e is DioException && e.type == DioExceptionType.cancel) {
-          completer.complete(Result.error("cancelled"));
-          return;
-        }
-        if (failureCount == _ipInfoSources.length) {
-          completer.complete(Result.success(null));
-        }
-      });
-      return completer.future;
-    });
-    final res = await Future.any(futures);
-    cancelToken?.cancel();
-    return res;
+      }
+      return Result.success(null);
+    } finally {
+      dio.close();
+    }
   }
 
   Future<bool> pingHelper() async {
