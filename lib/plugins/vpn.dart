@@ -125,7 +125,9 @@ class Vpn {
           proxyName = globalState.appController
               .getSelectedProxyName(serverInfoGroupName);
         }
-      } catch (_) {}
+      } catch (e) {
+        commonPrint.log('[vpn] failed to resolve selected proxy name: $e');
+      }
 
       final serverDisplay = (proxyName ?? "").trim();
       final title = serverDisplay.isNotEmpty

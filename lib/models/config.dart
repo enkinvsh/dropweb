@@ -292,7 +292,9 @@ class Config with _$Config {
           proxiesStyle["iconStyle"] = "icon";
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      commonPrint.log('[config] swallowed config migration error: $e');
+    }
     return Config.fromJson(json);
   }
 }
