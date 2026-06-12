@@ -123,6 +123,31 @@ class AppController {
   final BuildContext context;
   final WidgetRef _ref;
 
+  /// Serializes the disk-touching sections that race over the on-disk
+  /// GeoIP/GeoSite/MMDB/ASN files. `applyProfile` reads/copies those files into
+  /// the core while the geo updater downloads and overwrites them; running both
+  /// concurrently causes sharing violations on Windows and can corrupt geodata.
+  /// Both the apply ([_applyProfile]) and the geo write section of the updater
+  /// (in [ProfileService]) enqueue onto this single promise chain so they never
+  /// overlap. The network fetch (HEAD metadata) stays OUTSIDE this lock — only
+  /// the disk write + core reload enqueue here.
+  Future<void> _geoFileLock = Future.value();
+
+  /// Runs [action] only after any previously enqueued geo-file operation
+  /// finishes, and makes the next one wait for [action]. Errors are propagated
+  /// to the caller but do not break the chain for subsequent callers.
+  Future<T> withGeoFileLock<T>(Future<T> Function() action) {
+    final completer = Completer<T>();
+    _geoFileLock = _geoFileLock.then((_) async {
+      try {
+        completer.complete(await action());
+      } catch (e, st) {
+        completer.completeError(e, st);
+      }
+    });
+    return completer.future;
+  }
+
   /// App self-update concern, extracted behind this facade. The delegating
   /// `autoCheckUpdate` / `checkUpdateResultHandle` methods below keep every
   /// existing call site untouched.
@@ -285,8 +310,6 @@ class AppController {
         return;
       }
     }
-    await StatusBarManager.updateIcon(isConnected: isStart);
-
     if (isStart) {
       // Regenerate proxy credentials for this session (SOCKS port protection)
       globalState.regenerateProxyCredentials();
@@ -296,8 +319,25 @@ class AppController {
         updateRunTime,
         updateTraffic,
       ]);
-      if (!started) {
+      // null => a start/stop transition is already in flight (double-tap).
+      // Do nothing: no toast, and leave the status icon untouched.
+      if (started == null) {
+        return;
+      }
+      // false => the start was attempted but failed. Revert the icon (it may
+      // have been flipped on by an optimistic UI) and surface the error.
+      if (started == false) {
+        await StatusBarManager.updateIcon(isConnected: false);
         globalState.showNotifier(ErrorMapper.vpnStartFailed);
+        return;
+      }
+      // true => connected. Only now is it honest to show the connected icon.
+      await StatusBarManager.updateIcon(isConnected: true);
+      if (Platform.isAndroid) {
+        // FlClashX parity: the long-lived mihomo executor (DNS resolver, fake-ip
+        // pool, providers) survives stop→start and degrades over long sessions —
+        // force a full profile re-setup on every Android connect.
+        applyProfileDebounce();
         return;
       }
       final currentLastModified =
@@ -312,7 +352,17 @@ class AppController {
       }
       applyProfileDebounce();
     } else {
-      await globalState.handleStop();
+      // false => stop was ignored because a transition is in flight; do not
+      // tear down UI/providers for a stop that never happened.
+      final stopped = await globalState.handleStop();
+      if (!stopped) return;
+      await StatusBarManager.updateIcon(isConnected: false);
+      // The mihomo executor survives stop→start and degrades over long
+      // sessions (B2). The forced Android applyProfileDebounce() on connect
+      // would be defeated by the setup-hash cache ("setup skipped"), so drop
+      // the hash here: every connect-after-disconnect performs a REAL core
+      // re-setup, while repeated applies during a live session stay cached.
+      _lastSetupHash = null;
       // Clear credentials on disconnect
       globalState.clearProxyCredentials();
       clashCore.resetTraffic();
@@ -776,10 +826,15 @@ class AppController {
   }
 
   Future _applyProfile() async {
-    clashCore.requestGc();
-    await setupClashConfig();
-    await updateGroups();
-    await updateProviders();
+    // Serialize against the geo-file updater: setupClashConfig reads/copies the
+    // geo files into the core, which must not overlap with a concurrent geo
+    // download+write (see [withGeoFileLock]).
+    await withGeoFileLock(() async {
+      clashCore.requestGc();
+      await setupClashConfig();
+      await updateGroups();
+      await updateProviders();
+    });
   }
 
   Future applyProfile({bool silence = false}) async {

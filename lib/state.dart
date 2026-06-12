@@ -234,12 +234,21 @@ class GlobalState {
   }
 
   /// Serialises VPN start/stop so a double-tap can't spawn duplicate listeners.
+  /// Return-value contract lets the caller tell apart three outcomes:
+  ///   - handleStart: `true` performed/connected, `false` performed but failed
+  ///     (caller should surface an error + roll back the icon), `null` ignored
+  ///     because a transition was already in flight (caller must NOT toast).
+  ///   - handleStop: `true` performed teardown, `false` ignored because a
+  ///     transition was already in flight (caller must NOT clear UI state).
   bool _vpnTransitionInFlight = false;
 
-  Future<bool> handleStart([UpdateTasks? tasks]) async {
+  Future<bool?> handleStart([UpdateTasks? tasks]) async {
     if (_vpnTransitionInFlight) {
       commonPrint.log('handleStart ignored: transition already in flight');
-      return startTime != null;
+      // Ignored (not failed): a start/stop is already running. Returning null
+      // — instead of a bool — stops the caller from rendering a false
+      // "VPN Start Failed" toast on a double-tap.
+      return null;
     }
     _vpnTransitionInFlight = true;
     // Wait for the native TUN listener readiness ack only on Android when the
@@ -311,10 +320,12 @@ class GlobalState {
     startTime = await clashLib?.getRunTime();
   }
 
-  Future<void> handleStop() async {
+  Future<bool> handleStop() async {
     if (_vpnTransitionInFlight) {
       commonPrint.log('handleStop ignored: transition already in flight');
-      return;
+      // Ignored: a start/stop is in flight. Returning false tells the caller
+      // not to tear down UI/providers for a stop that never happened.
+      return false;
     }
     _vpnTransitionInFlight = true;
     try {
@@ -329,6 +340,7 @@ class GlobalState {
         commonPrint.log('service.stopVpn() failed: $e');
       }
       stopUpdateTasks();
+      return true;
     } finally {
       _vpnTransitionInFlight = false;
     }
