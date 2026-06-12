@@ -79,9 +79,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "allowLan": MessageLookupByLibrary.simpleMessage("LANを許可"),
     "allowLanDesc": MessageLookupByLibrary.simpleMessage("LAN経由でのプロキシアクセスを許可"),
     "alwaysOnVpn": MessageLookupByLibrary.simpleMessage("常時接続VPN"),
-    "alwaysOnVpnDesc": MessageLookupByLibrary.simpleMessage(
-      "切断からの保護：システムの常時接続VPN＋VPNなしの接続をブロック",
-    ),
     "alwaysOnVpnOpenFailed": MessageLookupByLibrary.simpleMessage(
       "VPN設定を開けませんでした",
     ),

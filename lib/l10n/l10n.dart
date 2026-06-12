@@ -4109,16 +4109,6 @@ class AppLocalizations {
     );
   }
 
-  /// `Protection from disconnection: system Always-on VPN + block connections without VPN`
-  String get alwaysOnVpnDesc {
-    return Intl.message(
-      'Protection from disconnection: system Always-on VPN + block connections without VPN',
-      name: 'alwaysOnVpnDesc',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `Couldn't open VPN settings`
   String get alwaysOnVpnOpenFailed {
     return Intl.message(

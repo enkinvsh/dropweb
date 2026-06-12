@@ -499,7 +499,6 @@
   "otherCountries": "Other",
   "genericErrorMessage": "出了点问题，请重试。",
   "qrScanFromImageUnsupported": "此平台不支持从图片扫描二维码，请改用订阅链接。",
-  "alwaysOnVpn": "始终开启 VPN",
-  "alwaysOnVpnDesc": "防止断连：系统始终开启 VPN + 阻止无 VPN 时的连接",
+  "alwaysOnVpn": "始终开启的VPN",
   "alwaysOnVpnOpenFailed": "无法打开 VPN 设置"
 }

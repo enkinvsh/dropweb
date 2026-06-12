@@ -353,7 +353,6 @@ class AlwaysOnVpnItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) => ListItem(
         title: Text(appLocalizations.alwaysOnVpn),
-        subtitle: Text(appLocalizations.alwaysOnVpnDesc),
         leading: HugeIcon(icon: HugeIcons.strokeRoundedShield01, size: 24),
         trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 16),
         onTap: () async {

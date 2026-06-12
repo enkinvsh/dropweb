@@ -500,6 +500,5 @@
   "genericErrorMessage": "問題が発生しました。もう一度お試しください。",
   "qrScanFromImageUnsupported": "この環境では画像からのQRコード読み取りに対応していません。サブスクリプションURLをご利用ください。",
   "alwaysOnVpn": "常時接続VPN",
-  "alwaysOnVpnDesc": "切断からの保護：システムの常時接続VPN＋VPNなしの接続をブロック",
   "alwaysOnVpnOpenFailed": "VPN設定を開けませんでした"
 }
