@@ -11,6 +11,7 @@ import 'package:dropweb/plugins/tile.dart';
 import 'package:dropweb/plugins/vpn.dart';
 import 'package:dropweb/services/deep_link_handler.dart';
 import 'package:dropweb/state.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,9 +21,39 @@ import 'clash/lib.dart';
 import 'common/common.dart';
 import 'models/models.dart';
 
+/// Installs global handlers so uncaught framework and async errors are routed
+/// through `commonPrint.log` — the central redaction chokepoint — and reach the
+/// file log (and in-app log buffer). Without these, uncaught errors in release
+/// builds vanish silently (no crash-reporting SDK by design for the RU market).
+///
+/// Handlers MUST never throw, so `commonPrint.log` is wrapped defensively even
+/// though it is safe to call before full app init (it queues to the file log
+/// and only touches the app controller once `globalState.isInit` is true).
+void _installGlobalErrorHandlers() {
+  FlutterError.onError = (details) {
+    try {
+      commonPrint.log(
+        '[flutter-error] ${details.exceptionAsString()}\n${details.stack}',
+      );
+    } catch (_) {}
+    // Preserve debug DX: keep the red error screen / console stacktrace.
+    if (kDebugMode) {
+      FlutterError.presentError(details);
+    }
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    try {
+      commonPrint.log('[uncaught] $error\n$stack');
+    } catch (_) {}
+    // Returning true marks the error as handled so it does not propagate.
+    return true;
+  };
+}
+
 Future<void> main() async {
   globalState.isService = false;
   WidgetsFlutterBinding.ensureInitialized();
+  _installGlobalErrorHandlers();
 
   if (Platform.isWindows || Platform.isLinux) {
     DartPluginRegistrant.ensureInitialized();
@@ -55,6 +86,9 @@ Future<void> _service(List<String> flags) async {
   commonPrint.log("[DART] Setting isService = true");
 
   WidgetsFlutterBinding.ensureInitialized();
+  // The VPN service runs in a separate vm:entry-point isolate with its own
+  // PlatformDispatcher/zone, so install the same guards here too.
+  _installGlobalErrorHandlers();
   // Flush any logs that were queued before bindings were initialized
   fileLogger.flushPendingLogs();
   commonPrint.log("[DART] WidgetsFlutterBinding initialized");
