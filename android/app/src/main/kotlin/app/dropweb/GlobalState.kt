@@ -44,8 +44,15 @@ object GlobalState {
 
     fun syncStatus() {
         CoroutineScope(Dispatchers.Default).launch {
-            val status = getCurrentVPNPlugin()?.getStatus() ?: false
-            withContext(Dispatchers.Main){
+            // runState is the synchronous source of truth for the tile; this Dart
+            // round-trip is enrichment only and must not clobber it. Bail when the
+            // status is indeterminate (no service engine after process recreation →
+            // VPNPlugin null, or null reply) and never overwrite an in-flight PENDING.
+            // After process death the Go core (same process) is dead, so runState's
+            // STOP already reflects reality.
+            val status = getCurrentVPNPlugin()?.getStatus() ?: return@launch
+            withContext(Dispatchers.Main) {
+                if (runState.value == RunState.PENDING) return@withContext
                 runState.value = if (status) RunState.START else RunState.STOP
             }
         }
