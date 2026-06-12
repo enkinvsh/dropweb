@@ -4,7 +4,6 @@ import 'package:dropweb/common/utils.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:tray_manager/tray_manager.dart';
 
 import 'app_localizations.dart';
@@ -54,47 +53,18 @@ class Tray {
         force: focus,
       );
     }
-    final menuItems = <MenuItem>[];
+    // Intentionally minimal tray menu: only Показать / Автозапуск / Выход.
+    // The старт-стоп, TUN, системный прокси, копирование переменных
+    // окружения and перезапуск entries were removed — connect/disconnect
+    // and proxy toggles live in the window UI; the mode axis
+    // (rule/global/direct) is DERIVED from the profile's work mode in
+    // AppController._setupClashConfig and must not be switched from the tray.
     final showMenuItem = MenuItem(
       label: appLocalizations.show,
       onClick: (_) {
         window?.show();
       },
     );
-    menuItems.add(showMenuItem);
-    final startMenuItem = MenuItem.checkbox(
-      label: trayState.isStart ? appLocalizations.stop : appLocalizations.start,
-      onClick: (_) async {
-        globalState.appController.updateStart();
-      },
-      checked: false,
-    );
-    menuItems.add(startMenuItem);
-    // The rule/global/direct mode axis is dead — mode is DERIVED from the
-    // current profile's work mode (Country ⇒ global, else rule) in
-    // AppController._setupClashConfig. The tray must not switch it independently.
-    menuItems.add(MenuItem.separator());
-    if (trayState.isStart) {
-      menuItems.add(
-        MenuItem.checkbox(
-          label: appLocalizations.tun,
-          onClick: (_) {
-            globalState.appController.updateTun();
-          },
-          checked: trayState.tunEnable,
-        ),
-      );
-      menuItems.add(
-        MenuItem.checkbox(
-          label: appLocalizations.systemProxy,
-          onClick: (_) {
-            globalState.appController.updateSystemProxy();
-          },
-          checked: trayState.systemProxy,
-        ),
-      );
-      menuItems.add(MenuItem.separator());
-    }
     final autoStartMenuItem = MenuItem.checkbox(
       label: appLocalizations.autoLaunch,
       onClick: (_) async {
@@ -102,29 +72,18 @@ class Tray {
       },
       checked: trayState.autoLaunch,
     );
-    final copyEnvVarMenuItem = MenuItem(
-      label: appLocalizations.copyEnvVar,
-      onClick: (_) async {
-        await _copyEnv(trayState.port);
-      },
-    );
-    menuItems.add(autoStartMenuItem);
-    menuItems.add(copyEnvVarMenuItem);
-    menuItems.add(MenuItem.separator());
-    final restartMenuItem = MenuItem(
-      label: appLocalizations.restart,
-      onClick: (_) async {
-        await globalState.appController.handleRestart();
-      },
-    );
-    menuItems.add(restartMenuItem);
     final exitMenuItem = MenuItem(
       label: appLocalizations.exit,
       onClick: (_) async {
         await globalState.appController.handleExit();
       },
     );
-    menuItems.add(exitMenuItem);
+    final menuItems = <MenuItem>[
+      showMenuItem,
+      autoStartMenuItem,
+      MenuItem.separator(),
+      exitMenuItem,
+    ];
     final menu = Menu(items: menuItems);
     await trayManager.setContextMenu(menu);
     if (Platform.isLinux) {
@@ -137,20 +96,6 @@ class Tray {
   }
 
   Future<void> updateTrayTitle([Traffic? traffic]) async {}
-
-  Future<void> _copyEnv(int port) async {
-    final url = "http://127.0.0.1:$port";
-
-    final cmdline = Platform.isWindows
-        ? "set \$env:all_proxy=$url"
-        : "export all_proxy=$url";
-
-    await Clipboard.setData(
-      ClipboardData(
-        text: cmdline,
-      ),
-    );
-  }
 }
 
 final tray = Tray();

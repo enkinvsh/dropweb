@@ -136,17 +136,29 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
       return const SizedBox.expand();
     }
 
-    // Mobile / narrow-window view overlays the floating connect button at
-    // ~79% of viewport height (see `_mobileConnectAlignment` /
-    // `_MobileConnectButtonOverlay` in `pages/home.dart`). When the
-    // desktop window is shrunk vertically the subscription/metainfo
-    // card ends up *behind* the connect lens because the scroll content
-    // has no room to slide above it. Reserve bottom padding proportional
-    // to the viewport height (with a sensible floor / ceiling) so the
-    // last dashboard widget can always scroll out from under the lens.
+    // Mobile / narrow-window view (this includes the fixed 450px Windows /
+    // Linux desktop window, width < maxMobileWidth) overlays the floating
+    // connect lens at ~79% of viewport height (see `_mobileConnectAlignment`
+    // = Alignment(0, 0.58) and `_connectMaxSize` in `pages/home.dart`). The
+    // lens is a tappable circle painted *over* the scroll area, so a long
+    // ServiceInfo / announce card can sit behind it and become unreadable /
+    // un-tappable. We can't move the lens (it lives in home.dart), so we
+    // instead reserve bottom scroll padding large enough that any dashboard
+    // widget can always scroll fully ABOVE the lens.
+    //
+    // Geometry: the lens center sits at fraction (1 + 0.58) / 2 = 0.79 of the
+    // viewport, with radius up to _connectMaxSize / 2 = 80px, so its TOP edge
+    // is at ~0.79*H - 80. For the bottom of real content to scroll above that
+    // edge after a full scroll, the reserve must be at least
+    // H - (0.79*H - 80) = 0.21*H + 80 (plus a small visual margin). We floor
+    // the previous 0.42*H heuristic to that geometric requirement so the
+    // announce card is guaranteed never to stay overlapped by the connect
+    // lens, regardless of window/viewport height.
     final viewportHeight = MediaQuery.sizeOf(context).height;
+    final lensClearance = viewportHeight * 0.21 + 80 + 24;
+    final reserveHeuristic = (viewportHeight * 0.42).clamp(200.0, 320.0);
     final bottomReserve = isMobileView
-        ? (viewportHeight * 0.42).clamp(200.0, 320.0)
+        ? (reserveHeuristic > lensClearance ? reserveHeuristic : lensClearance)
         : 16.0;
 
     bool isAllowed(DashboardWidget item) => _isAllowedWidget(
