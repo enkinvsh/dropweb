@@ -31,6 +31,25 @@ const int _regionalIndicatorEnd = 0x1F1FF;
 bool _isRegionalIndicator(int rune) =>
     rune >= _regionalIndicatorStart && rune <= _regionalIndicatorEnd;
 
+/// Converts a two-letter ISO 3166-1 alpha-2 [countryCode] (e.g. "DE") into its
+/// flag emoji (🇩🇪) via the standard regional-indicator transform — the reverse
+/// of [countryDisplayName]'s ISO fallback.
+///
+/// Returns null when [countryCode] is not exactly two ASCII letters (the core
+/// returns "" for a GeoIP miss / private IP), so callers can simply omit the
+/// flag badge instead of rendering garbage.
+String? countryCodeToFlag(String countryCode) {
+  final code = countryCode.toUpperCase();
+  if (code.length != 2) return null;
+  final first = code.codeUnitAt(0);
+  final second = code.codeUnitAt(1);
+  const a = 0x41;
+  const z = 0x5A;
+  if (first < a || first > z || second < a || second > z) return null;
+  return String.fromCharCode(first - a + _regionalIndicatorStart) +
+      String.fromCharCode(second - a + _regionalIndicatorStart);
+}
+
 /// Human-readable display name for a country bucket.
 ///
 /// Subscription node names carry the localized country name after the flag
