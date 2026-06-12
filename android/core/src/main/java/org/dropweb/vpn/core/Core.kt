@@ -2,7 +2,6 @@ package org.dropweb.vpn.core
 
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.net.URL
 
 data object Core {
     private external fun startTun(
@@ -11,9 +10,18 @@ data object Core {
     )
 
     private fun parseInetSocketAddress(address: String): InetSocketAddress {
-        val url = URL("https://$address")
-
-        return InetSocketAddress(InetAddress.getByName(url.host), url.port)
+        // Runs on a JNI callback thread — any throw crashes the process. Parse
+        // manually (bare IPv6 / missing port break URL) and fall back to the
+        // wildcard:0 address, which the resolver call site tolerates (-1 uid → "").
+        return try {
+            val idx = address.lastIndexOf(':')
+            if (idx < 0) return InetSocketAddress(0)
+            val host = address.substring(0, idx).removePrefix("[").removeSuffix("]")
+            val port = address.substring(idx + 1).toIntOrNull() ?: 0
+            InetSocketAddress(InetAddress.getByName(host), port)
+        } catch (e: Exception) {
+            InetSocketAddress(0)
+        }
     }
 
     fun startTun(
