@@ -25,6 +25,17 @@ class Windows {
   late DynamicLibrary _shell32;
   late DynamicLibrary _uxtheme;
 
+  /// Kernel-level kill for last-resort exit watchdogs. Bypasses CRT teardown
+  /// and DLL PROCESS_DETACH entirely — exit(0) with live engine/plugin
+  /// threads is exactly the "Unknown Hard Error" crash on Windows, and
+  /// re-posting WM_QUIT is a no-op when the message loop is wedged.
+  Never forceExit() {
+    TerminateProcess(GetCurrentProcess(), 0);
+    // TerminateProcess never returns for the calling process, but the
+    // analyzer can't know that.
+    exit(0);
+  }
+
   bool isDarkMode() {
     try {
       final keyPath =

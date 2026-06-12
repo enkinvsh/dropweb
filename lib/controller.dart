@@ -119,6 +119,7 @@ class AppController {
   String? _lastSetupHash;
 
   Timer? _profileUpdateTimer;
+  bool _isExiting = false;
   final BuildContext context;
   final WidgetRef _ref;
 
@@ -913,17 +914,40 @@ class AppController {
   }
 
   Future<void> handleExit() async {
-    _profileUpdateTimer?.cancel();
-    Future.delayed(commonDuration, system.exit);
-    try {
-      await savePreferences();
-      await system.setMacOSDns(true);
-      await proxy?.stopProxy();
-      await clashCore.shutdown();
-      await clashService?.destroy();
-    } finally {
-      system.exit();
+    if (_isExiting) {
+      return;
     }
+    _isExiting = true;
+    _profileUpdateTimer?.cancel();
+    // Last-resort watchdog. Graceful cleanup legitimately takes up to ~2s
+    // (helper /stop HTTP call) — the old 300ms delay fired mid-cleanup and
+    // the resulting raw exit(0) crashed Windows with "Unknown Hard Error".
+    // On Windows this must be TerminateProcess: if the message loop is
+    // wedged, system.exit (PostQuitMessage) is a no-op and exit(0) would
+    // reproduce the teardown crash.
+    Future.delayed(const Duration(seconds: 5), () {
+      windows?.forceExit();
+      system.exit();
+    });
+    // Each step guarded independently: a throw in an early step (e.g.
+    // SocketException 10054 shrapnel when the core closes the bridge socket)
+    // must never skip core shutdown / socket teardown — that would orphan
+    // the core process.
+    Future<void> guarded(Future<void> Function() step) async {
+      try {
+        await step();
+      } catch (_) {}
+    }
+
+    // Hide the window first: stops the rasterizer mid-animation and makes
+    // the exit feel instant while teardown proceeds.
+    await guarded(() async => window?.hide());
+    await guarded(savePreferences);
+    await guarded(() => system.setMacOSDns(true));
+    await guarded(() async => proxy?.stopProxy());
+    await guarded(clashCore.shutdown);
+    await guarded(() async => clashService?.destroy());
+    await system.exit();
   }
 
   Future<void> handleRestart() async {
@@ -1165,34 +1189,46 @@ class AppController {
     );
   }
 
-  Future<bool> showDisclaimer() async {
+  /// [readOnly] — informational mode for the settings entry: a single
+  /// "Close" action, dismissible, and never exits the app. The first-run
+  /// accept/exit flow keeps the default (false).
+  Future<bool> showDisclaimer({bool readOnly = false}) async {
     final accepted = await globalState.showCommonDialog<bool>(
-      dismissible: false,
+      dismissible: readOnly,
       child: CommonDialog(
         title: appLocalizations.disclaimer,
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop<bool>(false);
-            },
-            child: Text(appLocalizations.exit),
-          ),
-          TextButton(
-            onPressed: () {
-              _ref.read(appSettingProvider.notifier).updateState(
-                    (state) => state.copyWith(disclaimerAccepted: true),
-                  );
-              Navigator.of(context).pop<bool>(true);
-            },
-            child: Text(appLocalizations.agree),
-          )
-        ],
+        actions: readOnly
+            ? [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop<bool>(true);
+                  },
+                  child: Text(appLocalizations.close),
+                ),
+              ]
+            : [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop<bool>(false);
+                  },
+                  child: Text(appLocalizations.exit),
+                ),
+                TextButton(
+                  onPressed: () {
+                    _ref.read(appSettingProvider.notifier).updateState(
+                          (state) => state.copyWith(disclaimerAccepted: true),
+                        );
+                    Navigator.of(context).pop<bool>(true);
+                  },
+                  child: Text(appLocalizations.agree),
+                )
+              ],
         child: SelectableText(
           appLocalizations.disclaimerDesc,
         ),
       ),
     );
-    return accepted ?? false;
+    return accepted ?? readOnly;
   }
 
   Future<void> _handlerDisclaimer() async {

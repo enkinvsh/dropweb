@@ -277,12 +277,10 @@ class _DisclaimerItem extends StatelessWidget {
       leading:
           const HugeIcon(icon: HugeIcons.strokeRoundedLegalHammer, size: 24),
       title: Text(appLocale.disclaimer),
-      onTap: () async {
-        final isDisclaimerAccepted =
-            await globalState.appController.showDisclaimer();
-        if (!isDisclaimerAccepted) {
-          unawaited(globalState.appController.handleExit());
-        }
+      onTap: () {
+        // Informational re-read from settings — must never exit the app
+        // (the accept/exit choice belongs to the first-run flow only).
+        unawaited(globalState.appController.showDisclaimer(readOnly: true));
       },
     );
   }

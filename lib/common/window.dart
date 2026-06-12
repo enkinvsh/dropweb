@@ -109,6 +109,23 @@ class Window {
   }
 
   Future<void> close() async {
+    if (Platform.isWindows) {
+      try {
+        // Clean engine shutdown. destroy() is PostQuitMessage(0): the runner's
+        // GetMessage loop exits → wWinMain returns → ~FlutterWindow shuts the
+        // engine down in order (raster thread joined, isolate torn down) →
+        // DestroyWindow. Same teardown as clicking X, minus the WM_CLOSE /
+        // preventClose hop — so onWindowClose is NOT re-entered.
+        // A raw exit(0) instead runs CRT/DLL-detach teardown with live engine
+        // and plugin threads → AV → the Windows "Unknown Hard Error" dialog.
+        await windowManager.destroy();
+        return;
+      } catch (_) {
+        // Channel/engine already unavailable — kernel-level kill below
+        // (exit(0) here could reproduce the teardown crash).
+      }
+      windows?.forceExit();
+    }
     exit(0);
   }
 
