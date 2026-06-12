@@ -37,11 +37,14 @@ class ClashCore {
     if (!isExists) {
       await homeDir.create(recursive: true);
     }
+    // Only GeoIP.dat + GeoSite.dat are bundled as a BOOTSTRAP SEED. geoip.metadb
+    // and ASN.mmdb were dropped from the APK: the seed copy only ever runs for
+    // profiles with `geodata-mode == true`, and in that mode mihomo loads
+    // GeoIP.dat (not metadb); ASN.mmdb is unused by the default rule set. If a
+    // profile ever needs metadb/ASN, mihomo downloads them on demand (init.go).
     const geoFileNameList = [
-      mmdbFileName,
       geoIpFileName,
       geoSiteFileName,
-      asnFileName,
     ];
     try {
       for (final geoFileName in geoFileNameList) {
@@ -57,7 +60,8 @@ class ClashCore {
         // in RU, where the user installs us precisely because they can't
         // reach the internet without a working VPN. mihomo refreshes these
         // files from the URLs in the profile config once the tunnel is up.
-        // So the ~43 MB cost in APK size is load-bearing, not dead weight.
+        // Trimmed to GeoIP.dat + GeoSite.dat (~23 MB): geoip.metadb and
+        // ASN.mmdb were redundant (see geoFileNameList note above).
         final data = await rootBundle.load('assets/data/$geoFileName');
         final List<int> bytes = data.buffer.asUint8List();
         await geoFile.writeAsBytes(bytes, flush: true);

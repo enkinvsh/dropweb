@@ -7,8 +7,10 @@ import 'package:path/path.dart';
 
 /// Shared "does this profile need geodata?" detection.
 ///
-/// The bundled geo assets (geoip.metadb / GeoIP.dat / GeoSite.dat / ASN.mmdb)
-/// are a BOOTSTRAP SEED kept in the APK so the app can start offline. Copying
+/// The bundled geo assets (GeoIP.dat / GeoSite.dat) are a BOOTSTRAP SEED kept
+/// in the APK so the app can start offline. (geoip.metadb / ASN.mmdb were
+/// dropped: the seed only runs for `geodata-mode == true`, where mihomo loads
+/// GeoIP.dat not metadb, and ASN is unused by the default rule set.) Copying
 /// them to the home dir on first run is a load-bearing cost only for profiles
 /// that actually consume geodata, so both the regular init path and the Quick
 /// Settings tile path gate the copy on the same condition via this helper.
@@ -49,10 +51,8 @@ class Geodata {
       return;
     }
     const geoFileNameList = [
-      mmdbFileName,
       geoIpFileName,
       geoSiteFileName,
-      asnFileName,
     ];
     final homePath = await appPath.homeDirPath;
     for (final geoFileName in geoFileNameList) {
