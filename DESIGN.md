@@ -14,7 +14,7 @@ Dark-only, modular, token-driven. The product language is "Lumina": deep near-bl
 - NO color-only state. Cover default / pressed / disabled / loading / empty / error.
 
 ## Tokens (single source of truth)
-- `lib/common/lumina.dart` (`Lumina`): surfaces `void_`/`surface1..5`; glass `glass()`/`glassCircle()`/`glassBlur`/`heavyBlur`; glow `glowPrimary`/`glowSecondary`/`glowAccent` + `glowShadow()`; shadows; radii `radiusMd 16`/`radiusLg 24`/`radiusXl 32`/`radiusXxl 48`; motion `luminaCurve` + `luminaDuration 400ms`. Blur sigma capped 4/8 for mid-range Android (Skia, no Impeller); GPU cost ~quadratic in sigma. Do not raise it.
+- `lib/common/lumina.dart` (`Lumina`): surfaces `void_`/`surface1..5`; glass `glass()`/`glassCircle()`/`glassBlur`/`heavyBlur`; glow `glowPrimary`/`glowSecondary`/`glowAccent` + `glowShadow()`; shadows; radii `radiusMd 16`/`radiusLg 24`/`radiusXl 32`/`radiusXxl 48`; motion `luminaCurve` + `luminaDuration 400ms`. Blur sigma capped 4/8 for mid-range Android; GPU cost ~quadratic in sigma. Do not raise it. (Production renders with Impeller — Vulkan/GLES — per EnableImpeller=true in the Android manifest; the cap stands regardless of renderer.)
 - `lib/common/color.dart`: opacity `.opacity80..opacity0` (NOT `withOpacity`), `lighten/darken`, `blendDarken/blendLighten(context)`, scheme-variant filters, `ColorScheme.toPureBlack`.
 - `lib/common/theme.dart` (`CommonTheme`): cached derived colors.
 - Semantic color = `context.colorScheme.*` (Material 3). Accents/orbs/presets via `themeSettingProvider` (Emerald/Frost/Amethyst/Magma/Amber/Crimson/Stealth).
