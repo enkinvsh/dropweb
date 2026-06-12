@@ -724,6 +724,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "schemeNeutral": MessageLookupByLibrary.simpleMessage("Neutral"),
     "schemeRich": MessageLookupByLibrary.simpleMessage("Rich"),
     "script": MessageLookupByLibrary.simpleMessage("Script"),
+    "scriptRestoreWarning": MessageLookupByLibrary.simpleMessage(
+      "The backup contains a script. Apply it?",
+    ),
     "search": MessageLookupByLibrary.simpleMessage("Search"),
     "seconds": MessageLookupByLibrary.simpleMessage("Seconds"),
     "selectAll": MessageLookupByLibrary.simpleMessage("Select all"),

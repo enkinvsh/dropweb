@@ -18,6 +18,7 @@ import 'package:dropweb/plugins/service.dart';
 import 'package:dropweb/widgets/dialog.dart';
 import 'package:dropweb/widgets/scaffold.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_js/extensions/fetch.dart';
 import 'package:flutter_js/flutter_js.dart';
 import 'package:material_color_utilities/palettes/core_palette.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -771,13 +772,49 @@ class GlobalState {
       config["proxy-providers"] = {};
     }
     final configJs = json.encode(config);
-    final runtime = getJavascriptRuntime();
-    final res = await runtime.evaluateAsync("""
+    const evalTimeout = Duration(seconds: 10);
+    // A user/backup-supplied proxy script runs `main(config)` to rewrite the
+    // resolved config. A runaway script (e.g. `while (true) {}`) must not hang
+    // the config-apply pipeline forever. There are TWO guards because
+    // `evaluateAsync` is, on every engine here, `Future.value(evaluate(...))`
+    // — the JS runs SYNCHRONOUSLY on this isolate, so a Dart `.timeout()` Timer
+    // can never fire while a tight loop blocks the event loop:
+    //   1. QuickJS (Android/Windows/Linux): construct the runtime with a native
+    //      interrupt deadline (ms) so the C engine aborts the script itself —
+    //      the only thing that stops a synchronous infinite loop.
+    //   2. A Dart-side `guardWithTimeout` as belt-and-suspenders for engines
+    //      whose eval yields to the event loop (promises/async) and to surface
+    //      a readable error; it disposes the (possibly wedged) runtime on expiry.
+    final isQuickJs =
+        Platform.isAndroid || Platform.isWindows || Platform.isLinux;
+    final JavascriptRuntime runtime;
+    if (isQuickJs) {
+      final quickJs = QuickJsRuntime2(timeout: evalTimeout.inMilliseconds);
+      // Mirror getJavascriptRuntime's setup (fetch is fire-and-forget there).
+      unawaited(quickJs.enableFetch());
+      quickJs.enableHandlePromises();
+      runtime = quickJs;
+    } else {
+      runtime = getJavascriptRuntime();
+    }
+    final res = await runtime
+        .evaluateAsync("""
       ${currentScript.content}
       main($configJs)
-    """);
+    """)
+        .guardWithTimeout(
+          timeout: evalTimeout,
+          message: 'script evaluation timed out (${evalTimeout.inSeconds}s)',
+          onTimeout: runtime.dispose,
+        );
     if (res.isError) {
-      throw res.stringResult;
+      final error = res.stringResult;
+      // A native QuickJS interrupt surfaces as an "interrupted" exception —
+      // translate it to the same readable timeout error as the Dart path.
+      if (error.toLowerCase().contains('interrupt')) {
+        throw 'script evaluation timed out (${evalTimeout.inSeconds}s)';
+      }
+      throw error;
     }
     final value = switch (res.rawResult is Pointer) {
       true => runtime.convertValue<Map<String, dynamic>>(res),

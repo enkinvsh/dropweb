@@ -759,6 +759,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "schemeNeutral": MessageLookupByLibrary.simpleMessage("Нейтральные"),
     "schemeRich": MessageLookupByLibrary.simpleMessage("Сочные"),
     "script": MessageLookupByLibrary.simpleMessage("Скрипт"),
+    "scriptRestoreWarning": MessageLookupByLibrary.simpleMessage(
+      "Бэкап содержит скрипт. Применить?",
+    ),
     "search": MessageLookupByLibrary.simpleMessage("Поиск"),
     "seconds": MessageLookupByLibrary.simpleMessage("Секунд"),
     "selectAll": MessageLookupByLibrary.simpleMessage("Выбрать все"),

@@ -2324,16 +2324,32 @@ class AppController {
         ),
       );
     }
-    _recovery(
+    await _recovery(
       tempConfig,
       recoveryOption,
     );
   }
 
-  void _recovery(Config config, RecoveryOption recoveryOption) {
+  Future<void> _recovery(Config config, RecoveryOption recoveryOption) async {
     final recoveryStrategy = _ref.read(appSettingProvider.select(
       (state) => state.recoveryStrategy,
     ));
+    final onlyProfiles = recoveryOption == RecoveryOption.onlyProfiles;
+    // A restored backup can carry an arbitrary JS proxy script that rewrites
+    // the resolved config at apply-time (GlobalState.handleEvaluate). Never
+    // trust a script from an imported backup silently — confirm before applying
+    // scriptProps. On decline, restore everything EXCEPT scriptProps (the
+    // existing scriptProps state is kept untouched).
+    var applyScriptProps = true;
+    final restoredScript = config.scriptProps.currentScript;
+    if (!onlyProfiles &&
+        restoredScript != null &&
+        restoredScript.content.trim().isNotEmpty) {
+      applyScriptProps = await globalState.showMessage(
+            message: TextSpan(text: appLocalizations.scriptRestoreWarning),
+          ) ==
+          true;
+    }
     final profiles = config.profiles;
     if (recoveryStrategy == RecoveryStrategy.override) {
       _ref.read(profilesProvider.notifier).value = profiles;
@@ -2344,7 +2360,6 @@ class AppController {
             );
       }
     }
-    final onlyProfiles = recoveryOption == RecoveryOption.onlyProfiles;
     if (!onlyProfiles) {
       _ref.read(patchClashConfigProvider.notifier).value =
           config.patchClashConfig;
@@ -2360,7 +2375,9 @@ class AppController {
       _ref.read(overrideDnsProvider.notifier).value = config.overrideDns;
       _ref.read(networkSettingProvider.notifier).value = config.networkProps;
       _ref.read(hotKeyActionsProvider.notifier).value = config.hotKeyActions;
-      _ref.read(scriptStateProvider.notifier).value = config.scriptProps;
+      if (applyScriptProps) {
+        _ref.read(scriptStateProvider.notifier).value = config.scriptProps;
+      }
     }
     final currentProfile = _ref.read(currentProfileProvider);
     if (currentProfile == null) {
