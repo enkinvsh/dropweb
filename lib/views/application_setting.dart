@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dropweb/common/common.dart';
+import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/config.dart';
 import 'package:dropweb/state.dart';
@@ -351,17 +352,24 @@ class AlwaysOnVpnItem extends ConsumerWidget {
   const AlwaysOnVpnItem({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => ListItem(
-        title: Text(appLocalizations.alwaysOnVpn),
-        leading: HugeIcon(icon: HugeIcons.strokeRoundedShield01, size: 24),
-        trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 16),
-        onTap: () async {
-          final ok = await app?.openVpnSettings() ?? false;
-          if (!ok) {
-            globalState.showNotifier(appLocalizations.alwaysOnVpnOpenFailed);
-          }
-        },
-      );
+  Widget build(BuildContext context, WidgetRef ref) {
+    // AppLocalizations.of(context) (not the appLocalizations global) so this
+    // const-instantiated row registers a Localizations dependency and rebuilds
+    // when the app language changes — the global getter alone gives fresh
+    // strings only on rebuild, and nothing else rebuilds this row.
+    final l10n = AppLocalizations.of(context);
+    return ListItem(
+      title: Text(l10n.alwaysOnVpn),
+      leading: HugeIcon(icon: HugeIcons.strokeRoundedShield01, size: 24),
+      trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 16),
+      onTap: () async {
+        final ok = await app?.openVpnSettings() ?? false;
+        if (!ok) {
+          globalState.showNotifier(l10n.alwaysOnVpnOpenFailed);
+        }
+      },
+    );
+  }
 }
 
 class AnimateTabItem extends ConsumerWidget {

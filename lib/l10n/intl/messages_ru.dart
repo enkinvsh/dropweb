@@ -907,9 +907,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "updateAllGeoData": MessageLookupByLibrary.simpleMessage(
       "Обновить все геофайлы",
     ),
-    "updateSubscription": MessageLookupByLibrary.simpleMessage(
-      "Обновить подписку",
-    ),
+    "updateSubscription": MessageLookupByLibrary.simpleMessage("Обновить"),
     "updated": MessageLookupByLibrary.simpleMessage("Обновлено"),
     "upload": MessageLookupByLibrary.simpleMessage("Отправка"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
