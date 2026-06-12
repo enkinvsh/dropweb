@@ -446,7 +446,6 @@
   "deleteMultipTip": "選択された{label}を削除してもよろしいですか？",
   "nullTip": "現在{label}はありません",
   "nullScriptTip": "スクリプトはありません",
-  "scriptRestoreWarning": "バックアップにスクリプトが含まれています。適用しますか？",
   "script": "スクリプト",
   "color": "カラー",
   "rename": "リネーム",

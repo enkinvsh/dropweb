@@ -142,11 +142,6 @@ enum InvokeMessageType {
 
 enum FindProcessMode { always, off, strict }
 
-enum RecoveryOption {
-  all,
-  onlyProfiles,
-}
-
 enum ChipType { action, delete }
 
 enum CommonCardType { plain, filled }

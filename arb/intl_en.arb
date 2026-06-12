@@ -445,7 +445,6 @@
   "deleteMultipTip": "Are you sure you want to delete the selected {label}?",
   "nullTip": "No {label} at the moment",
    "nullScriptTip": "No scripts",
-   "scriptRestoreWarning": "The backup contains a script. Apply it?",
   "script": "Script",
   "color": "Color",
   "rename": "Rename",

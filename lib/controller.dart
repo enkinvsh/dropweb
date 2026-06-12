@@ -3,9 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 
-import 'package:archive/archive.dart';
 import 'package:dropweb/clash/clash.dart';
-import 'package:dropweb/common/archive.dart';
 import 'package:dropweb/common/connect_trace.dart';
 import 'package:dropweb/common/error_mapper.dart';
 import 'package:dropweb/common/work_mode_patch.dart';
@@ -2253,136 +2251,10 @@ class AppController {
         null;
   }
 
-  Future<List<int>> backupData() async {
-    final homeDirPath = await appPath.homeDirPath;
-    final profilesPath = await appPath.profilesPath;
-    final configJson = globalState.config.toJson();
-    return Isolate.run<List<int>>(() async {
-      final archive = Archive();
-      archive.addJson("config.json", configJson);
-      archive.addDirectoryToArchive(profilesPath, homeDirPath);
-      final zipEncoder = ZipEncoder();
-      return zipEncoder.encode(archive);
-    });
-  }
-
   Future<void> updateTray([bool focus = false]) async {
     tray.update(
       trayState: _ref.read(trayStateProvider),
     );
   }
 
-  Future<void> recoveryData(
-    List<int> data,
-    RecoveryOption recoveryOption,
-  ) async {
-    final archive = await Isolate.run<Archive>(() {
-      final zipDecoder = ZipDecoder();
-      return zipDecoder.decodeBytes(data);
-    });
-    final homeDirPath = await appPath.homeDirPath;
-    final configs =
-        archive.files.where((item) => item.name.endsWith(".json")).toList();
-    final profiles =
-        archive.files.where((item) => !item.name.endsWith(".json"));
-    final configIndex =
-        configs.indexWhere((config) => config.name == "config.json");
-    if (configIndex == -1) throw "invalid backup file";
-    final configFile = configs[configIndex];
-    var tempConfig = Config.compatibleFromJson(
-      json.decode(
-        utf8.decode(configFile.content),
-      ),
-    );
-    for (final profile in profiles) {
-      if (!profile.isFile) continue;
-      // profile.name is attacker-controlled (from the backup ZIP). Reject any
-      // entry that would escape the profiles directory (Zip-Slip) before
-      // File.create(recursive: true) builds the escape path on disk.
-      final filePath = safeArchivePath(homeDirPath, profile.name);
-      if (filePath == null) {
-        commonPrint.log(
-          '[restore] skipped unsafe archive entry: ${profile.name}',
-        );
-        continue;
-      }
-      final file = File(filePath);
-      await file.create(recursive: true);
-      await file.writeAsBytes(profile.content);
-    }
-    final clashConfigIndex =
-        configs.indexWhere((config) => config.name == "clashConfig.json");
-    if (clashConfigIndex != -1) {
-      final clashConfigFile = configs[clashConfigIndex];
-      tempConfig = tempConfig.copyWith(
-        patchClashConfig: ClashConfig.fromJson(
-          json.decode(
-            utf8.decode(
-              clashConfigFile.content,
-            ),
-          ),
-        ),
-      );
-    }
-    await _recovery(
-      tempConfig,
-      recoveryOption,
-    );
-  }
-
-  Future<void> _recovery(Config config, RecoveryOption recoveryOption) async {
-    final recoveryStrategy = _ref.read(appSettingProvider.select(
-      (state) => state.recoveryStrategy,
-    ));
-    final onlyProfiles = recoveryOption == RecoveryOption.onlyProfiles;
-    // A restored backup can carry an arbitrary JS proxy script that rewrites
-    // the resolved config at apply-time (GlobalState.handleEvaluate). Never
-    // trust a script from an imported backup silently — confirm before applying
-    // scriptProps. On decline, restore everything EXCEPT scriptProps (the
-    // existing scriptProps state is kept untouched).
-    var applyScriptProps = true;
-    final restoredScript = config.scriptProps.currentScript;
-    if (!onlyProfiles &&
-        restoredScript != null &&
-        restoredScript.content.trim().isNotEmpty) {
-      applyScriptProps = await globalState.showMessage(
-            message: TextSpan(text: appLocalizations.scriptRestoreWarning),
-          ) ==
-          true;
-    }
-    final profiles = config.profiles;
-    if (recoveryStrategy == RecoveryStrategy.override) {
-      _ref.read(profilesProvider.notifier).value = profiles;
-    } else {
-      for (final profile in profiles) {
-        _ref.read(profilesProvider.notifier).setProfile(
-              profile,
-            );
-      }
-    }
-    if (!onlyProfiles) {
-      _ref.read(patchClashConfigProvider.notifier).value =
-          config.patchClashConfig;
-      _ref.read(appSettingProvider.notifier).value = config.appSetting;
-      _ref.read(currentProfileIdProvider.notifier).value =
-          config.currentProfileId;
-      _ref.read(appDAVSettingProvider.notifier).value = config.dav;
-      _ref.read(themeSettingProvider.notifier).value = config.themeProps;
-      _ref.read(windowSettingProvider.notifier).value = config.windowProps;
-      _ref.read(vpnSettingProvider.notifier).value = config.vpnProps;
-      _ref.read(proxiesStyleSettingProvider.notifier).value =
-          config.proxiesStyle;
-      _ref.read(overrideDnsProvider.notifier).value = config.overrideDns;
-      _ref.read(networkSettingProvider.notifier).value = config.networkProps;
-      _ref.read(hotKeyActionsProvider.notifier).value = config.hotKeyActions;
-      if (applyScriptProps) {
-        _ref.read(scriptStateProvider.notifier).value = config.scriptProps;
-      }
-    }
-    final currentProfile = _ref.read(currentProfileProvider);
-    if (currentProfile == null) {
-      _ref.read(currentProfileIdProvider.notifier).value = profiles.first.id;
-    }
-    savePreferencesDebounce();
-  }
 }

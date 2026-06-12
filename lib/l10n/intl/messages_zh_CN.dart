@@ -497,9 +497,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "schemeNeutral": MessageLookupByLibrary.simpleMessage("中性"),
     "schemeRich": MessageLookupByLibrary.simpleMessage("浓郁"),
     "script": MessageLookupByLibrary.simpleMessage("脚本"),
-    "scriptRestoreWarning": MessageLookupByLibrary.simpleMessage(
-      "备份包含脚本。要应用吗？",
-    ),
     "search": MessageLookupByLibrary.simpleMessage("搜索"),
     "seconds": MessageLookupByLibrary.simpleMessage("秒"),
     "selectAll": MessageLookupByLibrary.simpleMessage("全选"),

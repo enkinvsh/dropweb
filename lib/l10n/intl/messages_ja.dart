@@ -571,9 +571,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "schemeNeutral": MessageLookupByLibrary.simpleMessage("ニュートラル"),
     "schemeRich": MessageLookupByLibrary.simpleMessage("鮮明"),
     "script": MessageLookupByLibrary.simpleMessage("スクリプト"),
-    "scriptRestoreWarning": MessageLookupByLibrary.simpleMessage(
-      "バックアップにスクリプトが含まれています。適用しますか？",
-    ),
     "search": MessageLookupByLibrary.simpleMessage("検索"),
     "seconds": MessageLookupByLibrary.simpleMessage("秒"),
     "selectAll": MessageLookupByLibrary.simpleMessage("すべて選択"),

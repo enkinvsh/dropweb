@@ -52,7 +52,6 @@ dependencies:
       # TODO(dropweb): bump to a tag when the fork publishes one.
       ref: main
   re_highlight: ^0.0.3
-  archive: ^4.0.7
   lpinyin: ^2.0.3
   emoji_regex: ^0.0.5
   hotkey_manager: ^0.2.3

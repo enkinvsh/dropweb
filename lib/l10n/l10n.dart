@@ -3429,16 +3429,6 @@ class AppLocalizations {
     );
   }
 
-  /// `The backup contains a script. Apply it?`
-  String get scriptRestoreWarning {
-    return Intl.message(
-      'The backup contains a script. Apply it?',
-      name: 'scriptRestoreWarning',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `Script`
   String get script {
     return Intl.message('Script', name: 'script', desc: '', args: []);

@@ -446,7 +446,6 @@
   "deleteMultipTip": "Вы уверены, что хотите удалить выбранные {label}?",
   "nullTip": "Сейчас {label} нет",
   "nullScriptTip": "Скрипты отсутствуют",
-  "scriptRestoreWarning": "Бэкап содержит скрипт. Применить?",
   "script": "Скрипт",
   "color": "Цвет",
   "rename": "Переименовать",
