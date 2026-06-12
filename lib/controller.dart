@@ -1596,6 +1596,14 @@ class AppController {
   void initLink() {
     linkManager.initAppLinksListen(
       (url) async {
+        // Bring the desktop app to the foreground before showing the in-app
+        // confirm dialog. Without this the window/popover stays hidden and the
+        // user never sees the prompt. Mobile keeps its existing flow untouched.
+        if (Platform.isMacOS) {
+          await StatusBarManager.showWindow();
+        } else if (system.isDesktop) {
+          await window?.show();
+        }
         final res = await globalState.showMessage(
           title: "${appLocalizations.add} ${appLocalizations.profile}",
           message: TextSpan(

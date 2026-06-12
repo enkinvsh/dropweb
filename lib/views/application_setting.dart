@@ -232,27 +232,22 @@ class AutoLaunchItem extends ConsumerWidget {
     final autoLaunch = ref.watch(
       appSettingProvider.select((state) => state.autoLaunch),
     );
-    final overrideProviderSettings = ref.watch(
-      appSettingProvider.select((state) => state.overrideProviderSettings),
-    );
-    final isEnabled = overrideProviderSettings;
-    return Opacity(
-      opacity: isEnabled ? 1.0 : 0.5,
-      child: ListItem.switchItem(
-        title: Text(appLocalizations.autoLaunch),
-        subtitle: Text(appLocalizations.autoLaunchDesc),
-        delegate: SwitchDelegate(
-          value: autoLaunch,
-          onChanged: isEnabled
-              ? (bool value) {
-                  ref.read(appSettingProvider.notifier).updateState(
-                        (state) => state.copyWith(
-                          autoLaunch: value,
-                        ),
-                      );
-                }
-              : null,
-        ),
+    // Launch-at-login is independent of provider-config overrides; it must
+    // stay interactive on every desktop platform (the previous
+    // `overrideProviderSettings` gating left the macOS toggle permanently
+    // disabled, so login-item registration could never be triggered).
+    return ListItem.switchItem(
+      title: Text(appLocalizations.autoLaunch),
+      subtitle: Text(appLocalizations.autoLaunchDesc),
+      delegate: SwitchDelegate(
+        value: autoLaunch,
+        onChanged: (bool value) {
+          ref.read(appSettingProvider.notifier).updateState(
+                (state) => state.copyWith(
+                  autoLaunch: value,
+                ),
+              );
+        },
       ),
     );
   }

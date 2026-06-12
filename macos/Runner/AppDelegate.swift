@@ -57,6 +57,14 @@ class AppDelegate: FlutterAppDelegate {
                 } else {
                     result(FlutterError(code: "INVALID_ARGS", message: "Invalid arguments", details: nil))
                 }
+            case "showWindow":
+                // Bring the status-bar popover to the foreground (e.g. on a
+                // deep-link import) so an in-app dialog is actually visible.
+                NSApp.activate(ignoringOtherApps: true)
+                if let strongSelf = self, !strongSelf.flutterUIPopover.isShown {
+                    strongSelf.statusBarController?.showPopover(strongSelf)
+                }
+                result(true)
             default:
                 result(FlutterMethodNotImplemented)
             }

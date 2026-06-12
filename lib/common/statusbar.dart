@@ -15,4 +15,15 @@ class StatusBarManager {
       // silent
     }
   }
+
+  /// Bring the macOS status-bar popover to the foreground. No-op off macOS.
+  static Future<void> showWindow() async {
+    if (!Platform.isMacOS) return;
+
+    try {
+      await _channel.invokeMethod('showWindow');
+    } catch (e) {
+      // silent
+    }
+  }
 }
