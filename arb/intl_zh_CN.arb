@@ -172,6 +172,7 @@
   "recoveryAll": "恢复所有数据",
   "recoverySuccess": "恢复成功",
   "backupSuccess": "备份成功",
+  "backupPlaintextWarning": "备份文件以明文形式包含服务器密钥。请妥善保管。继续吗？",
   "noInfo": "暂无信息",
   "pleaseBindWebDAV": "请绑定WebDAV",
   "bind": "绑定",

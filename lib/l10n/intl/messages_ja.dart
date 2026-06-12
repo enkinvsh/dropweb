@@ -114,6 +114,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "backupAndRecoveryDesc": MessageLookupByLibrary.simpleMessage(
       "WebDAVまたはファイルでデータを同期",
     ),
+    "backupPlaintextWarning": MessageLookupByLibrary.simpleMessage(
+      "バックアップにはサーバーキーが平文で含まれます。安全な場所に保管してください。続行しますか？",
+    ),
     "backupSuccess": MessageLookupByLibrary.simpleMessage("バックアップ成功"),
     "basicConfig": MessageLookupByLibrary.simpleMessage("基本設定"),
     "basicConfigDesc": MessageLookupByLibrary.simpleMessage("基本設定をグローバルに変更"),

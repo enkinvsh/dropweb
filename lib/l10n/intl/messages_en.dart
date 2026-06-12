@@ -157,6 +157,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "backupAndRecoveryDesc": MessageLookupByLibrary.simpleMessage(
       "Sync data via WebDAV or file",
     ),
+    "backupPlaintextWarning": MessageLookupByLibrary.simpleMessage(
+      "The backup file contains server keys in plain text. Store it somewhere safe. Continue?",
+    ),
     "backupSuccess": MessageLookupByLibrary.simpleMessage("Backup success"),
     "basicConfig": MessageLookupByLibrary.simpleMessage("Basic configuration"),
     "basicConfigDesc": MessageLookupByLibrary.simpleMessage(

@@ -1369,6 +1369,16 @@ class AppLocalizations {
     );
   }
 
+  /// `The backup file contains server keys in plain text. Store it somewhere safe. Continue?`
+  String get backupPlaintextWarning {
+    return Intl.message(
+      'The backup file contains server keys in plain text. Store it somewhere safe. Continue?',
+      name: 'backupPlaintextWarning',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `No info`
   String get noInfo {
     return Intl.message('No info', name: 'noInfo', desc: '', args: []);

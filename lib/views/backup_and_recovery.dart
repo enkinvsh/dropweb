@@ -28,6 +28,11 @@ class BackupAndRecovery extends ConsumerWidget {
   }
 
   Future<void> _backupOnWebDAV(BuildContext context, DAVClient client) async {
+    final confirm = await globalState.showMessage(
+      title: appLocalizations.backup,
+      message: TextSpan(text: appLocalizations.backupPlaintextWarning),
+    );
+    if (confirm != true || !context.mounted) return;
     final commonScaffoldState = context.commonScaffoldState;
     final res = await commonScaffoldState?.loadingRun<bool>(
       () async {
@@ -74,6 +79,11 @@ class BackupAndRecovery extends ConsumerWidget {
   }
 
   Future<void> _backupOnLocal(BuildContext context) async {
+    final confirm = await globalState.showMessage(
+      title: appLocalizations.backup,
+      message: TextSpan(text: appLocalizations.backupPlaintextWarning),
+    );
+    if (confirm != true || !context.mounted) return;
     final commonScaffoldState = context.commonScaffoldState;
     final res = await commonScaffoldState?.loadingRun<bool>(
       () async {
