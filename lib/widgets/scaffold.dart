@@ -165,7 +165,8 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
       _loading.value = false;
       return res;
     } catch (e) {
-      final message = ErrorMapper.mapError(e.toString()) ?? e.toString();
+      final message = ErrorMapper.mapError(e.toString()) ??
+          appLocalizations.genericErrorMessage;
       globalState.showMessage(
         title: title ?? appLocalizations.tip,
         message: TextSpan(

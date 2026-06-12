@@ -33,6 +33,13 @@ class _ScanPageState extends State<ScanPage> {
   }
 
   Future<void> _scanFromImage() async {
+    if (!system.supportsQrFromImage) {
+      if (mounted) {
+        context.showNotifier(appLocalizations.qrScanFromImageUnsupported);
+      }
+      return;
+    }
+
     String? imagePath;
 
     if (system.isDesktop) {

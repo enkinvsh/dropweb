@@ -44,12 +44,13 @@ class AddProfileView extends StatelessWidget {
                   subtitle: Text(appLocalizations.addFromPhoneSubtitle),
                   onTap: _handleReceiveFromPhone,
                 ),
-              ListItem(
-                leading: const HugeIcon(
-                    icon: HugeIcons.strokeRoundedQrCode, size: 24),
-                title: Text(appLocalizations.qrcode),
-                onTap: () => scanProfileQrCode(context),
-              ),
+              if (system.supportsQrFromImage)
+                ListItem(
+                  leading: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedQrCode, size: 24),
+                  title: Text(appLocalizations.qrcode),
+                  onTap: () => scanProfileQrCode(context),
+                ),
               ListItem(
                 leading: const HugeIcon(
                     icon: HugeIcons.strokeRoundedCloudDownload, size: 24),

@@ -495,5 +495,7 @@
   "countriesNotDetected": "Countries not detected. Update your subscription.",
   "workModeResetNotice": "Mode reset to Standard: settings unavailable after subscription update.",
   "strictNodeResetNotice": "Strict node unavailable after update — switched to in-country failover.",
-  "otherCountries": "Other"
+  "otherCountries": "Other",
+  "genericErrorMessage": "問題が発生しました。もう一度お試しください。",
+  "qrScanFromImageUnsupported": "この環境では画像からのQRコード読み取りに対応していません。サブスクリプションURLをご利用ください。"
 }

@@ -1714,7 +1714,8 @@ class AppController {
     } catch (err) {
       unawaited(App().playUiSound(DropwebSoundCue.importError));
       commonPrint.log('Add Profile Failed: $err');
-      final message = ErrorMapper.mapError(err.toString()) ?? err.toString();
+      final message = ErrorMapper.mapError(err.toString()) ??
+          appLocalizations.genericErrorMessage;
       unawaited(globalState.showMessage(message: TextSpan(text: message)));
     }
   }

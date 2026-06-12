@@ -4068,6 +4068,26 @@ class AppLocalizations {
   String get otherCountries {
     return Intl.message('Other', name: 'otherCountries', desc: '', args: []);
   }
+
+  /// `Something went wrong. Please try again.`
+  String get genericErrorMessage {
+    return Intl.message(
+      'Something went wrong. Please try again.',
+      name: 'genericErrorMessage',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Scanning a QR code from an image isn't supported on this platform. Use the subscription URL instead.`
+  String get qrScanFromImageUnsupported {
+    return Intl.message(
+      'Scanning a QR code from an image isn\'t supported on this platform. Use the subscription URL instead.',
+      name: 'qrScanFromImageUnsupported',
+      desc: '',
+      args: [],
+    );
+  }
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<AppLocalizations> {

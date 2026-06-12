@@ -23,6 +23,13 @@ class System {
 
   bool get isMobile => Platform.isAndroid || Platform.isIOS;
 
+  /// Whether decoding a QR code from a gallery image is supported.
+  ///
+  /// `mobile_scanner`'s `analyzeImage` only has a native implementation on
+  /// Android, iOS and macOS. On Windows/Linux it throws
+  /// MissingPluginException, so callers must gate the feature on this.
+  bool get supportsQrFromImage => !Platform.isWindows && !Platform.isLinux;
+
   Future<bool> get isAndroidTV async {
     if (!Platform.isAndroid) return false;
     final deviceInfo = await DeviceInfoPlugin().androidInfo;

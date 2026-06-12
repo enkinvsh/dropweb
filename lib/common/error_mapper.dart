@@ -29,6 +29,14 @@ class ErrorMapper {
       ru: 'Сервер не отвечает. Попробуйте другой сервер или подождите.',
       en: 'Server is not responding. Try a different server or wait.',
     ),
+    // Dio HTTP timeouts (connection / receive / send) + Dart TimeoutException
+    _ErrorPattern(
+      RegExp(
+          r'connection timeout|receive timeout|send timeout|connectionTimeout|receiveTimeout|sendTimeout|TimeoutException',
+          caseSensitive: false),
+      ru: 'Сервер не отвечает. Проверьте подключение к интернету и попробуйте ещё раз.',
+      en: 'Server is not responding. Check your internet connection and try again.',
+    ),
     // Connection refused
     _ErrorPattern(
       RegExp(r'connection refused', caseSensitive: false),
@@ -46,6 +54,14 @@ class ErrorMapper {
       RegExp(r'EOF|unexpected EOF', caseSensitive: false),
       ru: 'Соединение с сервером потеряно. Попробуйте ещё раз.',
       en: 'Lost connection to server. Try again.',
+    ),
+    // Bad TLS certificate (Dio bad certificate / verify failures)
+    _ErrorPattern(
+      RegExp(
+          r'bad certificate|certificate verify failed|CERTIFICATE_VERIFY_FAILED|HandshakeException',
+          caseSensitive: false),
+      ru: 'Не удалось проверить сертификат сервера. Проверьте дату и время на устройстве или попробуйте другой сервер.',
+      en: 'Could not verify the server certificate. Check your device date and time or try a different server.',
     ),
     // TLS / Reality handshake errors
     _ErrorPattern(
@@ -113,21 +129,30 @@ class ErrorMapper {
       ru: 'Ваш провайдер не поддерживает это приложение. Обратитесь к провайдеру или используйте другую ссылку на подписку.',
       en: 'Your provider does not support this app. Contact your provider or use a different subscription link.',
     ),
-    // DioException bad response (generic — catches what above didn't)
+    // No internet / host unreachable / Dio connection error / SocketException
     _ErrorPattern(
-      RegExp(r'DioException.*bad response|DioException.*status code',
+      RegExp(
+          r'DioException.*connection error|SocketException|Failed host lookup|connectionError',
           caseSensitive: false),
-      ru: 'Ошибка при загрузке подписки. Проверьте ссылку или попробуйте позже.',
-      en: 'Failed to load subscription. Check the link or try later.',
+      ru: 'Нет подключения к интернету. Проверьте соединение и попробуйте ещё раз.',
+      en: 'No internet connection. Check your connection and try again.',
     ),
-    // DioException connection error
+    // Feature not available on this platform (missing native implementation)
     _ErrorPattern(
-      RegExp(r'DioException.*connection error|SocketException',
-          caseSensitive: false),
-      ru: 'Нет подключения к серверу. Проверьте интернет.',
-      en: 'Cannot connect to server. Check your internet.',
+      RegExp(r'MissingPluginException', caseSensitive: false),
+      ru: 'Эта функция недоступна на вашей платформе.',
+      en: 'This feature is not available on your platform.',
+    ),
+    // Malformed response / config (parsing failure)
+    _ErrorPattern(
+      RegExp(r'FormatException', caseSensitive: false),
+      ru: 'Получен некорректный ответ. Проверьте ссылку или конфигурацию.',
+      en: 'Received an invalid response. Check the link or configuration.',
     ),
   ];
+
+  /// Matches a "status code of NNN" fragment in a Dio bad-response error.
+  static final _httpStatusRegex = RegExp(r'status code of (\d{3})');
 
   /// Translates a raw error string to a human-readable message.
   /// Returns null if the error doesn't match any known pattern (shown as-is).
@@ -137,8 +162,24 @@ class ErrorMapper {
         return _isRussian ? pattern.ru : pattern.en;
       }
     }
+    // Dio bad response with an HTTP status not covered by a specific pattern.
+    final statusMatch = _httpStatusRegex.firstMatch(rawError);
+    if (statusMatch != null) {
+      final code = statusMatch.group(1);
+      return _isRussian
+          ? 'Сервер вернул ошибку $code. Попробуйте позже.'
+          : 'Server returned error $code. Try again later.';
+    }
     return null;
   }
+
+  /// Generic, localized fallback used when [mapError] returns null.
+  /// Callers that surface to the user should prefer the ARB-backed
+  /// `appLocalizations.genericErrorMessage` for full ja/zh_CN coverage;
+  /// this getter is the ru/en safety net for non-widget contexts.
+  static String get generic => _isRussian
+      ? 'Что-то пошло не так. Попробуйте ещё раз.'
+      : 'Something went wrong. Please try again.';
 
   /// VPN service failed to start.
   static String get vpnStartFailed => _isRussian

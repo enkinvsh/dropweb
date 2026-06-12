@@ -523,5 +523,7 @@
   "countriesNotDetected": "Countries not detected. Update your subscription.",
   "workModeResetNotice": "Mode reset to Standard: settings unavailable after subscription update.",
   "strictNodeResetNotice": "Strict node unavailable after update — switched to in-country failover.",
-  "otherCountries": "Other"
+  "otherCountries": "Other",
+  "genericErrorMessage": "Something went wrong. Please try again.",
+  "qrScanFromImageUnsupported": "Scanning a QR code from an image isn't supported on this platform. Use the subscription URL instead."
 }

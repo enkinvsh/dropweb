@@ -495,5 +495,7 @@
   "countriesNotDetected": "Countries not detected. Update your subscription.",
   "workModeResetNotice": "Mode reset to Standard: settings unavailable after subscription update.",
   "strictNodeResetNotice": "Strict node unavailable after update — switched to in-country failover.",
-  "otherCountries": "Other"
+  "otherCountries": "Other",
+  "genericErrorMessage": "出了点问题，请重试。",
+  "qrScanFromImageUnsupported": "此平台不支持从图片扫描二维码，请改用订阅链接。"
 }

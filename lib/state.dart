@@ -9,6 +9,7 @@ import 'package:dio/dio.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:dropweb/clash/clash.dart';
 import 'package:dropweb/common/connect_trace.dart';
+import 'package:dropweb/common/error_mapper.dart';
 import 'package:dropweb/common/theme.dart';
 import 'package:dropweb/common/work_mode_patch.dart';
 import 'package:dropweb/enum/enum.dart';
@@ -374,13 +375,15 @@ class GlobalState {
       return res;
     } catch (e) {
       commonPrint.log("$e");
+      final message =
+          ErrorMapper.mapError(e.toString()) ?? appLocalizations.genericErrorMessage;
       if (silence) {
-        showNotifier(e.toString());
+        showNotifier(message);
       } else {
         showMessage(
           title: title ?? appLocalizations.tip,
           message: TextSpan(
-            text: e.toString(),
+            text: message,
           ),
         );
       }

@@ -328,6 +328,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "generalDesc": MessageLookupByLibrary.simpleMessage(
       "Modify general settings",
     ),
+    "genericErrorMessage": MessageLookupByLibrary.simpleMessage(
+      "Something went wrong. Please try again.",
+    ),
     "geoData": MessageLookupByLibrary.simpleMessage("GeoData"),
     "geodataLoader": MessageLookupByLibrary.simpleMessage(
       "Geo Low Memory Mode",
@@ -626,6 +629,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "proxyProviders": MessageLookupByLibrary.simpleMessage("Proxy providers"),
     "pureBlackMode": MessageLookupByLibrary.simpleMessage("Pure black mode"),
     "qrNotFound": MessageLookupByLibrary.simpleMessage("QR code not found"),
+    "qrScanFromImageUnsupported": MessageLookupByLibrary.simpleMessage(
+      "Scanning a QR code from an image isn\'t supported on this platform. Use the subscription URL instead.",
+    ),
     "qrcode": MessageLookupByLibrary.simpleMessage("QR code"),
     "qrcodeDesc": MessageLookupByLibrary.simpleMessage(
       "Scan QR code to obtain profile",

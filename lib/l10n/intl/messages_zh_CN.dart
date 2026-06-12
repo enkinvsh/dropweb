@@ -225,6 +225,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "fruitSaladScheme": MessageLookupByLibrary.simpleMessage("果缤纷"),
     "general": MessageLookupByLibrary.simpleMessage("常规"),
     "generalDesc": MessageLookupByLibrary.simpleMessage("修改通用设置"),
+    "genericErrorMessage": MessageLookupByLibrary.simpleMessage("出了点问题，请重试。"),
     "geoData": MessageLookupByLibrary.simpleMessage("地理数据"),
     "geodataLoader": MessageLookupByLibrary.simpleMessage("Geo低内存模式"),
     "geodataLoaderDesc": MessageLookupByLibrary.simpleMessage("开启将使用Geo低内存加载器"),
@@ -419,6 +420,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "proxyPortDesc": MessageLookupByLibrary.simpleMessage("设置VPN监听端口"),
     "proxyProviders": MessageLookupByLibrary.simpleMessage("代理提供者"),
     "pureBlackMode": MessageLookupByLibrary.simpleMessage("纯黑模式"),
+    "qrScanFromImageUnsupported": MessageLookupByLibrary.simpleMessage(
+      "此平台不支持从图片扫描二维码，请改用订阅链接。",
+    ),
     "qrcode": MessageLookupByLibrary.simpleMessage("二维码"),
     "qrcodeDesc": MessageLookupByLibrary.simpleMessage("扫描二维码获取配置文件"),
     "rainbowScheme": MessageLookupByLibrary.simpleMessage("彩虹"),

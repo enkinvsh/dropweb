@@ -247,6 +247,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "fruitSaladScheme": MessageLookupByLibrary.simpleMessage("フルーツサラダ"),
     "general": MessageLookupByLibrary.simpleMessage("一般"),
     "generalDesc": MessageLookupByLibrary.simpleMessage("一般設定を変更"),
+    "genericErrorMessage": MessageLookupByLibrary.simpleMessage(
+      "問題が発生しました。もう一度お試しください。",
+    ),
     "geoData": MessageLookupByLibrary.simpleMessage("地域データ"),
     "geodataLoader": MessageLookupByLibrary.simpleMessage("Geo低メモリモード"),
     "geodataLoaderDesc": MessageLookupByLibrary.simpleMessage(
@@ -479,6 +482,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "proxyPortDesc": MessageLookupByLibrary.simpleMessage("VPNのリスニングポートを設定"),
     "proxyProviders": MessageLookupByLibrary.simpleMessage("プロキシプロバイダー"),
     "pureBlackMode": MessageLookupByLibrary.simpleMessage("純黒モード"),
+    "qrScanFromImageUnsupported": MessageLookupByLibrary.simpleMessage(
+      "この環境では画像からのQRコード読み取りに対応していません。サブスクリプションURLをご利用ください。",
+    ),
     "qrcode": MessageLookupByLibrary.simpleMessage("QRコード"),
     "qrcodeDesc": MessageLookupByLibrary.simpleMessage("QRコードをスキャンしてプロファイルを取得"),
     "rainbowScheme": MessageLookupByLibrary.simpleMessage("レインボー"),

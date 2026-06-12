@@ -347,6 +347,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "generalDesc": MessageLookupByLibrary.simpleMessage(
       "Изменение общих настроек",
     ),
+    "genericErrorMessage": MessageLookupByLibrary.simpleMessage(
+      "Что-то пошло не так. Попробуйте ещё раз.",
+    ),
     "geoData": MessageLookupByLibrary.simpleMessage("Геоданные"),
     "geodataLoader": MessageLookupByLibrary.simpleMessage(
       "Экономия памяти для геоданных",
@@ -657,6 +660,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "proxyProviders": MessageLookupByLibrary.simpleMessage("Провайдеры прокси"),
     "pureBlackMode": MessageLookupByLibrary.simpleMessage("Чисто черный режим"),
     "qrNotFound": MessageLookupByLibrary.simpleMessage("QR-код не найден"),
+    "qrScanFromImageUnsupported": MessageLookupByLibrary.simpleMessage(
+      "Сканирование QR-кода из изображения не поддерживается на этой платформе. Используйте ссылку на подписку.",
+    ),
     "qrcode": MessageLookupByLibrary.simpleMessage("QR-код"),
     "qrcodeDesc": MessageLookupByLibrary.simpleMessage(
       "Сканировать QR-код для получения профиля",
