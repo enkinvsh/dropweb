@@ -237,6 +237,7 @@ class ClashLibHandler {
   DateTime? getRunTime() {
     final runTimeRaw = clashFFI.getRunTime();
     final runTimeString = runTimeRaw.cast<Utf8>().toDartString();
+    clashFFI.freeCString(runTimeRaw);
     if (runTimeString.isEmpty) {
       return null;
     }
