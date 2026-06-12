@@ -102,6 +102,19 @@ class Request {
         responseType: ResponseType.plain,
       ),
     );
+    final contentLengthHeader = response.headers.value('content-length');
+    final contentLength = int.tryParse(contentLengthHeader ?? '');
+    if (contentLength != null && contentLength > _maxProfileBytes) {
+      throw Exception(
+        'Subscription too large: $contentLength bytes (max $_maxProfileBytes)',
+      );
+    }
+    final actualLength = (response.data as String?)?.length ?? 0;
+    if (actualLength > _maxProfileBytes) {
+      throw Exception(
+        'Subscription too large: $actualLength bytes (max $_maxProfileBytes)',
+      );
+    }
     return response;
   }
 
