@@ -526,5 +526,8 @@
   "strictNodeResetNotice": "Строгая нода недоступна после обновления — выбран failover внутри страны.",
   "otherCountries": "Другое",
   "genericErrorMessage": "Что-то пошло не так. Попробуйте ещё раз.",
-  "qrScanFromImageUnsupported": "Сканирование QR-кода из изображения не поддерживается на этой платформе. Используйте ссылку на подписку."
+  "qrScanFromImageUnsupported": "Сканирование QR-кода из изображения не поддерживается на этой платформе. Используйте ссылку на подписку.",
+  "alwaysOnVpn": "Постоянный VPN",
+  "alwaysOnVpnDesc": "Защита от отключения: системный Always-on + блокировка без VPN",
+  "alwaysOnVpnOpenFailed": "Не удалось открыть настройки VPN"
 }

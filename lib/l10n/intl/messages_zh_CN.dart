@@ -74,6 +74,13 @@ class MessageLookup extends MessageLookupByLibrary {
     "allowBypassDesc": MessageLookupByLibrary.simpleMessage("开启后部分应用可绕过VPN"),
     "allowLan": MessageLookupByLibrary.simpleMessage("局域网代理"),
     "allowLanDesc": MessageLookupByLibrary.simpleMessage("允许通过局域网访问代理"),
+    "alwaysOnVpn": MessageLookupByLibrary.simpleMessage("始终开启 VPN"),
+    "alwaysOnVpnDesc": MessageLookupByLibrary.simpleMessage(
+      "防止断连：系统始终开启 VPN + 阻止无 VPN 时的连接",
+    ),
+    "alwaysOnVpnOpenFailed": MessageLookupByLibrary.simpleMessage(
+      "无法打开 VPN 设置",
+    ),
     "announcement": MessageLookupByLibrary.simpleMessage("公告"),
     "app": MessageLookupByLibrary.simpleMessage("应用"),
     "appAccessControl": MessageLookupByLibrary.simpleMessage("应用访问控制"),

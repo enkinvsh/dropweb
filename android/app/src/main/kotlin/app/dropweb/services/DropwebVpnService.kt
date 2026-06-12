@@ -155,6 +155,20 @@ class DropwebVpnService : VpnService(), BaseServiceInterface {
         }
     }
 
+    // System revoked the VPN (another VPN took over, or the user disabled us in
+    // settings). The framework already tore down the TUN fd, so without this the
+    // Go core keeps running on a dead tunnel and traffic fails OPEN while the UI
+    // still shows "connected". Route through the canonical stop path
+    // (GlobalState.handleStop) so the core stops cleanly and Dart reconciles its
+    // run-state. Hop to Main because onRevoke may arrive off-thread and handleStop
+    // mutates main-thread-only LiveData. We do NOT call super.onRevoke(): its bare
+    // stopSelf would race the async core teardown that this path already performs.
+    override fun onRevoke() {
+        CoroutineScope(Dispatchers.Main).launch {
+            GlobalState.handleStop()
+        }
+    }
+
     private var cachedBuilder: NotificationCompat.Builder? = null
 
     private suspend fun notificationBuilder(): NotificationCompat.Builder {

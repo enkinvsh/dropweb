@@ -99,6 +99,13 @@ class MessageLookup extends MessageLookupByLibrary {
     "allowLanDesc": MessageLookupByLibrary.simpleMessage(
       "Allow access proxy through the LAN",
     ),
+    "alwaysOnVpn": MessageLookupByLibrary.simpleMessage("Always-on VPN"),
+    "alwaysOnVpnDesc": MessageLookupByLibrary.simpleMessage(
+      "Protection from disconnection: system Always-on VPN + block connections without VPN",
+    ),
+    "alwaysOnVpnOpenFailed": MessageLookupByLibrary.simpleMessage(
+      "Couldn\'t open VPN settings",
+    ),
     "announcement": MessageLookupByLibrary.simpleMessage("Announcement"),
     "app": MessageLookupByLibrary.simpleMessage("App"),
     "appAccessControl": MessageLookupByLibrary.simpleMessage(

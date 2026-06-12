@@ -80,6 +80,16 @@ class App {
       "message": "$message",
     });
 
+  Future<bool> openVpnSettings() async {
+    try {
+      return await methodChannel.invokeMethod<bool>("openVpnSettings") ?? false;
+    } on PlatformException catch (_) {
+      return false;
+    } on MissingPluginException catch (_) {
+      return false;
+    }
+  }
+
   Future<bool?> initShortcuts() async => methodChannel.invokeMethod<bool>(
       "initShortcuts",
       appLocalizations.toggle,

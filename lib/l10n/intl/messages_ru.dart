@@ -98,6 +98,13 @@ class MessageLookup extends MessageLookupByLibrary {
     "allowLanDesc": MessageLookupByLibrary.simpleMessage(
       "Разрешить доступ к прокси из локальной сети",
     ),
+    "alwaysOnVpn": MessageLookupByLibrary.simpleMessage("Постоянный VPN"),
+    "alwaysOnVpnDesc": MessageLookupByLibrary.simpleMessage(
+      "Защита от отключения: системный Always-on + блокировка без VPN",
+    ),
+    "alwaysOnVpnOpenFailed": MessageLookupByLibrary.simpleMessage(
+      "Не удалось открыть настройки VPN",
+    ),
     "announcement": MessageLookupByLibrary.simpleMessage("Объявление"),
     "app": MessageLookupByLibrary.simpleMessage("Приложение"),
     "appAccessControl": MessageLookupByLibrary.simpleMessage(

@@ -525,5 +525,8 @@
   "strictNodeResetNotice": "Strict node unavailable after update — switched to in-country failover.",
   "otherCountries": "Other",
   "genericErrorMessage": "Something went wrong. Please try again.",
-  "qrScanFromImageUnsupported": "Scanning a QR code from an image isn't supported on this platform. Use the subscription URL instead."
+  "qrScanFromImageUnsupported": "Scanning a QR code from an image isn't supported on this platform. Use the subscription URL instead.",
+  "alwaysOnVpn": "Always-on VPN",
+  "alwaysOnVpnDesc": "Protection from disconnection: system Always-on VPN + block connections without VPN",
+  "alwaysOnVpnOpenFailed": "Couldn't open VPN settings"
 }

@@ -4088,6 +4088,36 @@ class AppLocalizations {
       args: [],
     );
   }
+
+  /// `Always-on VPN`
+  String get alwaysOnVpn {
+    return Intl.message(
+      'Always-on VPN',
+      name: 'alwaysOnVpn',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Protection from disconnection: system Always-on VPN + block connections without VPN`
+  String get alwaysOnVpnDesc {
+    return Intl.message(
+      'Protection from disconnection: system Always-on VPN + block connections without VPN',
+      name: 'alwaysOnVpnDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Couldn't open VPN settings`
+  String get alwaysOnVpnOpenFailed {
+    return Intl.message(
+      'Couldn\'t open VPN settings',
+      name: 'alwaysOnVpnOpenFailed',
+      desc: '',
+      args: [],
+    );
+  }
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<AppLocalizations> {

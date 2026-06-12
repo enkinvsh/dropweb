@@ -267,6 +267,10 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 result.success(playUiSound(cue))
             }
 
+            "openVpnSettings" -> {
+                result.success(openVpnSettings())
+            }
+
             else -> {
                 result.notImplemented()
             }
@@ -383,6 +387,26 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
         val sampleId = soundIdMap[cue] ?: return false
         val streamId = pool.play(sampleId, 0.8f, 0.8f, 1, 0, 1f)
         return streamId != 0
+    }
+
+    // Deep-link to Android's VPN settings, where the user can enable Always-on
+    // VPN + "Block connections without VPN" — the only true system kill-switch
+    // (it cannot be enabled programmatically). Prefer the foreground activity;
+    // fall back to the app context with NEW_TASK when none is attached.
+    private fun openVpnSettings(): Boolean {
+        val intent = Intent(Settings.ACTION_VPN_SETTINGS)
+        return try {
+            val activity = activityRef?.get()
+            if (activity != null) {
+                activity.startActivity(intent)
+            } else {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                DropwebApplication.getAppContext().startActivity(intent)
+            }
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun openFile(path: String) {

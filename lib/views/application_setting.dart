@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dropweb/common/common.dart';
+import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/config.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/widgets.dart';
@@ -346,6 +347,24 @@ class HiddenItem extends ConsumerWidget {
   }
 }
 
+class AlwaysOnVpnItem extends ConsumerWidget {
+  const AlwaysOnVpnItem({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => ListItem(
+        title: Text(appLocalizations.alwaysOnVpn),
+        subtitle: Text(appLocalizations.alwaysOnVpnDesc),
+        leading: HugeIcon(icon: HugeIcons.strokeRoundedShield01, size: 24),
+        trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 16),
+        onTap: () async {
+          final ok = await app?.openVpnSettings() ?? false;
+          if (!ok) {
+            globalState.showNotifier(appLocalizations.alwaysOnVpnOpenFailed);
+          }
+        },
+      );
+}
+
 class AnimateTabItem extends ConsumerWidget {
   const AnimateTabItem({super.key});
 
@@ -450,6 +469,7 @@ class ApplicationSettingView extends StatelessWidget {
       ],
       AutoRunItem(),
       if (Platform.isAndroid) ...[
+        AlwaysOnVpnItem(),
         HiddenItem(),
       ],
       AnimateTabItem(),
