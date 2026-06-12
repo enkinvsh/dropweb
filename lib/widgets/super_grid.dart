@@ -292,7 +292,14 @@ class SuperGridState extends State<SuperGrid> with TickerProviderStateMixin {
     _transformCompleter = Completer();
     final animateWith = _fakeDragWidgetController.animateWith(simulation);
     _transformCompleter?.complete(animateWith);
-    await animateWith;
+    // A drop animation can outlive this widget when the user disposes the grid
+    // mid-drag; the ticker then throws TickerCanceled. Bail out cleanly instead
+    // of letting it surface as an unhandled async error.
+    try {
+      await animateWith;
+    } on TickerCanceled {
+      return;
+    }
     _animating.value = false;
     _fakeDragWidgetAnimation = null;
     _transformTweenMap.clear();

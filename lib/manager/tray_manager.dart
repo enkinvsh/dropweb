@@ -30,13 +30,16 @@ class _TrayContainerState extends ConsumerState<TrayManager> with TrayListener {
 
     try {
       final className = '#32768'.toNativeUtf16();
-      final hwnd = FindWindow(className, nullptr);
+      // Free the native string in finally so a throwing FFI call can't leak it.
+      try {
+        final hwnd = FindWindow(className, nullptr);
 
-      if (hwnd != 0) {
-        PostMessage(hwnd, WM_CLOSE, 0, 0);
+        if (hwnd != 0) {
+          PostMessage(hwnd, WM_CLOSE, 0, 0);
+        }
+      } finally {
+        calloc.free(className);
       }
-
-      calloc.free(className);
     } catch (e) {
       debugPrint('[tray] _closeWindowsPopupMenu failed: $e');
     }

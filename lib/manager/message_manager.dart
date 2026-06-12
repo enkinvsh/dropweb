@@ -51,11 +51,16 @@ class MessageManagerState extends State<MessageManager> {
     _pushing = true;
     while (_bufferMessages.isNotEmpty) {
       final commonMessage = _bufferMessages.removeAt(0);
+      // Bail before mutating if the State was disposed mid-drain: the
+      // ValueNotifier is disposed in dispose() and mutating it throws.
+      if (!mounted) return;
       _messagesNotifier.value = List.from(_messagesNotifier.value)
         ..add(
           commonMessage,
         );
       await Future.delayed(const Duration(seconds: 1));
+      // The manager may have been disposed during the delay above.
+      if (!mounted) return;
       Future.delayed(commonMessage.duration, () {
         _handleRemove(commonMessage);
       });
@@ -66,6 +71,9 @@ class MessageManagerState extends State<MessageManager> {
   }
 
   Future<void> _handleRemove(CommonMessage commonMessage) async {
+    // Fired from a delayed callback; the State (and its ValueNotifier) may have
+    // been disposed by the time this runs.
+    if (!mounted) return;
     _messagesNotifier.value = List<CommonMessage>.from(_messagesNotifier.value)
       ..remove(commonMessage);
   }
