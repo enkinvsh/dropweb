@@ -40,8 +40,11 @@ class _AnnounceWidgetState extends ConsumerState<AnnounceWidget> {
 
     for (final match in urlPattern.allMatches(text)) {
       if (match.start > lastIndex) {
-        spans.add(TextSpan(
-          text: text.substring(lastIndex, match.start),
+        // Split plain (non-URL) runs through the shared emoji helper so flag
+        // and other emoji render via Twemoji on Windows. URL runs can't contain
+        // emoji, so they keep their tap recognizer untouched below.
+        spans.addAll(buildEmojiSpans(
+          text.substring(lastIndex, match.start),
           style: Theme.of(context).textTheme.bodyLarge,
         ));
       }
@@ -63,8 +66,8 @@ class _AnnounceWidgetState extends ConsumerState<AnnounceWidget> {
     }
 
     if (lastIndex < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(lastIndex),
+      spans.addAll(buildEmojiSpans(
+        text.substring(lastIndex),
         style: Theme.of(context).textTheme.bodyLarge,
       ));
     }
