@@ -7,6 +7,7 @@ import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/input.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class System {
   factory System() {
@@ -17,6 +18,17 @@ class System {
   System._internal();
   static System? _instance;
   List<String>? originDns;
+
+  /// SharedPreferences key for the persisted pre-injection macOS DNS. Persisting
+  /// the TRUE origin survives a crash/force-kill while the VPN is connected — a
+  /// later launch must NOT read the already-poisoned live DNS (containing the
+  /// injected 1.1.1.1) as "origin". Stored as a `List<String>`; an empty list is
+  /// a valid "no DNS set" state, distinct from the key being absent.
+  static const _macosOriginDnsKey = 'macos_origin_dns';
+
+  /// Serializes every set/restore so rapid VPN toggles can't run parallel
+  /// `networksetup` invocations and capture the injected DNS as the origin.
+  Future<void> _dnsOp = Future.value();
 
   bool get isDesktop =>
       Platform.isWindows || Platform.isLinux || Platform.isMacOS;
@@ -160,12 +172,18 @@ class System {
     final currentServiceNameLine = currentService.split("\n").firstWhere(
         (line) => RegExp(r'^\(\d+\).*').hasMatch(line),
         orElse: () => "");
-    final currentServiceNameLineSplits =
-        currentServiceNameLine.trim().split(' ');
-    if (currentServiceNameLineSplits.length < 2) {
+    // Service names can contain spaces ("Thunderbolt Ethernet",
+    // "USB 10/100/1000 LAN"), so a naive split(' ')[1] truncates them and the
+    // subsequent -getdnsservers/-setdnsservers calls hit the wrong service or
+    // fail. Strip only the leading "(N) " index and keep the full remainder.
+    final trimmedLine = currentServiceNameLine.trim();
+    final serviceName = trimmedLine.replaceFirst(RegExp(r'^\(\d+\)\s*'), '');
+    // When the regex didn't match (no "(N)" prefix) the string is unchanged —
+    // preserve the old "couldn't parse" semantics and bail out.
+    if (serviceName.isEmpty || serviceName == trimmedLine) {
       return null;
     }
-    return currentServiceNameLineSplits[1];
+    return serviceName;
   }
 
   Future<List<String>?> getMacOSOriginDns() async {
@@ -189,7 +207,46 @@ class System {
     return originDns;
   }
 
-  Future<void> setMacOSDns(bool restore) async {
+  /// Reads the persisted pre-injection DNS. Returns null when the key is absent
+  /// (no unclean-exit recovery needed); an empty list means "origin had no DNS".
+  Future<List<String>?> _readPersistedOriginDns() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getStringList(_macosOriginDnsKey);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _persistOriginDns(List<String> dns) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_macosOriginDnsKey, dns);
+    } catch (_) {
+      // Best-effort: failure to persist degrades crash recovery, not the
+      // live inject/restore which still works off in-memory [originDns].
+    }
+  }
+
+  Future<void> _clearPersistedOriginDns() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_macosOriginDnsKey);
+    } catch (_) {
+      // Best-effort.
+    }
+  }
+
+  /// Public entry point — signature is unchanged for callers. Every set/restore
+  /// is chained onto [_dnsOp] so they run strictly one-at-a-time; this prevents
+  /// a concurrent restore from re-reading the injected DNS as the new origin.
+  Future<void> setMacOSDns(bool restore) {
+    final next = _dnsOp.then((_) => _setMacOSDnsInner(restore)).catchError((_) {});
+    _dnsOp = next;
+    return next;
+  }
+
+  Future<void> _setMacOSDnsInner(bool restore) async {
     if (!Platform.isMacOS) {
       return;
     }
@@ -199,17 +256,32 @@ class System {
     }
     List<String>? nextDns;
     if (restore) {
-      nextDns = originDns;
+      // Restore target: in-memory origin if this session captured it, else the
+      // persisted list — which covers restoring after a crash on next launch.
+      nextDns = originDns ?? await _readPersistedOriginDns();
     } else {
-      final originDns = await system.getMacOSOriginDns();
-      if (originDns == null) {
-        return;
+      // Establish the TRUE pre-injection DNS. If a persisted origin already
+      // exists, a previous session injected 1.1.1.1 but never restored (unclean
+      // exit) — the live DNS is poisoned, so trust the persisted origin instead
+      // of re-reading. Otherwise read the live DNS and persist it BEFORE the
+      // inject so a crash mid-session is still recoverable on next launch.
+      final persisted = await _readPersistedOriginDns();
+      List<String>? origin;
+      if (persisted != null) {
+        origin = persisted;
+        originDns = persisted;
+      } else {
+        origin = await system.getMacOSOriginDns();
+        if (origin == null) {
+          return;
+        }
+        await _persistOriginDns(origin);
       }
       const needAddDns = "1.1.1.1"; // Cloudflare DNS
-      if (originDns.contains(needAddDns)) {
+      if (origin.contains(needAddDns)) {
         return;
       }
-      nextDns = List.from(originDns)..add(needAddDns);
+      nextDns = List.from(origin)..add(needAddDns);
     }
     if (nextDns == null) {
       return;
@@ -223,6 +295,11 @@ class System {
         if (nextDns.isEmpty) "Empty",
       ],
     );
+    if (restore) {
+      // Clean state after a successful restore: drop the persisted origin so the
+      // next inject reads fresh live DNS rather than a stale recovery value.
+      await _clearPersistedOriginDns();
+    }
   }
 
   Future<void> back() async {

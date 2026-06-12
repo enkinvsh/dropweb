@@ -23,6 +23,13 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Unclean-exit recovery (macOS): if a previous session injected 1.1.1.1
+    // into the system DNS and crashed before restoring, the true origin sits
+    // in SharedPreferences (`macos_origin_dns`). Restoring here heals the
+    // system DNS at launch instead of waiting for the next connect cycle.
+    // In a clean state (no persisted origin, no in-memory origin) this is a
+    // no-op, and the _dnsOp queue serializes it ahead of any auto-connect.
+    unawaited(system.setMacOSDns(true));
     ref.listenManual(layoutChangeProvider, (prev, next) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (prev != next) {
@@ -50,6 +57,9 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
         if (prev == next) {
           return;
         }
+        // Fire-and-forget is safe: set/restore ordering is guaranteed by the
+        // _dnsOp promise queue inside System.setMacOSDns, so rapid toggles can't
+        // interleave and capture the injected DNS as the origin.
         if (next.a == true && next.b == true) {
           system.setMacOSDns(false);
         } else {
@@ -66,7 +76,8 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
 
   @override
   void dispose() {
-    // dispose() is sync; DNS reset is fire-and-forget, error path is just a log.
+    // dispose() is sync; DNS reset is fire-and-forget. Ordering vs. any pending
+    // set/restore is guaranteed by the _dnsOp queue inside System.setMacOSDns.
     unawaited(system.setMacOSDns(true));
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
