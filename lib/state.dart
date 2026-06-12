@@ -57,6 +57,16 @@ class GlobalState {
   String? coreVersion;
   late PackageInfo packageInfo;
   Function? updateCurrentDelayDebounce;
+
+  /// Pause/resume hooks for the 20s proxy-group poll timer owned by
+  /// `ApplicationState`. Wired in its initState and cleared in dispose so the
+  /// lifecycle observer (`AppStateManager`) can stop the poll while the app is
+  /// backgrounded — the Android VPN foreground service keeps the UI isolate
+  /// (and otherwise this timer) alive indefinitely with the screen off, which
+  /// would poll the Go core over FFI for the full groups JSON every 20s.
+  VoidCallback? pauseGroupsPolling;
+  VoidCallback? resumeGroupsPolling;
+
   late Measure measure;
   late CommonTheme theme;
   late Color accentColor;

@@ -28,6 +28,7 @@ class Application extends ConsumerStatefulWidget {
 class ApplicationState extends ConsumerState<Application> {
   Timer? _autoUpdateGroupTaskTimer;
   Timer? _autoUpdateProfilesTaskTimer;
+  bool _groupPollPaused = false;
 
   final _pageTransitionsTheme = const PageTransitionsTheme(
     builders: <TargetPlatform, PageTransitionsBuilder>{
@@ -57,6 +58,10 @@ class ApplicationState extends ConsumerState<Application> {
 
     _autoUpdateGroupTask();
     _autoUpdateProfilesTask();
+    // Let the app-lifecycle observer (AppStateManager) gate the group poll so
+    // it doesn't keep hitting the Go core every 20s while backgrounded.
+    globalState.pauseGroupsPolling = _pauseGroupTask;
+    globalState.resumeGroupsPolling = _resumeGroupTask;
     globalState.appController = AppController(context, ref);
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
       final currentContext = globalState.navigatorKey.currentContext;
@@ -70,12 +75,41 @@ class ApplicationState extends ConsumerState<Application> {
   }
 
   void _autoUpdateGroupTask() {
+    _autoUpdateGroupTaskTimer?.cancel();
+    // Re-arm guard: a timer that fired just before pause schedules a
+    // post-frame re-arm; bail out here so it doesn't restart the poll while
+    // the app is backgrounded.
+    if (_groupPollPaused) {
+      return;
+    }
     _autoUpdateGroupTaskTimer = Timer(const Duration(milliseconds: 20000), () {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_groupPollPaused) {
+          return;
+        }
         globalState.appController.updateGroupsDebounce();
         _autoUpdateGroupTask();
       });
     });
+  }
+
+  // Stop the 20s proxy-group poll while the app is backgrounded. Cancels any
+  // pending timer so a fire scheduled just before pause can't re-arm.
+  void _pauseGroupTask() {
+    _groupPollPaused = true;
+    _autoUpdateGroupTaskTimer?.cancel();
+    _autoUpdateGroupTaskTimer = null;
+  }
+
+  // Resume on foreground with one immediate refresh so the UI reflects current
+  // groups right away, then re-arm the periodic poll.
+  void _resumeGroupTask() {
+    if (!_groupPollPaused) {
+      return;
+    }
+    _groupPollPaused = false;
+    globalState.appController.updateGroupsDebounce();
+    _autoUpdateGroupTask();
   }
 
   void _autoUpdateProfilesTask() {
@@ -274,6 +308,8 @@ class ApplicationState extends ConsumerState<Application> {
   @override
   Future<void> dispose() async {
     linkManager.destroy();
+    globalState.pauseGroupsPolling = null;
+    globalState.resumeGroupsPolling = null;
     _autoUpdateGroupTaskTimer?.cancel();
     _autoUpdateProfilesTaskTimer?.cancel();
     await clashCore.destroy();

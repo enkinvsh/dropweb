@@ -85,6 +85,20 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     } else {
       render?.resume();
     }
+    // Gate the 20s proxy-group poll on real backgrounding only. inactive fires
+    // for transient overlays (permission dialog, notification shade) and on
+    // desktop window blur — it must NOT pause the poll. Pause on
+    // paused/hidden/detached; resume (with an immediate refresh) on resumed.
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        globalState.pauseGroupsPolling?.call();
+      case AppLifecycleState.resumed:
+        globalState.resumeGroupsPolling?.call();
+      case AppLifecycleState.inactive:
+        break;
+    }
   }
 
   @override
