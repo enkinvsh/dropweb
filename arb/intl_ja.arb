@@ -172,7 +172,6 @@
   "recoveryAll": "全データ復元",
   "recoverySuccess": "復元成功",
   "backupSuccess": "バックアップ成功",
-  "backupPlaintextWarning": "バックアップにはサーバーキーが平文で含まれます。安全な場所に保管してください。続行しますか？",
   "noInfo": "情報なし",
   "pleaseBindWebDAV": "WebDAVをバインドしてください",
   "bind": "バインド",

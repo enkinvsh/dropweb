@@ -156,9 +156,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "backupAndRecoveryDesc": MessageLookupByLibrary.simpleMessage(
       "Синхронизация данных через WebDAV или файл",
     ),
-    "backupPlaintextWarning": MessageLookupByLibrary.simpleMessage(
-      "Файл бэкапа содержит ключи серверов в открытом виде. Храните его в надёжном месте. Продолжить?",
-    ),
     "backupSuccess": MessageLookupByLibrary.simpleMessage(
       "Резервное копирование успешно",
     ),
