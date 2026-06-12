@@ -1116,6 +1116,12 @@ class _ConnectGlassPainter extends CustomPainter {
   static const double _liquidIdleDim = 0.45;
   static const double _liquidCoverScale = 2.8; // logo overscale vs lens
 
+  /// Optical-centering lift for the liquid logo, as a fraction of the lens
+  /// radius. The provider mark reads low when sampled dead-centre, so the
+  /// shader is nudged up by this amount to sit at the optical centre of the
+  /// lens (slightly above geometric centre).
+  static const double _liquidLogoLift = 0.12;
+
   /// Fresnel rim brightness (lab `rim`): 0.55 == the pre-liquid baseline.
   static const double _rimAlpha = 1.0;
 
@@ -1223,7 +1229,7 @@ class _ConnectGlassPainter extends CustomPainter {
       ..[10] = 1.0
       ..[15] = 1.0
       ..[12] = center.dx - destW / 2
-      ..[13] = center.dy - destH / 2;
+      ..[13] = center.dy - destH / 2 - r * _liquidLogoLift;
     final logoShader = ui.ImageShader(
       logo,
       ui.TileMode.decal,
