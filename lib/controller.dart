@@ -2296,7 +2296,16 @@ class AppController {
     );
     for (final profile in profiles) {
       if (!profile.isFile) continue;
-      final filePath = join(homeDirPath, profile.name);
+      // profile.name is attacker-controlled (from the backup ZIP). Reject any
+      // entry that would escape the profiles directory (Zip-Slip) before
+      // File.create(recursive: true) builds the escape path on disk.
+      final filePath = safeArchivePath(homeDirPath, profile.name);
+      if (filePath == null) {
+        commonPrint.log(
+          '[restore] skipped unsafe archive entry: ${profile.name}',
+        );
+        continue;
+      }
       final file = File(filePath);
       await file.create(recursive: true);
       await file.writeAsBytes(profile.content);
