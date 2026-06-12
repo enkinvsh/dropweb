@@ -95,6 +95,51 @@ void main() {
       expect(redactUrls(input), equals(input));
     });
 
+    test('redacts deep path so a token living in the path never leaks', () {
+      // Remnawave-style subscription panels carry the secret in the PATH:
+      // https://panel.example/api/sub/<token>. Path must be redacted past
+      // the first segment.
+      const input = 'GET https://panel.example/api/sub/SECRET123?x=1 -> 200';
+
+      final out = redactUrls(input);
+
+      expect(out, isNot(contains('SECRET123')),
+          reason: 'subscription token in the path must be stripped');
+      // scheme + host kept for debuggability; first path segment kept.
+      expect(out, contains('https://panel.example/api/[REDACTED]'));
+      expect(out, contains('?[REDACTED]'));
+    });
+
+    test('redacts deep path with no query (token is the last path segment)',
+        () {
+      const input = 'fetch https://host.example/api/sub/SECRET done';
+
+      final out = redactUrls(input);
+
+      expect(out, isNot(contains('SECRET')));
+      expect(out, contains('https://host.example/api/[REDACTED]'));
+    });
+
+    test('keeps a single-segment path (not sensitive, aids debugging)', () {
+      const input = 'ping https://host.example/version ok';
+
+      final out = redactUrls(input);
+
+      expect(out, contains('https://host.example/version'));
+      expect(out, isNot(contains('[REDACTED]')));
+    });
+
+    test('is idempotent on a redacted deep path — no double-mangle', () {
+      const input = 'GET https://panel.example/api/sub/SECRET123?x=1';
+      final once = redactUrls(input);
+      final twice = redactUrls(once);
+
+      expect(twice, equals(once),
+          reason: 'second pass over a redacted deep path must be a no-op');
+      expect(twice, isNot(contains('SECRET123')));
+      expect(twice, contains('https://panel.example/api/[REDACTED]'));
+    });
+
     test(
         'redacts URLs even when raw query already contains the [REDACTED] marker as a decoy',
         () {

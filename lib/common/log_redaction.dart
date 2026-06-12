@@ -6,11 +6,12 @@
 /// never reach `debugPrint`, the file logger, or the in-app log viewer
 /// in clear text.
 ///
-/// Scheme / host / port / path are preserved so logs stay debuggable
-/// (e.g. `https://api.github.com/repos/.../releases/latest` remains
-/// readable); credentials, the entire query, and the fragment are
-/// replaced with `[REDACTED]`. URLs that fail to parse fall back to
-/// `[URL_REDACTED]`.
+/// Scheme / host / port are preserved so logs stay debuggable; the path
+/// keeps AT MOST its first segment (the rest becomes `/[REDACTED]`) because
+/// subscription tokens often live in the path itself
+/// (`https://panel.example/api/sub/<token>`). Credentials, the entire
+/// query, and the fragment are replaced with `[REDACTED]`. URLs that fail
+/// to parse fall back to `[URL_REDACTED]`.
 library;
 
 // Match plausible URL substrings up to whitespace or common quote/angle
@@ -30,7 +31,9 @@ final RegExp _urlPattern = RegExp(
 //
 // Components correspond 1:1 to `_sanitizeUrl`'s output: optional redacted
 // userinfo (`[REDACTED]@`), a plain host (no brackets — IPv6 literals would
-// fall through to a full re-sanitize), optional port, optional path,
+// fall through to a full re-sanitize), optional port, an already-redacted
+// path (empty, a single segment, or `/<segment>/[REDACTED]` — a deep path
+// like `/api/sub/SECRET` deliberately does NOT match so it gets redacted),
 // optional redacted query (`?[REDACTED]` and nothing else), and optional
 // redacted fragment (`#[REDACTED]` and nothing else).
 final RegExp _alreadyRedactedShape = RegExp(
@@ -39,7 +42,7 @@ final RegExp _alreadyRedactedShape = RegExp(
   r'(?:\[REDACTED\]@)?'
   r'[^\s/?#@\[\]]+'
   r'(?::\d+)?'
-  r'(?:/[^?#\s]*)?'
+  r'(?:/[^/?#\s]*(?:/\[REDACTED\])?)?'
   r'(?:\?\[REDACTED\])?'
   r'(?:#\[REDACTED\])?'
   r'$',
@@ -82,7 +85,7 @@ String _sanitizeUrl(String raw) {
       ..write(':')
       ..write(uri.port);
   }
-  buffer.write(uri.path);
+  buffer.write(_redactPath(uri.path));
   if (uri.hasQuery) {
     buffer.write('?[REDACTED]');
   }
@@ -90,4 +93,28 @@ String _sanitizeUrl(String raw) {
     buffer.write('#[REDACTED]');
   }
   return buffer.toString();
+}
+
+/// Redacts the sensitive tail of a URL path while keeping enough for
+/// debuggability.
+///
+/// Remnawave-style subscription panels embed the secret token directly in
+/// the PATH (`https://panel.example/api/sub/<token>`), so writing the path
+/// verbatim leaks it. Policy: keep AT MOST the first path segment and
+/// replace the remainder with `/[REDACTED]`. An empty path or a
+/// single-segment path is kept as-is (e.g. `/version`, `/install-config`).
+///
+/// The injected `/[REDACTED]` stays within the path shape recognised by
+/// [_alreadyRedactedShape], so a second sanitization pass is a true no-op.
+String _redactPath(String path) {
+  if (path.isEmpty || path == '/') {
+    return path;
+  }
+  final meaningful = path.split('/').where((s) => s.isNotEmpty).toList();
+  if (meaningful.length <= 1) {
+    // Empty or single-segment path: not sensitive, keep verbatim.
+    return path;
+  }
+  final leading = path.startsWith('/') ? '/' : '';
+  return '$leading${meaningful.first}/[REDACTED]';
 }
