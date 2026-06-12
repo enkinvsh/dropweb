@@ -1224,6 +1224,11 @@ class AppController {
     }
     final normalizedUrl = uri.toString();
 
+    // Onboarding Moment 3: capture whether this is the first-ever profile
+    // BEFORE the add, so a successful import can invite the user to connect.
+    // Single funnel — covers clipboard, deep-link, QR and URL-dialog imports.
+    final wasEmpty = _ref.read(profilesProvider).isEmpty;
+
     if (globalState.navigatorKey.currentState?.canPop() ?? false) {
       globalState.navigatorKey.currentState?.popUntil((route) => route.isFirst);
     }
@@ -1254,6 +1259,17 @@ class AppController {
 
         await addProfile(profile);
         unawaited(App().playUiSound(DropwebSoundCue.importSuccess));
+        // Onboarding Moment 3: first-ever profile imported → invite the user
+        // to connect (haptic + transient notifier). No auto-connect — the VPN
+        // disclosure + native permission gate must not ambush a user who never
+        // pressed connect. The lens already morphs add-circle → power via
+        // hasProfile. See onboarding-brief §Moment 3.
+        if (wasEmpty) {
+          unawaited(
+            App().performHapticFeedback(DropwebHapticCue.gestureStart),
+          );
+          globalState.showNotifier(appLocalizations.onboardingImported);
+        }
       }
     } catch (err) {
       unawaited(App().playUiSound(DropwebSoundCue.importError));

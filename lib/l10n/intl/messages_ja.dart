@@ -382,6 +382,18 @@ class MessageLookup extends MessageLookupByLibrary {
     "nullScriptTip": MessageLookupByLibrary.simpleMessage("スクリプトはありません"),
     "nullTip": m4,
     "numberTip": m5,
+    "onboardingAddHint": MessageLookupByLibrary.simpleMessage(
+      "タップしてサブスクリプションを追加",
+    ),
+    "onboardingClipboardImport": MessageLookupByLibrary.simpleMessage(
+      "クリップボードから貼り付け",
+    ),
+    "onboardingClipboardImportDesc": MessageLookupByLibrary.simpleMessage(
+      "サブスクリプションのリンクを検出:",
+    ),
+    "onboardingImported": MessageLookupByLibrary.simpleMessage(
+      "サブスクリプションを追加しました。タップして接続",
+    ),
     "oneColumn": MessageLookupByLibrary.simpleMessage("1列"),
     "oneline": MessageLookupByLibrary.simpleMessage("オンライン"),
     "onlyIcon": MessageLookupByLibrary.simpleMessage("アイコンのみ"),

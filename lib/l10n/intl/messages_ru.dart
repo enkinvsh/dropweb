@@ -507,6 +507,18 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "nullTip": m4,
     "numberTip": m5,
+    "onboardingAddHint": MessageLookupByLibrary.simpleMessage(
+      "Нажмите, чтобы добавить подписку",
+    ),
+    "onboardingClipboardImport": MessageLookupByLibrary.simpleMessage(
+      "Вставить подписку из буфера",
+    ),
+    "onboardingClipboardImportDesc": MessageLookupByLibrary.simpleMessage(
+      "Обнаружена ссылка на подписку:",
+    ),
+    "onboardingImported": MessageLookupByLibrary.simpleMessage(
+      "Подписка добавлена. Нажмите, чтобы подключиться",
+    ),
     "oneColumn": MessageLookupByLibrary.simpleMessage("Один столбец"),
     "oneline": MessageLookupByLibrary.simpleMessage("Линия"),
     "onlyIcon": MessageLookupByLibrary.simpleMessage("Только иконка"),

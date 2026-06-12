@@ -336,6 +336,14 @@ class MessageLookup extends MessageLookupByLibrary {
     "nullScriptTip": MessageLookupByLibrary.simpleMessage("暂无脚本"),
     "nullTip": m4,
     "numberTip": m5,
+    "onboardingAddHint": MessageLookupByLibrary.simpleMessage("点按以添加订阅"),
+    "onboardingClipboardImport": MessageLookupByLibrary.simpleMessage(
+      "从剪贴板粘贴订阅",
+    ),
+    "onboardingClipboardImportDesc": MessageLookupByLibrary.simpleMessage(
+      "检测到订阅链接：",
+    ),
+    "onboardingImported": MessageLookupByLibrary.simpleMessage("订阅已添加，点按以连接"),
     "oneColumn": MessageLookupByLibrary.simpleMessage("一列"),
     "oneline": MessageLookupByLibrary.simpleMessage("单行"),
     "onlyIcon": MessageLookupByLibrary.simpleMessage("仅图标"),

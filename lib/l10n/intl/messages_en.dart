@@ -484,6 +484,18 @@ class MessageLookup extends MessageLookupByLibrary {
     "nullScriptTip": MessageLookupByLibrary.simpleMessage("No scripts"),
     "nullTip": m4,
     "numberTip": m5,
+    "onboardingAddHint": MessageLookupByLibrary.simpleMessage(
+      "Tap to add your subscription",
+    ),
+    "onboardingClipboardImport": MessageLookupByLibrary.simpleMessage(
+      "Paste subscription from clipboard",
+    ),
+    "onboardingClipboardImportDesc": MessageLookupByLibrary.simpleMessage(
+      "Subscription link detected:",
+    ),
+    "onboardingImported": MessageLookupByLibrary.simpleMessage(
+      "Subscription added. Tap to connect",
+    ),
     "oneColumn": MessageLookupByLibrary.simpleMessage("One column"),
     "oneline": MessageLookupByLibrary.simpleMessage("Oneline"),
     "onlyIcon": MessageLookupByLibrary.simpleMessage("Icon"),

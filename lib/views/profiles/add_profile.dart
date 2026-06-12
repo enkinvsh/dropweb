@@ -9,16 +9,50 @@ import 'package:flutter/services.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'receive_profile_dialog.dart';
 
-class AddProfileView extends StatelessWidget {
+class AddProfileView extends StatefulWidget {
   const AddProfileView({
     super.key,
     required this.context,
   });
   final BuildContext context;
 
+  @override
+  State<AddProfileView> createState() => _AddProfileViewState();
+}
+
+class _AddProfileViewState extends State<AddProfileView> {
+  /// Subscription URL detected in the clipboard on sheet open, or null when
+  /// the clipboard held nothing importable. Drives the highlighted top entry.
+  String? _clipboardCandidate;
+
+  @override
+  void initState() {
+    super.initState();
+    // The user just chose "add" → the first-run hint has served its purpose
+    // and must never re-appear (it would otherwise sit behind this sheet).
+    unawaited(onboardingState.markHintSeen());
+    // Privacy: read the clipboard EXACTLY once, here, tied to the explicit
+    // "Add" intent — never at app launch/resume. Ties the Android-12 system
+    // clipboard toast to a user-authored action. See onboarding-brief §2.
+    unawaited(_checkClipboard());
+  }
+
+  Future<void> _checkClipboard() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      final candidate = extractSubscriptionUrl(data?.text);
+      if (!mounted || candidate == null) return;
+      setState(() => _clipboardCandidate = candidate);
+    } catch (e) {
+      // Clipboard access can throw (permission/host exceptions) — treat as
+      // no-match; never surface into the UI.
+      commonPrint.log('[onboarding] clipboard read failed: $e');
+    }
+  }
+
   Future<void> _handleReceiveFromPhone() async {
     final url = await showDialog<String>(
-      context: context,
+      context: widget.context,
       builder: (_) => const ReceiveProfileDialog(),
     );
     if (url != null && url.isNotEmpty) {
@@ -26,16 +60,31 @@ class AddProfileView extends StatelessWidget {
     }
   }
 
+  void _handleClipboardImport() {
+    final candidate = _clipboardCandidate;
+    if (candidate == null) return;
+    // Close the sheet first; addProfileFormURL then drives the dashboard
+    // loading flow via the global navigator (not this sheet's context).
+    Navigator.pop(context);
+    unawaited(addProfileFromUrl(candidate));
+  }
+
   @override
   Widget build(BuildContext context) => FutureBuilder<bool>(
         future: system.isAndroidTV,
         builder: (context, snapshot) {
           final isTV = snapshot.data ?? false;
+          final candidate = _clipboardCandidate;
           return ListView(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(vertical: 8),
             children: [
+              if (candidate != null)
+                _ClipboardImportEntry(
+                  host: Uri.tryParse(candidate)?.host ?? '',
+                  onTap: _handleClipboardImport,
+                ),
               if (isTV)
                 ListItem(
                   leading: const HugeIcon(
@@ -61,6 +110,42 @@ class AddProfileView extends StatelessWidget {
           );
         },
       );
+}
+
+/// Highlighted "paste subscription from clipboard" entry promoted to the top
+/// of the Add sheet when a subscription URL is detected in the clipboard.
+/// Promoted via [Lumina.glass] + a primary-tinted leading icon so it reads as
+/// the recommended action — still the same [ListItem] atom as every other row.
+class _ClipboardImportEntry extends StatelessWidget {
+  const _ClipboardImportEntry({
+    required this.host,
+    required this.onTap,
+  });
+
+  final String host;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final desc = appLocalizations.onboardingClipboardImportDesc;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      child: DecoratedBox(
+        decoration: Lumina.glass(radius: Lumina.radiusMd),
+        child: ListItem(
+          leading: HugeIcon(
+            icon: HugeIcons.strokeRoundedClipboard,
+            size: 24,
+            color: colorScheme.primary,
+          ),
+          title: Text(appLocalizations.onboardingClipboardImport),
+          subtitle: Text(host.isEmpty ? desc : '$desc $host'),
+          onTap: onTap,
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> addProfileFromUrl(String url) async {

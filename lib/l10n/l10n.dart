@@ -3943,6 +3943,46 @@ class AppLocalizations {
       args: [],
     );
   }
+
+  /// `Tap to add your subscription`
+  String get onboardingAddHint {
+    return Intl.message(
+      'Tap to add your subscription',
+      name: 'onboardingAddHint',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Paste subscription from clipboard`
+  String get onboardingClipboardImport {
+    return Intl.message(
+      'Paste subscription from clipboard',
+      name: 'onboardingClipboardImport',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Subscription link detected:`
+  String get onboardingClipboardImportDesc {
+    return Intl.message(
+      'Subscription link detected:',
+      name: 'onboardingClipboardImportDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Subscription added. Tap to connect`
+  String get onboardingImported {
+    return Intl.message(
+      'Subscription added. Tap to connect',
+      name: 'onboardingImported',
+      desc: '',
+      args: [],
+    );
+  }
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<AppLocalizations> {

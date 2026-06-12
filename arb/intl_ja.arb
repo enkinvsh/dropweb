@@ -511,5 +511,9 @@
   "genericErrorMessage": "問題が発生しました。もう一度お試しください。",
   "qrScanFromImageUnsupported": "この環境では画像からのQRコード読み取りに対応していません。サブスクリプションURLをご利用ください。",
   "alwaysOnVpn": "常時接続",
-  "alwaysOnVpnOpenFailed": "VPN設定を開けませんでした"
+  "alwaysOnVpnOpenFailed": "VPN設定を開けませんでした",
+  "onboardingAddHint": "タップしてサブスクリプションを追加",
+  "onboardingClipboardImport": "クリップボードから貼り付け",
+  "onboardingClipboardImportDesc": "サブスクリプションのリンクを検出:",
+  "onboardingImported": "サブスクリプションを追加しました。タップして接続"
 }

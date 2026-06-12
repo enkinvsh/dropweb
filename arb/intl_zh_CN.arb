@@ -511,5 +511,9 @@
   "genericErrorMessage": "出了点问题，请重试。",
   "qrScanFromImageUnsupported": "此平台不支持从图片扫描二维码，请改用订阅链接。",
   "alwaysOnVpn": "始终开启",
-  "alwaysOnVpnOpenFailed": "无法打开 VPN 设置"
+  "alwaysOnVpnOpenFailed": "无法打开 VPN 设置",
+  "onboardingAddHint": "点按以添加订阅",
+  "onboardingClipboardImport": "从剪贴板粘贴订阅",
+  "onboardingClipboardImportDesc": "检测到订阅链接：",
+  "onboardingImported": "订阅已添加，点按以连接"
 }

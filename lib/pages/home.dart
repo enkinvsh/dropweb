@@ -251,6 +251,11 @@ class _HomePageViewState extends ConsumerState<_HomePageView> {
           currentIndex: currentIndex == -1 ? 0 : currentIndex,
           itemCount: effectiveNavigationItems.length,
         ),
+        // Onboarding Moment 1: one-time coach hint over the lens on first run
+        // (0 profiles). The overlay self-gates on the persisted hint flag and
+        // is mobile-only by virtue of living in the mobile-only Stack. When a
+        // profile exists there is nothing to teach, so it is omitted entirely.
+        if (!hasProfiles) _FirstRunHintOverlay(buttonSize: connectSize),
       ],
     );
   }
@@ -360,6 +365,242 @@ class _MobileIndicatorOverlay extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Onboarding Moment 1 — a one-time coach hint over the connect lens on the
+/// very first run (0 profiles). Shows a glass callout below the lens plus a
+/// short attention pulse around it, then never again once the Add sheet has
+/// opened ([OnboardingState.markHintSeen], written from `AddProfileView`).
+///
+/// Anchoring: the overlay is positioned with the SAME [_mobileConnectAlignment]
+/// the lens itself uses (`_MobileConnectButtonOverlay`), so the pulse sits dead
+/// centre on the lens and the callout tracks it without any global→local
+/// coordinate conversion. The overlay is purely visual ([IgnorePointer]) so it
+/// can never swallow the lens tap — the lens stays the single tap target the
+/// copy points at, and the hint auto-dismisses the instant the sheet opens.
+class _FirstRunHintOverlay extends StatefulWidget {
+  const _FirstRunHintOverlay({required this.buttonSize});
+
+  final double buttonSize;
+
+  @override
+  State<_FirstRunHintOverlay> createState() => _FirstRunHintOverlayState();
+}
+
+class _FirstRunHintOverlayState extends State<_FirstRunHintOverlay>
+    with TickerProviderStateMixin {
+  /// Entrance fade + slide-up of the callout.
+  late final AnimationController _entranceController = AnimationController(
+    vsync: this,
+    duration: Lumina.luminaDuration,
+  );
+  late final CurvedAnimation _entrance = CurvedAnimation(
+    parent: _entranceController,
+    curve: Lumina.luminaCurve,
+  );
+
+  /// Attention pulse — a bounded number of expanding rings, NOT an always-on
+  /// ticker. Stops after [_pulseCycles] (or immediately once the hint is seen).
+  late final AnimationController _pulseController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1500),
+  );
+  static const int _pulseCycles = 3;
+  int _pulsesDone = 0;
+
+  bool _started = false;
+
+  @override
+  void initState() {
+    super.initState();
+    OnboardingState.hintSeenListenable.addListener(_onHintSeenChanged);
+    _pulseController.addStatusListener(_onPulseStatus);
+    // Resolve the persisted flag; the overlay stays hidden (value == null)
+    // until it lands, so a returning user never sees a flash of the hint.
+    unawaited(onboardingState.load());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncToFlag());
+  }
+
+  void _onHintSeenChanged() {
+    if (!mounted) return;
+    _syncToFlag();
+    setState(() {});
+  }
+
+  void _syncToFlag() {
+    if (!mounted) return;
+    final seen = OnboardingState.hintSeenListenable.value;
+    if (seen == false) {
+      _start();
+    } else if (seen == true) {
+      _stop();
+    }
+  }
+
+  void _start() {
+    if (_started) return;
+    _started = true;
+    // Reduced motion: static callout, no pulse (snap entrance to settled).
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _entranceController.value = 1.0;
+      return;
+    }
+    _entranceController.forward();
+    _pulsesDone = 0;
+    _pulseController.forward(from: 0);
+  }
+
+  void _stop() {
+    _pulseController.stop();
+    if (_entranceController.value > 0) {
+      _entranceController.reverse();
+    }
+  }
+
+  void _onPulseStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && mounted) {
+      _pulsesDone++;
+      if (_pulsesDone < _pulseCycles) {
+        _pulseController.forward(from: 0);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    OnboardingState.hintSeenListenable.removeListener(_onHintSeenChanged);
+    _pulseController.removeStatusListener(_onPulseStatus);
+    _entrance.dispose();
+    _entranceController.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Hidden until we know the flag is explicitly false (not seen).
+    if (OnboardingState.hintSeenListenable.value != false) {
+      return const SizedBox.shrink();
+    }
+    final colorScheme = Theme.of(context).colorScheme;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final buttonSize = widget.buttonSize;
+
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            if (!reduceMotion)
+              Align(
+                alignment: _mobileConnectAlignment,
+                child: AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (_, __) => CustomPaint(
+                    size: Size.square(buttonSize * 2),
+                    painter: _AttentionPulsePainter(
+                      progress: _pulseController.value,
+                      color: colorScheme.primary,
+                      buttonRadius: buttonSize / 2,
+                    ),
+                  ),
+                ),
+              ),
+            Align(
+              alignment: _mobileConnectAlignment,
+              child: Transform.translate(
+                offset: Offset(0, buttonSize / 2 + 28),
+                child: FadeTransition(
+                  opacity: _entrance,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.25),
+                      end: Offset.zero,
+                    ).animate(_entrance),
+                    child: _HintCallout(
+                      text: appLocalizations.onboardingAddHint,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Glass callout body for the first-run hint. Composes [Lumina.glass] + the
+/// theme text style (Onest, inherited) + a primary-tinted up-arrow pointing at
+/// the lens above it. No raw container styling, no inline TextStyle.
+class _HintCallout extends StatelessWidget {
+  const _HintCallout({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: Lumina.glass(radius: Lumina.radiusLg),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedArrowUp01,
+              size: 18,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                text,
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Paints a single expanding ring of light hugging the lens edge and fading as
+/// it grows — the perimeter-halo vocabulary, scoped to the onboarding overlay
+/// so the perf-critical lens painter is left untouched. Idle (progress at 1)
+/// paints nothing, so once the bounded pulse finishes there is no residue.
+class _AttentionPulsePainter extends CustomPainter {
+  const _AttentionPulsePainter({
+    required this.progress,
+    required this.color,
+    required this.buttonRadius,
+  });
+
+  final double progress;
+  final Color color;
+  final double buttonRadius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = Curves.easeOut.transform(progress);
+    final alpha = (1 - t) * 0.5;
+    if (alpha <= 0.001) return;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = buttonRadius + buttonRadius * 0.7 * t;
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..color = color.withValues(alpha: alpha);
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  @override
+  bool shouldRepaint(_AttentionPulsePainter old) =>
+      old.progress != progress ||
+      old.color != color ||
+      old.buttonRadius != buttonRadius;
 }
 
 /// Connect button — glass lens. Reports its screen position via
