@@ -12,6 +12,14 @@ import 'config.dart';
 
 part 'generated/state.g.dart';
 
+// CONFIG MIRROR — aggregation site (2 of 3).
+// `configState` re-assembles the 13 config slice providers
+// (lib/providers/config.dart) back into a single `Config`. It is the reverse
+// of each slice's `build()` seed and must list EVERY `Config` field. A field
+// added to `Config` (lib/models/config.dart) + its slice provider but forgotten
+// HERE silently falls back to the default and is dropped — caught by
+// test/common/config_roundtrip_test.dart. The flat ref-less mirror these slices
+// shadow is owned by lib/common/config_repository.dart.
 @riverpod
 Config configState(Ref ref) {
   final themeProps = ref.watch(themeSettingProvider);

@@ -51,7 +51,23 @@ class GlobalState {
   bool isService = false;
   Timer? timer;
   Timer? groupsUpdateTimer;
-  late Config config;
+
+  /// Owns the mutable `Config` mirror. `config` below delegates to it so the
+  /// ~58 `globalState.config` read/write sites stay untouched while the mirror
+  /// has a single documented owner. See lib/common/config_repository.dart and
+  /// the drift-lock test/common/config_roundtrip_test.dart.
+  final ConfigRepository configRepository = ConfigRepository();
+
+  /// Flat, ref-less view of the persisted `Config`. Read everywhere (UI domain
+  /// layer here, and the service isolate in lib/main.dart which has no
+  /// `ProviderScope`). The 13 Riverpod slices (lib/providers/config.dart) seed
+  /// FORWARD from this in their `build()` and mirror BACK via
+  /// `ConfigRepository.syncSlice` from their `onUpdate`; `configState`
+  /// (lib/providers/state.dart) re-aggregates the slices into a `Config`.
+  Config get config => configRepository.config;
+
+  set config(Config value) => configRepository.config = value;
+
   late AppState appState;
   bool isPre = true;
   String? coreSHA256;

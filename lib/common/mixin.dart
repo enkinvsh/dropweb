@@ -8,6 +8,14 @@ mixin AutoDisposeNotifierMixin<T> on AutoDisposeNotifier<T> {
     state = value;
   }
 
+  // Mirror-forward hook: when a config slice provider's state changes, this
+  // fires its `onUpdate` (lib/providers/config.dart), which routes the new
+  // slice into the flat `globalState.config` mirror via
+  // `ConfigRepository.syncSlice` (lib/common/config_repository.dart). The
+  // reverse direction (mirror → providers) is each provider's `build()`; the
+  // aggregation (providers → mirror) is `configState`
+  // (lib/providers/state.dart). Field coverage across both halves is locked by
+  // test/common/config_roundtrip_test.dart.
   @override
   bool updateShouldNotify(previous, next) {
     final res = super.updateShouldNotify(previous, next);

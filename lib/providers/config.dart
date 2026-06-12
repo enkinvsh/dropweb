@@ -6,6 +6,19 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'generated/config.g.dart';
 
+// CONFIG MIRROR — slice enumeration site (1 of 3).
+// These 13 `@riverpod` slices are the UI-isolate source of truth for `Config`.
+// Each one seeds FORWARD from the flat mirror in its `build()`
+// (`globalState.config.<slice>`) and mirrors BACK in its `onUpdate` via the
+// single write path `globalState.configRepository.syncSlice(...)`
+// (lib/common/config_repository.dart).
+// The other two enumeration sites that MUST stay in lockstep with the field
+// list here:
+//   * lib/providers/state.dart — `configState` re-aggregates these 13 slices.
+//   * lib/models/config.dart   — the `Config` freezed model (the field list).
+// Adding a Config field means: add the field there, add a slice here (build +
+// onUpdate), and aggregate it in `configState`. The drift-lock that fails if
+// any of those is forgotten: test/common/config_roundtrip_test.dart.
 @riverpod
 class AppSetting extends _$AppSetting with AutoDisposeNotifierMixin {
   @override
@@ -13,8 +26,8 @@ class AppSetting extends _$AppSetting with AutoDisposeNotifierMixin {
 
   @override
   void onUpdate(AppSettingProps value) {
-    globalState.config = globalState.config.copyWith(
-      appSetting: value,
+    globalState.configRepository.syncSlice(
+      (c) => c.copyWith(appSetting: value),
     );
   }
 
@@ -30,8 +43,8 @@ class WindowSetting extends _$WindowSetting with AutoDisposeNotifierMixin {
 
   @override
   void onUpdate(WindowProps value) {
-    globalState.config = globalState.config.copyWith(
-      windowProps: value,
+    globalState.configRepository.syncSlice(
+      (c) => c.copyWith(windowProps: value),
     );
   }
 
@@ -47,8 +60,8 @@ class VpnSetting extends _$VpnSetting with AutoDisposeNotifierMixin {
 
   @override
   void onUpdate(VpnProps value) {
-    globalState.config = globalState.config.copyWith(
-      vpnProps: value,
+    globalState.configRepository.syncSlice(
+      (c) => c.copyWith(vpnProps: value),
     );
   }
 
@@ -64,8 +77,8 @@ class NetworkSetting extends _$NetworkSetting with AutoDisposeNotifierMixin {
 
   @override
   void onUpdate(NetworkProps value) {
-    globalState.config = globalState.config.copyWith(
-      networkProps: value,
+    globalState.configRepository.syncSlice(
+      (c) => c.copyWith(networkProps: value),
     );
   }
 
@@ -81,8 +94,8 @@ class ThemeSetting extends _$ThemeSetting with AutoDisposeNotifierMixin {
 
   @override
   void onUpdate(ThemeProps value) {
-    globalState.config = globalState.config.copyWith(
-      themeProps: value,
+    globalState.configRepository.syncSlice(
+      (c) => c.copyWith(themeProps: value),
     );
   }
 
@@ -98,8 +111,8 @@ class Profiles extends _$Profiles with AutoDisposeNotifierMixin {
 
   @override
   void onUpdate(List<Profile> value) {
-    globalState.config = globalState.config.copyWith(
-      profiles: value,
+    globalState.configRepository.syncSlice(
+      (c) => c.copyWith(profiles: value),
     );
   }
 
@@ -152,8 +165,8 @@ class CurrentProfileId extends _$CurrentProfileId
 
   @override
   void onUpdate(String? value) {
-    globalState.config = globalState.config.copyWith(
-      currentProfileId: value,
+    globalState.configRepository.syncSlice(
+      (c) => c.copyWith(currentProfileId: value),
     );
     // Notify tile service about profile change
     tile?.updateTile();
@@ -167,8 +180,8 @@ class AppDAVSetting extends _$AppDAVSetting with AutoDisposeNotifierMixin {
 
   @override
   void onUpdate(DAV? value) {
-    globalState.config = globalState.config.copyWith(
-      dav: value,
+    globalState.configRepository.syncSlice(
+      (c) => c.copyWith(dav: value),
     );
   }
 
@@ -184,8 +197,8 @@ class OverrideDns extends _$OverrideDns with AutoDisposeNotifierMixin {
 
   @override
   void onUpdate(bool value) {
-    globalState.config = globalState.config.copyWith(
-      overrideDns: value,
+    globalState.configRepository.syncSlice(
+      (c) => c.copyWith(overrideDns: value),
     );
   }
 }
@@ -197,8 +210,8 @@ class HotKeyActions extends _$HotKeyActions with AutoDisposeNotifierMixin {
 
   @override
   void onUpdate(List<HotKeyAction> value) {
-    globalState.config = globalState.config.copyWith(
-      hotKeyActions: value,
+    globalState.configRepository.syncSlice(
+      (c) => c.copyWith(hotKeyActions: value),
     );
   }
 }
@@ -211,8 +224,8 @@ class ProxiesStyleSetting extends _$ProxiesStyleSetting
 
   @override
   void onUpdate(ProxiesStyle value) {
-    globalState.config = globalState.config.copyWith(
-      proxiesStyle: value,
+    globalState.configRepository.syncSlice(
+      (c) => c.copyWith(proxiesStyle: value),
     );
   }
 
@@ -228,8 +241,8 @@ class ScriptState extends _$ScriptState with AutoDisposeNotifierMixin {
 
   @override
   void onUpdate(ScriptProps value) {
-    globalState.config = globalState.config.copyWith(
-      scriptProps: value,
+    globalState.configRepository.syncSlice(
+      (c) => c.copyWith(scriptProps: value),
     );
   }
 
@@ -284,8 +297,8 @@ class PatchClashConfig extends _$PatchClashConfig
 
   @override
   void onUpdate(ClashConfig value) {
-    globalState.config = globalState.config.copyWith(
-      patchClashConfig: value,
+    globalState.configRepository.syncSlice(
+      (c) => c.copyWith(patchClashConfig: value),
     );
   }
 }
