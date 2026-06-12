@@ -309,6 +309,16 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                     HapticFeedbackConstants.CLOCK_TICK
                 }
             }
+            // Connection established: a crisp settle tick. CONTEXT_CLICK is
+            // deliberately brighter than gestureStart (GESTURE_START) and
+            // distinct from the CONFIRM that already played on the tap.
+            "success" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    HapticFeedbackConstants.CONTEXT_CLICK
+                } else {
+                    HapticFeedbackConstants.KEYBOARD_TAP
+                }
+            }
             else -> return false
         }
         // No flags → respect the user's system haptic settings.

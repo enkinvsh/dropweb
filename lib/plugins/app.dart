@@ -130,6 +130,8 @@ class App {
         await HapticFeedback.mediumImpact();
       case DropwebHapticCue.cancel:
         await HapticFeedback.lightImpact();
+      case DropwebHapticCue.success:
+        await HapticFeedback.mediumImpact();
     }
   }
 
@@ -169,6 +171,10 @@ enum DropwebHapticCue {
   gestureStart,
   confirm,
   cancel,
+
+  /// Connection established — a crisp settle tick, deliberately distinct
+  /// from the [confirm] cue that already played on the tap itself.
+  success,
 }
 
 /// Semantic UI sound cues fired from a handful of user-driven moments

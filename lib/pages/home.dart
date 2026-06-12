@@ -9,6 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
+import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/dashboard/widgets/start_button.dart';
@@ -437,6 +438,38 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
     reverseDuration: const Duration(milliseconds: 360),
   );
 
+  /// Connect morph: 0 = plain button (watermark ghosted at 30%), 1 = logo
+  /// lens (watermark full). Driven OPTIMISTICALLY — forward starts the moment
+  /// the user requests a start ([GlobalState.isConnecting]), not when the TUN
+  /// ack lands — and reverses when the start fails or the VPN stops. The
+  /// multiplier rides on top of [_logoFade], so a logo that finishes loading
+  /// mid-morph still fades in through its own channel and never pops.
+  late final AnimationController _morphController = AnimationController(
+    vsync: this,
+    duration: Lumina.luminaDuration,
+  );
+  late final CurvedAnimation _morph = CurvedAnimation(
+    parent: _morphController,
+    curve: Lumina.luminaCurve,
+  );
+
+  /// Optimistic leg of the connect morph (see [_morphController]).
+  void _onConnectingChanged() {
+    if (!mounted) return;
+    final connecting = globalState.isConnecting.value;
+    final running = ref.read(runTimeProvider) != null;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _morphController.value = (connecting || running) ? 1.0 : 0.0;
+      return;
+    }
+    if (connecting) {
+      _morphController.forward();
+    } else if (!running) {
+      // Start failed or was cancelled before the core came up — settle back.
+      _morphController.reverse();
+    }
+  }
+
   void _reportPosition() {
     if (!mounted) return;
     final box = _key.currentContext?.findRenderObject() as RenderBox?;
@@ -462,6 +495,12 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
     // localToGlobal + notifier writes).
     _schedulePostFrameReport();
 
+    // Returning to the dashboard already connected: start settled, no replay.
+    if (ref.read(runTimeProvider) != null) {
+      _morphController.value = 1.0;
+    }
+    globalState.isConnecting.addListener(_onConnectingChanged);
+
     // Profile availability can change the mobile pages and rebuild the body.
     // Re-anchor the rings origin if the button shifts with that state.
     ref
@@ -475,17 +514,25 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
       // connected does not re-bloom).
       ..listenManual<bool>(
         runTimeProvider.select((state) => state != null),
-        (_, running) {
+        (previous, running) {
           if (!mounted) return;
+          // Connection actually established — settle haptic. Fires only on
+          // the OFF→ON transition (never on initial-state replays).
+          if (running && previous == false) {
+            unawaited(App().performHapticFeedback(DropwebHapticCue.success));
+          }
           // Reduced-motion: snap to terminal state, no animation.
           if (MediaQuery.disableAnimationsOf(context)) {
             _irisController.value = running ? 1.0 : 0.0;
+            _morphController.value = running ? 1.0 : 0.0;
             return;
           }
           if (running) {
             _irisController.forward();
+            _morphController.forward();
           } else {
             _irisController.reverse();
+            _morphController.reverse();
           }
         },
       )
@@ -647,12 +694,15 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
 
   @override
   void dispose() {
+    globalState.isConnecting.removeListener(_onConnectingChanged);
     _logoLoadSeq++;
     _logoImage?.dispose();
     _logoFade.dispose();
     _logoFadeController.dispose();
     _flowController.dispose();
     _irisController.dispose();
+    _morph.dispose();
+    _morphController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     connectButtonCenter.value = null;
     super.dispose();
@@ -733,7 +783,7 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
                     // (idle on) it stops ticking — no continuous loop.
                     AnimatedBuilder(
                       animation: Listenable.merge(
-                        [_irisController, _flowController, _logoFade],
+                        [_irisController, _flowController, _logoFade, _morph],
                       ),
                       builder: (_, __) => CustomPaint(
                         painter: _ConnectGlassPainter(
@@ -743,7 +793,10 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
                           irisT: _irisController.value,
                           logo: _logoImage,
                           flowT: _flowController.value,
-                          logoT: _logoFade.value,
+                          // Plain↔logo morph: the watermark idles as a 30%
+                          // ghost and surges to full with the (optimistic)
+                          // connect transition, multiplying the load fade.
+                          logoT: _logoFade.value * (0.30 + 0.70 * _morph.value),
                           liquidBase: liquidBase,
                         ),
                       ),

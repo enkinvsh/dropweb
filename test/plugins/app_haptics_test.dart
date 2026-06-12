@@ -26,12 +26,15 @@ void main() {
 
       await App().performHapticFeedback(DropwebHapticCue.gestureStart);
       await App().performHapticFeedback(DropwebHapticCue.confirm);
+      await App().performHapticFeedback(DropwebHapticCue.success);
 
-      expect(calls, hasLength(2));
+      expect(calls, hasLength(3));
       expect(calls[0].method, 'performHapticFeedback');
       expect(calls[0].arguments, {'cue': 'gestureStart'});
       expect(calls[1].method, 'performHapticFeedback');
       expect(calls[1].arguments, {'cue': 'confirm'});
+      expect(calls[2].method, 'performHapticFeedback');
+      expect(calls[2].arguments, {'cue': 'success'});
     });
 
     test('falls back to Flutter HapticFeedback on MissingPluginException',
