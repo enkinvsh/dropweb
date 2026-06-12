@@ -47,6 +47,7 @@ class _SendToTvPageState extends ConsumerState<SendToTvPage> {
           return;
         }
         final tvUrl = 'http://$ip:$port/add-profile';
+        final statusUrl = 'http://$ip:$port/status';
         final dio = Dio(BaseOptions(
           connectTimeout: const Duration(seconds: 5),
           receiveTimeout: const Duration(seconds: 5),
@@ -55,17 +56,56 @@ class _SendToTvPageState extends ConsumerState<SendToTvPage> {
         // nonce blocks blind injection on the receiver but provides no
         // confidentiality — a passive sniffer on the same Wi-Fi can read both.
         // TLS is intentionally out of scope (no PKI on the LAN).
-        await dio.post(
-          tvUrl,
-          data: {'url': widget.profileUrl, 'nonce': nonce},
-        );
-        _showResultDialog(appLocalizations.successTitle,
-            appLocalizations.sentSuccessfullyMessage);
+        try {
+          await dio.post(
+            tvUrl,
+            data: {'url': widget.profileUrl, 'nonce': nonce},
+          );
+          _showResultDialog(appLocalizations.successTitle,
+              appLocalizations.sentSuccessfullyMessage);
+        } on DioException catch (_) {
+          // The POST got no clean response. The TV might still have imported
+          // this profile (e.g. from an earlier attempt), or be genuinely
+          // unreachable. Poll the read-only /status probe — which exposes only
+          // waiting/received, never the nonce — to tell the two apart and
+          // report a definite outcome instead of a misleading error.
+          final received = await _pollTvStatus(dio, statusUrl);
+          if (!mounted) return;
+          _showResultDialog(
+            received
+                ? appLocalizations.successTitle
+                : appLocalizations.errorTitle,
+            received
+                ? appLocalizations.sentSuccessfullyMessage
+                : appLocalizations.invalidQrMessage,
+          );
+        }
       }
     } catch (e) {
       _showResultDialog(
           appLocalizations.errorTitle, appLocalizations.invalidQrMessage);
     }
+  }
+
+  /// Poll the TV's read-only /status probe up to 10 times (1s apart) after a
+  /// failed POST, returning true once the TV reports a profile was received.
+  /// /status exposes only waiting/received — never the nonce — so reading it
+  /// here leaks nothing.
+  Future<bool> _pollTvStatus(Dio dio, String statusUrl) async {
+    for (var attempt = 0; attempt < 10; attempt++) {
+      try {
+        final resp = await dio.get<dynamic>(statusUrl);
+        final data = resp.data;
+        final decoded = data is String ? jsonDecode(data) : data;
+        if (decoded is Map && decoded['state'] == 'received') {
+          return true;
+        }
+      } catch (_) {
+        // TV unreachable on this attempt; keep trying until the budget runs out.
+      }
+      await Future<void>.delayed(const Duration(seconds: 1));
+    }
+    return false;
   }
 
   void _showResultDialog(String title, String content) {

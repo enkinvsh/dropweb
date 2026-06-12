@@ -79,6 +79,10 @@ class _ReceiveProfileDialogState extends State<ReceiveProfileDialog> {
   String? _qrData;
   bool _isLoading = true;
 
+  /// Short, user-visible failure message (e.g. port already in use). When set,
+  /// the dialog renders it instead of silently popping — see [build].
+  String? _errorMessage;
+
   /// Single-use secret for this dialog instance; required on every POST.
   final String _nonce = generateHandoffNonce();
 
@@ -92,35 +96,87 @@ class _ReceiveProfileDialogState extends State<ReceiveProfileDialog> {
     _startServerAndGenerateQr();
   }
 
+  /// Resolve a LAN IPv4 to bind the handoff server to.
+  ///
+  /// Wi-Fi is the common case via [NetworkInfo.getWifiIP]. On an Android TV
+  /// wired over Ethernet that returns null, so fall back to enumerating the
+  /// interfaces and pick the first usable IPv4 — preferring a routable address
+  /// over a 169.254.* link-local (APIPA) autoconfig one. Returns null when
+  /// nothing usable exists (TV genuinely offline).
+  Future<String?> _resolveLocalIp() async {
+    final wifiIp = await NetworkInfo().getWifiIP();
+    if (wifiIp != null && wifiIp.isNotEmpty) {
+      return wifiIp;
+    }
+    final interfaces = await NetworkInterface.list(
+      type: InternetAddressType.IPv4,
+      includeLoopback: false,
+    );
+    String? linkLocal;
+    for (final iface in interfaces) {
+      for (final addr in iface.addresses) {
+        // Skip link-local for now but remember it as a last resort.
+        if (addr.address.startsWith('169.254.')) {
+          linkLocal ??= addr.address;
+          continue;
+        }
+        return addr.address;
+      }
+    }
+    return linkLocal;
+  }
+
   Future<void> _startServerAndGenerateQr() async {
     try {
-      final ip = await NetworkInfo().getWifiIP();
+      final ip = await _resolveLocalIp();
+      // No usable network address at all. Surface the existing "Could not get
+      // IP address" state via setState instead of silently popping the dialog.
+      if (ip == null) {
+        if (mounted) {
+          setState(() {
+            _qrData = null;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
       const port = 8899;
 
-      final router = shelf_router.Router();
-      router.post('/add-profile', (shelf.Request request) async {
-        // Single-use: once a profile has been imported, reject everything else
-        // (defends against a replayed POST arriving before the dialog disposes).
-        if (_consumed) {
-          return shelf.Response.forbidden('Handoff already completed');
-        }
-        final body = await request.readAsString();
-        final result = validateHandoffBody(body, _nonce);
-        switch (result.statusCode) {
-          case 200:
-            _consumed = true;
-            // Popping the dialog disposes this State, which closes the server
-            // (see dispose) — the nonce is thus genuinely single-use.
-            if (mounted) Navigator.of(context).pop(result.url);
-            return shelf.Response.ok('Link received by TV');
-          case 403:
-            return shelf.Response.forbidden('Invalid handoff token');
-          default:
-            return shelf.Response.badRequest(body: 'Bad request');
-        }
-      });
+      final router = shelf_router.Router()
+        // Read-only liveness probe for the phone. It reveals ONLY whether a
+        // profile has been consumed yet (waiting/received) and deliberately
+        // leaks nothing else — never the nonce. It is unauthenticated by design
+        // (it is harmless state) and does not touch the single-use nonce checks
+        // on POST /add-profile below.
+        ..get(
+            '/status',
+            (shelf.Request request) => shelf.Response.ok(
+                  jsonEncode({'state': _consumed ? 'received' : 'waiting'}),
+                  headers: {'content-type': 'application/json'},
+                ))
+        ..post('/add-profile', (shelf.Request request) async {
+          // Single-use: once a profile has been imported, reject everything
+          // else (defends against a replayed POST arriving before dispose).
+          if (_consumed) {
+            return shelf.Response.forbidden('Handoff already completed');
+          }
+          final body = await request.readAsString();
+          final result = validateHandoffBody(body, _nonce);
+          switch (result.statusCode) {
+            case 200:
+              _consumed = true;
+              // Popping the dialog disposes this State, which closes the server
+              // (see dispose) — the nonce is thus genuinely single-use.
+              if (mounted) Navigator.of(context).pop(result.url);
+              return shelf.Response.ok('Link received by TV');
+            case 403:
+              return shelf.Response.forbidden('Invalid handoff token');
+            default:
+              return shelf.Response.badRequest(body: 'Bad request');
+          }
+        });
 
-      _server = await shelf_io.serve(router.call, ip!, port);
+      _server = await shelf_io.serve(router.call, ip, port);
 
       setState(() {
         _qrData = jsonEncode({
@@ -135,7 +191,15 @@ class _ReceiveProfileDialogState extends State<ReceiveProfileDialog> {
       if (kDebugMode) {
         debugPrint('ReceiveProfile server failed to start: $e');
       }
-      if (mounted) Navigator.of(context).pop();
+      // Visible failure (e.g. port 8899 already in use) instead of a silent
+      // pop, so the user understands why no QR appeared.
+      if (mounted) {
+        setState(() {
+          _qrData = null;
+          _isLoading = false;
+          _errorMessage = 'Could not start handoff server';
+        });
+      }
     }
   }
 
@@ -175,7 +239,9 @@ class _ReceiveProfileDialogState extends State<ReceiveProfileDialog> {
                       ),
                     ),
                   )
-                : const Center(child: Text('Could not get IP address')),
+                : Center(
+                    child: Text(_errorMessage ?? 'Could not get IP address'),
+                  ),
       ),
       actions: [
         TextButton(
