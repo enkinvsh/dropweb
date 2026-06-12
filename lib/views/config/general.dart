@@ -212,6 +212,27 @@ class TestUrlItem extends ConsumerWidget {
   }
 }
 
+/// Per-color dim for provider-managed (disabled) rows. Replaces a
+/// saveLayer-forcing `Opacity(0.5)` wrapper with alpha pushed into the
+/// title/subtitle/leading-icon colors (no compositing layer). When [enabled]
+/// the record is all-null, so the row renders at full ListTile defaults and
+/// the enabled diff is byte-identical to before. Pointer-blocking stays on the
+/// existing `AbsorbPointer` (which allocates no layer).
+({TextStyle? title, TextStyle? subtitle, Color? icon}) _dimRow(
+  BuildContext context,
+  bool enabled,
+) {
+  if (enabled) return (title: null, subtitle: null, icon: null);
+  final scheme = context.colorScheme;
+  final text = Theme.of(context).textTheme;
+  return (
+    title: text.bodyLarge?.copyWith(color: scheme.onSurface.opacity50),
+    subtitle:
+        text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant.opacity50),
+    icon: scheme.onSurfaceVariant.opacity50,
+  );
+}
+
 class PortItem extends ConsumerWidget {
   const PortItem({super.key});
 
@@ -229,17 +250,21 @@ class PortItem extends ConsumerWidget {
       appSettingProvider.select((state) => state.overrideNetworkSettings),
     );
     final isEnabled = overrideNetworkSettings;
+    final dim = _dimRow(context, isEnabled);
 
     return AbsorbPointer(
       absorbing: !isEnabled,
-      child: Opacity(
-        opacity: isEnabled ? 1.0 : 0.5,
-        child: ListItem(
-          leading: HugeIcon(icon: HugeIcons.strokeRoundedSettings02, size: 24),
-          title: Text(appLocalizations.port),
-          subtitle: Text("$mixedPort"),
-          onTap: handleShowPortDialog,
+      child: ListItem(
+        leading: HugeIcon(
+          icon: HugeIcons.strokeRoundedSettings02,
+          size: 24,
+          color: dim.icon,
         ),
+        titleTextStyle: dim.title,
+        subtitleTextStyle: dim.subtitle,
+        title: Text(appLocalizations.port),
+        subtitle: Text("$mixedPort"),
+        onTap: handleShowPortDialog,
       ),
     );
   }
@@ -336,26 +361,30 @@ class Ipv6Item extends ConsumerWidget {
       appSettingProvider.select((state) => state.overrideNetworkSettings),
     );
     final isEnabled = overrideNetworkSettings;
+    final dim = _dimRow(context, isEnabled);
 
     return AbsorbPointer(
       absorbing: !isEnabled,
-      child: Opacity(
-        opacity: isEnabled ? 1.0 : 0.5,
-        child: ListItem.switchItem(
-          leading: HugeIcon(icon: HugeIcons.strokeRoundedDroplet, size: 24),
-          title: const Text("IPv6"),
-          subtitle: Text(appLocalizations.ipv6Desc),
-          delegate: SwitchDelegate(
-            value: ipv6,
-            onChanged: (value) async {
-              ref.read(patchClashConfigProvider.notifier).updateState(
-                    (state) => state.copyWith(
-                      ipv6: value,
-                    ),
-                  );
-              globalState.appController.updateClashConfigDebounce();
-            },
-          ),
+      child: ListItem.switchItem(
+        leading: HugeIcon(
+          icon: HugeIcons.strokeRoundedDroplet,
+          size: 24,
+          color: dim.icon,
+        ),
+        titleTextStyle: dim.title,
+        subtitleTextStyle: dim.subtitle,
+        title: const Text("IPv6"),
+        subtitle: Text(appLocalizations.ipv6Desc),
+        delegate: SwitchDelegate(
+          value: ipv6,
+          onChanged: (value) async {
+            ref.read(patchClashConfigProvider.notifier).updateState(
+                  (state) => state.copyWith(
+                    ipv6: value,
+                  ),
+                );
+            globalState.appController.updateClashConfigDebounce();
+          },
         ),
       ),
     );
@@ -373,27 +402,30 @@ class AllowLanItem extends ConsumerWidget {
       appSettingProvider.select((state) => state.overrideNetworkSettings),
     );
     final isEnabled = overrideNetworkSettings;
+    final dim = _dimRow(context, isEnabled);
 
     return AbsorbPointer(
       absorbing: !isEnabled,
-      child: Opacity(
-        opacity: isEnabled ? 1.0 : 0.5,
-        child: ListItem.switchItem(
-          leading:
-              HugeIcon(icon: HugeIcons.strokeRoundedNeuralNetwork, size: 24),
-          title: Text(appLocalizations.allowLan),
-          subtitle: Text(appLocalizations.allowLanDesc),
-          delegate: SwitchDelegate(
-            value: allowLan,
-            onChanged: (value) async {
-              ref.read(patchClashConfigProvider.notifier).updateState(
-                    (state) => state.copyWith(
-                      allowLan: value,
-                    ),
-                  );
-              globalState.appController.updateClashConfigDebounce();
-            },
-          ),
+      child: ListItem.switchItem(
+        leading: HugeIcon(
+          icon: HugeIcons.strokeRoundedNeuralNetwork,
+          size: 24,
+          color: dim.icon,
+        ),
+        titleTextStyle: dim.title,
+        subtitleTextStyle: dim.subtitle,
+        title: Text(appLocalizations.allowLan),
+        subtitle: Text(appLocalizations.allowLanDesc),
+        delegate: SwitchDelegate(
+          value: allowLan,
+          onChanged: (value) async {
+            ref.read(patchClashConfigProvider.notifier).updateState(
+                  (state) => state.copyWith(
+                    allowLan: value,
+                  ),
+                );
+            globalState.appController.updateClashConfigDebounce();
+          },
         ),
       ),
     );
@@ -449,30 +481,34 @@ class FindProcessItem extends ConsumerWidget {
       appSettingProvider.select((state) => state.overrideNetworkSettings),
     );
     final isEnabled = overrideNetworkSettings;
+    final dim = _dimRow(context, isEnabled);
 
     return AbsorbPointer(
       absorbing: !isEnabled,
-      child: Opacity(
-        opacity: isEnabled ? 1.0 : 0.5,
-        child: ListItem<FindProcessMode>.options(
-          leading: HugeIcon(icon: HugeIcons.strokeRoundedHexagon, size: 24),
-          title: Text(appLocalizations.findProcessMode),
-          subtitle: Text(_getFindProcessModeLabel(findProcessMode)),
-          delegate: OptionsDelegate<FindProcessMode>(
-            title: appLocalizations.findProcessMode,
-            options: FindProcessMode.values,
-            onChanged: (value) async {
-              if (value == null) return;
-              ref.read(patchClashConfigProvider.notifier).updateState(
-                    (state) => state.copyWith(
-                      findProcessMode: value,
-                    ),
-                  );
-              globalState.appController.updateClashConfigDebounce();
-            },
-            textBuilder: _getFindProcessModeLabel,
-            value: findProcessMode,
-          ),
+      child: ListItem<FindProcessMode>.options(
+        leading: HugeIcon(
+          icon: HugeIcons.strokeRoundedHexagon,
+          size: 24,
+          color: dim.icon,
+        ),
+        titleTextStyle: dim.title,
+        subtitleTextStyle: dim.subtitle,
+        title: Text(appLocalizations.findProcessMode),
+        subtitle: Text(_getFindProcessModeLabel(findProcessMode)),
+        delegate: OptionsDelegate<FindProcessMode>(
+          title: appLocalizations.findProcessMode,
+          options: FindProcessMode.values,
+          onChanged: (value) async {
+            if (value == null) return;
+            ref.read(patchClashConfigProvider.notifier).updateState(
+                  (state) => state.copyWith(
+                    findProcessMode: value,
+                  ),
+                );
+            globalState.appController.updateClashConfigDebounce();
+          },
+          textBuilder: _getFindProcessModeLabel,
+          value: findProcessMode,
         ),
       ),
     );

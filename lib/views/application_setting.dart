@@ -192,6 +192,26 @@ class UsageItem extends ConsumerWidget {
   }
 }
 
+/// Per-color dim for provider-managed (disabled) rows. Replaces a
+/// saveLayer-forcing `Opacity(0.5)` wrapper with alpha pushed into the
+/// title/subtitle/leading-icon colors (no compositing layer). When [enabled]
+/// the record is all-null, so the row renders at full ListTile defaults and
+/// the enabled diff is byte-identical to before.
+({TextStyle? title, TextStyle? subtitle, Color? icon}) _dimRow(
+  BuildContext context,
+  bool enabled,
+) {
+  if (enabled) return (title: null, subtitle: null, icon: null);
+  final scheme = context.colorScheme;
+  final text = Theme.of(context).textTheme;
+  return (
+    title: text.bodyLarge?.copyWith(color: scheme.onSurface.opacity50),
+    subtitle:
+        text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant.opacity50),
+    icon: scheme.onSurfaceVariant.opacity50,
+  );
+}
+
 class MinimizeItem extends ConsumerWidget {
   const MinimizeItem({super.key});
 
@@ -204,23 +224,23 @@ class MinimizeItem extends ConsumerWidget {
       appSettingProvider.select((state) => state.overrideProviderSettings),
     );
     final isEnabled = overrideProviderSettings;
-    return Opacity(
-      opacity: isEnabled ? 1.0 : 0.5,
-      child: ListItem.switchItem(
-        title: Text(appLocalizations.minimizeOnExit),
-        subtitle: Text(appLocalizations.minimizeOnExitDesc),
-        delegate: SwitchDelegate(
-          value: minimizeOnExit,
-          onChanged: isEnabled
-              ? (bool value) {
-                  ref.read(appSettingProvider.notifier).updateState(
-                        (state) => state.copyWith(
-                          minimizeOnExit: value,
-                        ),
-                      );
-                }
-              : null,
-        ),
+    final dim = _dimRow(context, isEnabled);
+    return ListItem.switchItem(
+      titleTextStyle: dim.title,
+      subtitleTextStyle: dim.subtitle,
+      title: Text(appLocalizations.minimizeOnExit),
+      subtitle: Text(appLocalizations.minimizeOnExitDesc),
+      delegate: SwitchDelegate(
+        value: minimizeOnExit,
+        onChanged: isEnabled
+            ? (bool value) {
+                ref.read(appSettingProvider.notifier).updateState(
+                      (state) => state.copyWith(
+                        minimizeOnExit: value,
+                      ),
+                    );
+              }
+            : null,
       ),
     );
   }
@@ -267,23 +287,23 @@ class SilentLaunchItem extends ConsumerWidget {
       appSettingProvider.select((state) => state.overrideProviderSettings),
     );
     final isEnabled = overrideProviderSettings;
-    return Opacity(
-      opacity: isEnabled ? 1.0 : 0.5,
-      child: ListItem.switchItem(
-        title: Text(appLocalizations.silentLaunch),
-        subtitle: Text(appLocalizations.silentLaunchDesc),
-        delegate: SwitchDelegate(
-          value: silentLaunch,
-          onChanged: isEnabled
-              ? (bool value) {
-                  ref.read(appSettingProvider.notifier).updateState(
-                        (state) => state.copyWith(
-                          silentLaunch: value,
-                        ),
-                      );
-                }
-              : null,
-        ),
+    final dim = _dimRow(context, isEnabled);
+    return ListItem.switchItem(
+      titleTextStyle: dim.title,
+      subtitleTextStyle: dim.subtitle,
+      title: Text(appLocalizations.silentLaunch),
+      subtitle: Text(appLocalizations.silentLaunchDesc),
+      delegate: SwitchDelegate(
+        value: silentLaunch,
+        onChanged: isEnabled
+            ? (bool value) {
+                ref.read(appSettingProvider.notifier).updateState(
+                      (state) => state.copyWith(
+                        silentLaunch: value,
+                      ),
+                    );
+              }
+            : null,
       ),
     );
   }
@@ -301,23 +321,23 @@ class AutoRunItem extends ConsumerWidget {
       appSettingProvider.select((state) => state.overrideProviderSettings),
     );
     final isEnabled = overrideProviderSettings;
-    return Opacity(
-      opacity: isEnabled ? 1.0 : 0.5,
-      child: ListItem.switchItem(
-        title: Text(appLocalizations.autoRun),
-        subtitle: Text(appLocalizations.autoRunDesc),
-        delegate: SwitchDelegate(
-          value: autoRun,
-          onChanged: isEnabled
-              ? (bool value) {
-                  ref.read(appSettingProvider.notifier).updateState(
-                        (state) => state.copyWith(
-                          autoRun: value,
-                        ),
-                      );
-                }
-              : null,
-        ),
+    final dim = _dimRow(context, isEnabled);
+    return ListItem.switchItem(
+      titleTextStyle: dim.title,
+      subtitleTextStyle: dim.subtitle,
+      title: Text(appLocalizations.autoRun),
+      subtitle: Text(appLocalizations.autoRunDesc),
+      delegate: SwitchDelegate(
+        value: autoRun,
+        onChanged: isEnabled
+            ? (bool value) {
+                ref.read(appSettingProvider.notifier).updateState(
+                      (state) => state.copyWith(
+                        autoRun: value,
+                      ),
+                    );
+              }
+            : null,
       ),
     );
   }
@@ -434,23 +454,23 @@ class AutoCheckUpdateItem extends ConsumerWidget {
       appSettingProvider.select((state) => state.overrideProviderSettings),
     );
     final isEnabled = overrideProviderSettings;
-    return Opacity(
-      opacity: isEnabled ? 1.0 : 0.5,
-      child: ListItem.switchItem(
-        title: Text(appLocalizations.autoCheckUpdate),
-        subtitle: Text(appLocalizations.autoCheckUpdateDesc),
-        delegate: SwitchDelegate(
-          value: autoCheckUpdate,
-          onChanged: isEnabled
-              ? (bool value) {
-                  ref.read(appSettingProvider.notifier).updateState(
-                        (state) => state.copyWith(
-                          autoCheckUpdate: value,
-                        ),
-                      );
-                }
-              : null,
-        ),
+    final dim = _dimRow(context, isEnabled);
+    return ListItem.switchItem(
+      titleTextStyle: dim.title,
+      subtitleTextStyle: dim.subtitle,
+      title: Text(appLocalizations.autoCheckUpdate),
+      subtitle: Text(appLocalizations.autoCheckUpdateDesc),
+      delegate: SwitchDelegate(
+        value: autoCheckUpdate,
+        onChanged: isEnabled
+            ? (bool value) {
+                ref.read(appSettingProvider.notifier).updateState(
+                      (state) => state.copyWith(
+                        autoCheckUpdate: value,
+                      ),
+                    );
+              }
+            : null,
       ),
     );
   }
