@@ -53,16 +53,25 @@ class Tray {
         force: focus,
       );
     }
-    // Intentionally minimal tray menu: only Показать / Автозапуск / Выход.
-    // The старт-стоп, TUN, системный прокси, копирование переменных
-    // окружения and перезапуск entries were removed — connect/disconnect
-    // and proxy toggles live in the window UI; the mode axis
-    // (rule/global/direct) is DERIVED from the profile's work mode in
-    // AppController._setupClashConfig and must not be switched from the tray.
+    // Intentionally minimal tray menu: Показать / Старт|Стоп / Автозапуск /
+    // Выход. The TUN, системный прокси, копирование переменных окружения and
+    // перезапуск entries stay removed — proxy toggles live in the window UI;
+    // the mode axis (rule/global/direct) is DERIVED from the profile's work
+    // mode in AppController._setupClashConfig and must not be switched from
+    // the tray.
     final showMenuItem = MenuItem(
       label: appLocalizations.show,
       onClick: (_) {
         window?.show();
+      },
+    );
+    // Connect/disconnect from the tray — same toggle as the hotkey path.
+    // Label tracks the running state via trayState.isStart; Tray.update is
+    // re-invoked on state changes so the menu stays in sync.
+    final startStopMenuItem = MenuItem(
+      label: trayState.isStart ? appLocalizations.stop : appLocalizations.start,
+      onClick: (_) {
+        globalState.appController.updateStart();
       },
     );
     final autoStartMenuItem = MenuItem.checkbox(
@@ -80,6 +89,8 @@ class Tray {
     );
     final menuItems = <MenuItem>[
       showMenuItem,
+      startStopMenuItem,
+      MenuItem.separator(),
       autoStartMenuItem,
       MenuItem.separator(),
       exitMenuItem,
