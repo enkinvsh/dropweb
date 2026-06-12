@@ -17,6 +17,7 @@ import app.dropweb.extensions.getIpv6RouteAddress
 import app.dropweb.extensions.toCIDR
 import app.dropweb.models.AccessControlMode
 import app.dropweb.models.VpnOptions
+import app.dropweb.plugins.VpnPlugin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -223,6 +224,9 @@ class DropwebVpnService : VpnService(), BaseServiceInterface {
     }
 
     override fun onDestroy() {
+        // A system-initiated kill must tear down the Go core and reconcile runState;
+        // idempotent (early-returns when already STOP) for the normal stop path.
+        VpnPlugin.handleStop()
         stop()
         super.onDestroy()
     }
