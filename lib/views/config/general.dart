@@ -377,14 +377,19 @@ class Ipv6Item extends ConsumerWidget {
         subtitle: Text(appLocalizations.ipv6Desc),
         delegate: SwitchDelegate(
           value: ipv6,
-          onChanged: (value) async {
-            ref.read(patchClashConfigProvider.notifier).updateState(
-                  (state) => state.copyWith(
-                    ipv6: value,
-                  ),
-                );
-            globalState.appController.updateClashConfigDebounce();
-          },
+          // null while provider-managed so the Switch renders M3 disabled
+          // colors (visual parity with the old Opacity(0.5) wrapper);
+          // AbsorbPointer above already blocked interaction either way.
+          onChanged: !isEnabled
+              ? null
+              : (value) async {
+                  ref.read(patchClashConfigProvider.notifier).updateState(
+                        (state) => state.copyWith(
+                          ipv6: value,
+                        ),
+                      );
+                  globalState.appController.updateClashConfigDebounce();
+                },
         ),
       ),
     );
@@ -418,14 +423,17 @@ class AllowLanItem extends ConsumerWidget {
         subtitle: Text(appLocalizations.allowLanDesc),
         delegate: SwitchDelegate(
           value: allowLan,
-          onChanged: (value) async {
-            ref.read(patchClashConfigProvider.notifier).updateState(
-                  (state) => state.copyWith(
-                    allowLan: value,
-                  ),
-                );
-            globalState.appController.updateClashConfigDebounce();
-          },
+          // See Ipv6Item: disabled colors for provider-managed rows.
+          onChanged: !isEnabled
+              ? null
+              : (value) async {
+                  ref.read(patchClashConfigProvider.notifier).updateState(
+                        (state) => state.copyWith(
+                          allowLan: value,
+                        ),
+                      );
+                  globalState.appController.updateClashConfigDebounce();
+                },
         ),
       ),
     );
