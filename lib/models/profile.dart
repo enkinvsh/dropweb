@@ -337,7 +337,21 @@ extension ProfileExtension on Profile {
       throw message;
     }
     final file = await getFile();
-    await file.writeAsBytes(bytes);
+    // Atomic write: stage into a sibling temp file then rename over the target.
+    // A kill mid-write would otherwise leave the stored profile truncated/corrupt.
+    // File.rename is atomic on the same filesystem (macOS/Linux/Android); on
+    // Windows a rename onto an existing target can throw, so fall back to
+    // delete-then-rename.
+    final tmp = File('${file.path}.tmp');
+    await tmp.writeAsBytes(bytes, flush: true);
+    try {
+      await tmp.rename(file.path);
+    } catch (_) {
+      if (await file.exists()) {
+        await file.delete();
+      }
+      await tmp.rename(file.path);
+    }
     return copyWith(lastUpdateDate: DateTime.now());
   }
 
@@ -347,7 +361,21 @@ extension ProfileExtension on Profile {
       throw message;
     }
     final file = await getFile();
-    await file.writeAsString(value);
+    // Atomic write: stage into a sibling temp file then rename over the target.
+    // A kill mid-write would otherwise leave the stored profile truncated/corrupt.
+    // File.rename is atomic on the same filesystem (macOS/Linux/Android); on
+    // Windows a rename onto an existing target can throw, so fall back to
+    // delete-then-rename.
+    final tmp = File('${file.path}.tmp');
+    await tmp.writeAsString(value, flush: true);
+    try {
+      await tmp.rename(file.path);
+    } catch (_) {
+      if (await file.exists()) {
+        await file.delete();
+      }
+      await tmp.rename(file.path);
+    }
     return copyWith(lastUpdateDate: DateTime.now());
   }
 }

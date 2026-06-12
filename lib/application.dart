@@ -114,7 +114,15 @@ class ApplicationState extends ConsumerState<Application> {
 
   void _autoUpdateProfilesTask() {
     _autoUpdateProfilesTaskTimer = Timer(const Duration(minutes: 20), () async {
-      await globalState.appController.autoUpdateProfiles();
+      // Re-arm the chain even when a run throws: previously an exception out of
+      // autoUpdateProfiles() skipped the re-arm and silently killed the whole
+      // periodic auto-update. dispose() cancels the pending timer, so re-arming
+      // after a successful or failed run is safe.
+      try {
+        await globalState.appController.autoUpdateProfiles();
+      } catch (e) {
+        commonPrint.log("Auto update profiles task failed: $e");
+      }
       _autoUpdateProfilesTask();
     });
   }
@@ -306,15 +314,24 @@ class ApplicationState extends ConsumerState<Application> {
   }
 
   @override
-  Future<void> dispose() async {
+  void dispose() {
+    // Flutter calls dispose() synchronously and asserts super.dispose() runs
+    // before the next frame, so we must NOT await here — anything after the
+    // first await would run against a torn-down element tree and fire
+    // super.dispose() late. Do all synchronous teardown inline, then kick the
+    // async exit work off without awaiting it.
     linkManager.destroy();
     globalState.pauseGroupsPolling = null;
     globalState.resumeGroupsPolling = null;
     _autoUpdateGroupTaskTimer?.cancel();
     _autoUpdateProfilesTaskTimer?.cancel();
-    await clashCore.destroy();
-    await globalState.appController.savePreferences();
-    await globalState.appController.handleExit();
+    // handleExit() already runs guarded(savePreferences) + guarded(clashCore.shutdown)
+    // (see controller.dart), so we don't await those explicitly here.
+    unawaited(globalState.appController.handleExit());
+    // clashCore.destroy() maps to clashInterface.destroy() (isolate/bridge
+    // teardown), which is NOT covered by shutdown() (clashInterface.shutdown()).
+    // Kick it off after handleExit so the isolate is still torn down.
+    unawaited(clashCore.destroy());
     super.dispose();
   }
 }

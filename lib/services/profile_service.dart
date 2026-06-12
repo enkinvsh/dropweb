@@ -386,8 +386,14 @@ class ProfileService {
           final reason = forceUpdate ? "force update" : "metadata changed";
           commonPrint.log(
               "$fileName needs update for profile $currentProfileId ($reason), downloading from $url...");
-          final result = await clashCore.updateGeoData(
-            UpdateGeoDataParams(geoType: geoType, geoName: fileName),
+          // The metadata HEAD fetch above stays outside the lock; only the
+          // download+write (updateGeoData mutates the on-disk geo files) and the
+          // subsequent core reload must be serialized against profile apply to
+          // avoid sharing violations / corrupt geodata (see withGeoFileLock).
+          final result = await globalState.appController.withGeoFileLock(
+            () => clashCore.updateGeoData(
+              UpdateGeoDataParams(geoType: geoType, geoName: fileName),
+            ),
           );
 
           if (result.isNotEmpty) {
@@ -437,15 +443,19 @@ class ProfileService {
         continue;
       }
 
-      final resolvedUrl = await preferences.getProfileUrl(profile);
-      if (!shouldAutoUpdateProfile(
-        profile: profile,
-        now: DateTime.now(),
-        resolvedUrl: resolvedUrl,
-      )) {
-        continue;
-      }
       try {
+        // The secure-store read (getProfileUrl) and the auto-update gate live
+        // INSIDE the per-profile try: a secure-storage exception here must only
+        // skip this one profile, not escape and kill the whole loop AND the
+        // 20-minute timer chain that drives it.
+        final resolvedUrl = await preferences.getProfileUrl(profile);
+        if (!shouldAutoUpdateProfile(
+          profile: profile,
+          now: DateTime.now(),
+          resolvedUrl: resolvedUrl,
+        )) {
+          continue;
+        }
         await globalState.appController.updateProfile(profile);
       } catch (e) {
         commonPrint.log(e.toString());
