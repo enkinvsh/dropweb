@@ -1,11 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
-import 'dart:ui' as ui;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
@@ -17,7 +13,6 @@ import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
@@ -542,51 +537,10 @@ class _ConnectCircle extends ConsumerStatefulWidget {
 /// Written by [_ConnectCircle].
 final connectButtonCenter = ValueNotifier<Offset?>(null);
 
-/// Decodes Remnawave-style `base64:<value>` header values (same local
-/// convention as metainfo/service_info widgets); plain values pass through.
-String? _decodeBase64IfNeeded(String? value) {
-  if (value == null || value.isEmpty) return value;
-  var textToDecode = value;
-  if (textToDecode.startsWith('base64:')) {
-    textToDecode = textToDecode.substring(7);
-  }
-  try {
-    final normalized = base64.normalize(textToDecode);
-    return utf8.decode(base64.decode(normalized));
-  } catch (e) {
-    return value;
-  }
-}
-
 class _ConnectCircleState extends ConsumerState<_ConnectCircle>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   final _key = GlobalKey();
   bool _isPressed = false;
-
-  /// Liquid provider watermark: the subscription provider's logo
-  /// (`dropweb-logo` header) rasterized once and slowly drifting inside the
-  /// lens glass — the app-side counterpart of the site's LiquidLogoLayer.
-  ui.Image? _logoImage;
-  String? _requestedLogoUrl;
-  int _logoLoadSeq = 0;
-
-  /// Seamless distortion-field loop for the watermark (reference
-  /// `flowSpeed`; dialed in tool/liquid_lab.html). Runs only while a logo
-  /// is loaded and reduced motion is off.
-  late final AnimationController _flowController = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 19),
-  );
-
-  /// Fade-in once the logo image arrives, so the watermark never pops.
-  late final AnimationController _logoFadeController = AnimationController(
-    vsync: this,
-    duration: Lumina.luminaDuration,
-  );
-  late final CurvedAnimation _logoFade = CurvedAnimation(
-    parent: _logoFadeController,
-    curve: Lumina.luminaCurve,
-  );
 
   /// Iris bloom: one-shot radial luminance pulse through the glass disc on
   /// connect, mirrored recede on disconnect. Hands off to the perimeter halo
@@ -597,38 +551,6 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
     duration: const Duration(milliseconds: 420),
     reverseDuration: const Duration(milliseconds: 360),
   );
-
-  /// Connect morph: 0 = plain button (watermark ghosted at 30%), 1 = logo
-  /// lens (watermark full). Driven OPTIMISTICALLY — forward starts the moment
-  /// the user requests a start ([GlobalState.isConnecting]), not when the TUN
-  /// ack lands — and reverses when the start fails or the VPN stops. The
-  /// multiplier rides on top of [_logoFade], so a logo that finishes loading
-  /// mid-morph still fades in through its own channel and never pops.
-  late final AnimationController _morphController = AnimationController(
-    vsync: this,
-    duration: Lumina.luminaDuration,
-  );
-  late final CurvedAnimation _morph = CurvedAnimation(
-    parent: _morphController,
-    curve: Lumina.luminaCurve,
-  );
-
-  /// Optimistic leg of the connect morph (see [_morphController]).
-  void _onConnectingChanged() {
-    if (!mounted) return;
-    final connecting = globalState.isConnecting.value;
-    final running = ref.read(runTimeProvider) != null;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _morphController.value = (connecting || running) ? 1.0 : 0.0;
-      return;
-    }
-    if (connecting) {
-      _morphController.forward();
-    } else if (!running) {
-      // Start failed or was cancelled before the core came up — settle back.
-      _morphController.reverse();
-    }
-  }
 
   void _reportPosition() {
     if (!mounted) return;
@@ -655,12 +577,6 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
     // localToGlobal + notifier writes).
     _schedulePostFrameReport();
 
-    // Returning to the dashboard already connected: start settled, no replay.
-    if (ref.read(runTimeProvider) != null) {
-      _morphController.value = 1.0;
-    }
-    globalState.isConnecting.addListener(_onConnectingChanged);
-
     // Profile availability can change the mobile pages and rebuild the body.
     // Re-anchor the rings origin if the button shifts with that state.
     ref
@@ -684,149 +600,21 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
           // Reduced-motion: snap to terminal state, no animation.
           if (MediaQuery.disableAnimationsOf(context)) {
             _irisController.value = running ? 1.0 : 0.0;
-            _morphController.value = running ? 1.0 : 0.0;
             return;
           }
           if (running) {
             _irisController.forward();
-            _morphController.forward();
           } else {
             _irisController.reverse();
-            _morphController.reverse();
           }
         },
-      )
-      // Liquid watermark source: provider logo header + the same
-      // applySubscriptionLogo gate the metainfo card uses.
-      ..listenManual<String?>(
-        currentProfileProvider
-            .select((profile) => profile?.providerHeaders['dropweb-logo']),
-        (_, __) => _recomputeLogoTarget(),
-      )
-      ..listenManual<bool>(
-        appSettingProvider.select((setting) => setting.applySubscriptionLogo),
-        (_, __) => _recomputeLogoTarget(),
-        fireImmediately: true,
       );
-  }
-
-  /// Re-reads the logo header + setting and (re)starts the async rasterize
-  /// when the effective URL changed. Absent/blocked logo clears the layer.
-  void _recomputeLogoTarget() {
-    final show = ref.read(appSettingProvider).applySubscriptionLogo;
-    final raw = show
-        ? ref.read(currentProfileProvider)?.providerHeaders['dropweb-logo']
-        : null;
-    final url = _decodeBase64IfNeeded(raw);
-    final target = (url == null || url.isEmpty) ? null : url;
-    if (target == _requestedLogoUrl) return;
-    _requestedLogoUrl = target;
-    final seq = ++_logoLoadSeq;
-    if (target == null) {
-      _setLogoImage(null);
-      return;
-    }
-    _loadLogoImage(target).then((image) {
-      if (!mounted || seq != _logoLoadSeq) {
-        image?.dispose();
-        return;
-      }
-      _setLogoImage(image);
-    });
-  }
-
-  void _setLogoImage(ui.Image? image) {
-    if (image != null) {
-      commonPrint.log(
-        'liquid logo decoded: ${image.width}x${image.height}',
-      );
-    }
-    if (_logoImage == null && image == null) return;
-    _logoImage?.dispose();
-    _logoImage = image;
-    _logoFadeController.value = 0.0;
-    if (image != null) {
-      if (mounted && MediaQuery.disableAnimationsOf(context)) {
-        _logoFadeController.value = 1.0;
-      } else {
-        _logoFadeController.forward();
-      }
-    }
-    if (mounted) {
-      setState(() {});
-    }
-    _syncFlowAnimation();
-  }
-
-  /// Drift loop runs only while there is a logo to move and the user has
-  /// not enabled reduced motion (same gate as MeshBackground).
-  void _syncFlowAnimation() {
-    if (!mounted) return;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final shouldFlow = _logoImage != null && !reduceMotion;
-    if (shouldFlow && !_flowController.isAnimating) {
-      _flowController.repeat();
-    } else if (!shouldFlow && _flowController.isAnimating) {
-      _flowController.stop();
-    }
-  }
-
-  /// Resolves the provider logo URL into a [ui.Image] for the lens
-  /// watermark. Raster URLs go through the shared CachedNetworkImage cache
-  /// (decoded at <=512px, matching the lab's raster size); `.svg` URLs are
-  /// rasterized via flutter_svg. Returns null on any failure — the lens
-  /// then simply renders without the watermark.
-  Future<ui.Image?> _loadLogoImage(String url) async {
-    try {
-      if (url.toLowerCase().endsWith('.svg')) {
-        final pictureInfo = await vg.loadPicture(SvgNetworkLoader(url), null);
-        final srcSize = pictureInfo.size;
-        final longest = srcSize.longestSide;
-        final ratio = longest > 0 ? 512.0 / longest : 1.0;
-        final image = await pictureInfo.picture.toImage(
-          (srcSize.width * ratio).ceil().clamp(1, 512),
-          (srcSize.height * ratio).ceil().clamp(1, 512),
-        );
-        pictureInfo.picture.dispose();
-        return image;
-      }
-      final provider = ResizeImage(
-        CachedNetworkImageProvider(url),
-        width: 512,
-        allowUpscaling: false,
-      );
-      final completer = Completer<ui.Image>();
-      final stream = provider.resolve(ImageConfiguration.empty);
-      late final ImageStreamListener listener;
-      listener = ImageStreamListener(
-        (imageInfo, _) {
-          if (!completer.isCompleted) {
-            completer.complete(imageInfo.image.clone());
-          }
-          imageInfo.dispose();
-          stream.removeListener(listener);
-        },
-        onError: (error, stackTrace) {
-          if (!completer.isCompleted) {
-            completer.completeError(error, stackTrace ?? StackTrace.current);
-          }
-          stream.removeListener(listener);
-        },
-      );
-      stream.addListener(listener);
-      return await completer.future;
-    } catch (e) {
-      commonPrint.log('connect lens logo load failed: $e');
-      return null;
-    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _schedulePostFrameReport();
-    // Reduced-motion can flip while we're alive; re-evaluate the drift loop.
-    _syncFlowAnimation();
   }
 
   /// Window resize on desktop / orientation change on mobile shifts the
@@ -854,15 +642,7 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
 
   @override
   void dispose() {
-    globalState.isConnecting.removeListener(_onConnectingChanged);
-    _logoLoadSeq++;
-    _logoImage?.dispose();
-    _logoFade.dispose();
-    _logoFadeController.dispose();
-    _flowController.dispose();
     _irisController.dispose();
-    _morph.dispose();
-    _morphController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     connectButtonCenter.value = null;
     super.dispose();
@@ -877,16 +657,6 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
     // ColorScheme.primary so it follows whatever theme is active —
     // no hardcoded Lumina green here.
     final accent = Theme.of(context).colorScheme.primary;
-
-    // Site GlassCTA gradient start (`from-orb-1`): the theme's primary orb
-    // color, resolved exactly like MeshBackground (variant-filtered, accent
-    // fallback when the theme defines no orb).
-    final liquidSettings = ref.watch(
-      themeSettingProvider.select((s) => (s.orbColorPrimary, s.schemeVariant)),
-    );
-    final liquidBase = liquidSettings.$1 != null
-        ? applyColorFilter(Color(liquidSettings.$1!), liquidSettings.$2)
-        : accent;
 
     // Connect state amplifies the perimeter halo and inner edge glow.
     final isRunning =
@@ -942,22 +712,13 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
                     // When _irisController sits at 0.0 (idle off) or 1.0
                     // (idle on) it stops ticking — no continuous loop.
                     AnimatedBuilder(
-                      animation: Listenable.merge(
-                        [_irisController, _flowController, _logoFade, _morph],
-                      ),
+                      animation: _irisController,
                       builder: (_, __) => CustomPaint(
                         painter: _ConnectGlassPainter(
                           pressT: pressT,
                           isRunning: isRunning,
                           accent: accent,
                           irisT: _irisController.value,
-                          logo: _logoImage,
-                          flowT: _flowController.value,
-                          // Plain↔logo morph: the watermark idles as a 30%
-                          // ghost and surges to full with the (optimistic)
-                          // connect transition, multiplying the load fade.
-                          logoT: _logoFade.value * (0.30 + 0.70 * _morph.value),
-                          liquidBase: liquidBase,
                         ),
                       ),
                     ),
@@ -978,9 +739,6 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
 ///      visibly present as glass rather than a black hole.
 ///   2. Accent veil — a low-alpha radial of the theme accent caught in the
 ///      upper-mid body. Reads as refracted ambient theme light, not a fill.
-///   2.5. Liquid provider watermark — the subscription provider's logo
-///      stretched across the lens and slowly drifting (luminosity blend),
-///      ported from the site's GlassCTA liquid logo layer.
 ///   3. Concave inset — a soft dark sweep on the lower inner arc so the
 ///      lens reads as a recessed/convex cap rather than a flat disk.
 ///   4. Top-edge specular — a single soft arc near 11-1 o'clock. No
@@ -1003,30 +761,11 @@ class _ConnectGlassPainter extends CustomPainter {
     required this.isRunning,
     required this.accent,
     required this.irisT,
-    required this.logo,
-    required this.flowT,
-    required this.logoT,
-    required this.liquidBase,
   });
 
   final double pressT;
   final bool isRunning;
   final Color accent;
-
-  /// Provider logo rasterized for the liquid watermark; null = no layer.
-  final ui.Image? logo;
-
-  /// Drift loop phase in [0, 1). Sine arguments use integer multiples of
-  /// 2*pi*flowT so the loop is seamless.
-  final double flowT;
-
-  /// Watermark fade-in progress in [0, 1]. Crossfades the whole liquid CTA
-  /// treatment (gradient base + highlight + logo) over the dark glass body.
-  final double logoT;
-
-  /// Gradient start color for the liquid base (theme orb primary — the
-  /// app-side `from-orb-1`). The end stop derives from [accent] darkened.
-  final Color liquidBase;
 
   /// Iris animation progress in [0, 1]. 0 = no bloom, 1 = settled subtle
   /// luminance. Triggered only on real connect/disconnect transitions, never
@@ -1075,61 +814,6 @@ class _ConnectGlassPainter extends CustomPainter {
       ..clipPath(Path()..addOval(rect))
       ..drawCircle(center, r, veilPaint)
       ..restore();
-
-    // 2.5. Liquid CTA treatment — 1:1 port of the site's GlassCTA +
-    //      LiquidLogoLayer, crossfaded in by [logoT] once the provider
-    //      logo (`dropweb-logo`) is rasterized:
-    //        a. accent gradient base (orb primary -> deep accent, the
-    //           site's `from-orb-1 to-accent-deep` to bottom-right);
-    //        b. top radial glass highlight (white 22% fading by 60%);
-    //        c. the logo itself, stretched past the lens bounds, white
-    //           luminosity blend at 45%, slowly drifting.
-    //      Painted below the inset/specular/rim layers so the existing
-    //      glass surface keeps reading on top. Pure canvas — no fragment
-    //      shaders (Impeller silently kills them in this app).
-    final logo = this.logo;
-    if (logo != null && logoT > 0.001) {
-      // Idle dimming: muted lens while disconnected, full brightness when
-      // running; irisT drives the smooth transition on connect/disconnect.
-      final live = _liquidIdleDim + (1 - _liquidIdleDim) * irisT;
-
-      // a. Gradient base.
-      final basePaint = Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            liquidBase.withValues(alpha: logoT * live),
-            accent.darken(30).withValues(alpha: logoT * live),
-          ],
-        ).createShader(rect);
-      canvas.drawCircle(center, r, basePaint);
-
-      // b. Top glass highlight.
-      final highlightPaint = Paint()
-        ..shader = RadialGradient(
-          center: Alignment.topCenter,
-          radius: 1.0,
-          colors: [
-            Colors.white.withValues(alpha: 0.35 * logoT * live),
-            Colors.white.withValues(alpha: 0.0),
-          ],
-          stops: const [0.0, 0.6],
-        ).createShader(rect);
-      canvas.drawCircle(center, r, highlightPaint);
-
-      // c. Liquid logo — a faithful canvas port of the reference SVG filter
-      //    chain (feTurbulence -> 3x feDisplacementMap -> R/G/B isolate ->
-      //    screen recombine -> luminosity composite). The logo itself stays
-      //    put; what animates is the displacement FIELD. Three drawVertices
-      //    passes sample the logo through an ImageShader with mesh vertices
-      //    displaced by a 2-octave fractal value-noise field; per-pass scales
-      //    (d+c / d / d-c) plus channel-isolating color filters reproduce
-      //    the chromatic fringing; additive blending recombines the
-      //    channels; the recombined layer lands on the gradient with
-      //    luminosity at 60% (zencab CONNECT_GLASS dial).
-      _paintLiquidLogo(canvas, rect, center, r, logo);
-    }
 
     // 3. Concave inset on the lower interior arc.
     final insetPaint = Paint()
@@ -1197,11 +881,8 @@ class _ConnectGlassPainter extends CustomPainter {
       // Triangular overshoot: 0 → +(peak-settled) at t=0.5 → 0 at t=1.
       final overshoot =
           (_irisPeakAlpha - _irisSettledAlpha) * 4 * irisT * (1 - irisT);
-      // The liquid CTA has NO iris wash in the lab reference — the accent
-      // bloom would sit on top of the logo and wash the pattern out, so it
-      // fades out together with the watermark fade-in.
-      final irisAlpha = ((_irisSettledAlpha * irisT + overshoot) * (1 - logoT))
-          .clamp(0.0, 1.0);
+      final irisAlpha =
+          (_irisSettledAlpha * irisT + overshoot).clamp(0.0, 1.0);
       if (irisAlpha > 0.001) {
         final irisPaint = Paint()
           ..shader = RadialGradient(
@@ -1269,282 +950,15 @@ class _ConnectGlassPainter extends CustomPainter {
     }
   }
 
-  // --- Liquid logo mesh-warp (reference: zencab LiquidLogoLayer) -----------
-
-  /// Reference dials. The zencab SVG filter works in ABSOLUTE CSS px:
-  /// distortion 84 -> max offset ~42px, chroma 40 (0.476 of distortion),
-  /// noise wavelength 1/0.015 ~ 67px. On a ~150dp lens that maps to
-  /// ampl ~0.55r and wavelength ~0.45 of the diameter — several turbulence
-  /// periods must fit ACROSS the lens or the field degenerates into a
-  /// near-constant shift (no visible distortion).
-  static const double _liquidAmpl = 0.85; // max displacement, fraction of r
-  static const double _liquidChroma = 0.02; // chroma / distortion
-  static const double _liquidWavelength = 0.64; // fraction of diameter
-  static const double _liquidOctave2 = 0.76; // 2nd fbm octave weight
-  static const double _liquidBreath = 0.43; // base-frequency breathing
-  static const double _liquidOpacity = 1.0;
-
-  /// Liquid stack brightness when the VPN is OFF (lerps to 1.0 with the
-  /// iris running transition) — the lens must read muted while idle.
-  static const double _liquidIdleDim = 0.45;
-  static const double _liquidCoverScale = 2.8; // logo overscale vs lens
-
-  /// Optical-centering lift for the liquid logo, as a fraction of the lens
-  /// radius. The provider mark reads low when sampled dead-centre, so the
-  /// shader is nudged up by this amount to sit at the optical centre of the
-  /// lens (slightly above geometric centre).
-  static const double _liquidLogoLift = 0.12;
-
   /// Fresnel rim brightness (lab `rim`): 0.55 == the pre-liquid baseline.
   static const double _rimAlpha = 1.0;
-
-  static const int _meshCols = 32;
-  static const int _meshRows = 32;
-
-  /// The lab (tool/liquid_lab.html) samples noise at ABSOLUTE canvas
-  /// coordinates with the 150dp lens centered at (155,155). The user dials
-  /// the look against that exact field patch, so the painter maps its
-  /// local coordinates into the lab's frame before sampling.
-  static const double _labRadius = 75.0;
-  static const double _labCenter = 155.0;
-  static Uint16List? _meshIndicesCache;
-
-  /// Channel-isolating filters — the feColorMatrix trio. Alpha is preserved
-  /// so the additive recombination only ever brightens its own channel.
-  static const ColorFilter _redOnly = ColorFilter.matrix(<double>[
-    1, 0, 0, 0, 0, //
-    0, 0, 0, 0, 0, //
-    0, 0, 0, 0, 0, //
-    0, 0, 0, 1, 0, //
-  ]);
-  static const ColorFilter _greenOnly = ColorFilter.matrix(<double>[
-    0, 0, 0, 0, 0, //
-    0, 1, 0, 0, 0, //
-    0, 0, 0, 0, 0, //
-    0, 0, 0, 1, 0, //
-  ]);
-  static const ColorFilter _blueOnly = ColorFilter.matrix(<double>[
-    0, 0, 0, 0, 0, //
-    0, 0, 0, 0, 0, //
-    0, 0, 1, 0, 0, //
-    0, 0, 0, 1, 0, //
-  ]);
-
-  /// Deterministic 2D value noise — the feTurbulence fractalNoise stand-in.
-  /// Same formulas live in tool/liquid_lab.html so lab dials transfer 1:1.
-  static double _hash2(double x, double y) {
-    final s = math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
-    return s - s.floorToDouble();
-  }
-
-  static double _valueNoise(double x, double y) {
-    final xi = x.floorToDouble();
-    final yi = y.floorToDouble();
-    final xf = x - xi;
-    final yf = y - yi;
-    final u = xf * xf * (3 - 2 * xf);
-    final v = yf * yf * (3 - 2 * yf);
-    final a = _hash2(xi, yi);
-    final b = _hash2(xi + 1, yi);
-    final c = _hash2(xi, yi + 1);
-    final d = _hash2(xi + 1, yi + 1);
-    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
-  }
-
-  /// Two-octave fbm, like the reference's `numOctaves={2}`.
-  static double _fbm(double x, double y) =>
-      (_valueNoise(x, y) +
-          _liquidOctave2 * _valueNoise(x * 2 + 37.2, y * 2 + 17.9)) /
-      (1 + _liquidOctave2);
-
-  static Uint16List _meshIndices() {
-    final cached = _meshIndicesCache;
-    if (cached != null) return cached;
-    const cols = _meshCols;
-    const rows = _meshRows;
-    final indices = Uint16List(cols * rows * 6);
-    var i = 0;
-    for (var row = 0; row < rows; row++) {
-      for (var col = 0; col < cols; col++) {
-        final topLeft = row * (cols + 1) + col;
-        final topRight = topLeft + 1;
-        final bottomLeft = topLeft + cols + 1;
-        final bottomRight = bottomLeft + 1;
-        indices[i++] = topLeft;
-        indices[i++] = topRight;
-        indices[i++] = bottomLeft;
-        indices[i++] = topRight;
-        indices[i++] = bottomRight;
-        indices[i++] = bottomLeft;
-      }
-    }
-    return _meshIndicesCache = indices;
-  }
-
-  void _paintLiquidLogo(
-    Canvas canvas,
-    Rect rect,
-    Offset center,
-    double r,
-    ui.Image logo,
-  ) {
-    // Static logo placement: stretched cover, centered — like the
-    // reference's background-size/-position (only the field moves).
-    final imgW = logo.width.toDouble();
-    final imgH = logo.height.toDouble();
-    final aspect = imgH > 0 ? imgW / imgH : 1.0;
-    final cover = r * 2 * _liquidCoverScale;
-    final destW = aspect >= 1 ? cover * aspect : cover;
-    final destH = aspect >= 1 ? cover : cover / aspect;
-    final shaderMatrix = Float64List(16)
-      ..[0] = destW / imgW
-      ..[5] = destH / imgH
-      ..[10] = 1.0
-      ..[15] = 1.0
-      ..[12] = center.dx - destW / 2
-      ..[13] = center.dy - destH / 2 - r * _liquidLogoLift;
-    final logoShader = ui.ImageShader(
-      logo,
-      ui.TileMode.decal,
-      ui.TileMode.decal,
-      shaderMatrix,
-      // Explicit: paint.filterQuality does NOT govern shader sampling on
-      // Impeller; without this the shader may sample through a blurrier
-      // default path. Bilinear == the lab's WebGL LINEAR (no mipmaps).
-      filterQuality: FilterQuality.low,
-    );
-
-    // Fractal displacement field — like the reference, the noise itself is
-    // STATIC in space (fixed seed); motion comes from the base-frequency
-    // breathing (+-_liquidBreath with two phase-shifted sines == the fx/fy
-    // modulation) and the chroma pulse. Loop phase enters only via sin(w),
-    // so the cycle is seamless.
-    final w = math.pi * 2 * flowT;
-    final ampl = r * _liquidAmpl;
-    // 1:1 with the lab: lambda is in lab pixels (lens diameter 150).
-    const lambda = _labRadius * 2 * _liquidWavelength;
-    final fx = (1 + _liquidBreath * math.sin(w)) / lambda;
-    final fy = (1 + _liquidBreath * math.sin(w + 1.3)) / lambda;
-    // Chroma pulse: c(t) = chroma * (0.6 + 0.4 sin), as in the reference.
-    final chromaT = _liquidChroma * (0.6 + 0.4 * math.sin(w));
-    final scaleR = 1 + chromaT;
-    const scaleG = 1.0;
-    final scaleB = 1 - chromaT;
-
-    // BACKWARD warp, like feDisplacementMap: the mesh GEOMETRY is a static
-    // grid over the lens; what shifts per vertex are the TEXTURE
-    // COORDINATES (each grid point samples the logo from a displaced
-    // location). Forward vertex warp smears the logo into blobs; backward
-    // texcoord warp shreds it locally — the reference look. Per-channel
-    // texcoord sets (scales d+c / d / d-c) give the chromatic fringes.
-    const cols = _meshCols;
-    const rows = _meshRows;
-    const vertexCount = (cols + 1) * (rows + 1);
-    final positions = Float32List(vertexCount * 2);
-    final texR = Float32List(vertexCount * 2);
-    final texG = Float32List(vertexCount * 2);
-    final texB = Float32List(vertexCount * 2);
-    var v = 0;
-    for (var row = 0; row <= rows; row++) {
-      final y = rect.top + rect.height * row / rows;
-      for (var col = 0; col <= cols; col++) {
-        final x = rect.left + rect.width * col / cols;
-        // R/G noise channels of the reference displacement map: two
-        // independent fields via a fixed sampling offset. Coordinates are
-        // mapped into the lab's absolute frame (same field patch the user
-        // dialed), normalized by the actual lens radius.
-        final labX = (x - center.dx) / r * _labRadius + _labCenter;
-        final labY = (y - center.dy) / r * _labRadius + _labCenter;
-        final nx = (_fbm(labX * fx, labY * fy) - 0.5) * 2;
-        final ny =
-            (_fbm(labX * fx + 57.31, labY * fy + 113.57) - 0.5) * 2;
-        positions[v] = x;
-        positions[v + 1] = y;
-        texR[v] = x + nx * ampl * scaleR;
-        texR[v + 1] = y + ny * ampl * scaleR;
-        texG[v] = x + nx * ampl * scaleG;
-        texG[v + 1] = y + ny * ampl * scaleG;
-        texB[v] = x + nx * ampl * scaleB;
-        texB[v + 1] = y + ny * ampl * scaleB;
-        v += 2;
-      }
-    }
-
-    final indices = _meshIndices();
-    final live = _liquidIdleDim + (1 - _liquidIdleDim) * irisT;
-    final groupAlpha = _liquidOpacity * logoT * live;
-
-    if (_liquidChroma < 0.05) {
-      // Single-pass fast path (chroma effectively off): luminosity straight
-      // onto the canvas, NO saveLayer. Impeller rasterizes advanced-blend
-      // saveLayers at logical resolution (no DPR), which blurred the whole
-      // watermark ("CRT" look); a direct draw keeps full device resolution.
-      final paint = Paint()
-        ..shader = logoShader
-        ..color = Colors.white.withValues(alpha: groupAlpha)
-        ..blendMode = BlendMode.luminosity
-        ..filterQuality = FilterQuality.low;
-      canvas
-        ..save()
-        ..clipPath(Path()..addOval(rect))
-        ..drawVertices(
-          ui.Vertices.raw(
-            ui.VertexMode.triangles,
-            positions,
-            textureCoordinates: texG,
-            indices: indices,
-          ),
-          BlendMode.srcOver,
-          paint,
-        )
-        ..restore();
-      return;
-    }
-
-    final layerPaint = Paint()
-      ..color = Colors.white.withValues(alpha: groupAlpha)
-      ..blendMode = BlendMode.luminosity;
-    canvas
-      ..save()
-      ..clipPath(Path()..addOval(rect))
-      ..saveLayer(rect, layerPaint);
-    final channels = <(Float32List, ColorFilter)>[
-      (texR, _redOnly),
-      (texG, _greenOnly),
-      (texB, _blueOnly),
-    ];
-    for (final (texCoords, filter) in channels) {
-      final paint = Paint()
-        ..shader = logoShader
-        ..colorFilter = filter
-        ..blendMode = BlendMode.plus
-        ..filterQuality = FilterQuality.low;
-      canvas.drawVertices(
-        ui.Vertices.raw(
-          ui.VertexMode.triangles,
-          positions,
-          textureCoordinates: texCoords,
-          indices: indices,
-        ),
-        BlendMode.srcOver,
-        paint,
-      );
-    }
-    canvas
-      ..restore()
-      ..restore();
-  }
 
   @override
   bool shouldRepaint(covariant _ConnectGlassPainter old) =>
       old.pressT != pressT ||
       old.isRunning != isRunning ||
       old.accent != accent ||
-      old.irisT != irisT ||
-      old.logo != logo ||
-      old.flowT != flowT ||
-      old.logoT != logoT ||
-      old.liquidBase != liquidBase;
+      old.irisT != irisT;
 }
 
 /// Developer mode activation via 5 rapid CONSECUTIVE taps on the Settings

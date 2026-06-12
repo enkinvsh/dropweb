@@ -152,18 +152,11 @@ class _StartButtonState extends ConsumerState<StartButton>
         ? Color.lerp(Lumina.lensBody, colorScheme.primary, 0.28)!
         : colorScheme.primary;
     // While connecting, dim the icon with the existing opacity extension so it
-    // reads as a pending/disabled affordance. While CONNECTED the glyph
-    // recedes slightly (alpha + scale below) so the liquid provider logo
-    // takes the stage — the lens morph's counterpart on the glyph layer.
-    final settledColor = isStart
-        ? baseIconColor.withValues(alpha: 0.82)
-        : baseIconColor;
-    final iconColor = isConnecting ? settledColor.opacity60 : settledColor;
+    // reads as a pending/disabled affordance.
+    final iconColor = isConnecting ? baseIconColor.opacity60 : baseIconColor;
 
-    // Lumina motion: the glyph recede/restore rides the same tokens as the
-    // lens morph in home.dart, so both layers move as one object.
-    const motionDuration = Lumina.luminaDuration;
-    const motionCurve = Lumina.luminaCurve;
+    const motionDuration = Duration(milliseconds: 180);
+    const motionCurve = Curves.easeOutCubic;
 
     return AnimatedBuilder(
       animation: _pressController,
@@ -185,9 +178,7 @@ class _StartButtonState extends ConsumerState<StartButton>
           child: Center(
             child: RepaintBoundary(
               child: AnimatedScale(
-                // Idle-with-profile: muted 0.94. Connected: recede to 0.88 so
-                // the watermark reads as the primary surface. No profile: 1.0.
-                scale: isStart ? 0.88 : (isInactive ? 0.94 : 1.0),
+                scale: isInactive ? 0.94 : 1.0,
                 duration: motionDuration,
                 curve: motionCurve,
                 child: TweenAnimationBuilder<Color?>(
