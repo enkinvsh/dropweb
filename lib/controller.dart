@@ -11,6 +11,7 @@ import 'package:dropweb/services/subscription_notification_service.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
+import 'package:dropweb/services/app_update_service.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/dialog.dart';
 import 'package:flutter/foundation.dart';
@@ -19,7 +20,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' hide windows;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'common/common.dart';
 import 'models/models.dart';
@@ -70,7 +70,10 @@ bool shouldAutoUpdateProfile({
 /// [handleError] mirrors the existing `checkUpdateResultHandle` flag:
 /// `true` = manual/explicit check (show "latest version" when there is no
 /// update), `false` = silent automatic check.
-@visibleForTesting
+///
+/// Pure update policy shared by [AppController.checkUpdateResultHandle] (the
+/// facade) and its implementation in [AppUpdateService]; also unit-tested
+/// directly via `package:dropweb/controller.dart`.
 bool shouldHandleUpdateResult({
   required bool isPre,
   required bool handleError,
@@ -88,7 +91,10 @@ bool shouldHandleUpdateResult({
 /// can still be flipped on via a subscription `dropweb-settings:
 /// autoupdate` header). Non-Android builds keep honouring the user's
 /// preference.
-@visibleForTesting
+///
+/// Pure update policy shared by [AppController.autoCheckUpdate] (the facade)
+/// and its implementation in [AppUpdateService]; also unit-tested directly via
+/// `package:dropweb/controller.dart`.
 bool shouldRunAutoUpdateCheck({
   required bool isAndroid,
   required bool autoCheckUpdate,
@@ -112,6 +118,11 @@ class AppController {
   Timer? _profileUpdateTimer;
   final BuildContext context;
   final WidgetRef _ref;
+
+  /// App self-update concern, extracted behind this facade. The delegating
+  /// `autoCheckUpdate` / `checkUpdateResultHandle` methods below keep every
+  /// existing call site untouched.
+  late final AppUpdateService _updateService = AppUpdateService(_ref);
 
   void setupClashConfigDebounce() {
     debouncer.call(FunctionTag.setupClashConfig, () async {
@@ -1415,83 +1426,20 @@ class AppController {
     }
   }
 
-  Future<void> autoCheckUpdate() async {
-    if (!shouldRunAutoUpdateCheck(
-      isAndroid: Platform.isAndroid,
-      autoCheckUpdate: _ref.read(appSettingProvider).autoCheckUpdate,
-    )) {
-      return;
-    }
-    final res = await request.checkForUpdate();
-    checkUpdateResultHandle(data: res);
-  }
+  /// Delegates to [AppUpdateService.autoCheckUpdate]. Kept as a facade method so
+  /// the in-process call site in [init] stays unchanged.
+  Future<void> autoCheckUpdate() => _updateService.autoCheckUpdate();
 
-  /// Resolves a safe, release-specific URL from a GitHub release payload.
-  /// Prefers the release's own `html_url`, falls back to a tagged URL,
-  /// and finally to the generic `releases/latest` page.
-  String _resolveReleaseUrl(Map<String, dynamic> data) {
-    final htmlUrl = data['html_url'];
-    if (htmlUrl is String && htmlUrl.isNotEmpty) {
-      final parsed = Uri.tryParse(htmlUrl);
-      if (parsed != null && parsed.hasScheme) {
-        return htmlUrl;
-      }
-    }
-    final tag = data['tag_name'];
-    if (tag is String && tag.isNotEmpty) {
-      return "https://github.com/$repository/releases/tag/$tag";
-    }
-    return "https://github.com/$repository/releases/latest";
-  }
-
+  /// Delegates to [AppUpdateService.checkUpdateResultHandle]. Kept as a facade
+  /// method so external callers (e.g. About → check-for-update) stay unchanged.
   Future<void> checkUpdateResultHandle({
     Map<String, dynamic>? data,
     bool handleError = false,
-  }) async {
-    if (!shouldHandleUpdateResult(
-      isPre: globalState.isPre,
-      handleError: handleError,
-    )) {
-      return;
-    }
-    if (data != null) {
-      final tagName = data['tag_name'];
-      final body = data['body'];
-      final submits = utils.parseReleaseBody(body);
-      final textTheme = context.textTheme;
-      final res = await globalState.showMessage(
-        title: appLocalizations.discoverNewVersion,
-        message: TextSpan(
-          text: "$tagName \n",
-          style: textTheme.headlineSmall,
-          children: [
-            TextSpan(
-              text: "\n",
-              style: textTheme.bodyMedium,
-            ),
-            for (final submit in submits)
-              TextSpan(
-                text: "- $submit \n",
-                style: textTheme.bodyMedium,
-              ),
-          ],
-        ),
-        confirmText: appLocalizations.goDownload,
+  }) =>
+      _updateService.checkUpdateResultHandle(
+        data: data,
+        handleError: handleError,
       );
-      if (res != true) {
-        return;
-      }
-      final releaseUrl = _resolveReleaseUrl(data);
-      unawaited(launchUrl(Uri.parse(releaseUrl)));
-    } else if (handleError) {
-      globalState.showMessage(
-        title: appLocalizations.checkUpdate,
-        message: TextSpan(
-          text: appLocalizations.checkUpdateError,
-        ),
-      );
-    }
-  }
 
   Future<void> _handlePreference() async {
     if (await preferences.isInit) {
