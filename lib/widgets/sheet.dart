@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
@@ -60,13 +58,18 @@ Future<T?> showSheet<T>({
         // edge-to-edge down to the screen bottom (no barrier strip showing
         // below it). The bottom gesture-nav inset is applied as content padding
         // inside AdaptiveSheetScaffold so the last item still clears the pill.
-        builder: (_) => BackdropFilter(
-          filter: props.blur ? commonFilter : ImageFilter.blur(),
-          child: SafeArea(
+        builder: (_) {
+          final content = SafeArea(
             bottom: false,
             child: builder(context, SheetType.bottomSheet),
-          ),
-        ),
+          );
+          // Only pay for a BackdropFilter layer when blur is actually
+          // requested; an empty ImageFilter.blur() still allocates a GPU
+          // backdrop pass for no visual effect.
+          return props.blur
+              ? BackdropFilter(filter: commonFilter, child: content)
+              : content;
+        },
         showDragHandle: false,
         useSafeArea: false,
       ),

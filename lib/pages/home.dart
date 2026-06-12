@@ -660,7 +660,6 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final buttonSize = widget.buttonSize;
     final iconSize = buttonSize * 0.4;
 
@@ -703,7 +702,7 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
             final perimeterGlow = BoxShadow(
               color: accent.withValues(alpha: haloAlpha),
               blurRadius: haloBlur,
-              spreadRadius: isDark ? -1.0 : -2.0,
+              spreadRadius: -1.0,
             );
 
             return SizedBox.square(
@@ -713,31 +712,17 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
                   shape: BoxShape.circle,
                   boxShadow: [
                     perimeterGlow,
-                    if (isDark) ...const [
-                      BoxShadow(
-                        color: Color(0x99000000),
-                        blurRadius: 4,
-                        offset: Offset(0, 1),
-                      ),
-                      BoxShadow(
-                        color: Color(0x66000000),
-                        blurRadius: 26,
-                        spreadRadius: -6,
-                        offset: Offset(0, 14),
-                      ),
-                    ] else ...const [
-                      BoxShadow(
-                        color: Color(0x22000000),
-                        blurRadius: 3,
-                        offset: Offset(0, 1),
-                      ),
-                      BoxShadow(
-                        color: Color(0x1F000000),
-                        blurRadius: 22,
-                        spreadRadius: -4,
-                        offset: Offset(0, 12),
-                      ),
-                    ],
+                    const BoxShadow(
+                      color: Color(0x99000000),
+                      blurRadius: 4,
+                      offset: Offset(0, 1),
+                    ),
+                    const BoxShadow(
+                      color: Color(0x66000000),
+                      blurRadius: 26,
+                      spreadRadius: -6,
+                      offset: Offset(0, 14),
+                    ),
                   ],
                 ),
                 child: Stack(
@@ -752,7 +737,6 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
                       ),
                       builder: (_, __) => CustomPaint(
                         painter: _ConnectGlassPainter(
-                          isDark: isDark,
                           pressT: pressT,
                           isRunning: isRunning,
                           accent: accent,
@@ -802,7 +786,6 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
 /// hue.
 class _ConnectGlassPainter extends CustomPainter {
   const _ConnectGlassPainter({
-    required this.isDark,
     required this.pressT,
     required this.isRunning,
     required this.accent,
@@ -813,7 +796,6 @@ class _ConnectGlassPainter extends CustomPainter {
     required this.liquidBase,
   });
 
-  final bool isDark;
   final double pressT;
   final bool isRunning;
   final Color accent;
@@ -854,13 +836,11 @@ class _ConnectGlassPainter extends CustomPainter {
     // 1. Body. Lifted off the void surface (#030305) so the lens reads
     //    as glass-on-void instead of a black hole.
     final bodyPaint = Paint()
-      ..shader = RadialGradient(
-        center: const Alignment(0, 0.25),
+      ..shader = const RadialGradient(
+        center: Alignment(0, 0.25),
         radius: 0.8,
-        colors: isDark
-            ? const [Color(0xFF15151D), Color(0xFF080810)]
-            : const [Color(0xFFF2F2F6), Color(0xFFD8DAE2)],
-        stops: const [0.55, 1.0],
+        colors: [Lumina.lensBody, Color(0xFF080810)],
+        stops: [0.55, 1.0],
       ).createShader(rect);
     canvas.drawCircle(center, r, bodyPaint);
 
@@ -871,8 +851,8 @@ class _ConnectGlassPainter extends CustomPainter {
         center: const Alignment(0, -0.15),
         radius: 0.9,
         colors: [
-          accent.withValues(alpha: isDark ? 0.19 : 0.10),
-          accent.withValues(alpha: isDark ? 0.19 * 0.38 : 0.04),
+          accent.withValues(alpha: 0.19),
+          accent.withValues(alpha: 0.19 * 0.38),
           accent.withValues(alpha: 0.0),
         ],
         stops: const [0.0, 0.55, 1.0],
@@ -945,17 +925,11 @@ class _ConnectGlassPainter extends CustomPainter {
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.045)
       ..shader = SweepGradient(
         transform: const GradientRotation(-math.pi / 2),
-        colors: isDark
-            ? [
-                const Color(0x00000000),
-                Colors.black.withValues(alpha: 0.75),
-                const Color(0x00000000),
-              ]
-            : const [
-                Color(0x00000000),
-                Color(0x44000000),
-                Color(0x00000000),
-              ],
+        colors: [
+          const Color(0x00000000),
+          Colors.black.withValues(alpha: 0.75),
+          const Color(0x00000000),
+        ],
         stops: const [0.08, 0.5, 0.92],
       ).createShader(rect);
     canvas
@@ -974,7 +948,7 @@ class _ConnectGlassPainter extends CustomPainter {
       ..strokeWidth = r * 0.04
       ..strokeCap = StrokeCap.round
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.04)
-      ..color = Colors.white.withValues(alpha: isDark ? 0.12 : 0.32);
+      ..color = Colors.white.withValues(alpha: 0.12);
     canvas.drawArc(
       specRect,
       -math.pi * 0.78,
@@ -1039,31 +1013,17 @@ class _ConnectGlassPainter extends CustomPainter {
     // _rimAlpha scales the whole ring; 0.55 maps to the original alphas.
     const rimBoost = _rimAlpha / 0.55;
     double rimA(double a) => (a * rimBoost).clamp(0.0, 1.0);
-    final rimTop = isDark
-        ? Color.lerp(
-            Colors.white.withValues(alpha: rimA(0.6)),
-            accent.withValues(alpha: rimA(0.35)),
-            0.41,
-          )!
-        : Color.lerp(
-            Colors.black.withValues(alpha: rimA(0.30)),
-            accent.withValues(alpha: rimA(0.30)),
-            0.14,
-          )!;
-    final rimSide = isDark
-        ? Color.lerp(
-            Colors.white.withValues(alpha: rimA(0.14)),
-            accent.withValues(alpha: rimA(0.18)),
-            0.369,
-          )!
-        : Color.lerp(
-            Colors.black.withValues(alpha: rimA(0.14)),
-            accent.withValues(alpha: rimA(0.16)),
-            0.12,
-          )!;
-    final rimBottom = isDark
-        ? Colors.white.withValues(alpha: rimA(0.05))
-        : Colors.black.withValues(alpha: rimA(0.06));
+    final rimTop = Color.lerp(
+      Colors.white.withValues(alpha: rimA(0.6)),
+      accent.withValues(alpha: rimA(0.35)),
+      0.41,
+    )!;
+    final rimSide = Color.lerp(
+      Colors.white.withValues(alpha: rimA(0.14)),
+      accent.withValues(alpha: rimA(0.18)),
+      0.369,
+    )!;
+    final rimBottom = Colors.white.withValues(alpha: rimA(0.05));
     final warmTop = Color.lerp(
         rimTop, accent.withValues(alpha: rimA(0.60)), pressT * 0.6)!;
     final warmSide = Color.lerp(
@@ -1364,7 +1324,6 @@ class _ConnectGlassPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ConnectGlassPainter old) =>
-      old.isDark != isDark ||
       old.pressT != pressT ||
       old.isRunning != isRunning ||
       old.accent != accent ||
@@ -1436,20 +1395,15 @@ class CommonNavigationBar extends ConsumerWidget {
   Widget _buildTabBarContent(
     BuildContext context,
     ColorScheme colorScheme,
-    bool isDark,
     WidgetRef ref,
   ) =>
       Container(
         height: _mobileNavigationHeight,
         decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: Lumina.glassOpacity)
-              : colorScheme.surfaceContainer,
+          color: Colors.white.withValues(alpha: Lumina.glassOpacity),
           borderRadius: BorderRadius.circular(Lumina.radiusXxl),
           border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: Lumina.glassBorderOpacity)
-                : colorScheme.outlineVariant.withValues(alpha: 0.3),
+            color: Colors.white.withValues(alpha: Lumina.glassBorderOpacity),
           ),
         ),
         child: Padding(
@@ -1476,9 +1430,7 @@ class CommonNavigationBar extends ConsumerWidget {
                     duration: const Duration(milliseconds: 200),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? (isDark
-                              ? colorScheme.primary.withValues(alpha: 0.15)
-                              : colorScheme.primary.withValues(alpha: 0.12))
+                          ? colorScheme.primary.withValues(alpha: 0.15)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(Lumina.radiusXxl - 6),
                     ),
@@ -1503,25 +1455,16 @@ class CommonNavigationBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (viewMode == ViewMode.mobile) {
       final colorScheme = Theme.of(context).colorScheme;
-      final isDark = Theme.of(context).brightness == Brightness.dark;
       return RepaintBoundary(
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Lumina.radiusXxl),
-            boxShadow: isDark
-                ? Lumina.glassShadow
-                : const [
-                    BoxShadow(
-                      color: Color(0x14000000),
-                      blurRadius: 12,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
+            boxShadow: Lumina.glassShadow,
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(Lumina.radiusXxl),
             // BackdropFilter disabled for perf test
-            child: _buildTabBarContent(context, colorScheme, isDark, ref),
+            child: _buildTabBarContent(context, colorScheme, ref),
           ),
         ),
       );

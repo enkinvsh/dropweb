@@ -199,13 +199,13 @@ class _PresetCard extends StatelessWidget {
                 border: Border.all(
                   color: isSelected
                       ? Color(accent)
-                      : colorScheme.outlineVariant.withOpacity(0.4),
+                      : colorScheme.outlineVariant.withValues(alpha: 0.4),
                   width: isSelected ? 2 : 1,
                 ),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: Color(accent).withOpacity(0.35),
+                          color: Color(accent).withValues(alpha: 0.35),
                           blurRadius: 16,
                           spreadRadius: -2,
                         ),
@@ -240,12 +240,12 @@ class _PresetCard extends StatelessWidget {
                           shape: BoxShape.circle,
                           color: Color(accent),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.85),
+                            color: Colors.white.withValues(alpha: 0.85),
                             width: 2,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.25),
+                              color: Colors.black.withValues(alpha: 0.25),
                               blurRadius: 6,
                             ),
                           ],
@@ -265,7 +265,7 @@ class _PresetCard extends StatelessWidget {
                           child: Icon(
                             Icons.check_rounded,
                             size: 14,
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white.withValues(alpha: 0.95),
                           ),
                         ),
                       ),
@@ -1010,24 +1010,24 @@ class _SliderDefaultsM3 extends SliderThemeData {
   Color? get inactiveTrackColor => _colors.secondaryContainer;
 
   @override
-  Color? get secondaryActiveTrackColor => _colors.primary.withOpacity(0.54);
+  Color? get secondaryActiveTrackColor =>       _colors.primary.withValues(alpha: 0.54);
 
   @override
-  Color? get disabledActiveTrackColor => _colors.onSurface.withOpacity(0.38);
+  Color? get disabledActiveTrackColor => _colors.onSurface.opacity38;
 
   @override
-  Color? get disabledInactiveTrackColor => _colors.onSurface.withOpacity(0.12);
+  Color? get disabledInactiveTrackColor =>       _colors.onSurface.withValues(alpha: 0.12);
 
   @override
   Color? get disabledSecondaryActiveTrackColor =>
-      _colors.onSurface.withOpacity(0.38);
+      _colors.onSurface.opacity38;
 
   @override
-  Color? get activeTickMarkColor => _colors.onPrimary.withOpacity(1.0);
+  Color? get activeTickMarkColor => _colors.onPrimary.withValues(alpha: 1.0);
 
   @override
   Color? get inactiveTickMarkColor =>
-      _colors.onSecondaryContainer.withOpacity(1.0);
+      _colors.onSecondaryContainer.withValues(alpha: 1.0);
 
   @override
   Color? get disabledActiveTickMarkColor => _colors.onInverseSurface;
@@ -1039,18 +1039,18 @@ class _SliderDefaultsM3 extends SliderThemeData {
   Color? get thumbColor => _colors.primary;
 
   @override
-  Color? get disabledThumbColor => _colors.onSurface.withOpacity(0.38);
+  Color? get disabledThumbColor => _colors.onSurface.opacity38;
 
   @override
   Color? get overlayColor => WidgetStateColor.resolveWith((states) {
         if (states.contains(WidgetState.dragged)) {
-          return _colors.primary.withOpacity(0.1);
+          return _colors.primary.withValues(alpha: 0.1);
         }
         if (states.contains(WidgetState.hovered)) {
-          return _colors.primary.withOpacity(0.08);
+          return _colors.primary.withValues(alpha: 0.08);
         }
         if (states.contains(WidgetState.focused)) {
-          return _colors.primary.withOpacity(0.1);
+          return _colors.primary.withValues(alpha: 0.1);
         }
 
         return Colors.transparent;

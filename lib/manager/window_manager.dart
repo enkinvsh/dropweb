@@ -419,7 +419,7 @@ class _ConnectionStatusIndicator extends ConsumerWidget {
     final isStart = ref.watch(runTimeProvider.select((state) => state != null));
 
     final statusColor = isStart
-        ? const Color(0xFF4CAF50) // Green when connected
+        ? Lumina.statusConnected // Green when connected
         : colorScheme.onSurface
             .withValues(alpha: 0.3); // Gray when disconnected
 

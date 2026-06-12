@@ -94,7 +94,7 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
     final colorScheme = Theme.of(context).colorScheme;
     final ringColor = lit
         ? colorScheme.primary
-        : Color.lerp(const Color(0xFF15151D), colorScheme.primary, 0.28)!;
+        : Color.lerp(Lumina.lensBody, colorScheme.primary, 0.28)!;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,

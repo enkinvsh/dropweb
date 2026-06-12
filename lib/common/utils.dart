@@ -15,7 +15,7 @@ class Utils {
     if (delay == null) return null;
     if (delay < 0) return Colors.red;
     if (delay < 600) return Colors.green;
-    return const Color(0xFFC57F0A);
+    return Lumina.latencyWarn;
   }
 
   /// Short label for a latency badge.

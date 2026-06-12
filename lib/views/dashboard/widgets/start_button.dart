@@ -149,7 +149,7 @@ class _StartButtonState extends ConsumerState<StartButton>
     final hasProfile = state.hasProfile;
     final isInactive = hasProfile && !isStart;
     final baseIconColor = isInactive
-        ? Color.lerp(const Color(0xFF15151D), colorScheme.primary, 0.28)!
+        ? Color.lerp(Lumina.lensBody, colorScheme.primary, 0.28)!
         : colorScheme.primary;
     // While connecting, dim the icon with the existing opacity extension so it
     // reads as a pending/disabled affordance.
