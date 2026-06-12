@@ -77,6 +77,7 @@ class _ToolboxViewState extends ConsumerState<ToolsView> {
         items: [
           const _LocaleItem(),
           const _ThemeItem(),
+          if (Platform.isAndroid) const AlwaysOnVpnItem(),
           // Hotkey Management entry was removed for the Play readiness
           // wave together with the runtime global-hotkey registration
           // (see `Application._buildPlatformState`). The `HotKeyView`

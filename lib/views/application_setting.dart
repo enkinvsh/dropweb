@@ -469,7 +469,6 @@ class ApplicationSettingView extends StatelessWidget {
       ],
       AutoRunItem(),
       if (Platform.isAndroid) ...[
-        AlwaysOnVpnItem(),
         HiddenItem(),
       ],
       AnimateTabItem(),
