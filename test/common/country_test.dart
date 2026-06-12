@@ -72,10 +72,22 @@ void main() {
       expect(result['🇳🇱'], ['🇳🇱 Amsterdam 01', '🇳🇱 Amsterdam 02']);
     });
 
-    test('puts nodes without a recognizable flag under the empty-string key', () {
+    test('each flagless node becomes its own single-node group keyed by name',
+        () {
       final result = groupNodesByCountry(['Auto', '🇩🇪 Frankfurt 01', 'Direct']);
-      expect(result[''], ['Auto', 'Direct']);
+      expect(result['Auto'], ['Auto']);
+      expect(result['Direct'], ['Direct']);
+      expect(result[''], isNull);
       expect(result['🇩🇪'], ['🇩🇪 Frankfurt 01']);
+    });
+
+    test('isCountryFlagKey separates flag keys from node-name keys', () {
+      expect(isCountryFlagKey('🇩🇪'), isTrue);
+      expect(isCountryFlagKey('Auto'), isFalse);
+      // The display flag for flagless rows is the single black flag — one
+      // codepoint, NOT a regional-indicator pair, so not a flag key itself.
+      expect(kNoFlagDisplayFlag, '🏴');
+      expect(isCountryFlagKey(kNoFlagDisplayFlag), isFalse);
     });
 
     test('returns an empty map for empty input', () {

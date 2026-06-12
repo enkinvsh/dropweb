@@ -289,10 +289,11 @@ class _AddProfileCard extends StatelessWidget {
 
 /// Parsed work-mode inputs for the current profile, read from the profile's
 /// resolved config so they reflect the actual subscription nodes:
-/// - [countries]: flag-emoji → node names (plus the no-flag `''` bucket),
-///   produced by [groupNodesByCountry] over [interceptLeafNodes] (rule-group
-///   leaves only — the disconeko SOS pool baked into raw `proxies` is excluded
-///   so the picker shows only panel-curated countries);
+/// - [countries]: flag-emoji → node names (flagless nodes appear as their own
+///   single-node groups keyed by node name, see [groupNodesByCountry]),
+///   produced over [interceptLeafNodes] (rule-group leaves only — the
+///   disconeko SOS pool baked into raw `proxies` is excluded so the picker
+///   shows only panel-curated countries);
 /// - [hasSmartCandidates]: whether the smart «Умный» group will be injectable
 ///   (a primary router exists AND resolves to ≥1 leaf node). Smart mode is
 ///   unavailable otherwise — matches [smartGroupWillInject], the exact
@@ -669,8 +670,42 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => NullStatus(label: appLocalizations.nullProfileDesc),
       data: (data) {
-        final countryKeys =
-            data.countries.keys.where((key) => key.isNotEmpty).toList();
+        // Trigger the availability delay test once per open, after the first
+        // frame, for the leaf node backing each candidate's badge. MUST cover
+        // ALL candidates (not just visible rows): flagless rows are hidden
+        // until their ping succeeds, so skipping them here would keep them
+        // hidden forever.
+        if (!_pingTriggered) {
+          _pingTriggered = true;
+          final leafNames = <String>{
+            for (final nodes in data.countries.values)
+              if (nodes.isNotEmpty) nodes.first,
+          };
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _pingCountryNodes(leafNames);
+          });
+        }
+
+        final activeCountry = profile.staticCountry;
+
+        // Real flag countries first (config order), always visible. Flagless
+        // node keys render as individual «🏴 server» rows LAST — and ONLY
+        // after their delay test SUCCEEDS (delay > 0). Most flagless entries
+        // in the wild are xray-side balancer pseudo-hosts (e.g. ss → the
+        // provider's balancer ingress) that mihomo cannot actually use — the
+        // health check fails, so they never surface as pickable servers. A
+        // real live flagless server appears as soon as its ping lands (the
+        // delay cache is session-wide, so reopening the sheet is instant).
+        // The active selection is always shown so it can't silently vanish.
+        final countryKeys = [
+          for (final key in data.countries.keys)
+            if (isCountryFlagKey(key)) key,
+          for (final key in data.countries.keys)
+            if (!isCountryFlagKey(key) &&
+                (key == activeCountry ||
+                    (ref.watch(getDelayProvider(proxyName: key)) ?? 0) > 0))
+              key,
+        ];
 
         if (countryKeys.isEmpty) {
           return Center(
@@ -687,78 +722,89 @@ class _CountryDeepViewState extends ConsumerState<_CountryDeepView> {
           );
         }
 
-        // Trigger the availability delay test once per open, after the first
-        // frame, for the leaf node backing each country's badge.
-        if (!_pingTriggered) {
-          _pingTriggered = true;
-          final leafNames = <String>{
-            for (final flag in countryKeys)
-              if (data.countries[flag]!.isNotEmpty) data.countries[flag]!.first,
-          };
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _pingCountryNodes(leafNames);
-          });
-        }
+        // Build the row widgets once, then place them in a Column inside a
+        // SingleChildScrollView. A shrink-wrapping ListView is designed for
+        // content SMALLER than its viewport and locks scrolling once the rows
+        // overflow the capped sheet height. SingleChildScrollView + a
+        // min-size Column instead hugs the content when short (few countries →
+        // bottom-anchored short sheet) AND establishes a real maxScrollExtent
+        // so the list scrolls once it hits the parent ConstrainedBox cap.
+        Widget buildRow(String flag) => ListItem(
+              // No reserved leading checkmark column: it skewed the row inset
+              // (~48px left vs 16px right). The active row is marked by the
+              // primary color + weight instead, keeping insets symmetric.
+              title: EmojiText(
+                // Flag countries: «<flag>  <name>». Flagless node keys: the
+                // single 🏴 black flag + the actual server name (the pirate
+                // ZWJ ligature is missing from Twemoji and split into two
+                // glyphs, so plain 🏴 is used deliberately).
+                isCountryFlagKey(flag)
+                    ? '$flag  ${countryDisplayName(flag, data.countries[flag]!)}'
+                    : '$kNoFlagDisplayFlag  $flag',
+                style: context.textTheme.titleMedium?.copyWith(
+                  fontWeight: flag == activeCountry
+                      ? FontWeight.w600
+                      : FontWeight.w400,
+                  color: flag == activeCountry ? colorScheme.primary : null,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: _CountryAvailabilityBadge(
+                proxyName: data.countries[flag]!.first,
+              ),
+              onTap: () {
+                widget.onApply(flag);
+                Navigator.of(context).pop();
+              },
+            );
 
-        final activeCountry = profile.staticCountry;
+        // Flag rows render plain (present from the first frame). Flagless
+        // rows enter the list asynchronously — once their delay test
+        // succeeds — so they fade in ([_RowReveal]) while the [AnimatedSize]
+        // below grows the sheet to fit, both on the Lumina motion tokens.
+        final rows = <Widget>[
+          for (final flag in countryKeys)
+            isCountryFlagKey(flag)
+                ? KeyedSubtree(key: ValueKey(flag), child: buildRow(flag))
+                : _RowReveal(key: ValueKey(flag), child: buildRow(flag)),
+        ];
 
-        return ListView(
-          // shrinkWrap so the sheet hugs its content (few countries → short,
-          // bottom-anchored sheet); the parent ConstrainedBox caps + scrolls.
-          shrinkWrap: true,
+        return SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(vertical: 8),
-          children: [
-            for (final flag in countryKeys)
-              ListItem(
-                leading: SizedBox(
-                  width: 24,
-                  child: flag == activeCountry
-                      ? HugeIcon(
-                          icon: HugeIcons.strokeRoundedCheckmarkCircle02,
-                          size: 18,
-                          color: colorScheme.primary,
-                        )
-                      : null,
-                ),
-                horizontalTitleGap: 8,
-                title: EmojiText(
-                  '$flag  ${countryDisplayName(flag, data.countries[flag]!)}',
-                  style: context.textTheme.titleMedium?.copyWith(
-                    fontWeight: flag == activeCountry
-                        ? FontWeight.w600
-                        : FontWeight.w400,
-                    color: flag == activeCountry ? colorScheme.primary : null,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: _CountryAvailabilityBadge(
-                  proxyName: data.countries[flag]!.first,
-                ),
-                onTap: () {
-                  widget.onApply(flag);
-                  Navigator.of(context).pop();
-                },
-              ),
-            // The no-flag bucket is shown last and is NOT selectable. Hidden
-            // when empty; otherwise rendered label-only (no count, no badge).
-            if (data.countries['']?.isNotEmpty ?? false)
-              ListItem(
-                horizontalTitleGap: 8,
-                leading: const SizedBox(width: 24),
-                title: Text(
-                  appLocalizations.otherCountries,
-                  style: context.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-          ],
+          child: AnimatedSize(
+            duration: Lumina.luminaDuration,
+            curve: Lumina.luminaCurve,
+            alignment: Alignment.topCenter,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: rows,
+            ),
+          ),
         );
       },
     );
   }
+}
+
+/// Fades a country-picker row in on first mount. Flagless «🏴 server» rows
+/// appear asynchronously (once their delay test succeeds), and an abrupt pop
+/// reads as a glitch — this pairs with the [AnimatedSize] around the column
+/// (sheet grows smoothly) on the same Lumina motion tokens.
+class _RowReveal extends StatelessWidget {
+  const _RowReveal({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: Lumina.luminaDuration,
+        curve: Lumina.luminaCurve,
+        child: child,
+        builder: (_, t, child) => Opacity(opacity: t, child: child),
+      );
 }
 
 /// Availability delay badge for a country row. Reuses the EXACT mechanism the

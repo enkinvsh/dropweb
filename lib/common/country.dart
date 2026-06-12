@@ -4,11 +4,26 @@
 /// "🇩🇪 Frankfurt 01"). A flag emoji is encoded as a pair of Unicode regional
 /// indicator symbols (U+1F1E6..U+1F1FF). The flag emoji itself is the country
 /// key — there is intentionally no country-name/ISO mapping here (the emoji IS
-/// the key; the UI labels the no-flag bucket «Другое»).
+/// the key). Nodes without a recognizable flag are bucketed under the pirate
+/// flag [kNoFlagCountryKey], a first-class selectable «country» the UI labels
+/// «Другое».
 ///
 /// The parsing logic is ported verbatim from the original private helpers in
 /// `change_server_button.dart` so behavior stays pixel-identical.
 library;
+
+/// Display flag for nodes without a country flag — the single 🏴 waving black
+/// flag (U+1F3F4, one codepoint, present in the bundled Twemoji font; the
+/// pirate 🏴‍☠️ ZWJ ligature is NOT — it renders as two glyphs).
+///
+/// Flagless nodes are NOT lumped into one bucket: each gets its own key (its
+/// node name, see [groupNodesByCountry]) and renders as an individual
+/// selectable row «🏴 node name», last in the picker.
+const String kNoFlagDisplayFlag = '🏴';
+
+/// Whether [key] from [groupNodesByCountry] is a real flag-emoji country key
+/// (regional-indicator pair) as opposed to a flagless node-name key.
+bool isCountryFlagKey(String key) => extractCountryFlag(key) != null;
 
 const int _regionalIndicatorStart = 0x1F1E6;
 const int _regionalIndicatorEnd = 0x1F1FF;
@@ -79,16 +94,18 @@ String stripCountryFlag(String text) {
 
 /// Groups [nodeNames] by their leading country flag emoji.
 ///
-/// The key is the flag emoji as returned by [extractCountryFlag]. Nodes without
-/// a recognizable flag are collected under the empty-string key `''` (the UI
-/// labels this bucket «Другое»). Input order is preserved both for the keys and
-/// within each group. No nodes are filtered out — special-node filtering is the
-/// caller's responsibility.
+/// The key is the flag emoji as returned by [extractCountryFlag]. A node
+/// without a recognizable flag becomes ITS OWN single-node group keyed by the
+/// full node name (so the picker can offer the actual server, not an opaque
+/// «Other» bucket; the stored work-mode key resolves back to exactly that
+/// node). Distinguish key kinds via [isCountryFlagKey]. Input order is
+/// preserved both for the keys and within each group. No nodes are filtered
+/// out — special-node filtering is the caller's responsibility.
 Map<String, List<String>> groupNodesByCountry(Iterable<String> nodeNames) {
   final groups = <String, List<String>>{};
 
   for (final name in nodeNames) {
-    final key = extractCountryFlag(name) ?? '';
+    final key = extractCountryFlag(name) ?? name;
     (groups[key] ??= <String>[]).add(name);
   }
 
