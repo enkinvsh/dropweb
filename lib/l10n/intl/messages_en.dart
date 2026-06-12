@@ -147,14 +147,6 @@ class MessageLookup extends MessageLookupByLibrary {
       "Auto update interval (minutes)",
     ),
     "backgroundOrbs": MessageLookupByLibrary.simpleMessage("Background orbs"),
-    "backup": MessageLookupByLibrary.simpleMessage("Backup"),
-    "backupAndRecovery": MessageLookupByLibrary.simpleMessage(
-      "Backup and Recovery",
-    ),
-    "backupAndRecoveryDesc": MessageLookupByLibrary.simpleMessage(
-      "Sync data via WebDAV or file",
-    ),
-    "backupSuccess": MessageLookupByLibrary.simpleMessage("Backup success"),
     "basicConfig": MessageLookupByLibrary.simpleMessage("Basic configuration"),
     "basicConfigDesc": MessageLookupByLibrary.simpleMessage(
       "Modify the basic configuration globally",
@@ -415,12 +407,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "list": MessageLookupByLibrary.simpleMessage("List"),
     "listen": MessageLookupByLibrary.simpleMessage("Listen"),
     "local": MessageLookupByLibrary.simpleMessage("Local"),
-    "localBackupDesc": MessageLookupByLibrary.simpleMessage(
-      "Backup local data to local",
-    ),
-    "localRecoveryDesc": MessageLookupByLibrary.simpleMessage(
-      "Recovery data from file",
-    ),
     "logLevel": MessageLookupByLibrary.simpleMessage("LogLevel"),
     "logcat": MessageLookupByLibrary.simpleMessage("Logcat"),
     "logcatDesc": MessageLookupByLibrary.simpleMessage(
@@ -556,9 +542,6 @@ class MessageLookup extends MessageLookupByLibrary {
       "Paste subscription URL",
     ),
     "personalCabinet": MessageLookupByLibrary.simpleMessage("Personal cabinet"),
-    "pleaseBindWebDAV": MessageLookupByLibrary.simpleMessage(
-      "Please bind WebDAV",
-    ),
     "pleaseEnterScriptName": MessageLookupByLibrary.simpleMessage(
       "Please enter a script name",
     ),
@@ -644,21 +627,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "receiveSubscriptionTitle": MessageLookupByLibrary.simpleMessage(
       "Receive Subscription",
     ),
-    "recovery": MessageLookupByLibrary.simpleMessage("Recovery"),
-    "recoveryAll": MessageLookupByLibrary.simpleMessage("Recovery all data"),
-    "recoveryProfiles": MessageLookupByLibrary.simpleMessage(
-      "Only recovery profiles",
-    ),
-    "recoveryStrategy": MessageLookupByLibrary.simpleMessage(
-      "Recovery strategy",
-    ),
-    "recoveryStrategy_compatible": MessageLookupByLibrary.simpleMessage(
-      "Compatible",
-    ),
-    "recoveryStrategy_override": MessageLookupByLibrary.simpleMessage(
-      "Override",
-    ),
-    "recoverySuccess": MessageLookupByLibrary.simpleMessage("Recovery success"),
     "redirPort": MessageLookupByLibrary.simpleMessage("Redir Port"),
     "redo": MessageLookupByLibrary.simpleMessage("redo"),
     "regExp": MessageLookupByLibrary.simpleMessage("RegExp"),
@@ -666,12 +634,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "remainingPlural": MessageLookupByLibrary.simpleMessage("Remaining"),
     "remainingSingular": MessageLookupByLibrary.simpleMessage("Remaining"),
     "remote": MessageLookupByLibrary.simpleMessage("Remote"),
-    "remoteBackupDesc": MessageLookupByLibrary.simpleMessage(
-      "Backup local data to WebDAV",
-    ),
-    "remoteRecoveryDesc": MessageLookupByLibrary.simpleMessage(
-      "Recovery data from WebDAV",
-    ),
     "remove": MessageLookupByLibrary.simpleMessage("Remove"),
     "rename": MessageLookupByLibrary.simpleMessage("Rename"),
     "renew": MessageLookupByLibrary.simpleMessage("Renew"),
@@ -898,9 +860,6 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "vpnTip": MessageLookupByLibrary.simpleMessage(
       "Changes take effect after restarting the VPN",
-    ),
-    "webDAVConfiguration": MessageLookupByLibrary.simpleMessage(
-      "WebDAV configuration",
     ),
     "whitelistMode": MessageLookupByLibrary.simpleMessage("Whitelist mode"),
     "workModeCountry": MessageLookupByLibrary.simpleMessage("Country"),

@@ -33,10 +33,8 @@ Config configState(Ref ref) {
   final proxiesStyle = ref.watch(proxiesStyleSettingProvider);
   final scriptProps = ref.watch(scriptStateProvider);
   final hotKeyActions = ref.watch(hotKeyActionsProvider);
-  final dav = ref.watch(appDAVSettingProvider);
   final windowProps = ref.watch(windowSettingProvider);
   return Config(
-    dav: dav,
     windowProps: windowProps,
     hotKeyActions: hotKeyActions,
     scriptProps: scriptProps,

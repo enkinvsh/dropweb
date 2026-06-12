@@ -7,14 +7,14 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'generated/config.g.dart';
 
 // CONFIG MIRROR — slice enumeration site (1 of 3).
-// These 13 `@riverpod` slices are the UI-isolate source of truth for `Config`.
+// These 12 `@riverpod` slices are the UI-isolate source of truth for `Config`.
 // Each one seeds FORWARD from the flat mirror in its `build()`
 // (`globalState.config.<slice>`) and mirrors BACK in its `onUpdate` via the
 // single write path `globalState.configRepository.syncSlice(...)`
 // (lib/common/config_repository.dart).
 // The other two enumeration sites that MUST stay in lockstep with the field
 // list here:
-//   * lib/providers/state.dart — `configState` re-aggregates these 13 slices.
+//   * lib/providers/state.dart — `configState` re-aggregates these 12 slices.
 //   * lib/models/config.dart   — the `Config` freezed model (the field list).
 // Adding a Config field means: add the field there, add a slice here (build +
 // onUpdate), and aggregate it in `configState`. The drift-lock that fails if
@@ -170,23 +170,6 @@ class CurrentProfileId extends _$CurrentProfileId
     );
     // Notify tile service about profile change
     tile?.updateTile();
-  }
-}
-
-@riverpod
-class AppDAVSetting extends _$AppDAVSetting with AutoDisposeNotifierMixin {
-  @override
-  DAV? build() => globalState.config.dav;
-
-  @override
-  void onUpdate(DAV? value) {
-    globalState.configRepository.syncSlice(
-      (c) => c.copyWith(dav: value),
-    );
-  }
-
-  void updateState(DAV? Function(DAV? state) builder) {
-    state = builder(state);
   }
 }
 

@@ -93,7 +93,6 @@ class AppSettingProps with _$AppSettingProps {
     @Default(true) bool applySubscriptionTheme,
     @Default(true) bool applySubscriptionLogo,
     @Default(false) bool overrideNetworkSettings,
-    @Default(RecoveryStrategy.compatible) RecoveryStrategy recoveryStrategy,
   }) = _AppSettingProps;
 
   factory AppSettingProps.fromJson(Map<String, Object?> json) =>
@@ -262,7 +261,6 @@ class Config with _$Config {
     @Default([]) List<HotKeyAction> hotKeyActions,
     String? currentProfileId,
     @Default(false) bool overrideDns,
-    DAV? dav,
     @Default(defaultNetworkProps) NetworkProps networkProps,
     @Default(defaultVpnProps) VpnProps vpnProps,
     @JsonKey(fromJson: ThemeProps.safeFromJson) required ThemeProps themeProps,

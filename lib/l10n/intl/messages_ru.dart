@@ -146,16 +146,6 @@ class MessageLookup extends MessageLookupByLibrary {
       "Интервал автообновления (минуты)",
     ),
     "backgroundOrbs": MessageLookupByLibrary.simpleMessage("Орбы фона"),
-    "backup": MessageLookupByLibrary.simpleMessage("Резервное копирование"),
-    "backupAndRecovery": MessageLookupByLibrary.simpleMessage(
-      "Резервное копирование и восстановление",
-    ),
-    "backupAndRecoveryDesc": MessageLookupByLibrary.simpleMessage(
-      "Синхронизация данных через WebDAV или файл",
-    ),
-    "backupSuccess": MessageLookupByLibrary.simpleMessage(
-      "Резервное копирование успешно",
-    ),
     "basicConfig": MessageLookupByLibrary.simpleMessage("Конфигурация ядра"),
     "basicConfigDesc": MessageLookupByLibrary.simpleMessage(
       "Переопределение конфигурации ядра",
@@ -434,12 +424,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "list": MessageLookupByLibrary.simpleMessage("Список"),
     "listen": MessageLookupByLibrary.simpleMessage("Слушать"),
     "local": MessageLookupByLibrary.simpleMessage("Локальный"),
-    "localBackupDesc": MessageLookupByLibrary.simpleMessage(
-      "Резервное копирование локальных данных на локальный диск",
-    ),
-    "localRecoveryDesc": MessageLookupByLibrary.simpleMessage(
-      "Восстановление данных из файла",
-    ),
     "logLevel": MessageLookupByLibrary.simpleMessage("Уровень логов"),
     "logcat": MessageLookupByLibrary.simpleMessage("Журналирование"),
     "logcatDesc": MessageLookupByLibrary.simpleMessage(
@@ -585,9 +569,6 @@ class MessageLookup extends MessageLookupByLibrary {
       "Вставить ссылку подписки",
     ),
     "personalCabinet": MessageLookupByLibrary.simpleMessage("Личный кабинет"),
-    "pleaseBindWebDAV": MessageLookupByLibrary.simpleMessage(
-      "Пожалуйста, привяжите WebDAV",
-    ),
     "pleaseEnterScriptName": MessageLookupByLibrary.simpleMessage(
       "Пожалуйста, введите название скрипта",
     ),
@@ -675,25 +656,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "receiveSubscriptionTitle": MessageLookupByLibrary.simpleMessage(
       "Получение подписки",
     ),
-    "recovery": MessageLookupByLibrary.simpleMessage("Восстановление"),
-    "recoveryAll": MessageLookupByLibrary.simpleMessage(
-      "Восстановить все данные",
-    ),
-    "recoveryProfiles": MessageLookupByLibrary.simpleMessage(
-      "Только восстановление профилей",
-    ),
-    "recoveryStrategy": MessageLookupByLibrary.simpleMessage(
-      "Стратегия восстановления",
-    ),
-    "recoveryStrategy_compatible": MessageLookupByLibrary.simpleMessage(
-      "Совместимый",
-    ),
-    "recoveryStrategy_override": MessageLookupByLibrary.simpleMessage(
-      "Переопределение",
-    ),
-    "recoverySuccess": MessageLookupByLibrary.simpleMessage(
-      "Восстановление успешно",
-    ),
     "redirPort": MessageLookupByLibrary.simpleMessage("Redir-порт"),
     "redo": MessageLookupByLibrary.simpleMessage("Повторить"),
     "regExp": MessageLookupByLibrary.simpleMessage("Регулярное выражение"),
@@ -701,12 +663,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "remainingPlural": MessageLookupByLibrary.simpleMessage("Осталось"),
     "remainingSingular": MessageLookupByLibrary.simpleMessage("Остался"),
     "remote": MessageLookupByLibrary.simpleMessage("Удаленный"),
-    "remoteBackupDesc": MessageLookupByLibrary.simpleMessage(
-      "Резервное копирование локальных данных на WebDAV",
-    ),
-    "remoteRecoveryDesc": MessageLookupByLibrary.simpleMessage(
-      "Восстановление данных с WebDAV",
-    ),
     "remove": MessageLookupByLibrary.simpleMessage("Удалить"),
     "rename": MessageLookupByLibrary.simpleMessage("Переименовать"),
     "renew": MessageLookupByLibrary.simpleMessage("Продлить"),
@@ -935,9 +891,6 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "vpnTip": MessageLookupByLibrary.simpleMessage(
       "Изменения вступят в силу после перезапуска VPN",
-    ),
-    "webDAVConfiguration": MessageLookupByLibrary.simpleMessage(
-      "Конфигурация WebDAV",
     ),
     "whitelistMode": MessageLookupByLibrary.simpleMessage(
       "Режим белого списка",

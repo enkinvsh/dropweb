@@ -60,7 +60,7 @@ class GlobalState {
 
   /// Flat, ref-less view of the persisted `Config`. Read everywhere (UI domain
   /// layer here, and the service isolate in lib/main.dart which has no
-  /// `ProviderScope`). The 13 Riverpod slices (lib/providers/config.dart) seed
+  /// `ProviderScope`). The 12 Riverpod slices (lib/providers/config.dart) seed
   /// FORWARD from this in their `build()` and mirror BACK via
   /// `ConfigRepository.syncSlice` from their `onUpdate`; `configState`
   /// (lib/providers/state.dart) re-aggregates the slices into a `Config`.

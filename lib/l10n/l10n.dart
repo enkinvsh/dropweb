@@ -1294,94 +1294,14 @@ class AppLocalizations {
     return Intl.message('tip', name: 'tip', desc: '', args: []);
   }
 
-  /// `Backup and Recovery`
-  String get backupAndRecovery {
-    return Intl.message(
-      'Backup and Recovery',
-      name: 'backupAndRecovery',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Sync data via WebDAV or file`
-  String get backupAndRecoveryDesc {
-    return Intl.message(
-      'Sync data via WebDAV or file',
-      name: 'backupAndRecoveryDesc',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `Account`
   String get account {
     return Intl.message('Account', name: 'account', desc: '', args: []);
   }
 
-  /// `Backup`
-  String get backup {
-    return Intl.message('Backup', name: 'backup', desc: '', args: []);
-  }
-
-  /// `Recovery`
-  String get recovery {
-    return Intl.message('Recovery', name: 'recovery', desc: '', args: []);
-  }
-
-  /// `Only recovery profiles`
-  String get recoveryProfiles {
-    return Intl.message(
-      'Only recovery profiles',
-      name: 'recoveryProfiles',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Recovery all data`
-  String get recoveryAll {
-    return Intl.message(
-      'Recovery all data',
-      name: 'recoveryAll',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Recovery success`
-  String get recoverySuccess {
-    return Intl.message(
-      'Recovery success',
-      name: 'recoverySuccess',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Backup success`
-  String get backupSuccess {
-    return Intl.message(
-      'Backup success',
-      name: 'backupSuccess',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `No info`
   String get noInfo {
     return Intl.message('No info', name: 'noInfo', desc: '', args: []);
-  }
-
-  /// `Please bind WebDAV`
-  String get pleaseBindWebDAV {
-    return Intl.message(
-      'Please bind WebDAV',
-      name: 'pleaseBindWebDAV',
-      desc: '',
-      args: [],
-    );
   }
 
   /// `Bind`
@@ -1394,16 +1314,6 @@ class AppLocalizations {
     return Intl.message(
       'Connectivity：',
       name: 'connectivity',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `WebDAV configuration`
-  String get webDAVConfiguration {
-    return Intl.message(
-      'WebDAV configuration',
-      name: 'webDAVConfiguration',
       desc: '',
       args: [],
     );
@@ -1997,46 +1907,6 @@ class AppLocalizations {
   /// `Remote`
   String get remote {
     return Intl.message('Remote', name: 'remote', desc: '', args: []);
-  }
-
-  /// `Backup local data to WebDAV`
-  String get remoteBackupDesc {
-    return Intl.message(
-      'Backup local data to WebDAV',
-      name: 'remoteBackupDesc',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Recovery data from WebDAV`
-  String get remoteRecoveryDesc {
-    return Intl.message(
-      'Recovery data from WebDAV',
-      name: 'remoteRecoveryDesc',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Backup local data to local`
-  String get localBackupDesc {
-    return Intl.message(
-      'Backup local data to local',
-      name: 'localBackupDesc',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Recovery data from file`
-  String get localRecoveryDesc {
-    return Intl.message(
-      'Recovery data from file',
-      name: 'localRecoveryDesc',
-      desc: '',
-      args: [],
-    );
   }
 
   /// `Mode`
@@ -3307,36 +3177,6 @@ class AppLocalizations {
   /// `Contact me`
   String get contactMe {
     return Intl.message('Contact me', name: 'contactMe', desc: '', args: []);
-  }
-
-  /// `Recovery strategy`
-  String get recoveryStrategy {
-    return Intl.message(
-      'Recovery strategy',
-      name: 'recoveryStrategy',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Override`
-  String get recoveryStrategy_override {
-    return Intl.message(
-      'Override',
-      name: 'recoveryStrategy_override',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Compatible`
-  String get recoveryStrategy_compatible {
-    return Intl.message(
-      'Compatible',
-      name: 'recoveryStrategy_compatible',
-      desc: '',
-      args: [],
-    );
   }
 
   /// `Logs test`

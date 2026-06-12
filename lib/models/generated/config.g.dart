@@ -33,9 +33,6 @@ _$AppSettingPropsImpl _$$AppSettingPropsImplFromJson(
       applySubscriptionLogo: json['applySubscriptionLogo'] as bool? ?? true,
       overrideNetworkSettings:
           json['overrideNetworkSettings'] as bool? ?? false,
-      recoveryStrategy: $enumDecodeNullable(
-              _$RecoveryStrategyEnumMap, json['recoveryStrategy']) ??
-          RecoveryStrategy.compatible,
     );
 
 Map<String, dynamic> _$$AppSettingPropsImplToJson(
@@ -63,13 +60,7 @@ Map<String, dynamic> _$$AppSettingPropsImplToJson(
       'applySubscriptionTheme': instance.applySubscriptionTheme,
       'applySubscriptionLogo': instance.applySubscriptionLogo,
       'overrideNetworkSettings': instance.overrideNetworkSettings,
-      'recoveryStrategy': _$RecoveryStrategyEnumMap[instance.recoveryStrategy]!,
     };
-
-const _$RecoveryStrategyEnumMap = {
-  RecoveryStrategy.compatible: 'compatible',
-  RecoveryStrategy.override: 'override',
-};
 
 const _$DashboardWidgetEnumMap = {
   DashboardWidget.networkSpeed: 'networkSpeed',
@@ -342,9 +333,6 @@ _$ConfigImpl _$$ConfigImplFromJson(Map<String, dynamic> json) => _$ConfigImpl(
           const [],
       currentProfileId: json['currentProfileId'] as String?,
       overrideDns: json['overrideDns'] as bool? ?? false,
-      dav: json['dav'] == null
-          ? null
-          : DAV.fromJson(json['dav'] as Map<String, dynamic>),
       networkProps: json['networkProps'] == null
           ? defaultNetworkProps
           : NetworkProps.fromJson(
@@ -377,7 +365,6 @@ Map<String, dynamic> _$$ConfigImplToJson(_$ConfigImpl instance) =>
       'hotKeyActions': instance.hotKeyActions,
       'currentProfileId': instance.currentProfileId,
       'overrideDns': instance.overrideDns,
-      'dav': instance.dav,
       'networkProps': instance.networkProps,
       'vpnProps': instance.vpnProps,
       'themeProps': instance.themeProps,

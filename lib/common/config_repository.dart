@@ -4,7 +4,7 @@ import 'package:dropweb/models/models.dart';
 ///
 /// ## Why this exists (dual source of truth, bounded)
 /// The app intentionally keeps TWO views of `Config`:
-///   * the 13 Riverpod slice providers (lib/providers/config.dart), which are
+///   * the 12 Riverpod slice providers (lib/providers/config.dart), which are
 ///     the source of truth for the UI isolate (`ProviderScope`); and
 ///   * this flat, ref-less mirror, read by code that has no Riverpod `ref`
 ///     (the domain layer in lib/state.dart and, crucially, the **service
@@ -12,7 +12,7 @@ import 'package:dropweb/models/models.dart';
 ///
 /// This repository does NOT remove that duality — it concentrates the mirror
 /// behind one object so the write path is single and documented, instead of
-/// 13 inlined `globalState.config = globalState.config.copyWith(...)` sites.
+/// 12 inlined `globalState.config = globalState.config.copyWith(...)` sites.
 ///
 /// ## The two writers (both legitimate)
 ///   1. **Provider slices** mirror their state forward via [syncSlice], called
@@ -24,8 +24,8 @@ import 'package:dropweb/models/models.dart';
 ///      it cannot go through the providers — it writes the mirror straight.
 ///
 /// ## Drift-lock
-/// The forward seed (mirror → 13 providers, via each provider `build()` reading
-/// `globalState.config.*`) and the reverse aggregation (13 providers → mirror,
+/// The forward seed (mirror → 12 providers, via each provider `build()` reading
+/// `globalState.config.*`) and the reverse aggregation (12 providers → mirror,
 /// via `configState` in lib/providers/state.dart) are field-coverage locked by
 /// test/common/config_roundtrip_test.dart. A new `Config` field that is not
 /// wired into both halves fails that test.
@@ -40,7 +40,7 @@ class ConfigRepository {
   /// slices must NOT assign it directly — they go through [syncSlice].
   late Config config;
 
-  /// The single write path for the 13 provider slices mirroring their state
+  /// The single write path for the 12 provider slices mirroring their state
   /// forward. Each provider's `onUpdate` (lib/providers/config.dart) calls this
   /// with a `copyWith` that overwrites just its own slice, e.g.
   /// `syncSlice((c) => c.copyWith(appSetting: value))`.

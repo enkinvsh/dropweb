@@ -507,11 +507,6 @@ enum RuleTarget {
   REJECT,
 }
 
-enum RecoveryStrategy {
-  compatible,
-  override,
-}
-
 enum CacheTag {
   logs,
   rules,

@@ -53,7 +53,6 @@ void main() {
     ],
     currentProfileId: 'rt-profile-id',
     overrideDns: true,
-    dav: const DAV(uri: 'https://dav.test', user: 'u', password: 'p'),
     networkProps: defaultNetworkProps.copyWith(systemProxy: true),
     vpnProps: defaultVpnProps.copyWith(enable: false),
     themeProps: defaultThemeProps.copyWith(pureBlack: false),

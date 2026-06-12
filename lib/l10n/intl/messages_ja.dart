@@ -111,12 +111,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "autoUpdate": MessageLookupByLibrary.simpleMessage("自動更新"),
     "autoUpdateInterval": MessageLookupByLibrary.simpleMessage("自動更新間隔（分）"),
     "backgroundOrbs": MessageLookupByLibrary.simpleMessage("背景オーブ"),
-    "backup": MessageLookupByLibrary.simpleMessage("バックアップ"),
-    "backupAndRecovery": MessageLookupByLibrary.simpleMessage("バックアップと復元"),
-    "backupAndRecoveryDesc": MessageLookupByLibrary.simpleMessage(
-      "WebDAVまたはファイルでデータを同期",
-    ),
-    "backupSuccess": MessageLookupByLibrary.simpleMessage("バックアップ成功"),
     "basicConfig": MessageLookupByLibrary.simpleMessage("基本設定"),
     "basicConfigDesc": MessageLookupByLibrary.simpleMessage("基本設定をグローバルに変更"),
     "bind": MessageLookupByLibrary.simpleMessage("バインド"),
@@ -323,8 +317,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "list": MessageLookupByLibrary.simpleMessage("リスト"),
     "listen": MessageLookupByLibrary.simpleMessage("リスン"),
     "local": MessageLookupByLibrary.simpleMessage("ローカル"),
-    "localBackupDesc": MessageLookupByLibrary.simpleMessage("ローカルにデータをバックアップ"),
-    "localRecoveryDesc": MessageLookupByLibrary.simpleMessage("ファイルからデータを復元"),
     "logLevel": MessageLookupByLibrary.simpleMessage("ログレベル"),
     "logcat": MessageLookupByLibrary.simpleMessage("ログキャット"),
     "logcatDesc": MessageLookupByLibrary.simpleMessage("無効化するとログエントリを非表示"),
@@ -436,9 +428,6 @@ class MessageLookup extends MessageLookupByLibrary {
       "サブスクリプションURLを貼り付け",
     ),
     "personalCabinet": MessageLookupByLibrary.simpleMessage("マイページ"),
-    "pleaseBindWebDAV": MessageLookupByLibrary.simpleMessage(
-      "WebDAVをバインドしてください",
-    ),
     "pleaseEnterScriptName": MessageLookupByLibrary.simpleMessage(
       "スクリプト名を入力してください",
     ),
@@ -510,15 +499,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "receiveSubscriptionTitle": MessageLookupByLibrary.simpleMessage(
       "サブスクリプションを受け取る",
     ),
-    "recovery": MessageLookupByLibrary.simpleMessage("復元"),
-    "recoveryAll": MessageLookupByLibrary.simpleMessage("全データ復元"),
-    "recoveryProfiles": MessageLookupByLibrary.simpleMessage("プロファイルのみ復元"),
-    "recoveryStrategy": MessageLookupByLibrary.simpleMessage("リカバリー戦略"),
-    "recoveryStrategy_compatible": MessageLookupByLibrary.simpleMessage("互換性"),
-    "recoveryStrategy_override": MessageLookupByLibrary.simpleMessage(
-      "オーバーライド",
-    ),
-    "recoverySuccess": MessageLookupByLibrary.simpleMessage("復元成功"),
     "redirPort": MessageLookupByLibrary.simpleMessage("Redirポート"),
     "redo": MessageLookupByLibrary.simpleMessage("やり直す"),
     "regExp": MessageLookupByLibrary.simpleMessage("正規表現"),
@@ -526,12 +506,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "remainingPlural": MessageLookupByLibrary.simpleMessage("残り"),
     "remainingSingular": MessageLookupByLibrary.simpleMessage("残り"),
     "remote": MessageLookupByLibrary.simpleMessage("リモート"),
-    "remoteBackupDesc": MessageLookupByLibrary.simpleMessage(
-      "WebDAVにデータをバックアップ",
-    ),
-    "remoteRecoveryDesc": MessageLookupByLibrary.simpleMessage(
-      "WebDAVからデータを復元",
-    ),
     "remove": MessageLookupByLibrary.simpleMessage("削除"),
     "rename": MessageLookupByLibrary.simpleMessage("リネーム"),
     "renew": MessageLookupByLibrary.simpleMessage("更新"),
@@ -713,7 +687,6 @@ class MessageLookup extends MessageLookupByLibrary {
       "HTTPプロキシをVpnServiceに接続",
     ),
     "vpnTip": MessageLookupByLibrary.simpleMessage("変更はVPN再起動後に有効"),
-    "webDAVConfiguration": MessageLookupByLibrary.simpleMessage("WebDAV設定"),
     "whitelistMode": MessageLookupByLibrary.simpleMessage("ホワイトリストモード"),
     "workModeCountry": MessageLookupByLibrary.simpleMessage("国"),
     "workModeCountryDesc": MessageLookupByLibrary.simpleMessage("国を選択。"),
