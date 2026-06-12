@@ -1,7 +1,7 @@
 name: dropweb
 description: Multi-platform VPN client based on mihomo core. Open-source and ad-free.
 publish_to: "none"
-version: 0.8.1+2026062609
+version: 0.8.1+2026062610
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
