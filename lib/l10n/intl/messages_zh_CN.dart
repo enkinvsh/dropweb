@@ -77,7 +77,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "allowBypassDesc": MessageLookupByLibrary.simpleMessage("开启后部分应用可绕过VPN"),
     "allowLan": MessageLookupByLibrary.simpleMessage("局域网代理"),
     "allowLanDesc": MessageLookupByLibrary.simpleMessage("允许通过局域网访问代理"),
-    "alwaysOnVpn": MessageLookupByLibrary.simpleMessage("始终开启的VPN"),
+    "alwaysOnVpn": MessageLookupByLibrary.simpleMessage("始终开启"),
     "alwaysOnVpnOpenFailed": MessageLookupByLibrary.simpleMessage(
       "无法打开 VPN 设置",
     ),
@@ -601,7 +601,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "unnamed": MessageLookupByLibrary.simpleMessage("未命名"),
     "update": MessageLookupByLibrary.simpleMessage("更新"),
     "updateAllGeoData": MessageLookupByLibrary.simpleMessage("更新所有地理数据"),
-    "updateSubscription": MessageLookupByLibrary.simpleMessage("更新订阅"),
+    "updateSubscription": MessageLookupByLibrary.simpleMessage("更新"),
     "updated": MessageLookupByLibrary.simpleMessage("已更新"),
     "upload": MessageLookupByLibrary.simpleMessage("上传"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),

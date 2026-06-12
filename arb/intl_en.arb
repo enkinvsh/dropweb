@@ -444,7 +444,7 @@
   "deleteTip": "Are you sure you want to delete the current {label}?",
   "deleteMultipTip": "Are you sure you want to delete the selected {label}?",
   "nullTip": "No {label} at the moment",
-   "nullScriptTip": "No scripts",
+  "nullScriptTip": "No scripts",
   "script": "Script",
   "color": "Color",
   "rename": "Rename",
@@ -505,7 +505,7 @@
   "vpnDisclosureTitle": "Before you connect",
   "vpnDisclosureBody": "Dropweb uses Android's VPN permission to create a local VPN tunnel that you control. Network traffic is routed according to the connection or subscription you select. You can disconnect at any time from this screen or your device's VPN settings. Any optional diagnostics, account, or cabinet features are separate and are disclosed where they apply.",
   "vpnDisclosureContinue": "Continue",
-  "updateSubscription": "Update subscription",
+  "updateSubscription": "Update",
   "workModes": "Modes",
   "workModeStandard": "Standard",
   "workModeStandardDesc": "Everything is set up for you.",
@@ -526,6 +526,6 @@
   "otherCountries": "Other",
   "genericErrorMessage": "Something went wrong. Please try again.",
   "qrScanFromImageUnsupported": "Scanning a QR code from an image isn't supported on this platform. Use the subscription URL instead.",
-  "alwaysOnVpn": "Always-on VPN",
+  "alwaysOnVpn": "Always-on",
   "alwaysOnVpnOpenFailed": "Couldn't open VPN settings"
 }

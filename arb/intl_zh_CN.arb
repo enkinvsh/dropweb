@@ -506,7 +506,7 @@
   "vpnDisclosureTitle": "连接之前",
   "vpnDisclosureBody": "Dropweb 使用 Android 的 VPN 权限来创建由您控制的本地 VPN 隧道。网络流量将按照您选择的连接或订阅进行路由。您可以随时通过此界面或设备的 VPN 设置断开连接。任何可选的诊断、账户或后台功能均为独立功能，将在相应位置进行说明。",
   "vpnDisclosureContinue": "继续",
-  "updateSubscription": "更新订阅",
+  "updateSubscription": "更新",
   "workModes": "模式",
   "workModeStandard": "标准",
   "workModeStandardDesc": "一切都已为您配置好。",
@@ -527,7 +527,7 @@
   "otherCountries": "其他",
   "genericErrorMessage": "出了点问题，请重试。",
   "qrScanFromImageUnsupported": "此平台不支持从图片扫描二维码，请改用订阅链接。",
-  "alwaysOnVpn": "始终开启的VPN",
+  "alwaysOnVpn": "始终开启",
   "alwaysOnVpnOpenFailed": "无法打开 VPN 设置",
   "zoom": "缩放"
 }

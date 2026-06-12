@@ -83,7 +83,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "allowLan": MessageLookupByLibrary.simpleMessage("LANを許可"),
     "allowLanDesc": MessageLookupByLibrary.simpleMessage("LAN経由でのプロキシアクセスを許可"),
-    "alwaysOnVpn": MessageLookupByLibrary.simpleMessage("常時接続VPN"),
+    "alwaysOnVpn": MessageLookupByLibrary.simpleMessage("常時接続"),
     "alwaysOnVpnOpenFailed": MessageLookupByLibrary.simpleMessage(
       "VPN設定を開けませんでした",
     ),
@@ -689,7 +689,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "unnamed": MessageLookupByLibrary.simpleMessage("無題"),
     "update": MessageLookupByLibrary.simpleMessage("更新"),
     "updateAllGeoData": MessageLookupByLibrary.simpleMessage("すべての地理データを更新"),
-    "updateSubscription": MessageLookupByLibrary.simpleMessage("サブスクリプションを更新"),
+    "updateSubscription": MessageLookupByLibrary.simpleMessage("更新"),
     "updated": MessageLookupByLibrary.simpleMessage("更新しました"),
     "upload": MessageLookupByLibrary.simpleMessage("アップロード"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),

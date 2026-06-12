@@ -506,7 +506,7 @@
   "vpnDisclosureTitle": "接続する前に",
   "vpnDisclosureBody": "Dropweb は Android の VPN 権限を使用して、ユーザーが制御するローカル VPN トンネルを作成します。ネットワーク通信は、選択した接続またはサブスクリプションに従ってルーティングされます。この画面または端末の VPN 設定からいつでも切断できます。診断、アカウント、キャビネットなどの任意機能はそれぞれ別個に提供され、該当箇所で説明されます。",
   "vpnDisclosureContinue": "続行",
-  "updateSubscription": "サブスクリプションを更新",
+  "updateSubscription": "更新",
   "workModes": "モード",
   "workModeStandard": "スタンダード",
   "workModeStandardDesc": "すべて自動で設定済み。",
@@ -527,7 +527,7 @@
   "otherCountries": "その他",
   "genericErrorMessage": "問題が発生しました。もう一度お試しください。",
   "qrScanFromImageUnsupported": "この環境では画像からのQRコード読み取りに対応していません。サブスクリプションURLをご利用ください。",
-  "alwaysOnVpn": "常時接続VPN",
+  "alwaysOnVpn": "常時接続",
   "alwaysOnVpnOpenFailed": "VPN設定を開けませんでした",
   "zoom": "ズーム"
 }

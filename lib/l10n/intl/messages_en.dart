@@ -99,7 +99,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "allowLanDesc": MessageLookupByLibrary.simpleMessage(
       "Allow access proxy through the LAN",
     ),
-    "alwaysOnVpn": MessageLookupByLibrary.simpleMessage("Always-on VPN"),
+    "alwaysOnVpn": MessageLookupByLibrary.simpleMessage("Always-on"),
     "alwaysOnVpnOpenFailed": MessageLookupByLibrary.simpleMessage(
       "Couldn\'t open VPN settings",
     ),
@@ -867,9 +867,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "updateAllGeoData": MessageLookupByLibrary.simpleMessage(
       "Update All Geo Files",
     ),
-    "updateSubscription": MessageLookupByLibrary.simpleMessage(
-      "Update subscription",
-    ),
+    "updateSubscription": MessageLookupByLibrary.simpleMessage("Update"),
     "updated": MessageLookupByLibrary.simpleMessage("Updated"),
     "upload": MessageLookupByLibrary.simpleMessage("Upload"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),

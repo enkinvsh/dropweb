@@ -3919,10 +3919,10 @@ class AppLocalizations {
     );
   }
 
-  /// `Update subscription`
+  /// `Update`
   String get updateSubscription {
     return Intl.message(
-      'Update subscription',
+      'Update',
       name: 'updateSubscription',
       desc: '',
       args: [],
@@ -4089,14 +4089,9 @@ class AppLocalizations {
     );
   }
 
-  /// `Always-on VPN`
+  /// `Always-on`
   String get alwaysOnVpn {
-    return Intl.message(
-      'Always-on VPN',
-      name: 'alwaysOnVpn',
-      desc: '',
-      args: [],
-    );
+    return Intl.message('Always-on', name: 'alwaysOnVpn', desc: '', args: []);
   }
 
   /// `Couldn't open VPN settings`
