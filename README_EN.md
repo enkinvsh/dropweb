@@ -157,8 +157,9 @@ dropweb is a client: the app does not provide server infrastructure. You connect
 
 ## <img src="docs/icons/opensource.svg" width="24" alt="" /> Open source
 
-dropweb is distributed under the **GPL-3.0** license — the source code is fully open and available for audit. The project is based on FlClash and uses the mihomo (Clash.Meta) core; we are grateful to their authors and communities.
+dropweb is distributed under the **GPL-3.0** license — the source code is fully open and available for audit. The project is based on FlClashX (a fork of FlClash) and uses the mihomo (Clash.Meta) core; we are grateful to their authors and communities.
 
+- FlClashX (© pluralplay) — https://github.com/pluralplay/FlClashX
 - FlClash (© chen08209) — https://github.com/chen08209/FlClash
 - mihomo / Clash.Meta (© MetaCubeX) — https://github.com/MetaCubeX/mihomo
 

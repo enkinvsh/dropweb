@@ -157,8 +157,9 @@ dropweb — клиент: серверную инфраструктуру при
 
 ## <img src="docs/icons/opensource.svg" width="24" alt="" /> Открытый код
 
-dropweb распространяется под лицензией **GPL-3.0** — исходный код полностью открыт и доступен для аудита. Проект основан на FlClash и использует ядро mihomo (Clash.Meta); мы благодарны их авторам и сообществу.
+dropweb распространяется под лицензией **GPL-3.0** — исходный код полностью открыт и доступен для аудита. Проект основан на FlClashX (форк FlClash) и использует ядро mihomo (Clash.Meta); мы благодарны их авторам и сообществу.
 
+- FlClashX (© pluralplay) — https://github.com/pluralplay/FlClashX
 - FlClash (© chen08209) — https://github.com/chen08209/FlClash
 - mihomo / Clash.Meta (© MetaCubeX) — https://github.com/MetaCubeX/mihomo
 
