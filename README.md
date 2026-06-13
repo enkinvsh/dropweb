@@ -4,7 +4,10 @@
 
 <img src="assets/images/header.png" alt="dropweb — приватный VPN-клиент для Android, Windows, macOS и Linux" width="720" />
 
-# dropweb
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/images/wordmark-dark.png">
+  <img src="assets/images/wordmark-light.png" alt="dropweb" height="46">
+</picture>
 
 <a href="https://github.com/enkinvsh/dropweb/releases">
   <img src="https://img.shields.io/github/v/release/enkinvsh/dropweb?include_prereleases&style=for-the-badge&color=15803D&labelColor=0D1117&label=release" alt="Последний релиз">
