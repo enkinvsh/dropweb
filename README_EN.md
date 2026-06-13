@@ -2,11 +2,9 @@
   <a href="README.md">Русский</a>
 </div>
 
-<p align="center">
-  <img src="assets/images/logo.png" alt="dropweb" width="200" />
-</p>
+<img src="assets/images/header.png" alt="dropweb — private VPN client for Android, Windows, macOS and Linux" width="720" />
 
-# dropweb
+# <picture><source media="(prefers-color-scheme: light)" srcset="assets/images/logo.png"><img src="assets/images/logo-mark.png" alt="" height="28"></picture> dropweb
 
 <a href="https://github.com/enkinvsh/dropweb/releases">
   <img src="https://img.shields.io/github/v/release/enkinvsh/dropweb?include_prereleases&style=for-the-badge&color=15803D&labelColor=0D1117&label=release" alt="Latest Release">
