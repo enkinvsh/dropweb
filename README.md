@@ -2,7 +2,9 @@
   <a href="README_EN.md">English</a>
 </div>
 
-<img src="assets/images/header.png" alt="dropweb — приватный VPN-клиент для Android, Windows, macOS и Linux" width="720" />
+<p align="center">
+  <img src="assets/images/logo.png" alt="dropweb" width="200" />
+</p>
 
 # dropweb
 
@@ -162,28 +164,6 @@ dropweb распространяется под лицензией **GPL-3.0** �
 - FlClashX (© pluralplay) — https://github.com/pluralplay/FlClashX
 - FlClash (© chen08209) — https://github.com/chen08209/FlClash
 - mihomo / Clash.Meta (© MetaCubeX) — https://github.com/MetaCubeX/mihomo
-
----
-
-## <img src="docs/icons/platforms.svg" width="24" alt="" /> Платформы и загрузка
-
-| Платформа | Загрузка |
-|---|---|
-| **Android** (arm64) | [Releases](https://github.com/enkinvsh/dropweb/releases) |
-| **Windows** | [Releases](https://github.com/enkinvsh/dropweb/releases) |
-| **macOS** | [Releases](https://github.com/enkinvsh/dropweb/releases) |
-| **Linux** | [Releases](https://github.com/enkinvsh/dropweb/releases) |
-
----
-
-## <img src="docs/icons/build.svg" width="24" alt="" /> Сборка из исходников
-
-dropweb — это Go-ядро (mihomo) в оболочке на Flutter, собирается через `setup.dart` (конвенция FlClashX), а не через `flutter build`.
-
-```bash
-flutter pub get
-dart run setup.dart android --arch arm64   # Android arm64 → dist/
-```
 
 ---
 

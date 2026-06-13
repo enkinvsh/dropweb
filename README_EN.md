@@ -2,7 +2,9 @@
   <a href="README.md">Русский</a>
 </div>
 
-<img src="assets/images/header.png" alt="dropweb — private VPN client for Android, Windows, macOS and Linux" width="720" />
+<p align="center">
+  <img src="assets/images/logo.png" alt="dropweb" width="200" />
+</p>
 
 # dropweb
 
@@ -162,28 +164,6 @@ dropweb is distributed under the **GPL-3.0** license — the source code is full
 - FlClashX (© pluralplay) — https://github.com/pluralplay/FlClashX
 - FlClash (© chen08209) — https://github.com/chen08209/FlClash
 - mihomo / Clash.Meta (© MetaCubeX) — https://github.com/MetaCubeX/mihomo
-
----
-
-## <img src="docs/icons/platforms.svg" width="24" alt="" /> Platforms & download
-
-| Platform | Download |
-|---|---|
-| **Android** (arm64) | [Releases](https://github.com/enkinvsh/dropweb/releases) |
-| **Windows** | [Releases](https://github.com/enkinvsh/dropweb/releases) |
-| **macOS** | [Releases](https://github.com/enkinvsh/dropweb/releases) |
-| **Linux** | [Releases](https://github.com/enkinvsh/dropweb/releases) |
-
----
-
-## <img src="docs/icons/build.svg" width="24" alt="" /> Build from source
-
-dropweb is a Go core (mihomo) inside a Flutter shell, built via `setup.dart` (the FlClashX convention), not `flutter build`.
-
-```bash
-flutter pub get
-dart run setup.dart android --arch arm64   # Android arm64 → dist/
-```
 
 ---
 
