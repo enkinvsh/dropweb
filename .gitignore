@@ -106,3 +106,15 @@ opencode.json
 # fvm (local Flutter version pin)
 .fvm/
 .fvmrc
+
+# Local-only AI/agent + design tooling (kept on disk, untracked)
+/AGENTS.md
+/DESIGN.md
+
+# Dev-only experiments under tool/ (release scripts stay tracked)
+/tool/gen_glass_sounds.dart
+/tool/liquid_lab.html
+/tool/logo.png
+
+# Tests kept local-only (untracked by request)
+/test/
