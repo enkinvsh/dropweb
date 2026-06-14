@@ -111,10 +111,8 @@ opencode.json
 /AGENTS.md
 /DESIGN.md
 
-# Dev-only experiments under tool/ (release scripts stay tracked)
-/tool/gen_glass_sounds.dart
-/tool/liquid_lab.html
-/tool/logo.png
+# Dev/release tooling kept local-only (build it yourself if you need it)
+/tool/
 
 # Tests kept local-only (untracked by request)
 /test/
