@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:dropweb/common/common.dart';
@@ -29,6 +30,19 @@ class _StartButtonState extends ConsumerState<StartButton>
   /// of the glyph painted underneath, since HugeIcon (SVG) has no shadows.
   static const double _iconShadowBlur = 5.9;
   static const double _iconShadowAlpha = 0.81;
+
+  /// Fresnel rim painted ONTO the power glyph (ported from
+  /// tool/glyph_rim_lab.html `rim внутри`): a conic SweepGradient
+  /// (white top / accent sides / dim bottom) masked to the glyph strokes,
+  /// so the icon catches the same glass edge-light as the lens rim.
+  /// Applied only while connected — the idle glyph stays the plain dimmed icon.
+  static const double _glyphRimConnected = 0.75;
+  static const double _glyphRimIdle = 0.0;
+
+  /// Vertical shift of the rim conic origin on the glyph (lab `rim внутри ↑`,
+  /// in ×r). Applied by translating the shader rect: dy = -1.25*iconSize*lift
+  /// (since r == iconSize / 0.8). Keeps the white-top fresnel orientation.
+  static const double _glyphRimLift = -0.5;
 
   late AnimationController _pressController;
   late Animation<double> _scaleAnimation;
@@ -139,6 +153,43 @@ class _StartButtonState extends ConsumerState<StartButton>
     );
   }
 
+  /// Conic Fresnel (white top / accent sides / dim bottom) masked to the
+  /// power glyph — Flutter port of glyph_rim_lab.html `glyphFresnel`.
+  Widget _rimGlyph(
+    List<List<dynamic>> icon,
+    double strokeWidth,
+    Color accent,
+    double amount,
+  ) {
+    return Opacity(
+      opacity: amount.clamp(0.0, 1.0),
+      child: ShaderMask(
+        blendMode: BlendMode.srcIn,
+        shaderCallback: (rect) => SweepGradient(
+          transform: const GradientRotation(-math.pi / 2),
+          colors: [
+            const Color(0xFFFFFFFF),
+            accent.withValues(alpha: 0.5),
+            const Color(0xFFFFFFFF).withValues(alpha: 0.12),
+            accent.withValues(alpha: 0.5),
+            const Color(0xFFFFFFFF),
+          ],
+          stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
+        ).createShader(
+          // lift: shift the conic origin like the lab (center = cy - r*lift,
+          // r == iconSize / 0.8) — keeps the white-top fresnel orientation
+          rect.translate(0, -1.25 * widget.iconSize * _glyphRimLift),
+        ),
+        child: HugeIcon(
+          icon: icon,
+          size: widget.iconSize,
+          strokeWidth: strokeWidth,
+          color: const Color(0xFFFFFFFF),
+        ),
+      ),
+    );
+  }
+
   Widget _buildButton(
     BuildContext context,
     StartButtonSelectorState state,
@@ -192,7 +243,12 @@ class _StartButtonState extends ConsumerState<StartButton>
                           ? HugeIcons.strokeRoundedAddCircleHalfDot
                           : HugeIcons.strokeRoundedPower;
                       final strokeWidth =
-                          _pressController.value > 0 ? 3.0 : 2.0;
+                          _pressController.value > 0 ? 3.0 : 1.7;
+                      final accent =
+                          Theme.of(context).colorScheme.primary;
+                      final connected = isStart;
+                      final rimAmount =
+                          connected ? _glyphRimConnected : _glyphRimIdle;
                       return Stack(
                         alignment: Alignment.center,
                         children: [
@@ -213,12 +269,21 @@ class _StartButtonState extends ConsumerState<StartButton>
                                   .withValues(alpha: _iconShadowAlpha),
                             ),
                           ),
+                          // body
                           HugeIcon(
                             icon: iconData,
                             size: widget.iconSize,
                             strokeWidth: strokeWidth,
                             color: color ?? iconColor,
                           ),
+                          // rim внутри: conic Fresnel painted over the glyph.
+                          if (rimAmount > 0)
+                            _rimGlyph(
+                              iconData,
+                              strokeWidth,
+                              accent,
+                              rimAmount,
+                            ),
                         ],
                       );
                     },

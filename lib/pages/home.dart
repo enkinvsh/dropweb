@@ -552,6 +552,19 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
     reverseDuration: const Duration(milliseconds: 360),
   );
 
+  /// Continuous motion for the aurora core + holo rim. Repeats only while
+  /// connecting/connected; stopped (frozen) when idle to spare battery.
+  /// Connecting spins faster (2.6s) than the settled running drift (8s).
+  late final AnimationController _auraController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 8),
+  );
+
+  // Handshake spins continuously; on connect it does ONE graceful settle spin
+  // and then freezes — no perpetual 60fps repaint while connected.
+  static const Duration _auraConnectingPeriod = Duration(milliseconds: 2600);
+  static const Duration _auraSettlePeriod = Duration(milliseconds: 1400);
+
   void _reportPosition() {
     if (!mounted) return;
     final box = _key.currentContext?.findRenderObject() as RenderBox?;
@@ -592,29 +605,27 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
         runTimeProvider.select((state) => state != null),
         (previous, running) {
           if (!mounted) return;
-          // Connection actually established — settle haptic. Fires only on
-          // the OFF→ON transition (never on initial-state replays).
+          // Connection established — settle haptic on the OFF→ON edge only.
           if (running && previous == false) {
             unawaited(App().performHapticFeedback(DropwebHapticCue.success));
           }
-          // Reduced-motion: snap to terminal state, no animation.
-          if (MediaQuery.disableAnimationsOf(context)) {
-            _irisController.value = running ? 1.0 : 0.0;
-            return;
-          }
-          if (running) {
-            _irisController.forward();
-          } else {
-            _irisController.reverse();
-          }
+          _syncAura();
         },
       );
+
+    // Aurora/holo motion also spins up during the connecting phase.
+    globalState.isConnecting.addListener(_syncAura);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncAura());
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _schedulePostFrameReport();
+    // Re-sync motion when inherited deps change (e.g. OS reduced-motion
+    // toggled mid-handshake) so the aura honours it immediately instead of
+    // waiting for the next connect/disconnect.
+    _syncAura();
   }
 
   /// Window resize on desktop / orientation change on mobile shifts the
@@ -642,10 +653,60 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
 
   @override
   void dispose() {
+    globalState.isConnecting.removeListener(_syncAura);
+    _auraController.dispose();
     _irisController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     connectButtonCenter.value = null;
     super.dispose();
+  }
+
+  /// Starts/stops the aurora+holo motion based on connect state, and picks
+  /// the spin speed (connecting = fast, running = settled). Frozen when idle
+  /// and under reduced-motion, so the dashboard never animates needlessly.
+  void _syncAura() {
+    if (!mounted) return;
+    final running = ref.read(runTimeProvider) != null;
+    final connecting = globalState.isConnecting.value;
+    final active = running || connecting;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+
+    // Iris doubles as the liveness ramp — it fades the aurora + holo in on
+    // connect-start and out on disconnect (not just the bloom).
+    if (reduced) {
+      _irisController.value = active ? 1.0 : 0.0;
+    } else if (active) {
+      _irisController.forward();
+    } else {
+      _irisController.reverse();
+    }
+
+    // Motion: only while alive. Idle/reduced → frozen.
+    if (!active || reduced) {
+      if (_auraController.isAnimating) _auraController.stop();
+      return;
+    }
+    if (connecting) {
+      // Handshake — continuous fast spin/drift.
+      if (_auraController.duration != _auraConnectingPeriod ||
+          !_auraController.isAnimating) {
+        _auraController
+          ..duration = _auraConnectingPeriod
+          ..repeat();
+      }
+    } else if (_auraController.status != AnimationStatus.completed) {
+      // Connected — ONE graceful settle spin, then freeze (no perpetual
+      // repaint → battery/thermal-safe on mid-range). Re-entry guard: skip if
+      // a settle is already in flight, so even a per-frame caller can't
+      // restart it and defeat the freeze.
+      final alreadySettling = _auraController.isAnimating &&
+          _auraController.duration == _auraSettlePeriod;
+      if (!alreadySettling) {
+        _auraController
+          ..duration = _auraSettlePeriod
+          ..forward();
+      }
+    }
   }
 
   @override
@@ -658,11 +719,34 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
     // no hardcoded Lumina green here.
     final accent = Theme.of(context).colorScheme.primary;
 
+    // Aurora + holo pull the theme's two ambient orb colours (mesh_background
+    // parity); fall back to accent when unset, and follow the scheme variant.
+    final orbSettings = ref.watch(
+      themeSettingProvider.select(
+        (s) => (s.orbColorPrimary, s.orbColorSecondary, s.schemeVariant),
+      ),
+    );
+    // Orb → glow colour: apply the scheme filter, then keep it readable on the
+    // dark glass. Near-black orbs would read as a dead spot, so they fall back;
+    // merely-dark orbs are lifted to a lightness floor so the hue still reads.
+    Color orbGlow(int? raw, Color fallback) {
+      if (raw == null) return fallback;
+      final c = applyColorFilter(Color(raw), orbSettings.$3);
+      if (c.computeLuminance() < 0.04) return fallback;
+      final hsl = HSLColor.fromColor(c);
+      return hsl.lightness < 0.5 ? hsl.withLightness(0.5).toColor() : c;
+    }
+
+    final orbPrimary = orbGlow(orbSettings.$1, accent);
+    final orbSecondary = orbGlow(orbSettings.$2, orbPrimary);
+
     // Connect state amplifies the perimeter halo and inner edge glow.
     final isRunning =
         ref.watch(runTimeProvider.select((state) => state != null));
 
-    return RepaintBoundary(
+    return ValueListenableBuilder<bool>(
+      valueListenable: globalState.isConnecting,
+      builder: (context, isConnecting, _) => RepaintBoundary(
       key: _key,
       child: Listener(
         onPointerDown: (_) => _setPressed(true),
@@ -672,64 +756,73 @@ class _ConnectCircleState extends ConsumerState<_ConnectCircle>
           tween: Tween<double>(end: _isPressed ? 1.0 : 0.0),
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
-          builder: (_, pressT, __) {
-            // Outer perimeter halo — the visible theme-colored ring of
-            // light hugging the lens edge. Idle is visible but restrained;
-            // press and live-connection intensify.
-            // Lab `glow` dial: running == glow, idle == glow * 0.625.
-            final haloAlpha = (isRunning ? 0.59 : 0.37) + pressT * 0.18;
-            final haloBlur = 16.0 + pressT * 10.0;
-            final perimeterGlow = BoxShadow(
-              color: accent.withValues(alpha: haloAlpha),
-              blurRadius: haloBlur,
-              spreadRadius: -1.0,
-            );
+          builder: (_, pressT, __) => AnimatedBuilder(
+            animation: Listenable.merge([_irisController, _auraController]),
+            builder: (_, __) {
+              final irisT = _irisController.value;
+              final auraT = _auraController.value;
+              // Connecting heartbeat for the perimeter glow.
+              final pulse = 0.5 + 0.5 * math.sin(auraT * 2 * math.pi * 2);
+              // Smoothly ramp dormant→alive via iris (0.2→0.59); the perimeter
+              // pulses while connecting, and press always intensifies.
+              final haloAlpha = (0.2 +
+                      0.39 * irisT +
+                      (isConnecting ? pulse * 0.16 : 0.0) +
+                      pressT * 0.18)
+                  .clamp(0.0, 1.0);
+              final haloBlur =
+                  16.0 + pressT * 10.0 + (isConnecting ? pulse * 6.0 : 0.0);
+              final perimeterGlow = BoxShadow(
+                color: accent.withValues(alpha: haloAlpha),
+                blurRadius: haloBlur,
+                spreadRadius: -1.0,
+              );
 
-            return SizedBox.square(
-              dimension: buttonSize,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    perimeterGlow,
-                    const BoxShadow(
-                      color: Color(0x99000000),
-                      blurRadius: 4,
-                      offset: Offset(0, 1),
-                    ),
-                    const BoxShadow(
-                      color: Color(0x66000000),
-                      blurRadius: 26,
-                      spreadRadius: -6,
-                      offset: Offset(0, 14),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Iris drives painter repaints only while it's animating.
-                    // When _irisController sits at 0.0 (idle off) or 1.0
-                    // (idle on) it stops ticking — no continuous loop.
-                    AnimatedBuilder(
-                      animation: _irisController,
-                      builder: (_, __) => CustomPaint(
+              return SizedBox.square(
+                dimension: buttonSize,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      perimeterGlow,
+                      const BoxShadow(
+                        color: Color(0x99000000),
+                        blurRadius: 4,
+                        offset: Offset(0, 1),
+                      ),
+                      const BoxShadow(
+                        color: Color(0x66000000),
+                        blurRadius: 26,
+                        spreadRadius: -6,
+                        offset: Offset(0, 14),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CustomPaint(
                         painter: _ConnectGlassPainter(
                           pressT: pressT,
                           isRunning: isRunning,
                           accent: accent,
-                          irisT: _irisController.value,
+                          irisT: irisT,
+                          auraT: auraT,
+                          isConnecting: isConnecting,
+                          orbPrimary: orbPrimary,
+                          orbSecondary: orbSecondary,
                         ),
                       ),
-                    ),
-                    StartButton(iconSize: iconSize),
-                  ],
+                      StartButton(iconSize: iconSize),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
+    ),
     );
   }
 }
@@ -761,11 +854,26 @@ class _ConnectGlassPainter extends CustomPainter {
     required this.isRunning,
     required this.accent,
     required this.irisT,
+    required this.auraT,
+    required this.isConnecting,
+    required this.orbPrimary,
+    required this.orbSecondary,
   });
 
   final double pressT;
   final bool isRunning;
   final Color accent;
+
+  /// Theme ambient orb colours (mesh_background parity) — aurora blobs 2/3
+  /// and the holo ring cycle through accent → orbPrimary → orbSecondary.
+  final Color orbPrimary;
+  final Color orbSecondary;
+
+  /// True during the connect handshake — aurora + holo spin up early.
+  final bool isConnecting;
+
+  /// Continuous 0→1 phase for the aurora drift + holo-rim rotation.
+  final double auraT;
 
   /// Iris animation progress in [0, 1]. 0 = no bloom, 1 = settled subtle
   /// luminance. Triggered only on real connect/disconnect transitions, never
@@ -775,7 +883,9 @@ class _ConnectGlassPainter extends CustomPainter {
   // Sustained alpha at irisT == 1 — kept low so the perimeter halo and
   // Fresnel rim stay dominant. Iris is the *transition* effect, not the
   // running indicator.
-  static const double _irisSettledAlpha = 0.18;
+  // Lowered from 0.18: the aurora core now carries the sustained glow, so the
+  // iris only needs a faint settle wash (avoids double-glow at rest).
+  static const double _irisSettledAlpha = 0.10;
   // Peak alpha mid-bloom (irisT ≈ 0.5). Restrained, premium, not neon.
   static const double _irisPeakAlpha = 0.34;
 
@@ -814,6 +924,41 @@ class _ConnectGlassPainter extends CustomPainter {
       ..clipPath(Path()..addOval(rect))
       ..drawCircle(center, r, veilPaint)
       ..restore();
+
+    // 2b. Aurora mesh core — drifting colour blobs glowing through the glass.
+    //     Alive only while connected; fades in with iris on the connect
+    //     transition. The continuous drift is driven by [auraT].
+    // Iris is the liveness ramp — aurora fades in/out with it (no pop).
+    final auroraLive = irisT;
+    if (auroraLive > 0.01) {
+      final ang = auraT * 2 * math.pi;
+      canvas
+        ..save()
+        ..clipPath(Path()..addOval(rect));
+      void blob(Color c, double a, double ox, double oy, double br) {
+        final p = center.translate(ox * r, oy * r);
+        canvas.drawCircle(
+          p,
+          br * r,
+          Paint()
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.2)
+            ..shader = RadialGradient(
+              colors: [
+                c.withValues(alpha: a * auroraLive),
+                c.withValues(alpha: 0.0),
+              ],
+            ).createShader(Rect.fromCircle(center: p, radius: br * r)),
+        );
+      }
+
+      blob(accent, 0.22, 0.30 * math.cos(ang) - 0.12,
+          0.30 * math.sin(ang) - 0.08, 0.80);
+      blob(orbPrimary, 0.20, 0.28 * math.cos(ang + 2.1) + 0.18,
+          0.28 * math.sin(ang + 2.1) + 0.12, 0.78);
+      blob(orbSecondary, 0.168, 0.24 * math.cos(ang + 4.2),
+          0.24 * math.sin(ang + 4.2) + 0.22, 0.78);
+      canvas.restore();
+    }
 
     // 3. Concave inset on the lower interior arc.
     final insetPaint = Paint()
@@ -905,49 +1050,66 @@ class _ConnectGlassPainter extends CustomPainter {
     //    Top/side carry a small constant accent tint so the theme color
     //    catches the rim even at rest; press warms it further.
     // _rimAlpha scales the whole ring; 0.55 maps to the original alphas.
-    const rimBoost = _rimAlpha / 0.55;
-    double rimA(double a) => (a * rimBoost).clamp(0.0, 1.0);
-    final rimTop = Color.lerp(
-      Colors.white.withValues(alpha: rimA(0.6)),
-      accent.withValues(alpha: rimA(0.35)),
-      0.41,
-    )!;
-    final rimSide = Color.lerp(
-      Colors.white.withValues(alpha: rimA(0.14)),
-      accent.withValues(alpha: rimA(0.18)),
-      0.369,
-    )!;
-    final rimBottom = Colors.white.withValues(alpha: rimA(0.05));
-    final warmTop = Color.lerp(
-        rimTop, accent.withValues(alpha: rimA(0.60)), pressT * 0.6)!;
-    final warmSide = Color.lerp(
-        rimSide, accent.withValues(alpha: rimA(0.30)), pressT * 0.45)!;
-    final rimPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..shader = SweepGradient(
-        transform: const GradientRotation(-math.pi / 2),
-        colors: [warmTop, warmSide, rimBottom, warmSide, warmTop],
-        stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
-      ).createShader(rect);
-    canvas.drawCircle(center, r - 0.5, rimPaint);
-
-    // 7. Icon halo. Tight, scoped to icon region. Small idle floor keeps
-    //    the lens "alive" with theme glow at rest; live connection and
-    //    press stack on top.
-    final haloAlpha = (isRunning ? 0.28 : 0.07) + pressT * 0.10;
-    if (haloAlpha > 0.001) {
-      final haloRadius = r * 0.46;
-      final haloPaint = Paint()
-        ..shader = RadialGradient(
+    if (irisT > 0.01) {
+      // Iridescent holo ring (rotating): accent → orbPrimary → orbSecondary.
+      // Spins 8/3× the aurora phase — a tuned visual constant (the aura period
+      // is 2.6s handshake / 1.4s settle, so the rim's real speed varies).
+      // Fades in/out with iris (irisT) so it never pops on connect.
+      final holoPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r * 0.021
+        ..shader = SweepGradient(
+          transform:
+              GradientRotation(auraT * (8 / 3) * 2 * math.pi - math.pi / 2),
           colors: [
-            accent.withValues(alpha: haloAlpha),
-            accent.withValues(alpha: 0.0),
+            accent.withValues(alpha: irisT),
+            orbPrimary.withValues(alpha: irisT),
+            orbSecondary.withValues(alpha: irisT),
+            accent.withValues(alpha: irisT),
           ],
-          stops: const [0.0, 1.0],
-        ).createShader(Rect.fromCircle(center: center, radius: haloRadius));
-      canvas.drawCircle(center, haloRadius, haloPaint);
+          stops: const [0.0, 0.33, 0.67, 1.0],
+        ).createShader(rect);
+      canvas.drawCircle(center, r - r * 0.015, holoPaint);
+      // crisp white glass lip on top of the holo ring
+      canvas.drawCircle(
+        center,
+        r - 0.5,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0
+          ..color = Colors.white.withValues(alpha: 0.18 * irisT),
+      );
+    } else {
+      // Calm Fresnel edge while dormant.
+      const rimBoost = _rimAlpha / 0.55;
+      double rimA(double a) => (a * rimBoost).clamp(0.0, 1.0);
+      final rimTop = Color.lerp(
+        Colors.white.withValues(alpha: rimA(0.6)),
+        accent.withValues(alpha: rimA(0.35)),
+        0.41,
+      )!;
+      final rimSide = Color.lerp(
+        Colors.white.withValues(alpha: rimA(0.14)),
+        accent.withValues(alpha: rimA(0.18)),
+        0.369,
+      )!;
+      final rimBottom = Colors.white.withValues(alpha: rimA(0.05));
+      final warmTop = Color.lerp(
+          rimTop, accent.withValues(alpha: rimA(0.60)), pressT * 0.6)!;
+      final warmSide = Color.lerp(
+          rimSide, accent.withValues(alpha: rimA(0.30)), pressT * 0.45)!;
+      final rimPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0
+        ..shader = SweepGradient(
+          transform: const GradientRotation(-math.pi / 2),
+          colors: [warmTop, warmSide, rimBottom, warmSide, warmTop],
+          stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
+        ).createShader(rect);
+      canvas.drawCircle(center, r - 0.5, rimPaint);
     }
+
+    // (Icon halo replaced by the aurora mesh core — layer 2b.)
   }
 
   /// Fresnel rim brightness (lab `rim`): 0.55 == the pre-liquid baseline.
@@ -958,7 +1120,11 @@ class _ConnectGlassPainter extends CustomPainter {
       old.pressT != pressT ||
       old.isRunning != isRunning ||
       old.accent != accent ||
-      old.irisT != irisT;
+      old.irisT != irisT ||
+      old.auraT != auraT ||
+      old.isConnecting != isConnecting ||
+      old.orbPrimary != orbPrimary ||
+      old.orbSecondary != orbSecondary;
 }
 
 /// Developer mode activation via 5 rapid CONSECUTIVE taps on the Settings
