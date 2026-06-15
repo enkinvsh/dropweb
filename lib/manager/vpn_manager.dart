@@ -23,6 +23,10 @@ class _VpnContainerState extends ConsumerState<VpnManager> {
   void initState() {
     super.initState();
     ref.listenManual(vpnStateProvider, (prev, next) {
+      // Skip the tip when the vpnState change came from a config setup applying
+      // (e.g. a profile switch syncing the provider's tun.stack). Those apply
+      // live; only genuine manual VPN/network-setting changes should warn.
+      if (globalState.suppressVpnTip) return;
       showTip();
     });
   }

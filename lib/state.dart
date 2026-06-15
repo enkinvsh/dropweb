@@ -110,6 +110,12 @@ class GlobalState {
     ack.complete(error);
   }
   final navigatorKey = GlobalKey<NavigatorState>();
+  /// When true, `vpnTip` notifications are suppressed. Set while a config setup
+  /// is applying (see [AppController.setupClashConfig]) so the provider-driven
+  /// tun.stack sync on a profile switch does not fire a spurious "restart VPN"
+  /// tip — the egress switch itself applies live.
+  bool suppressVpnTip = false;
+
   AppController? _appController;
   GlobalKey<CommonScaffoldState> homeScaffoldKey = GlobalKey();
   bool isInit = false;

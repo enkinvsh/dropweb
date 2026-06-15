@@ -662,9 +662,21 @@ class AppController {
   Future<void> setupClashConfig() async {
     final commonScaffoldState = globalState.homeScaffoldKey.currentState;
     if (commonScaffoldState?.mounted != true) return;
-    await commonScaffoldState?.loadingRun(() async {
-      await _setupClashConfig();
-    });
+    // Suppress the "restart VPN" tip (vpnTip) while a config setup applies:
+    // _setupClashConfig -> syncNetworkSettingsFromProvider writes the provider's
+    // tun.stack back into patchClashConfigProvider, which churns
+    // vpnStateProvider. On a profile switch the egress applies live (the core
+    // hot-reloads proxies/rules without rebuilding the tun), so the tip would
+    // be a false alarm. Manual TUN-stack/vpnProps changes go through
+    // _updateClashConfig instead and still fire the tip correctly.
+    globalState.suppressVpnTip = true;
+    try {
+      await commonScaffoldState?.loadingRun(() async {
+        await _setupClashConfig();
+      });
+    } finally {
+      globalState.suppressVpnTip = false;
+    }
   }
 
   Future<void> _setupClashConfig() async {
