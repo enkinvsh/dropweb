@@ -226,7 +226,7 @@ jobs:
           build=$(grep '^version:' pubspec.yaml | sed -E 's/.*\+([0-9]+).*/\1/')
           ep="--endpoint-url=https://storage.yandexcloud.net"
           B="s3://dropweb-downloads"
-          for f in dropweb-arm64-v8a.apk dropweb-amd64-setup.exe dropweb-arm64.dmg dropweb-amd64.AppImage; do
+          for f in dropweb-arm64-v8a.apk dropweb-universal.apk dropweb-amd64-setup.exe dropweb-arm64.dmg dropweb-amd64.AppImage; do
             if [ -f "./dist/$f" ]; then
               aws s3 cp "./dist/$f" "$B/v$version/$f" $ep
               aws s3 cp "./dist/$f" "$B/latest/$f" $ep
@@ -239,8 +239,8 @@ jobs:
           [ -z "$notes_raw" ] && notes_raw="Релиз $version"
           notes_json=$(printf '%s\n' "$notes_raw" | jq -R . | jq -s .)
           jq -n --arg version "$version" --argjson build "${build:-0}" --arg pubDate "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson notes "$notes_json" \
-            --arg apk "$base/dropweb-arm64-v8a.apk" --arg exe "$base/dropweb-amd64-setup.exe" --arg dmg "$base/dropweb-arm64.dmg" --arg appimage "$base/dropweb-amd64.AppImage" \
-            '{version:$version,build:$build,mandatory:false,minSupported:"0.7.0",pubDate:$pubDate,notes:$notes,platforms:{"android-arm64":{url:$apk},"android-universal":{url:$apk},"windows-amd64":{url:$exe},"windows-arm64":{url:""},"linux-amd64":{url:$appimage},"linux-arm64":{url:""},"macos":{url:$dmg},"ios":{url:""}}}' > update.json
+            --arg apk "$base/dropweb-arm64-v8a.apk" --arg universal "$base/dropweb-universal.apk" --arg exe "$base/dropweb-amd64-setup.exe" --arg dmg "$base/dropweb-arm64.dmg" --arg appimage "$base/dropweb-amd64.AppImage" \
+            '{version:$version,build:$build,mandatory:false,minSupported:"0.7.0",pubDate:$pubDate,notes:$notes,platforms:{"android-arm64":{url:$apk},"android-universal":{url:$universal},"windows-amd64":{url:$exe},"windows-arm64":{url:""},"linux-amd64":{url:$appimage},"linux-arm64":{url:""},"macos":{url:$dmg},"ios":{url:""}}}' > update.json
           aws s3 cp update.json "$B/update.json" $ep --content-type application/json --cache-control no-cache
           echo "Published v$version binaries + manifest to YC (dropweb-downloads)."
 

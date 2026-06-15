@@ -692,6 +692,32 @@ class BuildCommand extends Command {
           env: env,
         );
 
+        // When building every ABI (release CI, no --arch), ALSO emit a single
+        // universal APK (all ABIs in one file). The per-ABI split APKs above
+        // stay for the per-arch / Play paths; this universal is what the site's
+        // "Android (universal)" download and the update.json `android-universal`
+        // slot point at, so a device of any ABI can install it. Plain
+        // `flutter build apk` (no split) defaults to all ABIs and reuses the
+        // same gradle signing + dart-defines as the split build above.
+        if (arch == null) {
+          await Build.exec(
+            name: "flutter build apk (universal)",
+            [
+              "flutter",
+              "build",
+              "apk",
+              "--release",
+              "--dart-define=APP_ENV=$env",
+              "--dart-define=CORE_VERSION=$coreVersion",
+            ],
+          );
+          Build.copyFile(
+            join(current, "build", "app", "outputs", "flutter-apk",
+                "app-release.apk"),
+            join(Build.distPath, "${Build.appName}-universal.apk"),
+          );
+        }
+
         return;
       case Target.macos:
         await _buildMacosApp(
