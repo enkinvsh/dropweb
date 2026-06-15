@@ -98,7 +98,7 @@ class MessageManagerState extends State<MessageManager> {
                       builder: (_, constraints) => Card(
                           shape: const RoundedSuperellipseBorder(
                             borderRadius: BorderRadius.all(
-                              Radius.circular(12.0),
+                              Radius.circular(Lumina.radiusLg),
                             ),
                           ),
                           elevation: 10,
