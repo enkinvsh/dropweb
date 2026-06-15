@@ -54,17 +54,21 @@ Map<String, dynamic> applyWorkModePatch(
     case WorkMode.gaming:
       return Map<String, dynamic>.from(rawConfig);
     case WorkMode.smart:
-      final interceptGroups = smartInterceptGroups(rawConfig);
-      if (interceptGroups.isEmpty) {
+      // Bind «Умный» ONLY into the primary router (the catch-all MATCH target,
+      // e.g. 🌍 VPN) — NOT into every rule-referenced group. Per-service groups
+      // (YouTube / Discord / …) keep the panel template's own routing; only the
+      // general «everything else» traffic is smart auto-selected.
+      final primaryRouter = detectPrimaryRouter(rawConfig);
+      if (primaryRouter == null) {
         return Map<String, dynamic>.from(rawConfig);
       }
-      final leaves = _unionLeafNodes(rawConfig, interceptGroups);
+      final leaves = _smartLeafNodes(rawConfig, primaryRouter);
       if (leaves.isEmpty) {
-        // Smart unavailable (no intercept group resolves to a top-level leaf
+        // Smart unavailable (the primary router resolves to no top-level leaf
         // node) — inject nothing, mirroring the country-no-nodes path.
         return Map<String, dynamic>.from(rawConfig);
       }
-      return _injectSmartGroup(rawConfig, interceptGroups, leaves);
+      return _injectSmartGroup(rawConfig, [primaryRouter], leaves);
     case WorkMode.country:
       if (staticCountry == null || staticCountry.isEmpty) {
         return Map<String, dynamic>.from(rawConfig);
@@ -120,8 +124,8 @@ bool countryGroupWillInject(
 
 /// Whether the `Умный` smart group will be PRESENT in [applyWorkModePatch]'s
 /// `WorkMode.smart` output over [rawConfig] — i.e. it is already defined, or it
-/// is injectable because ≥1 qualifying rule-referenced group resolves to ≥1
-/// leaf node (see [smartInterceptGroups] / [_smartInterceptLeaves]).
+/// is injectable because the primary router ([detectPrimaryRouter]) resolves to
+/// ≥1 leaf node (see [_smartLeafNodes]).
 ///
 /// Mirror of [countryGroupWillInject] for smart mode: lets the UI gate Smart
 /// availability and the controller decide whether to wire `selectedMap`, using
@@ -136,9 +140,9 @@ bool smartGroupWillInject(Map<String, dynamic> rawConfig) {
       }
     }
   }
-  final interceptGroups = smartInterceptGroups(rawConfig);
-  if (interceptGroups.isEmpty) return false;
-  return _unionLeafNodes(rawConfig, interceptGroups).isNotEmpty;
+  final primaryRouter = detectPrimaryRouter(rawConfig);
+  if (primaryRouter == null) return false;
+  return _smartLeafNodes(rawConfig, primaryRouter).isNotEmpty;
 }
 
 /// Group names the `Умный` work mode must NEVER intercept: the emergency-pool
@@ -181,8 +185,8 @@ Object? _resolveRules(Map<String, dynamic> rawConfig) =>
 /// The SOS chain (`🧠 Smart` / `📶 First Available`) is excluded both because
 /// it is never rule-referenced and via the explicit hard-exclude. Groups that
 /// are only reachable as a MEMBER of another group (e.g. `🌀 Cascade`) are NOT
-/// intercepted, but their leaf nodes still flow into `Умный` via
-/// [_smartInterceptLeaves]'s one-level resolution.
+/// intercepted, but their leaf nodes still flow into the Country candidate pool
+/// via [interceptLeafNodes]'s one-level resolution.
 List<String> smartInterceptGroups(Map<String, dynamic> rawConfig) {
   final groups = rawConfig['proxy-groups'];
   final rules = _resolveRules(rawConfig);
@@ -231,14 +235,44 @@ List<String> smartInterceptGroups(Map<String, dynamic> rawConfig) {
   ];
 }
 
+/// The PRIMARY router group the `Умный` work mode binds into: the catch-all
+/// `MATCH` rule's target — the group all otherwise-unmatched traffic flows to,
+/// i.e. the semantic "VPN" router — provided it is a qualifying intercept group
+/// ([smartInterceptGroups]). NAME-AGNOSTIC: works whether the panel template
+/// calls that group `🌍 VPN`, `PROXY`, `节点选择`, etc., because every
+/// well-formed Mihomo config ends in a `MATCH` catch-all.
+///
+/// Falls back to the FIRST qualifying rule-referenced routable group (in
+/// `proxy-groups` declaration order) when there is no `MATCH` rule, or it
+/// targets a builtin / a non-intercept group. Returns null when nothing
+/// qualifies (smart unavailable — mirrors the country-no-nodes path).
+String? detectPrimaryRouter(Map<String, dynamic> rawConfig) {
+  final qualifying = smartInterceptGroups(rawConfig);
+  if (qualifying.isEmpty) return null;
+  final qualifyingSet = qualifying.toSet();
+  final rules = _resolveRules(rawConfig);
+  if (rules is List) {
+    for (final rule in rules) {
+      final text = rule?.toString() ?? '';
+      final fields = text.split(',');
+      if (fields.isEmpty || fields.first.trim() != 'MATCH') continue;
+      final target = ruleTarget(text);
+      if (target != null && qualifyingSet.contains(target)) {
+        return target;
+      }
+    }
+  }
+  return qualifying.first;
+}
+
 /// The de-duplicated UNION of the leaf nodes routed through EVERY
 /// rule-referenced intercept group of [rawConfig] (see [smartInterceptGroups] /
 /// [_smartLeafNodes]), in first-seen order.
 ///
-/// This is the single structurally-SOS-free candidate set shared by BOTH work
-/// modes:
-///   * Smart — the explicit membership of the injected `Умный` group;
-///   * Country — the node pool `groupNodesByCountry` buckets per flag.
+/// This is the structurally-SOS-free candidate set Country mode draws from
+/// (the node pool `groupNodesByCountry` buckets per flag). Smart mode no longer
+/// uses this union — it sources its `Умный` membership from the primary router
+/// alone (see [detectPrimaryRouter] / [_smartLeafNodes]).
 ///
 /// disconeko / emergency-pool nodes that `patchSmartPool` appends to top-level
 /// `proxies` are NEVER members of a rule-referenced group, so they are excluded

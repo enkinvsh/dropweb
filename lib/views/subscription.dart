@@ -536,7 +536,9 @@ class _ModesContentState extends ConsumerState<_ModesContent>
               chevronDisabled: profile.workMode != WorkMode.standard,
             ),
             const SizedBox(height: 16),
-            // «Умный»: no deep, no chevron.
+            // «Умный»: tap applies smart; chevron → «Серверы и группы» (view the
+            // server-side group config) — like «Стандарт», tappable only while
+            // Smart is the active mode, otherwise shown disabled.
             _ModeCard(
               icon: HugeIcons.strokeRoundedArtificialIntelligence01,
               title: appLocalizations.workModeSmart,
@@ -544,6 +546,10 @@ class _ModesContentState extends ConsumerState<_ModesContent>
               isSelected: profile.workMode == WorkMode.smart,
               enabled: data.hasSmartCandidates,
               onTap: () => _apply(WorkMode.smart),
+              onChevronTap: profile.workMode == WorkMode.smart
+                  ? _openServersAndGroups
+                  : null,
+              chevronDisabled: profile.workMode != WorkMode.smart,
             ),
             const SizedBox(height: 16),
             // «Страна»: selection requires a country → both card tap and

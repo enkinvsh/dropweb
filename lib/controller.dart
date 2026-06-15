@@ -1553,10 +1553,13 @@ class AppController {
     var smartAvailable = false;
     try {
       final cfg = await globalState.getProfileConfig(currentProfile.id);
-      // ALL rule-referenced groups «Умный» is injected into (not just the
-      // primary router) — the controller binds selectedMap for each so YouTube /
-      // Discord / etc. route through «Умный» too (ИТЕРАЦИЯ 2).
-      smartGroups = smartInterceptGroups(cfg);
+      // «Умный» binds ONLY into the primary router (the catch-all MATCH target,
+      // e.g. 🌍 VPN). Per-service groups (YouTube / Discord / …) keep the panel
+      // template's own routing; only the general «everything else» traffic is
+      // smart auto-selected. selectedMap is wired for that one group below.
+      final primaryRouter = detectPrimaryRouter(cfg);
+      smartGroups =
+          primaryRouter == null ? const <String>[] : <String>[primaryRouter];
       smartAvailable = smartGroupWillInject(cfg);
     } catch (e) {
       commonPrint.log('applyWorkMode: failed to read profile config: $e');
