@@ -147,6 +147,40 @@ extension ProfileExtension on Profile {
 
   bool get realAutoUpdate => url.isEmpty == true ? false : autoUpdate;
 
+  /// Human-facing subscription/service name, mirroring the dashboard card
+  /// resolution (MetainfoWidget.pickTitle): the Remnawave `profile-title`
+  /// header wins, then the `dropweb-servicename` header, then the stored
+  /// `label`, then the raw `id`. Both branding headers may arrive base64
+  /// (optionally `base64:`-prefixed), so they are decoded here. Never empty.
+  String get serviceName {
+    String? decode(String? value) {
+      if (value == null || value.isEmpty) return null;
+      var text = value;
+      if (text.startsWith('base64:')) {
+        text = text.substring(7);
+      }
+      try {
+        return utf8.decode(base64.decode(base64.normalize(text)));
+      } catch (_) {
+        return value;
+      }
+    }
+
+    for (final candidate in [
+      decode(providerHeaders['profile-title']),
+      decode(providerHeaders['dropweb-servicename']),
+    ]) {
+      final trimmed = candidate?.trim();
+      if (trimmed != null && trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    final trimmedLabel = label?.trim();
+    return (trimmedLabel != null && trimmedLabel.isNotEmpty)
+        ? trimmedLabel
+        : id;
+  }
+
   Future<void> checkAndUpdate() async {
     final isExists = await check();
     if (!isExists) {

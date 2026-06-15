@@ -33,7 +33,12 @@ bool isSvgLogoUrl(String url) => url.toLowerCase().endsWith('.svg');
 /// from the current profile; renders nothing when the subscription-logo toggle
 /// is off or no logo is present. Pointer-transparent.
 class SubscriptionCardLogo extends ConsumerWidget {
-  const SubscriptionCardLogo({super.key});
+  const SubscriptionCardLogo({super.key, this.headers});
+
+  /// Provider headers to read `dropweb-logo` from. When null, the widget
+  /// tracks the currently selected profile (dashboard behaviour); when
+  /// provided, it renders that specific profile's logo (e.g. profiles list).
+  final Map<String, String>? headers;
 
   // Baked placement (tuned on-device).
   static const double _sizeFraction = 0.60; // side as a fraction of card width
@@ -47,10 +52,11 @@ class SubscriptionCardLogo extends ConsumerWidget {
     final enabled = ref.watch(
       appSettingProvider.select((s) => s.applySubscriptionLogo),
     );
-    final headers = ref.watch(
-      currentProfileProvider.select((p) => p?.providerHeaders),
-    );
-    final url = decodeLogoUrl(headers?['dropweb-logo']);
+    final resolvedHeaders = headers ??
+        ref.watch(
+          currentProfileProvider.select((p) => p?.providerHeaders),
+        );
+    final url = decodeLogoUrl(resolvedHeaders?['dropweb-logo']);
     if (!enabled || url == null || url.isEmpty) {
       return const SizedBox.shrink();
     }

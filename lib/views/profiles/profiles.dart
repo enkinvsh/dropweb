@@ -8,6 +8,7 @@ import 'package:dropweb/models/models.dart' hide Action;
 import 'package:dropweb/pages/pages.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/views/dashboard/widgets/corner_badge.dart';
 import 'package:dropweb/views/subscription.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -212,125 +213,151 @@ class _ProfileItemState extends State<ProfileItem> {
   }
 
   @override
-  Widget build(BuildContext context) => CommonCard(
-        radius: Lumina.radiusLg,
-        isSelected: widget.profile.id == widget.groupValue,
-        onPressed: _isTV
-            ? null
-            : () {
-                widget.onChanged(widget.profile.id);
-              },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap:
-                      _isTV ? () => widget.onChanged(widget.profile.id) : null,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        widget.profile.label ?? widget.profile.id,
-                        style: context.textTheme.titleMedium,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      ..._buildUrlProfileInfo(context)
-                    ],
+  @override
+  Widget build(BuildContext context) {
+    final displayName = widget.profile.serviceName;
+    final fallbackLabel = widget.profile.label ?? widget.profile.id;
+    return CommonCard(
+      radius: Lumina.radiusLg,
+      isSelected: widget.profile.id == widget.groupValue,
+      onPressed: _isTV
+          ? null
+          : () {
+              widget.onChanged(widget.profile.id);
+            },
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: SubscriptionCardLogo(
+              headers: widget.profile.providerHeaders,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _isTV
+                        ? () => widget.onChanged(widget.profile.id)
+                        : null,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          displayName,
+                          style: context.textTheme.titleMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (displayName != fallbackLabel)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              fallbackLabel,
+                              style: context.textTheme.labelMedium?.toLight,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ..._buildUrlProfileInfo(context)
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(
-                height: 40,
-                width: 40,
-                child: FadeThroughBox(
-                  child: widget.profile.isUpdating
-                      ? const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: CircularProgressIndicator(),
-                        )
-                      : CommonPopupBox(
-                          popup: CommonPopupMenu(
-                            items: [
-                              if (_isTV)
+                SizedBox(
+                  height: 40,
+                  width: 40,
+                  child: FadeThroughBox(
+                    child: widget.profile.isUpdating
+                        ? const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: CircularProgressIndicator(),
+                          )
+                        : CommonPopupBox(
+                            popup: CommonPopupMenu(
+                              items: [
+                                if (_isTV)
+                                  PopupMenuItemData(
+                                    label: appLocalizations.selectProfile,
+                                    onPressed: () {
+                                      widget.onChanged(widget.profile.id);
+                                    },
+                                  ),
                                 PopupMenuItemData(
-                                  label: appLocalizations.selectProfile,
+                                  label: appLocalizations.update,
+                                  onPressed: updateProfile,
+                                ),
+                                // Android (Play target) hides LAN
+                                // subscription sharing because it exposes
+                                // the subscription URL over plain local
+                                // HTTP and is not essential for Play v1
+                                // (see `shouldShowSendToTv`). Other mobile
+                                // surfaces (iOS) keep the user-explicit
+                                // local sharing flow.
+                                if (system.isMobile &&
+                                    !_isTV &&
+                                    shouldShowSendToTv(
+                                        isAndroid: Platform.isAndroid))
+                                  PopupMenuItemData(
+                                    label: appLocalizations.sendToTv,
+                                    onPressed: () {
+                                      BaseNavigator.push(
+                                          context,
+                                          SendToTvPage(
+                                              profileUrl: widget.profile.url));
+                                    },
+                                  ),
+                                if (widget.profile
+                                                .providerHeaders['support-url'] !=
+                                            null &&
+                                    widget.profile
+                                        .providerHeaders['support-url']!
+                                        .isNotEmpty &&
+                                    !_isTV)
+                                  PopupMenuItemData(
+                                    label: appLocalizations.support,
+                                    onPressed: () {
+                                      globalState.openUrl(widget.profile
+                                          .providerHeaders['support-url']!);
+                                    },
+                                  ),
+                                PopupMenuItemData(
+                                  label: appLocalizations.delete,
                                   onPressed: () {
-                                    widget.onChanged(widget.profile.id);
+                                    _handleDeleteProfile(context);
                                   },
                                 ),
-                              PopupMenuItemData(
-                                label: appLocalizations.update,
-                                onPressed: updateProfile,
-                              ),
-                              // Android (Play target) hides LAN
-                              // subscription sharing because it exposes
-                              // the subscription URL over plain local
-                              // HTTP and is not essential for Play v1
-                              // (see `shouldShowSendToTv`). Other mobile
-                              // surfaces (iOS) keep the user-explicit
-                              // local sharing flow.
-                              if (system.isMobile &&
-                                  !_isTV &&
-                                  shouldShowSendToTv(
-                                      isAndroid: Platform.isAndroid))
-                                PopupMenuItemData(
-                                  label: appLocalizations.sendToTv,
-                                  onPressed: () {
-                                    BaseNavigator.push(
-                                        context,
-                                        SendToTvPage(
-                                            profileUrl: widget.profile.url));
-                                  },
+                              ],
+                            ),
+                            targetBuilder: (open) => Focus(
+                              focusNode: _menuFocusNode,
+                              canRequestFocus: true,
+                              child: Material(
+                                color: _isMenuFocused
+                                    ? Theme.of(context).focusColor
+                                    : Colors.transparent,
+                                borderRadius:
+                                    BorderRadius.circular(Lumina.radiusLg - 6),
+                                child: IconButton(
+                                  onPressed: open,
+                                  icon: HugeIcon(
+                                      icon: HugeIcons.strokeRoundedMoreVertical,
+                                      size: 24),
                                 ),
-                              if (widget.profile
-                                          .providerHeaders['support-url'] !=
-                                      null &&
-                                  widget.profile.providerHeaders['support-url']!
-                                      .isNotEmpty &&
-                                  !_isTV)
-                                PopupMenuItemData(
-                                  label: appLocalizations.support,
-                                  onPressed: () {
-                                    globalState.openUrl(widget.profile
-                                        .providerHeaders['support-url']!);
-                                  },
-                                ),
-                              PopupMenuItemData(
-                                label: appLocalizations.delete,
-                                onPressed: () {
-                                  _handleDeleteProfile(context);
-                                },
-                              ),
-                            ],
-                          ),
-                          targetBuilder: (open) => Focus(
-                            focusNode: _menuFocusNode,
-                            canRequestFocus: true,
-                            child: Material(
-                              color: _isMenuFocused
-                                  ? Theme.of(context).focusColor
-                                  : Colors.transparent,
-                              borderRadius:
-                                  BorderRadius.circular(Lumina.radiusLg - 6),
-                              child: IconButton(
-                                onPressed: open,
-                                icon: HugeIcon(
-                                    icon: HugeIcons.strokeRoundedMoreVertical,
-                                    size: 24),
                               ),
                             ),
                           ),
-                        ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
+        ],
+      ),
+    );
+  }
 }
 
 class ReorderableProfilesSheet extends StatefulWidget {
