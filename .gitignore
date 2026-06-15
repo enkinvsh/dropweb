@@ -1,6 +1,10 @@
 # Binaries for programs and plugins
 *.exe
 *.exe~
+# EnableLoopback.exe is a bundled Windows runtime tool: the windows build
+# installs it into the app bundle (windows/CMakeLists.txt) and the app invokes
+# it at runtime (lib/views/tools.dart). It must stay tracked despite *.exe.
+!windows/EnableLoopback.exe
 
 # Miscellaneous
 *.class
