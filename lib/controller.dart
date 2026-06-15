@@ -902,6 +902,32 @@ class AppController {
     }
   }
 
+  /// Re-sync the operator theme to the CURRENT profile at app startup.
+  ///
+  /// The subscription theme is persisted globally, but it is only (re)applied on
+  /// a profile switch/update ([handleChangeProfile] / updateProfile). Without
+  /// this, a fresh launch keeps the LAST-applied theme — which can be a
+  /// *different* provider's colors — until the user manually switches or updates
+  /// a profile. Mirrors the reset-then-apply that [handleChangeProfile] does, so
+  /// a profile without a `dropweb-theme` header reverts to the dropweb default
+  /// instead of inheriting stale colors.
+  void applyCurrentProfileThemeOnStartup() {
+    final currentProfileId = _ref.read(currentProfileIdProvider);
+    if (currentProfileId == null) return;
+    final profiles = _ref.read(profilesProvider);
+    if (profiles.isEmpty) return;
+    final currentProfile = profiles.firstWhere(
+      (p) => p.id == currentProfileId,
+      orElse: () => profiles.first,
+    );
+    if (_ref.read(appSettingProvider).applySubscriptionTheme) {
+      _resetSubscriptionTheme();
+    }
+    if (currentProfile.providerHeaders.isNotEmpty) {
+      _applyAllHeaderSettings(currentProfile, isNewProfile: false);
+    }
+  }
+
   void updateBrightness(Brightness brightness) {
     _ref.read(appBrightnessProvider.notifier).value = brightness;
   }
@@ -1163,6 +1189,9 @@ class AppController {
     updateTray(true);
     await _initCore();
     await _initStatus();
+    // Sync the operator theme to the current profile on launch so a previous
+    // provider's colors don't linger until the user switches/updates a profile.
+    applyCurrentProfileThemeOnStartup();
     autoLaunch?.updateStatus(
       _ref.read(appSettingProvider).autoLaunch,
     );
