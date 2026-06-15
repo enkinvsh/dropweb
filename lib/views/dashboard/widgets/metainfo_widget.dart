@@ -1,16 +1,15 @@
 import 'dart:convert';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/views/dashboard/widgets/corner_badge.dart';
 import 'package:dropweb/views/subscription.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
@@ -51,59 +50,6 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
       default:
         return appLocalizations.days;
     }
-  }
-
-  /// Circular provider logo from `dropweb-logo`, color-filtered to follow the
-  /// active scheme variant (mono -> grayscale, vibrant -> saturated, etc.);
-  /// fidelity leaves it in its original colors.
-  Widget _buildLogo(
-    BuildContext context,
-    String logoUrl,
-    DynamicSchemeVariant variant,
-    bool lit,
-  ) {
-    final isSvg = logoUrl.toLowerCase().endsWith('.svg');
-    // Logo renders at 36 logical px; decode at its physical pixel size.
-    final logoCacheSize = (36 * MediaQuery.devicePixelRatioOf(context)).round();
-    final image = isSvg
-        ? SvgPicture.network(
-            logoUrl,
-            width: 36,
-            height: 36,
-            fit: BoxFit.cover,
-            placeholderBuilder: (_) => const SizedBox(width: 36, height: 36),
-          )
-        : CachedNetworkImage(
-            imageUrl: logoUrl,
-            width: 36,
-            height: 36,
-            memCacheWidth: logoCacheSize,
-            memCacheHeight: logoCacheSize,
-            fit: BoxFit.cover,
-            placeholder: (_, __) => const SizedBox(width: 36, height: 36),
-            errorWidget: (_, __, ___) => const SizedBox(width: 36, height: 36),
-          );
-    Widget content = image;
-    final filter = imageColorFilter(variant);
-    if (filter != null) {
-      content = ColorFiltered(colorFilter: filter, child: content);
-    }
-    // Thin accent ring that lights up in sync with the connect button: full
-    // accent when running, dimmed (matching the button's inactive icon) when
-    // not. Animates over the same 180ms / easeOutCubic as the button.
-    final colorScheme = Theme.of(context).colorScheme;
-    final ringColor = lit
-        ? colorScheme.primary
-        : Color.lerp(Lumina.lensBody, colorScheme.primary, 0.28)!;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: ringColor, width: 0.5),
-      ),
-      child: ClipOval(child: content),
-    );
   }
 
   String _getHoursDeclension(int hours) {
@@ -221,12 +167,6 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
     final profileTitle = _decodeBase64IfNeeded(headers['profile-title']);
     final serviceName = _decodeBase64IfNeeded(headers['dropweb-servicename']);
     final announceText = _decodeAnnounce(headers['announce']);
-    final logoUrl = _decodeBase64IfNeeded(headers['dropweb-logo']);
-    final logoVariant =
-        ref.watch(themeSettingProvider.select((s) => s.schemeVariant));
-    final logoLit = ref.watch(runTimeProvider.select((s) => s != null));
-    final showSubscriptionLogo =
-        ref.watch(appSettingProvider.select((s) => s.applySubscriptionLogo));
 
     final hasAnnounce = announceText != null && announceText.isNotEmpty;
 
@@ -284,7 +224,8 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
                 .difference(now) <
             const Duration(days: 3);
 
-    final usedTrafficTotal = subscriptionInfo.upload + subscriptionInfo.download;
+    final usedTrafficTotal =
+        subscriptionInfo.upload + subscriptionInfo.download;
     final showTopUp = topUpUrl != null &&
         topUpUrl.isNotEmpty &&
         subscriptionInfo.total > 0 &&
@@ -300,118 +241,117 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
           ),
         );
       },
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+      child: Stack(
+        children: [
+          const Positioned.fill(child: SubscriptionCardLogo()),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: EmojiText(
-                    titleText,
-                    style: theme.textTheme.headlineSmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                // Provider logo from the `dropweb-logo` header, rendered as a
-                // circle and tinted by the active scheme-variant filter so it
-                // follows the theme. Absent header -> nothing (the menu stays
-                // reachable via the bottom swipe-up handle).
-                if (showSubscriptionLogo &&
-                    logoUrl != null &&
-                    logoUrl.isNotEmpty)
-                  _buildLogo(context, logoUrl, logoVariant, logoLit),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (!isUnlimitedTraffic)
-              Builder(builder: (context) {
-                final totalTraffic =
-                    TrafficValue(value: subscriptionInfo.total);
-                final usedTrafficValue =
-                    subscriptionInfo.upload + subscriptionInfo.download;
-                final usedTraffic = TrafficValue(value: usedTrafficValue);
-
-                var progress = 0.0;
-                if (subscriptionInfo.total > 0) {
-                  progress = usedTrafficValue / subscriptionInfo.total;
-                }
-                progress = progress.clamp(0.0, 1.0);
-
-                Color progressColor = Colors.green;
-                if (progress > 0.9) {
-                  progressColor = Colors.red;
-                } else if (progress > 0.7) {
-                  progressColor = Colors.orange;
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      '${appLocalizations.traffic} ${usedTraffic.showValue} ${usedTraffic.showUnit} / ${totalTraffic.showValue} ${totalTraffic.showUnit}',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(Lumina.radiusMd - 6),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 6,
-                        backgroundColor:
-                            theme.colorScheme.surfaceContainerHighest,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(progressColor),
+                    Expanded(
+                      child: EmojiText(
+                        titleText,
+                        style: theme.textTheme.headlineSmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
-                );
-              })
-            else
-              Text(
-                appLocalizations.trafficUnlimited,
-                style: theme.textTheme.bodyMedium,
-              ),
-            const SizedBox(height: 12),
-            Text(
-              isPerpetual
-                  ? appLocalizations.subscriptionEternal
-                  : '${appLocalizations.expiresOn} ${DateFormat('dd.MM.yyyy').format(DateTime.fromMillisecondsSinceEpoch(subscriptionInfo.expire * 1000))}',
-              style: theme.textTheme.bodyMedium,
-            ),
-            _buildMonetizationButtons(
-              context,
-              showRenew: showRenew,
-              showTopUp: showTopUp,
-              renewUrl: renewUrl,
-              topUpUrl: topUpUrl,
-            ),
-            if (hasAnnounce) ...[
-              const SizedBox(height: 10),
-              Divider(
-                height: 1,
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-              ),
-              const SizedBox(height: 10),
-              RichText(
-                text: TextSpan(
-                  children: _buildAnnounceSpans(context, announceText),
                 ),
-              ),
-            ],
-            if (showTimeLeft) ...[
-              const SizedBox(height: 12),
-              _buildExpirationNotice(
-                context,
-                remainingText: remainingText,
-                timeLeftValue: timeLeftValue,
-                timeLeftUnit: timeLeftUnit,
-              ),
-            ],
-          ],
-        ),
+                const SizedBox(height: 12),
+                if (!isUnlimitedTraffic)
+                  Builder(builder: (context) {
+                    final totalTraffic =
+                        TrafficValue(value: subscriptionInfo.total);
+                    final usedTrafficValue =
+                        subscriptionInfo.upload + subscriptionInfo.download;
+                    final usedTraffic = TrafficValue(value: usedTrafficValue);
+
+                    var progress = 0.0;
+                    if (subscriptionInfo.total > 0) {
+                      progress = usedTrafficValue / subscriptionInfo.total;
+                    }
+                    progress = progress.clamp(0.0, 1.0);
+
+                    Color progressColor = Colors.green;
+                    if (progress > 0.9) {
+                      progressColor = Colors.red;
+                    } else if (progress > 0.7) {
+                      progressColor = Colors.orange;
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${appLocalizations.traffic} ${usedTraffic.showValue} ${usedTraffic.showUnit} / ${totalTraffic.showValue} ${totalTraffic.showUnit}',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius:
+                              BorderRadius.circular(Lumina.radiusMd - 6),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 6,
+                            backgroundColor:
+                                theme.colorScheme.surfaceContainerHighest,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(progressColor),
+                          ),
+                        ),
+                      ],
+                    );
+                  })
+                else
+                  Text(
+                    appLocalizations.trafficUnlimited,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                const SizedBox(height: 12),
+                Text(
+                  isPerpetual
+                      ? appLocalizations.subscriptionEternal
+                      : '${appLocalizations.expiresOn} ${DateFormat('dd.MM.yyyy').format(DateTime.fromMillisecondsSinceEpoch(subscriptionInfo.expire * 1000))}',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                _buildMonetizationButtons(
+                  context,
+                  showRenew: showRenew,
+                  showTopUp: showTopUp,
+                  renewUrl: renewUrl,
+                  topUpUrl: topUpUrl,
+                ),
+                if (hasAnnounce) ...[
+                  const SizedBox(height: 10),
+                  Divider(
+                    height: 1,
+                    color:
+                        theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  ),
+                  const SizedBox(height: 10),
+                  RichText(
+                    text: TextSpan(
+                      children: _buildAnnounceSpans(context, announceText),
+                    ),
+                  ),
+                ],
+                if (showTimeLeft) ...[
+                  const SizedBox(height: 12),
+                  _buildExpirationNotice(
+                    context,
+                    remainingText: remainingText,
+                    timeLeftValue: timeLeftValue,
+                    timeLeftUnit: timeLeftUnit,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
