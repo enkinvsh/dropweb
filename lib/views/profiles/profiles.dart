@@ -162,39 +162,9 @@ class _ProfileItemState extends State<ProfileItem> {
           final usedTrafficValue =
               subscriptionInfo.upload + subscriptionInfo.download;
           final usedTraffic = TrafficValue(value: usedTrafficValue);
-
-          var progress = 0.0;
-          if (subscriptionInfo.total > 0) {
-            progress = usedTrafficValue / subscriptionInfo.total;
-          }
-          progress = progress.clamp(0.0, 1.0);
-
-          final colorScheme = context.colorScheme;
-          Color progressColor = colorScheme.primary;
-          if (progress > 0.9) {
-            progressColor = colorScheme.error;
-          } else if (progress > 0.7) {
-            progressColor = colorScheme.tertiary;
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${appLocalizations.traffic} ${usedTraffic.showValue} ${usedTraffic.showUnit} / ${totalTraffic.showValue} ${totalTraffic.showUnit}',
-                style: context.textTheme.bodySmall,
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(Lumina.radiusMd - 6),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 6,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.surfaceContainerHighest,
-                  valueColor: AlwaysStoppedAnimation<Color>(progressColor),
-                ),
-              ),
-            ],
+          return Text(
+            '${appLocalizations.traffic} ${usedTraffic.showValue} ${usedTraffic.showUnit} / ${totalTraffic.showValue} ${totalTraffic.showUnit}',
+            style: context.textTheme.bodySmall,
           );
         }),
       const SizedBox(height: 6),
