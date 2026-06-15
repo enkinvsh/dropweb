@@ -270,40 +270,9 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
                     final usedTrafficValue =
                         subscriptionInfo.upload + subscriptionInfo.download;
                     final usedTraffic = TrafficValue(value: usedTrafficValue);
-
-                    var progress = 0.0;
-                    if (subscriptionInfo.total > 0) {
-                      progress = usedTrafficValue / subscriptionInfo.total;
-                    }
-                    progress = progress.clamp(0.0, 1.0);
-
-                    Color progressColor = Colors.green;
-                    if (progress > 0.9) {
-                      progressColor = Colors.red;
-                    } else if (progress > 0.7) {
-                      progressColor = Colors.orange;
-                    }
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${appLocalizations.traffic} ${usedTraffic.showValue} ${usedTraffic.showUnit} / ${totalTraffic.showValue} ${totalTraffic.showUnit}',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 6),
-                        ClipRRect(
-                          borderRadius:
-                              BorderRadius.circular(Lumina.radiusMd - 6),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 6,
-                            backgroundColor:
-                                theme.colorScheme.surfaceContainerHighest,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(progressColor),
-                          ),
-                        ),
-                      ],
+                    return Text(
+                      '${appLocalizations.traffic} ${usedTraffic.showValue} ${usedTraffic.showUnit} / ${totalTraffic.showValue} ${totalTraffic.showUnit}',
+                      style: theme.textTheme.bodyMedium,
                     );
                   })
                 else
