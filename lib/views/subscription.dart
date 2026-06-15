@@ -515,7 +515,7 @@ class _ModesContentState extends ConsumerState<_ModesContent>
     return dataAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (_, __) => NullStatus(label: appLocalizations.nullProfileDesc),
-      data: (data) {
+      data: (_) {
         final stack = ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -536,22 +536,10 @@ class _ModesContentState extends ConsumerState<_ModesContent>
               chevronDisabled: profile.workMode != WorkMode.standard,
             ),
             const SizedBox(height: 16),
-            // «Умный»: tap applies smart; chevron → «Серверы и группы» (view the
-            // server-side group config) — like «Стандарт», tappable only while
-            // Smart is the active mode, otherwise shown disabled.
-            _ModeCard(
-              icon: HugeIcons.strokeRoundedArtificialIntelligence01,
-              title: appLocalizations.workModeSmart,
-              description: appLocalizations.workModeSmartDesc,
-              isSelected: profile.workMode == WorkMode.smart,
-              enabled: data.hasSmartCandidates,
-              onTap: () => _apply(WorkMode.smart),
-              onChevronTap: profile.workMode == WorkMode.smart
-                  ? _openServersAndGroups
-                  : null,
-              chevronDisabled: profile.workMode != WorkMode.smart,
-            ),
-            const SizedBox(height: 16),
+            // «Умный» (Smart) is temporarily removed from the modes list and
+            // will be reintroduced later. The WorkMode.smart code path stays
+            // intact (work_mode_patch / detectPrimaryRouter / controller), only
+            // the card is hidden for now.
             // «Страна»: selection requires a country → both card tap and
             // chevron open the deep country picker.
             _ModeCard(
@@ -579,8 +567,7 @@ class _ModesContentState extends ConsumerState<_ModesContent>
 /// title/description, an optional [badge] (e.g. «скоро»), and — when the mode
 /// has a deep screen — a trailing chevron affordance ([onChevronTap]) styled
 /// like the [ListItem] chevron. Tapping the card fires [onTap] (select mode);
-/// tapping the chevron fires [onChevronTap] (open deep). Disabled cards are
-/// greyed with [DisabledMask] and never fire [onTap].
+/// tapping the chevron fires [onChevronTap] (open deep).
 class _ModeCard extends StatelessWidget {
   const _ModeCard({
     required this.icon,
@@ -588,7 +575,6 @@ class _ModeCard extends StatelessWidget {
     required this.description,
     required this.isSelected,
     required this.onTap,
-    this.enabled = true,
     this.badge,
     this.onChevronTap,
     this.chevronDisabled = false,
@@ -599,7 +585,6 @@ class _ModeCard extends StatelessWidget {
   final String description;
   final bool isSelected;
   final VoidCallback onTap;
-  final bool enabled;
   final Widget? badge;
   final VoidCallback? onChevronTap;
 
@@ -614,7 +599,7 @@ class _ModeCard extends StatelessWidget {
     final card = CommonCard(
       isSelected: isSelected,
       radius: Lumina.radiusLg,
-      onPressed: enabled ? onTap : () {},
+      onPressed: onTap,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -670,7 +655,7 @@ class _ModeCard extends StatelessWidget {
       ),
     );
 
-    return enabled ? card : DisabledMask(child: card);
+    return card;
   }
 }
 
