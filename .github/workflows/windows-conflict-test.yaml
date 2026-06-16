@@ -93,3 +93,64 @@ jobs:
             exit 1
           }
           Write-Host "OK - dropweb decoupled (own install folder: $($dw.InstallLocation))"
+
+  flclashx-running-then-dropweb:
+    name: FlClashX running first, then install dropweb (runtime helper-port)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download installers
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force dl\flclashx, dl\dropweb | Out-Null
+          gh release download --repo pluralplay/FlClashX -p "*amd64*setup*.exe" -D dl\flclashx
+          if (-not (Get-ChildItem dl\flclashx -Filter *.exe -EA SilentlyContinue)) { gh release download --repo pluralplay/FlClashX -p "*setup*.exe" -D dl\flclashx }
+          $tag = (gh release list --repo ${{ github.repository }} -L 30 --json tagName,isPrerelease | ConvertFrom-Json | Where-Object { $_.isPrerelease } | Select-Object -First 1).tagName
+          Write-Host "dropweb pre-release: $tag"
+          gh release download $tag --repo ${{ github.repository }} -p "*amd64*.exe" -D dl\dropweb
+          Get-ChildItem -Recurse dl | ForEach-Object { Write-Host $_.FullName }
+
+      - name: Install FlClashX, then bring it ALIVE (helper on 47890 + launch app)
+        shell: pwsh
+        run: |
+          $fl = Get-ChildItem dl\flclashx -Filter *.exe -Recurse | Select-Object -First 1
+          Start-Process -FilePath $fl.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS','/NOCANCEL' -Wait
+          $hexe = 'C:\Program Files\FlClashX\FlClashHelperService.exe'
+          if (Test-Path $hexe) {
+            try { New-Service -Name FlClashHelperService -BinaryPathName "`"$hexe`"" -StartupType Manual -ErrorAction Stop | Out-Null } catch { Write-Host "create FlClashHelperService: $_" }
+            try { Start-Service FlClashHelperService -ErrorAction Stop; Write-Host "FlClashHelperService started" } catch { Write-Host "start FlClashHelperService failed: $_" }
+          } else { Write-Host "FlClashX helper exe not found at $hexe" }
+          Start-Process -FilePath 'C:\Program Files\FlClashX\FlClashX.exe' -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 6
+          & ./.github/scripts/win_conflict_inspect.ps1 -Label "FlClashX alive (helper + app)"
+          Write-Host "-- who holds 47890 --"; (netstat -ano | Select-String ':47890') | ForEach-Object { Write-Host "  $_" }
+
+      - name: Install dropweb WHILE FlClashX runs, then start its helper
+        shell: pwsh
+        run: |
+          $dw = Get-ChildItem dl\dropweb -Filter *.exe -Recurse | Select-Object -First 1
+          $p = Start-Process -FilePath $dw.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS','/NOCANCEL' -Wait -PassThru
+          Write-Host "dropweb installer exit=$($p.ExitCode)"
+          $hexe = 'C:\Program Files\dropweb\DropwebHelperService.exe'
+          if (Test-Path $hexe) {
+            try { New-Service -Name DropwebHelperService -BinaryPathName "`"$hexe`"" -StartupType Manual -ErrorAction Stop | Out-Null } catch { Write-Host "create DropwebHelperService: $_" }
+            try { Start-Service DropwebHelperService -ErrorAction Stop; Write-Host "DropwebHelperService started OK" } catch { Write-Host "start DropwebHelperService FAILED: $_" }
+          } else { Write-Host "dropweb helper exe not found at $hexe" }
+          Start-Process -FilePath 'C:\Program Files\dropweb\dropweb.exe' -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 6
+          & ./.github/scripts/win_conflict_inspect.ps1 -Label "after dropweb install (FlClashX still alive)"
+          Write-Host "-- who holds 47890 now --"; (netstat -ano | Select-String ':47890') | ForEach-Object { Write-Host "  $_" }
+
+      - name: Summary (informational - does not fail)
+        shell: pwsh
+        run: |
+          $fl = (Get-Service FlClashHelperService -EA SilentlyContinue).Status
+          $dw = (Get-Service DropwebHelperService -EA SilentlyContinue).Status
+          Write-Host "FlClashHelperService = $fl"
+          Write-Host "DropwebHelperService = $dw"
+          Write-Host "NOTE: pre.4 still uses port 47890 for BOTH helpers (the 47896 fix is unreleased)."
+          Write-Host "      So dropweb's helper is expected to FAIL while FlClashX holds 47890 - that PROVES the runtime port conflict."
+          Write-Host "      Install folders stay separate (other job); this job isolates the runtime helper-port clash."
