@@ -39,6 +39,21 @@ class AppDelegate: FlutterAppDelegate {
         super.applicationDidFinishLaunching(aNotification)
         
         mainFlutterWindow?.close()
+
+        // Status-bar app: there is no window, so after launch/install the UI
+        // stays invisible until the user clicks the menu-bar icon — the
+        // recurring "app doesn't open after install" complaint. Open the
+        // popover once, on launch. Deferred a beat so NSApp.activate + the show
+        // land AFTER the launch settles; a transient popover shown too early
+        // gets auto-dismissed the moment focus settles (why the Dart-side
+        // StatusBarManager.showWindow() call alone didn't stick).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            guard let self = self, let controller = self.statusBarController else { return }
+            NSApp.activate(ignoringOtherApps: true)
+            if !self.flutterUIPopover.isShown {
+                controller.showPopover(self)
+            }
+        }
     }
     
     func setupStatusBarChannel(flutterViewController: FlutterViewController) {
