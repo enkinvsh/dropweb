@@ -1,0 +1,86 @@
+name: windows-conflict-test
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/windows-conflict-test.yaml'
+      - '.github/scripts/win_conflict_inspect.ps1'
+
+permissions:
+  contents: read
+
+jobs:
+  decouple-check:
+    name: Clean coexistence (current dropweb + FlClashX)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download installers
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force dl\flclashx, dl\dropweb | Out-Null
+
+          Write-Host "=== FlClashX latest release assets ==="
+          gh release view --repo pluralplay/FlClashX --json assets --jq '.assets[].name'
+          gh release download --repo pluralplay/FlClashX -p "*amd64*setup*.exe" -D dl\flclashx
+          if (-not (Get-ChildItem dl\flclashx -Filter *.exe -EA SilentlyContinue)) {
+            gh release download --repo pluralplay/FlClashX -p "*setup*.exe" -D dl\flclashx
+          }
+          if (-not (Get-ChildItem dl\flclashx -Filter *.exe -EA SilentlyContinue)) {
+            gh release download --repo pluralplay/FlClashX -p "*.exe" -D dl\flclashx
+          }
+
+          Write-Host "=== dropweb latest pre-release ==="
+          $tag = (gh release list --repo ${{ github.repository }} -L 30 --json tagName,isPrerelease | ConvertFrom-Json | Where-Object { $_.isPrerelease } | Select-Object -First 1).tagName
+          Write-Host "latest pre-release tag: $tag"
+          gh release view $tag --repo ${{ github.repository }} --json assets --jq '.assets[].name'
+          gh release download $tag --repo ${{ github.repository }} -p "*amd64*.exe" -D dl\dropweb
+          if (-not (Get-ChildItem dl\dropweb -Filter *.exe -EA SilentlyContinue)) {
+            gh release download $tag --repo ${{ github.repository }} -p "*setup*.exe" -D dl\dropweb
+          }
+
+          Write-Host "=== downloaded ==="
+          Get-ChildItem -Recurse dl | ForEach-Object { Write-Host $_.FullName }
+
+      - name: 0 - baseline (clean runner)
+        shell: pwsh
+        run: '& ./.github/scripts/win_conflict_inspect.ps1 -Label "0. clean runner"'
+
+      - name: 1 - install FlClashX
+        shell: pwsh
+        run: |
+          $fl = Get-ChildItem dl\flclashx -Filter *.exe -Recurse | Select-Object -First 1
+          if (-not $fl) { Write-Host "::error::FlClashX installer not found"; exit 1 }
+          Write-Host "Installing $($fl.FullName)"
+          $p = Start-Process -FilePath $fl.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS','/NOCANCEL' -Wait -PassThru
+          Write-Host "FlClashX installer exit=$($p.ExitCode)"
+          & ./.github/scripts/win_conflict_inspect.ps1 -Label "1. after FlClashX"
+
+      - name: 2 - install current dropweb
+        shell: pwsh
+        run: |
+          $dw = Get-ChildItem dl\dropweb -Filter *.exe -Recurse | Select-Object -First 1
+          if (-not $dw) { Write-Host "::error::dropweb installer not found"; exit 1 }
+          Write-Host "Installing $($dw.FullName)"
+          $p = Start-Process -FilePath $dw.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS','/NOCANCEL' -Wait -PassThru
+          Write-Host "dropweb installer exit=$($p.ExitCode)"
+          & ./.github/scripts/win_conflict_inspect.ps1 -Label "2. after current dropweb"
+
+      - name: 3 - verdict
+        shell: pwsh
+        run: |
+          $dwInFl = Get-ChildItem 'C:\Program Files','C:\Program Files (x86)' -Recurse -Filter dropweb.exe -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match '\\FlClashX\\' }
+          if ($dwInFl) {
+            Write-Host "::error::CONFLICT - current dropweb landed in FlClashX folder:"
+            $dwInFl | ForEach-Object { Write-Host "  $($_.FullName)" }
+            exit 1
+          }
+          $dwOwn = Get-ChildItem 'C:\Program Files','C:\Program Files (x86)' -Recurse -Filter dropweb.exe -ErrorAction SilentlyContinue
+          if (-not $dwOwn) { Write-Host "::warning::dropweb.exe not found - install may have failed"; exit 1 }
+          Write-Host "OK - current dropweb is decoupled. dropweb.exe at:"
+          $dwOwn | ForEach-Object { Write-Host "  $($_.FullName)" }
