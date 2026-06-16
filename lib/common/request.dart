@@ -263,7 +263,7 @@ class Request {
   Future<bool> startCoreByHelper(String arg) async {
     try {
       // CONFLICT CHECK (by identity, not by a hardcoded process name): only
-      // hand our start request to the helper on the fixed port 47890 if it is
+      // hand our start request to the helper on the fixed port 47896 if it is
       // verifiably OURS. pingHelper() compares the helper's reported core hash
       // against our coreSHA256. If a foreign clash-lineage helper (e.g.
       // FlClashX) or a stale instance squats the port, this returns false and
@@ -271,7 +271,7 @@ class Request {
       // directly. We never drive someone else's helper.
       if (!await pingHelper()) {
         commonPrint.log(
-            "[helper] 47890 is not our verified helper — skipping helper, will spawn core directly");
+            "[helper] $helperPort is not our verified helper — skipping helper, will spawn core directly");
         return false;
       }
       final homeDirPath = await appPath.homeDirPath;

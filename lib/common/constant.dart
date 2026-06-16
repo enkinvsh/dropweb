@@ -17,7 +17,10 @@ const packageName = "app.dropweb";
 // SECURITY: Random.secure() (CSPRNG) — plain Random is predictable, IPC hijack risk.
 final unixSocketPath =
     "/tmp/dropwebSocket_${Random.secure().nextInt(1 << 32).toRadixString(16)}${Random.secure().nextInt(1 << 16).toRadixString(16)}.sock";
-const helperPort = 47890;
+// Unique to dropweb — FlClashX (the upstream fork) also runs a Windows helper
+// service on 47890; sharing it made both helpers fight for the same port
+// (first to bind wins, the other can't serve). 47896 decouples us cleanly.
+const helperPort = 47896;
 const maxTextScale = 1.4;
 const minTextScale = 0.8;
 final baseInfoEdgeInsets = EdgeInsets.symmetric(

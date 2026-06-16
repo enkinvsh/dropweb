@@ -240,7 +240,7 @@ class Windows {
     }
   }
 
-  /// Detect and resolve a conflict on our fixed helper port (47890)
+  /// Detect and resolve a conflict on our fixed helper port (47896)
   /// DYNAMICALLY — by detected PID + identity probe, never by a hardcoded
   /// process name.
   ///

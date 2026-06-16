@@ -9,7 +9,9 @@ use std::sync::{Arc, Mutex};
 use std::{io, thread};
 use warp::{Filter, Reply};
 
-const LISTEN_PORT: u16 = 47890;
+// Unique to dropweb (FlClashX's helper uses 47890 — must NOT collide).
+// Keep in sync with `helperPort` in lib/common/constant.dart.
+const LISTEN_PORT: u16 = 47896;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct StartParams {
