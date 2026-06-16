@@ -74,13 +74,22 @@ jobs:
       - name: 3 - verdict
         shell: pwsh
         run: |
-          $dwInFl = Get-ChildItem 'C:\Program Files','C:\Program Files (x86)' -Recurse -Filter dropweb.exe -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match '\\FlClashX\\' }
-          if ($dwInFl) {
-            Write-Host "::error::CONFLICT - current dropweb landed in FlClashX folder:"
-            $dwInFl | ForEach-Object { Write-Host "  $($_.FullName)" }
+          $keys = @(
+            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall',
+            'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'
+          )
+          $dw = $null
+          foreach ($k in $keys) {
+            Get-ChildItem $k -ErrorAction SilentlyContinue | ForEach-Object {
+              $p = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+              if ($p.DisplayName -match 'dropweb') { $dw = $p }
+            }
+          }
+          if (-not $dw) { Write-Host "::warning::no dropweb uninstall entry - install may have failed"; exit 1 }
+          Write-Host "dropweb InstallLocation = $($dw.InstallLocation)"
+          if ($dw.InstallLocation -match 'FlClashX') {
+            Write-Host "::error::CONFLICT - dropweb installed inside FlClashX folder: $($dw.InstallLocation)"
             exit 1
           }
-          $dwOwn = Get-ChildItem 'C:\Program Files','C:\Program Files (x86)' -Recurse -Filter dropweb.exe -ErrorAction SilentlyContinue
-          if (-not $dwOwn) { Write-Host "::warning::dropweb.exe not found - install may have failed"; exit 1 }
-          Write-Host "OK - current dropweb is decoupled. dropweb.exe at:"
-          $dwOwn | ForEach-Object { Write-Host "  $($_.FullName)" }
+          Write-Host "OK - dropweb decoupled (own install folder: $($dw.InstallLocation))"

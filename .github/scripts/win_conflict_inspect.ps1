@@ -4,13 +4,24 @@ Write-Host "============================================================"
 Write-Host "INSPECT: $Label"
 Write-Host "============================================================"
 
-Write-Host "-- dropweb.exe locations --"
-Get-ChildItem 'C:\Program Files','C:\Program Files (x86)' -Recurse -Filter dropweb.exe -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.FullName)" }
+# Targeted candidate install dirs — do NOT recurse all of Program Files (slow on CI).
+$dirs = @(
+  'C:\Program Files\dropweb',
+  'C:\Program Files\FlClashX',
+  'C:\Program Files (x86)\dropweb',
+  'C:\Program Files (x86)\FlClashX'
+)
+Write-Host "-- candidate install dirs --"
+foreach ($d in $dirs) {
+  if (Test-Path $d) {
+    $exes = (Get-ChildItem $d -Filter *.exe -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) -join ', '
+    Write-Host ("  EXISTS  {0}   exe:[{1}]" -f $d, $exes)
+  } else {
+    Write-Host ("  absent  {0}" -f $d)
+  }
+}
 
-Write-Host "-- FlClashX.exe locations --"
-Get-ChildItem 'C:\Program Files','C:\Program Files (x86)' -Recurse -Filter FlClashX.exe -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $($_.FullName)" }
-
-Write-Host "-- Uninstall registry entries (dropweb / FlClash) --"
+Write-Host "-- Uninstall registry entries (dropweb / FlClash) [key | name | ver | InstallLocation] --"
 $keys = @(
   'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
   'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall',
