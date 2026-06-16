@@ -162,12 +162,22 @@ abstract class ClashHandlerInterface with ClashInterface {
   Future<bool> init(InitParams params) => invoke<bool>(
       method: ActionMethod.initClash,
       data: json.encode(params),
+      // Bound the core-init handshake. On desktop the core is a separate
+      // process that must connect back to our socket; on Android it's the
+      // service-isolate port handshake. Without a timeout, a stalled handshake
+      // (heavy machine load, a foreign clash-lineage app hogging the box, a
+      // helper-port conflict, AV scanning the core exe) hangs this invoke
+      // forever — and since the dashboard button is gated on isInit, the UI is
+      // bricked until a manual restart. Fail open so AppController.init()
+      // always completes and the UI stays usable; the core retries on connect.
+      timeout: const Duration(seconds: 15),
     );
 
   @override
   Future<bool> setState(CoreState state) => invoke<bool>(
       method: ActionMethod.setState,
       data: json.encode(state),
+      timeout: const Duration(seconds: 8),
     );
 
   @override
@@ -180,6 +190,10 @@ abstract class ClashHandlerInterface with ClashInterface {
   @override
   Future<bool> get isInit => invoke<bool>(
         method: ActionMethod.getIsInit,
+        // Same rationale as init(): never let the readiness probe hang the
+        // boot path. A timed-out probe returns false, so _initCore() proceeds
+        // to init() instead of blocking forever on a stalled handshake.
+        timeout: const Duration(seconds: 8),
       );
 
   @override

@@ -1187,6 +1187,18 @@ class AppController {
       return true;
     };
     updateTray(true);
+    // Surface the app to the user IMMEDIATELY on launch — BEFORE the (possibly
+    // slow or stalling) core handshake in _initCore() below. Previously the
+    // window was shown only AFTER _initCore(), so a slow/stalled core left it
+    // stuck hidden in the tray on every launch. Respects silent-launch. On
+    // macOS (a status-bar popover app) this opens the popover instead.
+    if (!_ref.read(appSettingProvider).silentLaunch) {
+      if (Platform.isMacOS) {
+        unawaited(StatusBarManager.showWindow());
+      } else {
+        unawaited(window?.show());
+      }
+    }
     await _initCore();
     await _initStatus();
     // Sync the operator theme to the current profile on launch so a previous
@@ -1200,13 +1212,6 @@ class AppController {
         const Duration(seconds: 1), _updateCurrentProfileSubscription);
     autoUpdateProfiles();
     autoCheckUpdate();
-    if (!Platform.isMacOS) {
-      if (!_ref.read(appSettingProvider).silentLaunch) {
-        window?.show();
-      } else {
-        window?.hide();
-      }
-    }
     await _handlePreference();
     await _handlerDisclaimer();
     _ref.read(initProvider.notifier).value = true;

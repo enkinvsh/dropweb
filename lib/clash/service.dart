@@ -45,8 +45,11 @@ class ClashService extends ClashHandlerInterface {
         0,
         shared: true,
       );
+      commonPrint.log(
+          "[core-bridge] server bound at ${server.address.address}:${server.port}");
       serverCompleter.complete(server);
       await for (final socket in server) {
+        commonPrint.log("[core-bridge] core connected back to bridge");
         await _destroySocket();
         socketCompleter.complete(socket);
         socket
@@ -86,9 +89,15 @@ class ClashService extends ClashHandlerInterface {
     final arg = Platform.isWindows
         ? "${serverSocket.port}"
         : serverSocket.address.address;
-    if (Platform.isWindows && await system.checkIsAdmin()) {
+    final isAdmin = Platform.isWindows && await system.checkIsAdmin();
+    commonPrint.log("[core-bridge] reStart: arg=$arg isAdmin=$isAdmin");
+    if (isAdmin) {
       final isSuccess = await request.startCoreByHelper(arg);
+      commonPrint.log("[core-bridge] startCoreByHelper -> $isSuccess");
       if (isSuccess) {
+        // Reset the guard on the helper path too — leaving it true would make
+        // every subsequent reStart() a no-op and wedge core (re)starts.
+        isStarting = false;
         return;
       }
     }
@@ -106,6 +115,7 @@ class ClashService extends ClashHandlerInterface {
       ],
       environment: environment,
     );
+    commonPrint.log("[core-bridge] core process spawned pid=${process?.pid}");
     process?.stdout.listen((_) {});
     process?.stderr.listen((e) {
       final error = utf8.decode(e);

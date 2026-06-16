@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/widgets.dart';
@@ -26,38 +24,11 @@ bool shouldShowCheckForUpdate({
 class AboutView extends StatelessWidget {
   const AboutView({super.key});
 
-  Future<void> _checkUpdate(BuildContext context) async {
-    final commonScaffoldState = context.commonScaffoldState;
-    if (commonScaffoldState?.mounted != true) return;
-    final data = await commonScaffoldState?.loadingRun<Map<String, dynamic>?>(
-      request.checkForUpdate,
-      title: appLocalizations.checkUpdate,
-    );
-    globalState.appController.checkUpdateResultHandle(
-      data: data,
-      handleError: true,
-    );
-  }
-
   List<Widget> _buildMoreSection(BuildContext context) {
     final items = <Widget>[
-      // Shown everywhere except Play builds (--dart-define=PLAY_BUILD=true):
-      // sideloaded Android + desktop self-update from our server. See
-      // [shouldShowCheckForUpdate].
-      if (shouldShowCheckForUpdate(isAndroid: Platform.isAndroid))
-        ListItem(
-          title: Text(appLocalizations.checkUpdate),
-          onTap: () => _checkUpdate(context),
-          trailing: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 24),
-        ),
       ListItem(
         title: Text(appLocalizations.project),
         onTap: () => globalState.openUrl("https://github.com/$repository"),
-        trailing: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 24),
-      ),
-      ListItem(
-        title: Text(appLocalizations.supportProject),
-        onTap: () => globalState.openUrl("https://web.tribute.tg/d/Huc"),
         trailing: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 24),
       ),
       ListItem(
@@ -68,7 +39,9 @@ class AboutView extends StatelessWidget {
     ];
     return generateSection(
       separated: false,
-      title: appLocalizations.more,
+      // "More" header dropped: with updates + donations moved into Settings,
+      // only the project + privacy links remain here — no grouping needed.
+      title: null,
       items: items,
     );
   }

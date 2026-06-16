@@ -234,9 +234,32 @@ class Windows {
       final parts = line.trim().split(RegExp(r'\s+'));
       final pid = int.tryParse(parts.last);
       if (pid != null) {
+        commonPrint.log("[helper-conflict] freeing port $port: killing pid=$pid");
         await Process.run('taskkill', ['/PID', pid.toString(), '/F']);
       }
     }
+  }
+
+  /// Detect and resolve a conflict on our fixed helper port (47890)
+  /// DYNAMICALLY — by detected PID + identity probe, never by a hardcoded
+  /// process name.
+  ///
+  /// We ping the port: if it answers with OUR core hash (pingHelper compares
+  /// coreSHA256) it is our own healthy helper, so we leave it untouched.
+  /// Otherwise the port is squatted by a stale own instance or a foreign
+  /// clash-lineage helper (e.g. FlClashX), which would block our helper from
+  /// binding — so we free it by killing the detected PID. This is legitimate
+  /// desktop conflict resolution: we never touch a verified-healthy holder,
+  /// and we never target by application name.
+  Future<void> resolveHelperPortConflict() async {
+    if (await request.pingHelper()) {
+      commonPrint.log(
+          "[helper-conflict] port $helperPort held by our healthy helper — keeping");
+      return;
+    }
+    commonPrint.log(
+        "[helper-conflict] port $helperPort is not our verified helper — freeing it for our service");
+    await _killProcess(helperPort);
   }
 
   Future<WindowsHelperServiceStatus> checkService() async {
@@ -267,7 +290,7 @@ class Windows {
       return true;
     }
 
-    await _killProcess(helperPort);
+    await resolveHelperPortConflict();
 
     final command = [
       "/c",

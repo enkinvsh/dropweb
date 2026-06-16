@@ -62,6 +62,12 @@ class _ToolboxViewState extends ConsumerState<ToolsView> {
       generateSection(
         title: AppLocalizations.of(context).other,
         items: [
+          // Surfaced out of the (previously buried) About → "More" section so
+          // updates + donations sit one tap deep in Settings, not three.
+          // Update self-check is hidden on the Play build (store policy), same
+          // gate as the About entry used.
+          if (!Platform.isAndroid || !kIsPlayBuild) const _UpdateItem(),
+          const _SupportItem(),
           const _DisclaimerItem(),
           if (enableDeveloperMode) const _DeveloperItem(),
           const _InfoItem(),
@@ -83,7 +89,8 @@ class _ToolboxViewState extends ConsumerState<ToolsView> {
           // (see `Application._buildPlatformState`). The `HotKeyView`
           // source and persisted bindings remain on disk so the entry
           // can be re-introduced cleanly when we ship a curated set.
-          if (Platform.isWindows) const _LoopbackItem(),
+          // Loopback (UWP) unlock tool is hidden from the desktop UI: it's a
+          // niche Windows-only workaround that only confuses regular users.
           // Access Control / per-app proxy is an advanced Android surface
           // (installed-package enumeration + split-tunnel rules). Hidden by
           // default on the Play target and only re-exposed after the
@@ -193,26 +200,6 @@ class _ThemeItem extends StatelessWidget {
   }
 }
 
-class _LoopbackItem extends StatelessWidget {
-  const _LoopbackItem();
-
-  @override
-  Widget build(BuildContext context) {
-    final appLocale = AppLocalizations.of(context);
-    return ListItem(
-      leading:
-          const HugeIcon(icon: HugeIcons.strokeRoundedLockPassword, size: 24),
-      title: Text(appLocale.loopback),
-      onTap: () {
-        windows?.runas(
-          '"${join(dirname(Platform.resolvedExecutable), "EnableLoopback.exe")}"',
-          "",
-        );
-      },
-    );
-  }
-}
-
 class _AccessItem extends StatelessWidget {
   const _AccessItem();
 
@@ -302,6 +289,48 @@ class _InfoItem extends StatelessWidget {
         titleBuilder: (context) => AppLocalizations.of(context).about,
         widget: const AboutView(),
       ),
+    );
+  }
+}
+
+
+class _UpdateItem extends StatelessWidget {
+  const _UpdateItem();
+
+  Future<void> _checkUpdate(BuildContext context) async {
+    final commonScaffoldState = context.commonScaffoldState;
+    if (commonScaffoldState?.mounted != true) return;
+    final data = await commonScaffoldState?.loadingRun<Map<String, dynamic>?>(
+      request.checkForUpdate,
+      title: appLocalizations.checkUpdate,
+    );
+    globalState.appController.checkUpdateResultHandle(
+      data: data,
+      handleError: true,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appLocale = AppLocalizations.of(context);
+    return ListItem(
+      leading: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 24),
+      title: Text(appLocale.checkUpdate),
+      onTap: () => _checkUpdate(context),
+    );
+  }
+}
+
+class _SupportItem extends StatelessWidget {
+  const _SupportItem();
+
+  @override
+  Widget build(BuildContext context) {
+    final appLocale = AppLocalizations.of(context);
+    return ListItem(
+      leading: const HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 24),
+      title: Text(appLocale.supportProject),
+      onTap: () => globalState.openUrl("https://web.tribute.tg/d/Huc"),
     );
   }
 }

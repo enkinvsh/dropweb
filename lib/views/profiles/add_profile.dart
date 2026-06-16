@@ -28,9 +28,6 @@ class _AddProfileViewState extends State<AddProfileView> {
   @override
   void initState() {
     super.initState();
-    // The user just chose "add" → the first-run hint has served its purpose
-    // and must never re-appear (it would otherwise sit behind this sheet).
-    unawaited(onboardingState.markHintSeen());
     // Privacy: read the clipboard EXACTLY once, here, tied to the explicit
     // "Add" intent — never at app launch/resume. Ties the Android-12 system
     // clipboard toast to a user-authored action. See onboarding-brief §2.
