@@ -172,10 +172,18 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
     final label = title ?? 'loadingRun';
     commonPrint.log('[loadingRun] start: $label');
     try {
-      // Bound the operation: a future that never returns (e.g. a core/config
-      // setup that hangs) would otherwise leave the top progress bar spinning
-      // forever and the screen stuck. 60s is far beyond any legitimate op.
-      final res = await futureFunction().timeout(const Duration(seconds: 60));
+      // Catastrophic backstop ONLY — not the primary timeout. Every operation
+      // reachable from here is already individually bounded at the source: core
+      // FFI calls go through invoke()/safeFuture (30s default, up to 120s for
+      // setup/updateConfig — see clash/interface.dart), helper HTTP calls carry
+      // their own .timeout(), and withGeoFileLock serializes already-bounded
+      // actions. A composite flow (e.g. applyProfile = wait-for-geo-lock +
+      // setupConfig + group/provider refresh) can legitimately run well past a
+      // minute, so a short bound here fired SPURIOUSLY mid-setup while the inner
+      // core call kept running underneath (and could double-apply). 5 minutes
+      // exceeds any legitimate composite duration, so this only trips if
+      // something is catastrophically wedged outside those source-level bounds.
+      final res = await futureFunction().timeout(const Duration(minutes: 5));
       _loading.value = false;
       commonPrint.log('[loadingRun] done: $label');
       return res;
