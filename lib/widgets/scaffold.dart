@@ -169,11 +169,18 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
     String? title,
   }) async {
     _loading.value = true;
+    final label = title ?? 'loadingRun';
+    commonPrint.log('[loadingRun] start: $label');
     try {
-      final res = await futureFunction();
+      // Bound the operation: a future that never returns (e.g. a core/config
+      // setup that hangs) would otherwise leave the top progress bar spinning
+      // forever and the screen stuck. 60s is far beyond any legitimate op.
+      final res = await futureFunction().timeout(const Duration(seconds: 60));
       _loading.value = false;
+      commonPrint.log('[loadingRun] done: $label');
       return res;
     } catch (e) {
+      commonPrint.log('[loadingRun] error/timeout: $label -> $e');
       final message = ErrorMapper.mapError(e.toString()) ??
           appLocalizations.genericErrorMessage;
       globalState.showMessage(

@@ -941,6 +941,12 @@ class AppController {
       _profileService.updateCurrentProfileSubscription();
 
   Future<void> updateGroups() async {
+    // No profile selected → the core has no proxy config, so getProxiesGroups()
+    // only errors ("unknown error") on every 20s poll. Skip on a clean/empty
+    // install instead of spamming the log and retrying against an empty core.
+    if (_ref.read(currentProfileIdProvider) == null) {
+      return;
+    }
     try {
       final newGroups = await retry(
         task: () async => clashCore.getProxiesGroups(),
