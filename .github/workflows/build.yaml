@@ -32,6 +32,20 @@ jobs:
         with:
           submodules: recursive
 
+      # The android job builds a UNIVERSAL APK (3 ABIs) plus the Go core, which
+      # can exhaust the ~14 GB ubuntu runner during :app:mergeReleaseNativeLibs
+      # ("No space left on device"). Reclaim ~15-20 GB from preinstalled
+      # toolchains we never use, WITHOUT touching the Android SDK/NDK, Go, or
+      # Flutter the build needs.
+      - name: Free disk space (android only)
+        if: matrix.platform == 'android'
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+                      /usr/share/swift /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          df -h /
+
       - name: Setup Android Signing
         if: startsWith(matrix.platform,'android')
         run: |
