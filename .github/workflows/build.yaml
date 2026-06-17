@@ -71,6 +71,20 @@ jobs:
       - name: Setup
         run: dart setup.dart ${{ matrix.platform }} ${{ matrix.arch && format('--arch {0}', matrix.arch) }} ${{ env.IS_STABLE == 'true' && '--env stable' || '' }}
 
+      # Guard against the "green job, empty dist/" failure mode: setup.dart can
+      # exit 0 yet produce no artifact (e.g. an MSVC hard-error in a plugin, or a
+      # missing packaging tool), and upload-artifact happily uploads nothing. Fail
+      # loudly here so a broken build can never masquerade as a successful release.
+      - name: Verify build artifacts
+        shell: bash
+        run: |
+          if [ -z "$(ls -A ./dist 2>/dev/null)" ]; then
+            echo "::error::dist/ is empty after setup.dart for ${{ matrix.platform }}${{ matrix.arch && format('-{0}', matrix.arch) }} — the build produced no artifacts."
+            exit 1
+          fi
+          echo "dist/ contents for ${{ matrix.platform }}${{ matrix.arch && format('-{0}', matrix.arch) }}:"
+          ls -la ./dist
+
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
