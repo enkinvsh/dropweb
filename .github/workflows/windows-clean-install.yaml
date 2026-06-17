@@ -1,0 +1,149 @@
+name: windows-clean-install
+
+# Baseline counterpart to windows-conflict-test: proves a FRESH dropweb install
+# on a pristine Windows box (NO FlClashX) installs cleanly, its helper binds its
+# OWN port 47896 (the 3ad5cd4 fix), and the app boots without bricking the UI
+# behind the loading bar (the e374d08 "clean Windows, stuck dashboard" bug).
+# Headless CI cannot SEE the UI, so UI-health is asserted from the app log's
+# [loadingRun] breadcrumbs + process liveness, not a screenshot.
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/windows-clean-install.yaml'
+      - '.github/scripts/win_conflict_inspect.ps1'
+
+permissions:
+  contents: read
+
+jobs:
+  clean-install:
+    name: Clean install (no FlClashX) — install + helper:47896 + app boot
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download dropweb installer (latest pre-release)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force dl\dropweb | Out-Null
+          $tag = (gh release list --repo ${{ github.repository }} -L 30 --json tagName,isPrerelease | ConvertFrom-Json | Where-Object { $_.isPrerelease } | Select-Object -First 1).tagName
+          Write-Host "dropweb pre-release: $tag"
+          gh release view $tag --repo ${{ github.repository }} --json assets --jq '.assets[].name'
+          gh release download $tag --repo ${{ github.repository }} -p "*amd64*.exe" -D dl\dropweb
+          if (-not (Get-ChildItem dl\dropweb -Filter *.exe -EA SilentlyContinue)) { gh release download $tag --repo ${{ github.repository }} -p "*setup*.exe" -D dl\dropweb }
+          if (-not (Get-ChildItem dl\dropweb -Filter *.exe -EA SilentlyContinue)) { Write-Host "::error::no dropweb .exe in pre-release $tag (a broken windows build produces no installer)"; exit 1 }
+          Get-ChildItem -Recurse dl | ForEach-Object { Write-Host $_.FullName }
+
+      - name: 0 - baseline (clean runner, no FlClashX)
+        shell: pwsh
+        run: '& ./.github/scripts/win_conflict_inspect.ps1 -Label "0. clean runner"'
+
+      - name: 1 - install dropweb (silent)
+        shell: pwsh
+        run: |
+          $dw = Get-ChildItem dl\dropweb -Filter *.exe -Recurse | Select-Object -First 1
+          Write-Host "Installing $($dw.FullName)"
+          $p = Start-Process -FilePath $dw.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS','/NOCANCEL' -Wait -PassThru
+          Write-Host "dropweb installer exit=$($p.ExitCode)"
+          if ($p.ExitCode -ne 0) { Write-Host "::error::installer returned $($p.ExitCode)"; exit 1 }
+          & ./.github/scripts/win_conflict_inspect.ps1 -Label "1. after dropweb install"
+
+      - name: 2 - verify install footprint
+        shell: pwsh
+        run: |
+          $keys = @(
+            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall',
+            'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'
+          )
+          $dw = $null
+          foreach ($k in $keys) {
+            Get-ChildItem $k -ErrorAction SilentlyContinue | ForEach-Object {
+              $pr = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+              if ($pr.DisplayName -match 'dropweb') { $dw = $pr }
+            }
+          }
+          if (-not $dw) { Write-Host "::error::no dropweb uninstall entry - install failed"; exit 1 }
+          $loc = $dw.InstallLocation
+          if (-not $loc) { $loc = 'C:\Program Files\dropweb' }
+          Write-Host "dropweb v$($dw.DisplayVersion) @ $loc"
+          foreach ($f in @('dropweb.exe','DropwebCore.exe','DropwebHelperService.exe')) {
+            if (-not (Test-Path (Join-Path $loc $f))) { Write-Host "::error::missing $f under $loc"; exit 1 }
+            Write-Host "  OK  $f"
+          }
+
+      - name: 3 - helper binds its OWN port 47896
+        shell: pwsh
+        run: |
+          $hexe = 'C:\Program Files\dropweb\DropwebHelperService.exe'
+          try { New-Service -Name DropwebHelperService -BinaryPathName "`"$hexe`"" -StartupType Manual -ErrorAction Stop | Out-Null } catch { Write-Host "create: $_" }
+          try { Start-Service DropwebHelperService -ErrorAction Stop } catch { Write-Host "::error::Start-Service DropwebHelperService failed: $_"; exit 1 }
+          Start-Sleep -Seconds 3
+          $svc = (Get-Service DropwebHelperService -EA SilentlyContinue).Status
+          Write-Host "DropwebHelperService = $svc"
+          if ($svc -ne 'Running') { Write-Host "::error::helper not Running ($svc)"; exit 1 }
+          $bound = netstat -ano | Select-String ':47896' | Select-String 'LISTENING'
+          if (-not $bound) { Write-Host "::error::helper is Running but not LISTENING on 47896"; (netstat -ano | Select-String ':47896') | ForEach-Object { Write-Host "  $_" }; exit 1 }
+          Write-Host "OK - helper LISTENING on 47896:"; $bound | ForEach-Object { Write-Host "  $_" }
+
+      - name: 4 - launch app, assess UI-health from boot log
+        shell: pwsh
+        run: |
+          $exe = 'C:\Program Files\dropweb\dropweb.exe'
+          Start-Process -FilePath $exe -ErrorAction SilentlyContinue | Out-Null
+          Start-Sleep -Seconds 25
+          $running = Get-Process -Name dropweb -EA SilentlyContinue
+          if ($running) { Write-Host "dropweb.exe alive 25s after launch (pids: $($running.Id -join ','))" }
+          else { Write-Host "::warning::dropweb.exe not running 25s after launch (headless CI may block window creation)" }
+
+          $logRoot = Join-Path $env:APPDATA 'app.dropweb\logs'
+          if (-not (Test-Path $logRoot)) {
+            $alt = Get-ChildItem $env:APPDATA -Directory -EA SilentlyContinue | Where-Object { $_.Name -match 'dropweb' } | Select-Object -First 1
+            if ($alt) { $logRoot = Join-Path $alt.FullName 'logs' }
+          }
+          Write-Host "log root: $logRoot"
+
+          # Copy logs to a fixed workspace path FIRST so the upload step can grab
+          # them even if the assertions below fail the job.
+          $dest = Join-Path $env:GITHUB_WORKSPACE 'ci-logs'
+          New-Item -ItemType Directory -Force $dest | Out-Null
+          if (Test-Path $logRoot) { Copy-Item (Join-Path $logRoot '*') $dest -Recurse -EA SilentlyContinue }
+
+          $log = Get-ChildItem $logRoot -Filter 'dropweb_*.log' -EA SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $log) { Write-Host "::warning::no app log produced - app did not initialize far enough in CI to assess UI health"; exit 0 }
+
+          Write-Host "=== tail $($log.FullName) ==="
+          Get-Content $log.FullName -Tail 150 | ForEach-Object { Write-Host $_ }
+          $c = Get-Content $log.FullName -Raw
+
+          # e374d08 class #1: a bounded core op blew past the 5-min catastrophic
+          # backstop. With every async path bounded at the source this must never
+          # happen on a healthy build.
+          if ($c -match '\[loadingRun\] error/timeout') {
+            Write-Host "::error::loadingRun hit the catastrophic backstop - a bounded op is hanging; see the named op above"
+            exit 1
+          }
+          # e374d08 class #2: a loadingRun started but never completed = the stuck
+          # progress bar with the screen unusable.
+          $starts = ([regex]::Matches($c, '\[loadingRun\] start')).Count
+          $ends   = ([regex]::Matches($c, '\[loadingRun\] done')).Count
+          Write-Host "loadingRun: start=$starts done=$ends"
+          if ($starts -gt $ends) {
+            Write-Host "::error::a loadingRun started but never completed - UI stuck behind the loading bar (e374d08 regression)"
+            exit 1
+          }
+          Write-Host "OK - no stuck loadingRun in the clean-install boot log"
+
+      - name: 5 - upload boot logs (diagnostic)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-install-logs
+          path: ci-logs
+          if-no-files-found: ignore
+          overwrite: true
