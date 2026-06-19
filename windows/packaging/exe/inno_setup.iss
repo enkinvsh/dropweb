@@ -41,7 +41,13 @@ var
   i: Integer;
   ResultCode: Integer;
 begin
-  Processes := ['dropweb.exe', 'DropwebCore.exe', 'DropwebHelperService.exe'];
+  // dropweb lineage: current names, the FlClash upstream names that older
+  // dropweb builds shipped under our identity, and Koala Clash. Killing these
+  // by name during install is transient/recoverable and frees the global
+  // resources (mixed-port 7890, TUN, system proxy) so a clean install settles.
+  Processes := ['dropweb.exe', 'DropwebCore.exe', 'DropwebHelperService.exe',
+                'FlClashX.exe', 'FlClashCore.exe', 'FlClashHelperService.exe',
+                'FlClash.exe', 'koala-clash-service.exe', 'KoalaClash.exe'];
 
   // First try graceful shutdown
   for i := 0 to GetArrayLength(Processes)-1 do
@@ -89,6 +95,108 @@ begin
   else if RegQueryStringValue(HKEY_CURRENT_USER, UninstallKey, 'DisplayVersion', Version) then
     Result := Version;
 end;
+
+// --- Clean-install helpers ---------------------------------------------------
+// All "ours-only" gated: a leftover is removed only when it lives inside OUR
+// install dir ({app}). A separately installed real FlClashX (in its own folder)
+// is therefore never touched.
+
+function ServiceBelongsToApp(ServiceName: String): Boolean;
+var
+  TmpFile: String;
+  Output: AnsiString;
+  ResultCode: Integer;
+  AppDir: String;
+begin
+  Result := False;
+  AppDir := ExpandConstant('{app}');
+  TmpFile := ExpandConstant('{tmp}\dwsvc_qc.txt');
+  if Exec(ExpandConstant('{cmd}'), '/c sc qc "' + ServiceName + '" > "' + TmpFile + '" 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    if LoadStringFromFile(TmpFile, Output) then
+      Result := Pos(Lowercase(AppDir), Lowercase(String(Output))) > 0;
+  end;
+end;
+
+procedure RemoveServiceIfOurs(ServiceName: String);
+var
+  ResultCode: Integer;
+begin
+  if ServiceBelongsToApp(ServiceName) then
+  begin
+    Exec('sc.exe', 'stop "' + ServiceName + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Sleep(500);
+    Exec('sc.exe', 'delete "' + ServiceName + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Sleep(300);
+  end;
+end;
+
+procedure RemoveRunValueIfOurs(RootKey: Integer; ValueName: String);
+var
+  Data: String;
+  AppDir: String;
+begin
+  AppDir := ExpandConstant('{app}');
+  if RegQueryStringValue(RootKey, 'Software\Microsoft\Windows\CurrentVersion\Run', ValueName, Data) then
+  begin
+    if Pos(Lowercase(AppDir), Lowercase(Data)) > 0 then
+      RegDeleteValue(RootKey, 'Software\Microsoft\Windows\CurrentVersion\Run', ValueName);
+  end;
+end;
+
+function TaskBelongsToApp(TaskName: String): Boolean;
+var
+  TmpFile: String;
+  Output: AnsiString;
+  ResultCode: Integer;
+  AppDir: String;
+begin
+  Result := False;
+  AppDir := ExpandConstant('{app}');
+  TmpFile := ExpandConstant('{tmp}\dwtask_q.txt');
+  if Exec(ExpandConstant('{cmd}'), '/c schtasks /Query /TN "' + TaskName + '" /XML > "' + TmpFile + '" 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    if (ResultCode = 0) and LoadStringFromFile(TmpFile, Output) then
+      Result := Pos(Lowercase(AppDir), Lowercase(String(Output))) > 0;
+  end;
+end;
+
+procedure RemoveTaskIfOurs(TaskName: String);
+var
+  ResultCode: Integer;
+begin
+  if TaskBelongsToApp(TaskName) then
+    Exec(ExpandConstant('{cmd}'), '/c schtasks /Delete /TN "' + TaskName + '" /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+procedure CleanLineageLeftovers;
+var
+  i: Integer;
+  Services: TArrayOfString;
+  RunValues: TArrayOfString;
+  Tasks: TArrayOfString;
+begin
+  // Stale Windows services from older / pre-rebrand builds whose binaries live
+  // inside OUR install dir. DropwebHelperService is intentionally NOT listed —
+  // it is the current service (re-copied by [Files], restarted post-install).
+  Services := ['FlClashHelperService', 'FlClashXHelperService', 'ClashHelperService', 'clashx'];
+  for i := 0 to GetArrayLength(Services)-1 do
+    RemoveServiceIfOurs(Services[i]);
+
+  // Stale autostart (Run key) entries pointing into our install dir.
+  RunValues := ['FlClash', 'FlClashX', 'clashx', 'clash', 'com.follow'];
+  for i := 0 to GetArrayLength(RunValues)-1 do
+  begin
+    RemoveRunValueIfOurs(HKEY_CURRENT_USER, RunValues[i]);
+    RemoveRunValueIfOurs(HKEY_LOCAL_MACHINE, RunValues[i]);
+  end;
+
+  // Stale scheduled tasks pointing into our install dir.
+  Tasks := ['FlClash', 'FlClashX', 'clashx', 'clash'];
+  for i := 0 to GetArrayLength(Tasks)-1 do
+    RemoveTaskIfOurs(Tasks[i]);
+end;
+// --- end clean-install helpers ----------------------------------------------
 
 function InitializeSetup(): Boolean;
 var
@@ -151,7 +259,21 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
+  LegacyDir: String;
 begin
+  if CurStep = ssInstall then
+  begin
+    // CLEAN INSTALL (Tier 1): runs before [InstallDelete] wipes {app} and
+    // before [Files] copies fresh binaries ({app} is resolved by now).
+    // Stop our service so its .exe unlocks for the wipe; ssPostInstall restarts it.
+    Exec('sc.exe', 'stop "DropwebHelperService"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Sleep(500);
+    KillProcesses;
+    // Drop stale services / autostart from older or pre-rebrand builds that
+    // live inside our install dir (a separate FlClashX elsewhere is untouched).
+    CleanLineageLeftovers;
+  end;
+
   if CurStep = ssPostInstall then
   begin
     // Refresh icon cache/associations
@@ -161,6 +283,21 @@ begin
      try
        Exec('sc.exe', 'start "DropwebHelperService"', '', SW_HIDE, ewNoWait, ResultCode);
     except
+    end;
+
+    // CLEAN INSTALL (Tier 2): offer to remove legacy-identity data left by
+    // pre-rebrand builds (%APPDATA%\com.follow\clashx). Current profiles and
+    // settings (%APPDATA%\dropweb\dropweb) are NOT touched. Skipped on silent.
+    LegacyDir := ExpandConstant('{userappdata}\com.follow\clashx');
+    if DirExists(LegacyDir) and (not WizardSilent) then
+    begin
+      if MsgBox('Обнаружены данные от старой версии dropweb (com.follow\clashx).' + #13#10 +
+                'Удалить их? Текущие профили и настройки не пострадают.',
+                mbConfirmation, MB_YESNO) = IDYES then
+      begin
+        DelTree(LegacyDir, True, True, True);
+        RemoveDir(ExpandConstant('{userappdata}\com.follow'));
+      end;
     end;
   end;
 end;
@@ -265,6 +402,12 @@ Name: "chineseSimplified"; MessagesFile: {% if locale.file %}{{ locale.file }}{%
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
+[InstallDelete]
+; CLEAN INSTALL (Tier 1): empty the install dir before copying fresh files so
+; orphaned binaries from previous builds (incl. FlClash-branded cores/helpers)
+; do not survive. {app} holds only program files — user data lives in %APPDATA%
+; and is untouched. Processed after CurStepChanged(ssInstall) and before [Files].
+Type: filesandordirs; Name: "{app}\*"
 [Files]
 Source: "{{SOURCE_DIR}}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
