@@ -141,10 +141,12 @@ class _StartButtonState extends ConsumerState<StartButton>
     // which forced a rebuild on every runTimeProvider tick (every second
     // while connected) even though the icon depends only on null/not-null.
     final isStart = ref.watch(runTimeProvider.select((state) => state != null));
-    if (!state.isInit) return const SizedBox.shrink();
 
     // Connecting affordance: while handleStart is waiting on the native TUN
-    // readiness ack, reuse the existing dimmed/disabled look and swallow taps.
+    // readiness ack (or while core init is still pending), reuse the existing
+    // dimmed/disabled look and swallow taps. The glyph is NEVER hidden — the
+    // old `if (!state.isInit) return SizedBox.shrink()` bricked the UI when the
+    // boot auto-start stalled/threw before init() set isInit=true.
     // No new colors/animations — just the opacity60 extension + null onTap.
     return ValueListenableBuilder<bool>(
       valueListenable: globalState.isConnecting,
@@ -199,12 +201,17 @@ class _StartButtonState extends ConsumerState<StartButton>
     final colorScheme = Theme.of(context).colorScheme;
     final hasProfile = state.hasProfile;
     final isInactive = hasProfile && !isStart;
+    // Core not yet initialised → keep the glyph visible but in the same
+    // dimmed/disabled "pending" affordance already used while connecting.
+    // Hiding it (the old SizedBox.shrink on !isInit) bricked the UI when the
+    // boot auto-start stalled/threw before init() set isInit=true.
+    final isPending = isConnecting || !state.isInit;
     final baseIconColor = isInactive
         ? Color.lerp(Lumina.lensBody, colorScheme.primary, 0.28)!
         : colorScheme.primary;
-    // While connecting, dim the icon with the existing opacity extension so it
-    // reads as a pending/disabled affordance.
-    final iconColor = isConnecting ? baseIconColor.opacity60 : baseIconColor;
+    // While pending (connecting or core init not done), dim the icon with the
+    // existing opacity extension so it reads as a pending/disabled affordance.
+    final iconColor = isPending ? baseIconColor.opacity60 : baseIconColor;
 
     const motionDuration = Duration(milliseconds: 180);
     const motionCurve = Curves.easeOutCubic;
@@ -217,12 +224,12 @@ class _StartButtonState extends ConsumerState<StartButton>
       ),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        // Ignore press feedback + taps while connecting so a second tap can't
-        // race the in-flight start transition.
-        onTapDown: isConnecting ? null : (_) => _handleTapDown(),
-        onTapUp: isConnecting ? null : (_) => _pressController.reverse(),
-        onTapCancel: isConnecting ? null : () => _pressController.reverse(),
-        onTap: isConnecting
+        // Ignore press feedback + taps while connecting (or while core init is
+        // pending) so a second tap can't race the in-flight start transition.
+        onTapDown: isPending ? null : (_) => _handleTapDown(),
+        onTapUp: isPending ? null : (_) => _pressController.reverse(),
+        onTapCancel: isPending ? null : () => _pressController.reverse(),
+        onTap: isPending
             ? null
             : (hasProfile ? handleSwitchStart : _handleAddProfile),
         child: SizedBox.expand(

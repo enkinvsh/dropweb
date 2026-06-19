@@ -344,6 +344,7 @@ abstract class ClashHandlerInterface with ClashInterface {
   @override
   Future<bool> startListener() => invoke<bool>(
       method: ActionMethod.startListener,
+      timeout: const Duration(seconds: 10),
     );
 
   @override

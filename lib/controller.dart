@@ -1205,8 +1205,20 @@ class AppController {
         unawaited(window?.show());
       }
     }
-    await _initCore();
-    await _initStatus();
+    try {
+      await _initCore();
+    } catch (e) {
+      commonPrint.log('init: _initCore failed (UI stays usable): $e');
+    }
+    // Boot status-init (auto-start / connected-cold-start reconcile) must never
+    // block or abort init(): a hung or throwing handleStart would otherwise leave
+    // initProvider false and hide the connect button permanently (UI bricked until
+    // force-kill). Bound + swallow so init() always reaches initProvider=true.
+    try {
+      await _initStatus().timeout(const Duration(seconds: 25));
+    } catch (e) {
+      commonPrint.log('init: _initStatus failed/timed out (UI stays usable): $e');
+    }
     // Sync the operator theme to the current profile on launch so a previous
     // provider's colors don't linger until the user switches/updates a profile.
     applyCurrentProfileThemeOnStartup();
