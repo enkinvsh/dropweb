@@ -56,6 +56,15 @@ const defaultExternalController = "127.0.0.1:9090";
 const maxMobileWidth = 600;
 const maxLaptopWidth = 840;
 const defaultTestUrl = "https://www.gstatic.com/generate_204";
+/// Subscription header that advertises the «Игровой» (gaming) mode descriptor.
+/// Its value must be an absolute URL pointing at the game rule-set descriptor;
+/// gaming mode is offered only when this header parses (see
+/// `lib/common/game_descriptor.dart` + `gamingModeAvailable` provider).
+const kGamingHeader = 'dropweb-game';
+/// Subscription header carrying the «Игровой» (gaming) Hy2 node POOL domains.
+/// Panel-only; its value is a comma-separated list of Hy2 node domains injected
+/// as gaming proxies (see `parseGameNodeDomains` in `lib/common/gaming_patch.dart`).
+const kGamingNodesHeader = 'dropweb-game-nodes';
 final commonFilter = ImageFilter.blur(
   sigmaX: 2.5,
   sigmaY: 2.5,

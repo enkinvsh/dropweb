@@ -6,7 +6,10 @@ targets:
           build_extensions:
             '^lib/models/{{}}.dart': 'lib/models/generated/{{}}.g.dart'
             '^lib/providers/{{}}.dart': 'lib/providers/generated/{{}}.g.dart'
+            # lib/common/ modules keep generated code beside source (no subdir).
+            '^lib/common/{{}}.dart': 'lib/common/{{}}.g.dart'
       freezed:
         options:
           build_extensions:
             '^lib/models/{{}}.dart': 'lib/models/generated/{{}}.freezed.dart'
+            '^lib/common/{{}}.dart': 'lib/common/{{}}.freezed.dart'
