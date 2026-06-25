@@ -1,3 +1,101 @@
+## v0.8.3
+
+- feat(update): in-app auto-update for sideloaded Android
+
+- True in-app updater for the non-Play Android build: fetches the manifest
+- (tunnel-aware via the proxy when the core is running, direct otherwise),
+- downloads the APK (YC primary -> GitHub fallback), verifies it (sha256
+- corruption check + MANDATORY fail-closed signing-cert pin), and launches the
+- system installer. Gated behind kIsPlayBuild so the Play AAB stays inert.
+
+- - Lumina update sheet + existing Settings entry with available-indicator
+- - startup auto-check (default ON) + manual check; once/24h cadence
+- - native installApk/canInstallUnknownApps/verifyApkSignature + Dart wrappers
+- - CI build.yaml emits per-platform sha256 into update.json
+- - ru/en l10n; bump 0.8.3+2026062612
+
+- Validated end-to-end on Pixel 10: 0.8.1 -> 0.8.2 self-update via download +
+- sha256 + fail-closed pin + system install.
+
+## v0.8.2-pre.10
+
+- fix(ui): connect button can't vanish / brick the UI on a stalled boot start
+
+- StartButton: stop collapsing to SizedBox.shrink on !isInit; show the existing dimmed/disabled pending affordance instead, so the power glyph stays visible until core init completes (matches canonical FlClash, which gates only on hasProfile). The old gate left only the glass lens (empty circle) when init stalled.
+
+- controller.init(): guard _initCore() and _initStatus() (25s timeout) so a throwing/hung boot auto-start can no longer abort init() before initProvider=true — the root cause of the 'empty circle, dead until force-kill' report.
+
+- clash/interface: bound startListener() with a 10s timeout (was the 30s safeFuture default) so the start path fails fast.
+
+## v0.8.2-pre.9
+
+- fix(windows): clean install removes orphaned binaries/services/autostart from prior builds
+
+- Inno copied new files but never removed orphans, so every past (incl. FlClash-branded) build's binaries/services/autostart piled up in the install dir and fought over the global helper port / TUN / system proxy.
+
+- Tier 1 (safe, preserves user data): [InstallDelete] {app}\* empties the install dir before [Files] copy; expand process kill-list to FlClash/Koala lineage; CurStepChanged(ssInstall) stops service + kills processes + CleanLineageLeftovers (delete stale services/Run-key/scheduled-tasks gated to those whose path is inside our {app}, so a separately installed real FlClashX is never touched).
+
+- Tier 2 (opt-in): prompt to delete legacy-identity data (%APPDATA%\com.follow\clashx); current dropweb\dropweb profiles/settings preserved. Skipped on silent installs.
+
+## v0.8.2-pre.8
+
+- ci: free disk space on the android job to stop the no-space build flake
+
+- The android matrix entry has no --arch, so it builds a UNIVERSAL APK (arm64 + armeabi-v7a + x86_64) plus the embedded Go core - 3x the native .so payload. On a cold Gradle cache that exhausts the ~14 GB ubuntu runner mid :app:mergeReleaseNativeLibs ('No space left on device'), which is what failed the v0.8.2-pre.7 build (it only passed on a warm-cache re-run). Reclaim ~15-20 GB from preinstalled toolchains we never use (.NET, GHC/ghcup, Swift, CodeQL, docker images) BEFORE the build, while deliberately keeping the Android SDK/NDK, Go and Flutter the build needs.
+
+## v0.8.2-pre.7
+
+- ci(windows): add clean-install integration test (no FlClashX)
+
+- Baseline counterpart to windows-conflict-test: on a pristine windows-latest runner (no FlClashX) install the latest dropweb pre-release and assert it (1) installs with the full footprint, (2) its helper binds its OWN port 47896 — the clean-box proof of the 3ad5cd4 fix, mirroring the conflict test that proves it FAILS to bind when FlClashX squats 47890, and (3) boots without leaving a loadingRun started-but-never-done (the e374d08 stuck-dashboard regression), asserted from the app boot log since headless CI can't see the UI. Fails on positive evidence of the stuck-UI bug; warns (not fails) if the app simply doesn't init in headless CI, so it catches regressions without flaking. Boot logs upload as an artifact for inspection.
+
+- ci: fail the build when dist/ is empty so a no-artifact build can't pass green
+
+- setup.dart can exit 0 yet produce no artifact (e.g. an MSVC hard-error in a plugin, a missing packaging tool), and upload-artifact happily uploads nothing — the exact 'green job, empty dist' failure that shipped empty windows pre-releases. Assert dist/ is non-empty right after Setup so a broken build fails loudly instead of masquerading as a successful release.
+
+- fix(ui): widen the loadingRun backstop to 5 min so it can't fire mid-setup
+
+- The 60s loadingRun net was SHORTER than the core ops it wraps: setupConfig/updateConfig are bounded at 120s each (clash/interface.dart), and a composite applyProfile (wait-for-geo-lock + setupConfig + group/provider refresh) can legitimately run past a minute. So the 60s net fired SPURIOUSLY mid-setup — showing an error while the inner core call kept running underneath (risking a double-apply). Every async path reachable from loadingRun is already bounded at the source (invoke/safeFuture 30s default, helper HTTP .timeout(), bounded geo-lock actions), so this is a pure catastrophic backstop now: 5 min exceeds any legitimate composite duration and only trips on a genuine wedge.
+
+## v0.8.2-pre.6
+
+- fix(ui): bound loadingRun with a 60s timeout so a hung op can't freeze the screen
+
+- Clean-Windows logs (no FlClashX) showed the core+helper handshake working, yet the dashboard was stuck behind the top progress bar with the add button unusable. loadingRun() awaited its future with NO timeout, so a future that never returns left _loading=true forever (spinning bar) and the screen unusable. Bound it to 60s — a hang now surfaces an error and recovers. Also: skip the 20s updateGroups poll when no profile is selected (it only logged 'unknown error' against an empty core), and log [loadingRun] start/done/timeout so the next capture names the exact stuck operation.
+
+## v0.8.2-pre.5
+
+- fix(macos): auto-open the status-bar popover on launch
+
+- macOS build is a menu-bar app; applicationDidFinishLaunching closes the main window, so after install/launch nothing is visible until the user clicks the tray icon. Open the popover once on launch, deferred + NSApp.activate so the transient popover is not auto-dismissed.
+
+- fix(windows): move dropweb helper service to its own port 47896 (was 47890, shared with FlClashX)
+
+- FlClashX's Windows helper also binds 127.0.0.1:47890 (verified in pluralplay/FlClashX constant.dart + hub.rs). The CI integration test proved the runtime clash on a real x64 runner: with both helpers on 47890, whichever starts last takes the port and the other's service goes Stopped. Moving dropweb's helper to 47896 (hub.rs LISTEN_PORT + constant.dart helperPort) lets both coexist; pairs with the identity-checked helper-conflict resolution already in 31a4963.
+
+- ci(windows): add runtime job — FlClashX running first, then install dropweb
+
+- Installs FlClashX, registers+starts its helper service (binds 47890) and launches the app, THEN installs dropweb and starts its helper. With pre.4 (both helpers on 47890) this isolates the runtime helper-port clash: dropweb's helper is expected to fail to bind while FlClashX holds 47890. Informational (does not fail the build).
+
+- ci(windows): fix conflict test — registry-based inspection, no slow full-recurse
+
+- Get-ChildItem -Recurse over all of Program Files hung the baseline step on the loaded windows-latest runner. Switch to targeted dir checks + authoritative registry InstallLocation; verdict reads dropweb's uninstall key InstallLocation and flags if it sits inside the FlClashX folder.
+
+- ci(windows): add FlClashX coexistence integration test
+
+- Native x64 GitHub Actions job (public repo = free runners) that installs FlClashX + current dropweb on a clean windows-latest runner and inspects install paths, uninstall registry keys ({728B} vs {6997}), helper services and ports after each step. Proves whether the two apps' installers/footprints actually collide (the 'FlClashX installer detects dropweb' report) on real x64 Windows — no local ARM VM needed. Fails if current dropweb lands in FlClashX's install folder.
+
+## v0.8.2-pre.4
+
+- fix(app): robust launch + FlClashX conflict resolution; declutter settings & onboarding
+
+- - clash/interface: timeout init/isInit/setState so a stalled core handshake cannot hang AppController.init() and brick the UI
+- - controller: surface the window/macOS popover before _initCore() — fixes the desktop app starting hidden in the tray
+- - common/windows + request: identity-checked helper-port 47890 conflict resolution (do not drive a foreign helper; free a stale/foreign holder by detected PID); core-bridge diagnostics; fix isStarting leak on the helper path
+- - onboarding: remove the dead first-run tap-to-add hint + onboarding_state.dart
+- - settings: lift check-for-updates + support-project into Settings/Other; drop the More grouping in About
+- - tools: hide the Windows-only loopback entry from the desktop UI
+
 ## v0.8.2
 
 - fix(modes): temporarily remove the Smart («Умный») mode card
