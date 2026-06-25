@@ -550,6 +550,24 @@ class _ModesContentState extends ConsumerState<_ModesContent>
               onTap: () => _openCountryDeep(profile),
               onChevronTap: () => _openCountryDeep(profile),
             ),
+            // «Игровой» (Gaming): surfaced ONLY when the subscription advertises
+            // gaming — gated by [gamingModeAvailableProvider] (true when the
+            // profile's `dropweb-game` header parses to a valid URL). No deep
+            // screen / chevron / badge: it's a real, enabled, selectable mode
+            // whose nodes + rules come from the panel, so tapping just applies
+            // it. The build path is fail-safe (silently falls back to standard
+            // routing if gaming can't actually apply), so header-present ==
+            // card-shown — no extra gate needed here.
+            if (ref.watch(gamingModeAvailableProvider)) ...[
+              const SizedBox(height: 16),
+              _ModeCard(
+                icon: HugeIcons.strokeRoundedGameController01,
+                title: appLocalizations.workModeGaming,
+                description: appLocalizations.workModeGamingDesc,
+                isSelected: profile.workMode == WorkMode.gaming,
+                onTap: () => _apply(WorkMode.gaming),
+              ),
+            ],
           ],
         );
 
