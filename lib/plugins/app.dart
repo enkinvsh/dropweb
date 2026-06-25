@@ -90,6 +90,69 @@ class App {
     }
   }
 
+  /// Android `PackageManager.canRequestPackageInstalls()` — whether the user has
+  /// granted this app the "install unknown apps" permission. The in-app updater
+  /// checks this before [installApk] and, when false, sends the user to
+  /// [openUnknownSourcesSettings]. Safe (returns false) off Android / in tests.
+  Future<bool> canInstallUnknownApps() async {
+    try {
+      return await methodChannel.invokeMethod<bool>("canInstallUnknownApps") ??
+          false;
+    } on PlatformException catch (_) {
+      return false;
+    } on MissingPluginException catch (_) {
+      return false;
+    }
+  }
+
+  /// Opens the per-app "install unknown apps" settings screen
+  /// (`Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES`).
+  Future<bool> openUnknownSourcesSettings() async {
+    try {
+      return await methodChannel
+              .invokeMethod<bool>("openUnknownSourcesSettings") ??
+          false;
+    } on PlatformException catch (_) {
+      return false;
+    } on MissingPluginException catch (_) {
+      return false;
+    }
+  }
+
+  /// Launches the system package installer for the downloaded-and-verified APK
+  /// at [path] (ACTION_VIEW + package-archive MIME over a FileProvider URI). The
+  /// signing-cert pin (verifyApkSignature) MUST have passed on the Dart side
+  /// before this is called — it is the real integrity gate, not this launch.
+  Future<bool> installApk(String path) async {
+    try {
+      return await methodChannel
+              .invokeMethod<bool>("installApk", {"path": path}) ??
+          false;
+    } on PlatformException catch (_) {
+      return false;
+    } on MissingPluginException catch (_) {
+      return false;
+    }
+  }
+
+
+  /// MANDATORY fail-closed signing-cert pin. Returns true ONLY if the downloaded
+  /// APK at [path] is signed by the SAME release key as the installed app — the
+  /// one integrity control that survives a poisoned manifest (sha256 shares the
+  /// manifest's trust root). Any failure / missing native side returns false, so
+  /// the updater refuses to install.
+  Future<bool> verifyApkSignature(String path) async {
+    try {
+      return await methodChannel
+              .invokeMethod<bool>("verifyApkSignature", {"path": path}) ??
+          false;
+    } on PlatformException catch (_) {
+      return false;
+    } on MissingPluginException catch (_) {
+      return false;
+    }
+  }
+
   Future<bool?> initShortcuts() async => methodChannel.invokeMethod<bool>(
       "initShortcuts",
       appLocalizations.toggle,

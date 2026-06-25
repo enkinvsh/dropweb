@@ -1359,10 +1359,10 @@ class AppLocalizations {
     );
   }
 
-  /// `Discover the new version`
+  /// `New version`
   String get discoverNewVersion {
     return Intl.message(
-      'Discover the new version',
+      'New version',
       name: 'discoverNewVersion',
       desc: '',
       args: [],
@@ -1384,6 +1384,66 @@ class AppLocalizations {
     return Intl.message(
       'Go to download',
       name: 'goDownload',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Downloading…`
+  String get updateDownloading {
+    return Intl.message(
+      'Downloading…',
+      name: 'updateDownloading',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Verifying…`
+  String get updateVerifying {
+    return Intl.message(
+      'Verifying…',
+      name: 'updateVerifying',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Install`
+  String get updateInstall {
+    return Intl.message('Install', name: 'updateInstall', desc: '', args: []);
+  }
+
+  /// `Later`
+  String get updateLater {
+    return Intl.message('Later', name: 'updateLater', desc: '', args: []);
+  }
+
+  /// `Cancel`
+  String get updateCancel {
+    return Intl.message('Cancel', name: 'updateCancel', desc: '', args: []);
+  }
+
+  /// `Update failed`
+  String get updateFailed {
+    return Intl.message(
+      'Update failed',
+      name: 'updateFailed',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Retry`
+  String get updateRetry {
+    return Intl.message('Retry', name: 'updateRetry', desc: '', args: []);
+  }
+
+  /// `This update is recommended`
+  String get updateMandatoryNote {
+    return Intl.message(
+      'This update is recommended',
+      name: 'updateMandatoryNote',
       desc: '',
       args: [],
     );

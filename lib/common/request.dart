@@ -139,7 +139,7 @@ class Request {
   Future<Map<String, dynamic>?> checkForUpdate() async {
     try {
       final response = await _dio.get(
-        "https://dropweb.org/update.json",
+        kUpdateManifestUrl,
         options: Options(
           responseType: ResponseType.json,
         ),
@@ -178,6 +178,64 @@ class Request {
     } catch (e) {
       debugPrint('checkForUpdate failed: $e');
       return null;
+    }
+  }
+
+  /// Raw fetch of the update manifest (dropweb.org/update.json → Vercel → YC),
+  /// reused by the Android in-app updater. Returns the decoded JSON map, or null
+  /// on any non-200 / parse failure / network error.
+  ///
+  /// Tunnel-aware (the RU update path): when [viaProxy] is true — the caller
+  /// knows the tunnel is connected — the request goes through the proxy-routed
+  /// [_clashDio] so a ТСПУ block on dropweb.org/YC is bypassed via the active
+  /// node; otherwise it goes direct via [_dio]. The caller owns the tunnel-state
+  /// decision and the direct→proxy fallback ordering.
+  Future<Map<String, dynamic>?> fetchUpdateManifest({bool viaProxy = false}) async {
+    try {
+      final response = await (viaProxy ? _clashDio : _dio).get(
+        kUpdateManifestUrl,
+        options: Options(responseType: ResponseType.json),
+      );
+      if (response.statusCode != 200) return null;
+      final raw = response.data;
+      if (raw is Map<String, dynamic>) return raw;
+      if (raw is String) return json.decode(raw) as Map<String, dynamic>;
+      return null;
+    } catch (e) {
+      debugPrint('fetchUpdateManifest failed: $e');
+      return null;
+    }
+  }
+
+  /// Tunnel-aware APK download for the in-app updater. Streams [url] to
+  /// [savePath] through the proxy-routed client when [viaProxy] is true (the
+  /// caller knows the tunnel is up) so a ТСПУ block on YC/GitHub is bypassed via
+  /// the active node; direct otherwise. Returns true on a completed download. A
+  /// user cancel via [cancelToken] is rethrown so the caller can tell cancel from
+  /// failure; any other error returns false.
+  Future<bool> downloadUpdateApk({
+    required String url,
+    required String savePath,
+    bool viaProxy = false,
+    void Function(int received, int total)? onReceiveProgress,
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      await (viaProxy ? _clashDio : _dio).download(
+        url,
+        savePath,
+        onReceiveProgress: onReceiveProgress,
+        cancelToken: cancelToken,
+        options: Options(headers: {"User-Agent": globalState.ua}),
+      );
+      return true;
+    } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) rethrow;
+      debugPrint('downloadUpdateApk failed (viaProxy=$viaProxy): ${e.type}');
+      return false;
+    } catch (e) {
+      debugPrint('downloadUpdateApk failed: $e');
+      return false;
     }
   }
 

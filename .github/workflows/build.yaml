@@ -266,9 +266,21 @@ jobs:
           notes_raw=$(grep '^- ' release.md | head -3 | sed 's/^- //' || true)
           [ -z "$notes_raw" ] && notes_raw="Релиз $version"
           notes_json=$(printf '%s\n' "$notes_raw" | jq -R . | jq -s .)
+          # Per-platform sha256 for the in-app updater's CORRUPTION check (the
+          # app's REAL integrity gate is the native signing-cert pin). Read from
+          # the .sha256 files produced by the "Generate sha256" step; a missing
+          # binary yields an empty string, which the app treats as "unverified,
+          # install anyway" (graceful).
+          sha() { [ -f "./dist/$1.sha256" ] && cut -d' ' -f1 "./dist/$1.sha256" || echo ""; }
+          apk_sha=$(sha dropweb-arm64-v8a.apk)
+          universal_sha=$(sha dropweb-universal.apk)
+          exe_sha=$(sha dropweb-amd64-setup.exe)
+          dmg_sha=$(sha dropweb-arm64.dmg)
+          appimage_sha=$(sha dropweb-amd64.AppImage)
           jq -n --arg version "$version" --argjson build "${build:-0}" --arg pubDate "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson notes "$notes_json" \
             --arg apk "$base/dropweb-arm64-v8a.apk" --arg universal "$base/dropweb-universal.apk" --arg exe "$base/dropweb-amd64-setup.exe" --arg dmg "$base/dropweb-arm64.dmg" --arg appimage "$base/dropweb-amd64.AppImage" \
-            '{version:$version,build:$build,mandatory:false,minSupported:"0.7.0",pubDate:$pubDate,notes:$notes,platforms:{"android-arm64":{url:$apk},"android-universal":{url:$universal},"windows-amd64":{url:$exe},"windows-arm64":{url:""},"linux-amd64":{url:$appimage},"linux-arm64":{url:""},"macos":{url:$dmg},"ios":{url:""}}}' > update.json
+            --arg apkSha "$apk_sha" --arg universalSha "$universal_sha" --arg exeSha "$exe_sha" --arg dmgSha "$dmg_sha" --arg appimageSha "$appimage_sha" \
+            '{version:$version,build:$build,mandatory:false,minSupported:"0.7.0",pubDate:$pubDate,notes:$notes,platforms:{"android-arm64":{url:$apk,sha256:$apkSha},"android-universal":{url:$universal,sha256:$universalSha},"windows-amd64":{url:$exe,sha256:$exeSha},"windows-arm64":{url:"",sha256:""},"linux-amd64":{url:$appimage,sha256:$appimageSha},"linux-arm64":{url:"",sha256:""},"macos":{url:$dmg,sha256:$dmgSha},"ios":{url:"",sha256:""}}}' > update.json
           aws s3 cp update.json "$B/update.json" $ep --content-type application/json --cache-control no-cache
           echo "Published v$version binaries + manifest to YC (dropweb-downloads)."
 

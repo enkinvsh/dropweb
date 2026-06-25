@@ -56,6 +56,35 @@ const defaultExternalController = "127.0.0.1:9090";
 const maxMobileWidth = 600;
 const maxLaptopWidth = 840;
 const defaultTestUrl = "https://www.gstatic.com/generate_204";
+
+// ─── In-app auto-update (sideloaded Android) — single source of truth ─────────
+// See docs/plans/2026-06-25-auto-update.md. No update literals are scattered
+// across services/native; everything funnels through these consts. The channel
+// gate lives here (not in a view) so non-UI code — services, controller — can
+// read it without importing the widget layer.
+
+/// True ONLY on the Google Play build (`--dart-define=PLAY_BUILD=true`). The
+/// in-app updater is inert on Play builds (Play policy forbids self-update from
+/// an external source); this const-folds so the whole updater tree-shakes out
+/// of the Play AAB. Every other channel — crucially the sideloaded RU build —
+/// self-updates from [kUpdateManifestUrl].
+const bool kIsPlayBuild = bool.fromEnvironment('PLAY_BUILD');
+
+/// Update manifest endpoint: dropweb.org → Vercel → Yandex Cloud Object Storage.
+const kUpdateManifestUrl = "https://dropweb.org/update.json";
+
+/// GitHub release asset name per platform key — the YC→GitHub fallback source.
+/// Combined with [repository] + the release tag to reconstruct the asset URL.
+const kGithubApkAssetByPlatform = <String, String>{
+  'android-arm64': 'dropweb-arm64-v8a.apk',
+  'android-universal': 'dropweb-universal.apk',
+};
+
+/// Subdir under the app cache dir where a downloaded APK is staged before install.
+const kUpdateCacheDirName = "updates";
+
+/// Scheduled (non-manual) auto-check cadence.
+const kUpdateCheckInterval = Duration(hours: 24);
 final commonFilter = ImageFilter.blur(
   sigmaX: 2.5,
   sigmaY: 2.5,

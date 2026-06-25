@@ -259,9 +259,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "disclaimerDesc": MessageLookupByLibrary.simpleMessage(
       "Данное программное обеспечение предназначено исключительно для некоммерческого использования в образовательных и исследовательских целях. Коммерческое использование запрещено. Разработчики не несут ответственности за любую коммерческую деятельность с использованием данного ПО.",
     ),
-    "discoverNewVersion": MessageLookupByLibrary.simpleMessage(
-      "Обнаружена новая версия",
-    ),
+    "discoverNewVersion": MessageLookupByLibrary.simpleMessage("Новая версия"),
     "discovery": MessageLookupByLibrary.simpleMessage(
       "Обнаружена новая версия",
     ),
@@ -872,7 +870,17 @@ class MessageLookup extends MessageLookupByLibrary {
     "updateAllGeoData": MessageLookupByLibrary.simpleMessage(
       "Обновить все геофайлы",
     ),
+    "updateCancel": MessageLookupByLibrary.simpleMessage("Отмена"),
+    "updateDownloading": MessageLookupByLibrary.simpleMessage("Загрузка…"),
+    "updateFailed": MessageLookupByLibrary.simpleMessage("Не удалось обновить"),
+    "updateInstall": MessageLookupByLibrary.simpleMessage("Установить"),
+    "updateLater": MessageLookupByLibrary.simpleMessage("Позже"),
+    "updateMandatoryNote": MessageLookupByLibrary.simpleMessage(
+      "Рекомендуем обновиться",
+    ),
+    "updateRetry": MessageLookupByLibrary.simpleMessage("Повторить"),
     "updateSubscription": MessageLookupByLibrary.simpleMessage("Обновить"),
+    "updateVerifying": MessageLookupByLibrary.simpleMessage("Проверка…"),
     "updated": MessageLookupByLibrary.simpleMessage("Обновлено"),
     "upload": MessageLookupByLibrary.simpleMessage("Отправка"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),

@@ -4,13 +4,6 @@ import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-/// Play builds must hide the in-app update check (Play policy: app updates
-/// ship through the store). Every OTHER distribution shows it and self-updates
-/// from our own server (dropweb.org/update.json) — including the sideloaded
-/// Android build, which is our primary RU channel where Play updates are not
-/// available. The Play AAB build opts out via --dart-define=PLAY_BUILD=true.
-const bool kIsPlayBuild = bool.fromEnvironment('PLAY_BUILD');
-
 /// Whether the About page should show the manual "Check for updates" entry.
 /// [isAndroid]/[isPlayBuild] are injected so this helper stays testable
 /// without mocking `Platform`; production callers pass `Platform.isAndroid`.

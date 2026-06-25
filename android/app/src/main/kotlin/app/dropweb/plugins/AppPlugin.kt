@@ -6,9 +6,12 @@ import android.app.ActivityManager
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.ComponentInfo
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.content.pm.Signature
 import android.media.AudioAttributes
 import android.media.SoundPool
+import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.provider.Settings
@@ -45,6 +48,11 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.lang.ref.WeakReference
 import java.util.zip.ZipFile
+
+// MIME for the system package installer (ACTION_VIEW). Single source of truth
+// so the literal is not scattered; the manifest <queries> entry must keep its
+// own literal copy (XML has no const).
+private const val APK_MIME = "application/vnd.android.package-archive"
 
 class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware {
 
@@ -257,6 +265,24 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 result.success(true)
             }
 
+            "canInstallUnknownApps" -> {
+                result.success(canInstallUnknownApps())
+            }
+
+            "openUnknownSourcesSettings" -> {
+                result.success(openUnknownSourcesSettings())
+            }
+
+            "installApk" -> {
+                val path = call.argument<String>("path")!!
+                result.success(installApk(path))
+            }
+
+            "verifyApkSignature" -> {
+                val path = call.argument<String>("path")!!
+                result.success(verifyApkSignature(path))
+            }
+
             "performHapticFeedback" -> {
                 val cue = call.argument<String>("cue")
                 result.success(performHapticFeedback(cue))
@@ -460,6 +486,119 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
         } catch (e: Exception) {
             println(e)
         }
+    }
+
+    // Whether the app may install APKs from this (unknown) source. Below O the
+    // install permission was global, so always true there.
+    private fun canInstallUnknownApps(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            DropwebApplication.getAppContext().packageManager.canRequestPackageInstalls()
+        } else {
+            true
+        }
+    }
+
+    // Sends the user to the per-app "install unknown apps" toggle. Mirrors
+    // openVpnSettings(): prefer the foreground activity, else app context + NEW_TASK.
+    private fun openUnknownSourcesSettings(): Boolean {
+        return try {
+            val ctx = DropwebApplication.getAppContext()
+            val intent = Intent(
+                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:${ctx.packageName}")
+            )
+            val activity = activityRef?.get()
+            if (activity != null) {
+                activity.startActivity(intent)
+            } else {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                ctx.startActivity(intent)
+            }
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    // Mirror of openFile() but with the package-archive MIME so the system
+    // installer handles the URI. Reuses the same FileProvider authority + the
+    // per-resolver grant loop so the installer reliably receives read access to
+    // the content:// URI. The signing-cert pin (verifyApkSignature, Task 4.4)
+    // gates this on the Dart side BEFORE we ever reach here.
+    private fun installApk(path: String): Boolean {
+        return try {
+            val ctx = DropwebApplication.getAppContext()
+            val file = File(path)
+            val uri = FileProvider.getUriForFile(
+                ctx,
+                "${ctx.packageName}.fileProvider",
+                file
+            )
+            val intent = Intent(Intent.ACTION_VIEW).setDataAndType(uri, APK_MIME)
+            val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            intent.addFlags(flags)
+            val resInfoList = ctx.packageManager.queryIntentActivities(
+                intent, PackageManager.MATCH_DEFAULT_ONLY
+            )
+            for (resolveInfo in resInfoList) {
+                ctx.grantUriPermission(resolveInfo.activityInfo.packageName, uri, flags)
+            }
+            val activity = activityRef?.get()
+            if (activity != null) {
+                activity.startActivity(intent)
+            } else {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                ctx.startActivity(intent)
+            }
+            true
+        } catch (e: Exception) {
+            println(e)
+            false
+        }
+    }
+
+    // The ONLY integrity control that survives a poisoned manifest (sha256 shares
+    // the manifest's trust root). True iff the downloaded APK is signed by the
+    // SAME cert as the installed app. Fail-closed: any error / signer mismatch
+    // returns false and the Dart side refuses to install. The isNotEmpty() guard
+    // stops a degenerate empty==empty match from false-passing.
+    private fun verifyApkSignature(path: String): Boolean {
+        return try {
+            val pm = DropwebApplication.getAppContext().packageManager
+            val pkg = DropwebApplication.getAppContext().packageName
+            @Suppress("DEPRECATION")
+            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                PackageManager.GET_SIGNING_CERTIFICATES
+            } else {
+                PackageManager.GET_SIGNATURES
+            }
+            val installed = pm.getPackageInfo(pkg, flags)
+            val downloaded = pm.getPackageArchiveInfo(path, flags) ?: return false
+            val installedSigs = signaturesOf(installed)
+            installedSigs.isNotEmpty() && installedSigs == signaturesOf(downloaded)
+        } catch (e: Exception) {
+            println(e)
+            false
+        }
+    }
+
+    private fun signaturesOf(info: PackageInfo): Set<String> {
+        @Suppress("DEPRECATION")
+        val signatures: Array<Signature>? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                info.signingInfo?.let {
+                    if (it.hasMultipleSigners()) it.apkContentsSigners
+                    else it.signingCertificateHistory
+                }
+            } else {
+                info.signatures
+            }
+        return signatures?.map { sha256Hex(it.toByteArray()) }?.toSet() ?: emptySet()
+    }
+
+    private fun sha256Hex(bytes: ByteArray): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
+        return digest.joinToString("") { "%02x".format(it) }
     }
 
     private fun updateExcludeFromRecents(value: Boolean?) {
