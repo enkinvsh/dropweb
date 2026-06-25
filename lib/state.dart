@@ -778,11 +778,95 @@ class GlobalState {
         )) {
       commonPrint.log('[workmode] country group missing, config falls back');
     }
+    if (profile.workMode == WorkMode.gaming) {
+      return _applyGamingMode(rawConfig, profile);
+    }
     return applyWorkModePatch(
       rawConfig,
       workMode: profile.workMode,
       staticCountry: profile.staticCountry,
     );
+  }
+
+  /// «Игровой» (gaming) work-mode hook. Fetches the pinned `game.yml`
+  /// descriptor, injects the Hy2 node pool + the gaming group, and replaces the
+  /// rules. FAIL-SAFE: every unavailable path logs a reason and returns
+  /// [rawConfig] unchanged (standard routing) — gaming must NEVER break config
+  /// build for the user.
+  Future<Map<String, dynamic>> _applyGamingMode(
+    Map<String, dynamic> rawConfig,
+    Profile profile,
+  ) async {
+    try {
+      final url = gamingDescriptorUrl(profile.providerHeaders[kGamingHeader]);
+      if (url == null || !isPinnedGamingHost(url)) {
+        commonPrint.log(
+            '[gaming] descriptor url missing/unpinned → standard routing');
+        return rawConfig;
+      }
+      final descriptor =
+          await loadGameDescriptor(url: url, profileId: profile.id);
+      if (descriptor == null) {
+        commonPrint
+            .log('[gaming] descriptor unavailable → standard routing');
+        return rawConfig;
+      }
+      final domains =
+          parseGameNodeDomains(profile.providerHeaders[kGamingNodesHeader]);
+      final uuid = extractGamingUuid(rawConfig);
+      if (domains.isEmpty || uuid == null) {
+        commonPrint.log(
+            '[gaming] no node domains/uuid → standard routing');
+        return rawConfig;
+      }
+      var cfg = injectGamingProxies(
+        rawConfig,
+        descriptor: descriptor,
+        nodeDomains: domains,
+        password: uuid,
+      );
+      cfg = applyGamingPatch(cfg, descriptor);
+      cfg = await _setGamingRuleProviderPaths(cfg, descriptor, profile.id);
+      return cfg;
+    } catch (e) {
+      commonPrint.log('[gaming] apply failed: $e → standard routing');
+      return rawConfig;
+    }
+  }
+
+  /// Sets the on-disk `path` for the gaming-injected http rule-providers.
+  ///
+  /// Mirrors the rule-providers loop in [patchRawConfig] (which ran BEFORE the
+  /// gaming hook, so descriptor-injected providers have no `path` yet). For each
+  /// key in [descriptor].ruleProviders, if `cfg['rule-providers'][key]` is an
+  /// http provider with a non-null `url` and NO `path`, the provider map is
+  /// CLONED (never mutating the ref `applyGamingPatch` keeps by reference) with
+  /// `path` set, then written back.
+  Future<Map<String, dynamic>> _setGamingRuleProviderPaths(
+    Map<String, dynamic> cfg,
+    GameDescriptor descriptor,
+    String profileId,
+  ) async {
+    final ruleProviders = cfg['rule-providers'];
+    if (ruleProviders is! Map) {
+      return cfg;
+    }
+    for (final key in descriptor.ruleProviders.keys) {
+      final provider = ruleProviders[key];
+      if (provider is! Map) continue;
+      if (provider['type'] != 'http') continue;
+      final url = provider['url'];
+      if (url == null) continue;
+      if (provider['path'] != null) continue;
+      final clone = Map<String, dynamic>.from(provider);
+      clone['path'] = await appPath.getProvidersFilePath(
+        profileId,
+        'rules',
+        url.toString(),
+      );
+      ruleProviders[key] = clone;
+    }
+    return cfg;
   }
 
   Future<Map<String, dynamic>> getProfileConfig(String profileId) async {

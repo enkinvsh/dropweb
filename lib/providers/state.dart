@@ -575,6 +575,12 @@ bool globalModeEnabled(Ref ref) {
 }
 
 @riverpod
+bool gamingModeAvailable(Ref ref) {
+  final v = ref.watch(currentProfileProvider)?.providerHeaders[kGamingHeader];
+  return gamingDescriptorUrl(v) != null;
+}
+
+@riverpod
 bool hasAnnounceData(Ref ref) {
   final profile = ref.watch(currentProfileProvider);
   final value = profile?.providerHeaders['announce'];

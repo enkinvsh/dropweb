@@ -1123,6 +1123,24 @@ final globalModeEnabledProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef GlobalModeEnabledRef = AutoDisposeProviderRef<bool>;
+String _$gamingModeAvailableHash() =>
+    r'a415d470982db67e68711ddd76a4cc6409e8f5f3';
+
+/// See also [gamingModeAvailable].
+@ProviderFor(gamingModeAvailable)
+final gamingModeAvailableProvider = AutoDisposeProvider<bool>.internal(
+  gamingModeAvailable,
+  name: r'gamingModeAvailableProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$gamingModeAvailableHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef GamingModeAvailableRef = AutoDisposeProviderRef<bool>;
 String _$hasAnnounceDataHash() => r'518399bf6581fbf003d0fe26afbe9db97e6c0322';
 
 /// See also [hasAnnounceData].
