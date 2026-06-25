@@ -10,4 +10,8 @@
     <cache-path
         name="cache"
         path="shared/" />
+    <!-- APK staging for the in-app updater — narrow cache subpath, NOT the cache root. -->
+    <cache-path
+        name="updates"
+        path="updates/" />
 </paths>

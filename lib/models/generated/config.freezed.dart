@@ -31,8 +31,15 @@ mixin _$AppSettingProps {
   bool get openLogs => throw _privateConstructorUsedError;
   bool get closeConnections => throw _privateConstructorUsedError;
   String get testUrl => throw _privateConstructorUsedError;
-  bool get isAnimateToPage => throw _privateConstructorUsedError;
+  bool get isAnimateToPage =>
+      throw _privateConstructorUsedError; // Sideloaded RU build self-updates from dropweb.org/update.json by default;
+// Play build ignores this (gated by kIsPlayBuild). Desktop just opens the
+// release page on a newer version. See docs/plans/2026-06-25-auto-update.md.
   bool get autoCheckUpdate => throw _privateConstructorUsedError;
+
+  /// Epoch-ms of the last in-app update check; drives the once/day cadence of
+  /// the Android updater (see shouldRunScheduledCheck). 0 = never checked.
+  int get lastUpdateCheckMs => throw _privateConstructorUsedError;
   bool get showLabel => throw _privateConstructorUsedError;
   bool get disclaimerAccepted => throw _privateConstructorUsedError;
   bool get minimizeOnExit => throw _privateConstructorUsedError;
@@ -72,6 +79,7 @@ abstract class $AppSettingPropsCopyWith<$Res> {
       String testUrl,
       bool isAnimateToPage,
       bool autoCheckUpdate,
+      int lastUpdateCheckMs,
       bool showLabel,
       bool disclaimerAccepted,
       bool minimizeOnExit,
@@ -109,6 +117,7 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
     Object? testUrl = null,
     Object? isAnimateToPage = null,
     Object? autoCheckUpdate = null,
+    Object? lastUpdateCheckMs = null,
     Object? showLabel = null,
     Object? disclaimerAccepted = null,
     Object? minimizeOnExit = null,
@@ -164,6 +173,10 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
           ? _value.autoCheckUpdate
           : autoCheckUpdate // ignore: cast_nullable_to_non_nullable
               as bool,
+      lastUpdateCheckMs: null == lastUpdateCheckMs
+          ? _value.lastUpdateCheckMs
+          : lastUpdateCheckMs // ignore: cast_nullable_to_non_nullable
+              as int,
       showLabel: null == showLabel
           ? _value.showLabel
           : showLabel // ignore: cast_nullable_to_non_nullable
@@ -225,6 +238,7 @@ abstract class _$$AppSettingPropsImplCopyWith<$Res>
       String testUrl,
       bool isAnimateToPage,
       bool autoCheckUpdate,
+      int lastUpdateCheckMs,
       bool showLabel,
       bool disclaimerAccepted,
       bool minimizeOnExit,
@@ -260,6 +274,7 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
     Object? testUrl = null,
     Object? isAnimateToPage = null,
     Object? autoCheckUpdate = null,
+    Object? lastUpdateCheckMs = null,
     Object? showLabel = null,
     Object? disclaimerAccepted = null,
     Object? minimizeOnExit = null,
@@ -315,6 +330,10 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
           ? _value.autoCheckUpdate
           : autoCheckUpdate // ignore: cast_nullable_to_non_nullable
               as bool,
+      lastUpdateCheckMs: null == lastUpdateCheckMs
+          ? _value.lastUpdateCheckMs
+          : lastUpdateCheckMs // ignore: cast_nullable_to_non_nullable
+              as int,
       showLabel: null == showLabel
           ? _value.showLabel
           : showLabel // ignore: cast_nullable_to_non_nullable
@@ -370,7 +389,8 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
       this.closeConnections = true,
       this.testUrl = defaultTestUrl,
       this.isAnimateToPage = true,
-      this.autoCheckUpdate = false,
+      this.autoCheckUpdate = true,
+      this.lastUpdateCheckMs = 0,
       this.showLabel = false,
       this.disclaimerAccepted = false,
       this.minimizeOnExit = true,
@@ -421,9 +441,18 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
   @override
   @JsonKey()
   final bool isAnimateToPage;
+// Sideloaded RU build self-updates from dropweb.org/update.json by default;
+// Play build ignores this (gated by kIsPlayBuild). Desktop just opens the
+// release page on a newer version. See docs/plans/2026-06-25-auto-update.md.
   @override
   @JsonKey()
   final bool autoCheckUpdate;
+
+  /// Epoch-ms of the last in-app update check; drives the once/day cadence of
+  /// the Android updater (see shouldRunScheduledCheck). 0 = never checked.
+  @override
+  @JsonKey()
+  final int lastUpdateCheckMs;
   @override
   @JsonKey()
   final bool showLabel;
@@ -454,7 +483,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
 
   @override
   String toString() {
-    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, applySubscriptionLogo: $applySubscriptionLogo, overrideNetworkSettings: $overrideNetworkSettings)';
+    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, lastUpdateCheckMs: $lastUpdateCheckMs, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, applySubscriptionLogo: $applySubscriptionLogo, overrideNetworkSettings: $overrideNetworkSettings)';
   }
 
   @override
@@ -481,6 +510,8 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
                 other.isAnimateToPage == isAnimateToPage) &&
             (identical(other.autoCheckUpdate, autoCheckUpdate) ||
                 other.autoCheckUpdate == autoCheckUpdate) &&
+            (identical(other.lastUpdateCheckMs, lastUpdateCheckMs) ||
+                other.lastUpdateCheckMs == lastUpdateCheckMs) &&
             (identical(other.showLabel, showLabel) ||
                 other.showLabel == showLabel) &&
             (identical(other.disclaimerAccepted, disclaimerAccepted) ||
@@ -517,6 +548,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
         testUrl,
         isAnimateToPage,
         autoCheckUpdate,
+        lastUpdateCheckMs,
         showLabel,
         disclaimerAccepted,
         minimizeOnExit,
@@ -559,6 +591,7 @@ abstract class _AppSettingProps implements AppSettingProps {
       final String testUrl,
       final bool isAnimateToPage,
       final bool autoCheckUpdate,
+      final int lastUpdateCheckMs,
       final bool showLabel,
       final bool disclaimerAccepted,
       final bool minimizeOnExit,
@@ -592,9 +625,17 @@ abstract class _AppSettingProps implements AppSettingProps {
   @override
   String get testUrl;
   @override
-  bool get isAnimateToPage;
+  bool
+      get isAnimateToPage; // Sideloaded RU build self-updates from dropweb.org/update.json by default;
+// Play build ignores this (gated by kIsPlayBuild). Desktop just opens the
+// release page on a newer version. See docs/plans/2026-06-25-auto-update.md.
   @override
   bool get autoCheckUpdate;
+
+  /// Epoch-ms of the last in-app update check; drives the once/day cadence of
+  /// the Android updater (see shouldRunScheduledCheck). 0 = never checked.
+  @override
+  int get lastUpdateCheckMs;
   @override
   bool get showLabel;
   @override

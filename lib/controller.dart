@@ -85,24 +85,22 @@ bool shouldHandleUpdateResult({
   return handleError;
 }
 
-/// Whether [AppController.autoCheckUpdate] is allowed to hit the GitHub
-/// releases API on startup.
-///
-/// Android is the Google Play target: Play policy forbids in-app update
-/// checks against an external source, so Android always skips the auto
-/// check regardless of the persisted `autoCheckUpdate` preference (which
-/// can still be flipped on via a subscription `dropweb-settings:
-/// autoupdate` header). Non-Android builds keep honouring the user's
-/// preference.
+/// Whether [AppController.autoCheckUpdate] is allowed to self-update from our
+/// own server on startup. Disabled ONLY on the Google Play build (Play policy
+/// forbids in-app update from an external source). Every other channel —
+/// crucially the sideloaded RU Android build, our primary RU update path —
+/// honours the user's `autoCheckUpdate` preference and self-updates from
+/// dropweb.org/update.json.
 ///
 /// Pure update policy shared by [AppController.autoCheckUpdate] (the facade)
 /// and its implementation in [AppUpdateService]; also unit-tested directly via
 /// `package:dropweb/controller.dart`.
 bool shouldRunAutoUpdateCheck({
   required bool isAndroid,
+  required bool isPlayBuild,
   required bool autoCheckUpdate,
 }) {
-  if (isAndroid) return false;
+  if (isAndroid && isPlayBuild) return false;
   return autoCheckUpdate;
 }
 
@@ -1230,6 +1228,10 @@ class AppController {
         const Duration(seconds: 1), _updateCurrentProfileSubscription);
     autoUpdateProfiles();
     autoCheckUpdate();
+    // Android sideload in-app updater — self-gates on Play/desktop, the
+    // autoCheckUpdate setting, and the once/day cadence. Surfaces only via the
+    // Settings update entry (no dashboard banner).
+    unawaited(_ref.read(appUpdateProvider.notifier).check());
     await _handlePreference();
     await _handlerDisclaimer();
     _ref.read(initProvider.notifier).value = true;

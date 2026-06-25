@@ -35,6 +35,13 @@
          CONTEXTUALLY (only after the user's first successful VPN start) and only
          once ever — never an app-launch nag — to stay Google Play compliant. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- In-app self-update for the SIDELOADED build: download our signed APK and
+         launch the system package installer (docs/plans/2026-06-25-auto-update.md).
+         Inert on the Play build via the kIsPlayBuild dart-define gate, BUT this
+         permission still ships in any AAB — WAVE-3 TODO: strip it from the Play
+         build with a manifest overlay (tools:node="remove") or declare it in the
+         Play Console, since REQUEST_INSTALL_PACKAGES triggers a policy form. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!--
         Package visibility for per-app VPN access control and config-file
         sharing is scoped narrowly via the <queries> block below; the broad
@@ -74,6 +81,15 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:mimeType="text/plain" />
+        </intent>
+        <!-- AppPlugin.installApk launches the system package installer for a
+             downloaded APK via ACTION_VIEW + the package-archive MIME; this lets
+             queryIntentActivities resolve the installer under Android 11+ package
+             visibility so we can grant it the FileProvider URI up-front (mirrors
+             the text/plain entry above). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/vnd.android.package-archive" />
         </intent>
     </queries>
 

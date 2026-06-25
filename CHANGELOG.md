@@ -1,3 +1,1291 @@
+## v0.8.3
+
+- feat(update): in-app auto-update for sideloaded Android
+
+- True in-app updater for the non-Play Android build: fetches the manifest
+- (tunnel-aware via the proxy when the core is running, direct otherwise),
+- downloads the APK (YC primary -> GitHub fallback), verifies it (sha256
+- corruption check + MANDATORY fail-closed signing-cert pin), and launches the
+- system installer. Gated behind kIsPlayBuild so the Play AAB stays inert.
+
+- - Lumina update sheet + existing Settings entry with available-indicator
+- - startup auto-check (default ON) + manual check; once/24h cadence
+- - native installApk/canInstallUnknownApps/verifyApkSignature + Dart wrappers
+- - CI build.yaml emits per-platform sha256 into update.json
+- - ru/en l10n; bump 0.8.3+2026062612
+
+- Validated end-to-end on Pixel 10: 0.8.1 -> 0.8.2 self-update via download +
+- sha256 + fail-closed pin + system install.
+
+## v0.8.2-pre.10
+
+- fix(ui): connect button can't vanish / brick the UI on a stalled boot start
+
+- StartButton: stop collapsing to SizedBox.shrink on !isInit; show the existing dimmed/disabled pending affordance instead, so the power glyph stays visible until core init completes (matches canonical FlClash, which gates only on hasProfile). The old gate left only the glass lens (empty circle) when init stalled.
+
+- controller.init(): guard _initCore() and _initStatus() (25s timeout) so a throwing/hung boot auto-start can no longer abort init() before initProvider=true — the root cause of the 'empty circle, dead until force-kill' report.
+
+- clash/interface: bound startListener() with a 10s timeout (was the 30s safeFuture default) so the start path fails fast.
+
+## v0.8.2-pre.9
+
+- fix(windows): clean install removes orphaned binaries/services/autostart from prior builds
+
+- Inno copied new files but never removed orphans, so every past (incl. FlClash-branded) build's binaries/services/autostart piled up in the install dir and fought over the global helper port / TUN / system proxy.
+
+- Tier 1 (safe, preserves user data): [InstallDelete] {app}\* empties the install dir before [Files] copy; expand process kill-list to FlClash/Koala lineage; CurStepChanged(ssInstall) stops service + kills processes + CleanLineageLeftovers (delete stale services/Run-key/scheduled-tasks gated to those whose path is inside our {app}, so a separately installed real FlClashX is never touched).
+
+- Tier 2 (opt-in): prompt to delete legacy-identity data (%APPDATA%\com.follow\clashx); current dropweb\dropweb profiles/settings preserved. Skipped on silent installs.
+
+## v0.8.2-pre.8
+
+- ci: free disk space on the android job to stop the no-space build flake
+
+- The android matrix entry has no --arch, so it builds a UNIVERSAL APK (arm64 + armeabi-v7a + x86_64) plus the embedded Go core - 3x the native .so payload. On a cold Gradle cache that exhausts the ~14 GB ubuntu runner mid :app:mergeReleaseNativeLibs ('No space left on device'), which is what failed the v0.8.2-pre.7 build (it only passed on a warm-cache re-run). Reclaim ~15-20 GB from preinstalled toolchains we never use (.NET, GHC/ghcup, Swift, CodeQL, docker images) BEFORE the build, while deliberately keeping the Android SDK/NDK, Go and Flutter the build needs.
+
+## v0.8.2-pre.7
+
+- ci(windows): add clean-install integration test (no FlClashX)
+
+- Baseline counterpart to windows-conflict-test: on a pristine windows-latest runner (no FlClashX) install the latest dropweb pre-release and assert it (1) installs with the full footprint, (2) its helper binds its OWN port 47896 — the clean-box proof of the 3ad5cd4 fix, mirroring the conflict test that proves it FAILS to bind when FlClashX squats 47890, and (3) boots without leaving a loadingRun started-but-never-done (the e374d08 stuck-dashboard regression), asserted from the app boot log since headless CI can't see the UI. Fails on positive evidence of the stuck-UI bug; warns (not fails) if the app simply doesn't init in headless CI, so it catches regressions without flaking. Boot logs upload as an artifact for inspection.
+
+- ci: fail the build when dist/ is empty so a no-artifact build can't pass green
+
+- setup.dart can exit 0 yet produce no artifact (e.g. an MSVC hard-error in a plugin, a missing packaging tool), and upload-artifact happily uploads nothing — the exact 'green job, empty dist' failure that shipped empty windows pre-releases. Assert dist/ is non-empty right after Setup so a broken build fails loudly instead of masquerading as a successful release.
+
+- fix(ui): widen the loadingRun backstop to 5 min so it can't fire mid-setup
+
+- The 60s loadingRun net was SHORTER than the core ops it wraps: setupConfig/updateConfig are bounded at 120s each (clash/interface.dart), and a composite applyProfile (wait-for-geo-lock + setupConfig + group/provider refresh) can legitimately run past a minute. So the 60s net fired SPURIOUSLY mid-setup — showing an error while the inner core call kept running underneath (risking a double-apply). Every async path reachable from loadingRun is already bounded at the source (invoke/safeFuture 30s default, helper HTTP .timeout(), bounded geo-lock actions), so this is a pure catastrophic backstop now: 5 min exceeds any legitimate composite duration and only trips on a genuine wedge.
+
+## v0.8.2-pre.6
+
+- fix(ui): bound loadingRun with a 60s timeout so a hung op can't freeze the screen
+
+- Clean-Windows logs (no FlClashX) showed the core+helper handshake working, yet the dashboard was stuck behind the top progress bar with the add button unusable. loadingRun() awaited its future with NO timeout, so a future that never returns left _loading=true forever (spinning bar) and the screen unusable. Bound it to 60s — a hang now surfaces an error and recovers. Also: skip the 20s updateGroups poll when no profile is selected (it only logged 'unknown error' against an empty core), and log [loadingRun] start/done/timeout so the next capture names the exact stuck operation.
+
+## v0.8.2-pre.5
+
+- fix(macos): auto-open the status-bar popover on launch
+
+- macOS build is a menu-bar app; applicationDidFinishLaunching closes the main window, so after install/launch nothing is visible until the user clicks the tray icon. Open the popover once on launch, deferred + NSApp.activate so the transient popover is not auto-dismissed.
+
+- fix(windows): move dropweb helper service to its own port 47896 (was 47890, shared with FlClashX)
+
+- FlClashX's Windows helper also binds 127.0.0.1:47890 (verified in pluralplay/FlClashX constant.dart + hub.rs). The CI integration test proved the runtime clash on a real x64 runner: with both helpers on 47890, whichever starts last takes the port and the other's service goes Stopped. Moving dropweb's helper to 47896 (hub.rs LISTEN_PORT + constant.dart helperPort) lets both coexist; pairs with the identity-checked helper-conflict resolution already in 31a4963.
+
+- ci(windows): add runtime job — FlClashX running first, then install dropweb
+
+- Installs FlClashX, registers+starts its helper service (binds 47890) and launches the app, THEN installs dropweb and starts its helper. With pre.4 (both helpers on 47890) this isolates the runtime helper-port clash: dropweb's helper is expected to fail to bind while FlClashX holds 47890. Informational (does not fail the build).
+
+- ci(windows): fix conflict test — registry-based inspection, no slow full-recurse
+
+- Get-ChildItem -Recurse over all of Program Files hung the baseline step on the loaded windows-latest runner. Switch to targeted dir checks + authoritative registry InstallLocation; verdict reads dropweb's uninstall key InstallLocation and flags if it sits inside the FlClashX folder.
+
+- ci(windows): add FlClashX coexistence integration test
+
+- Native x64 GitHub Actions job (public repo = free runners) that installs FlClashX + current dropweb on a clean windows-latest runner and inspects install paths, uninstall registry keys ({728B} vs {6997}), helper services and ports after each step. Proves whether the two apps' installers/footprints actually collide (the 'FlClashX installer detects dropweb' report) on real x64 Windows — no local ARM VM needed. Fails if current dropweb lands in FlClashX's install folder.
+
+## v0.8.2-pre.4
+
+- fix(app): robust launch + FlClashX conflict resolution; declutter settings & onboarding
+
+- - clash/interface: timeout init/isInit/setState so a stalled core handshake cannot hang AppController.init() and brick the UI
+- - controller: surface the window/macOS popover before _initCore() — fixes the desktop app starting hidden in the tray
+- - common/windows + request: identity-checked helper-port 47890 conflict resolution (do not drive a foreign helper; free a stale/foreign holder by detected PID); core-bridge diagnostics; fix isStarting leak on the helper path
+- - onboarding: remove the dead first-run tap-to-add hint + onboarding_state.dart
+- - settings: lift check-for-updates + support-project into Settings/Other; drop the More grouping in About
+- - tools: hide the Windows-only loopback entry from the desktop UI
+
+## v0.8.2
+
+- fix(modes): temporarily remove the Smart («Умный») mode card
+
+- Hide «Умный» from the work-mode list for now (to be reintroduced later); the WorkMode.smart code path (work_mode_patch / detectPrimaryRouter / controller) stays intact. Also drops the now-unused _ModeCard.enabled param it was the only caller of.
+
+- fix(theme): apply the current profile's theme on startup
+
+- The subscription theme was only (re)applied on a profile switch/update, so a fresh launch kept the last-applied theme — possibly a DIFFERENT provider's colors — until the user switched or updated a profile. init() now calls applyCurrentProfileThemeOnStartup(), mirroring handleChangeProfile's reset-then-apply (a profile without a dropweb-theme header reverts to the dropweb default).
+
+- fix(profiles): remove the traffic usage bar from profile cards
+
+- Same as the dashboard card: drop the LinearProgressIndicator (and its progress/color computation) under the «Трафик used / total» line in each profile card; keep the textual usage.
+
+- fix(dashboard): remove the traffic usage bar from the subscription card
+
+- Drop the LinearProgressIndicator (and its progress/color computation) under the «Трафик used / total» line on the dashboard subscription card; keep the textual usage. Cleaner card, no thin bar bisecting the logo.
+
+## v0.8.2-pre.3
+
+- fix(ci): unblock windows build — silence MSVC experimental-coroutine deprecation
+
+- GitHub's windows-latest runner moved to VS18 / MSVC 14.51, which turns the <experimental/coroutine> deprecation into hard error C2338 (STL1011). flutter_inappwebview_windows still includes that header, so the whole windows C++ build failed to compile and dist/ ended up empty (job green, no .exe/.zip). Define _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS dir-wide (like the UNICODE defines) so it reaches the plugin subprojects.
+
+## v0.8.2-pre.2
+
+- fix(ci): restore windows/EnableLoopback.exe so the windows build produces artifacts
+
+- An over-broad *.exe ignore rule plus the untrack chore (d4ca6be) dropped windows/EnableLoopback.exe — a bundled Windows runtime tool that windows/CMakeLists.txt installs into the app bundle and tools.dart invokes at runtime. On a fresh CI checkout it was absent, so the windows job went green but produced no .exe/.zip. Re-track it with a !windows/EnableLoopback.exe negation.
+
+## v0.8.2-pre.1
+
+- chore(release): 0.8.2+2026062611
+
+- fix(ci): build a real universal APK and publish it as android-universal
+
+- The android job only emitted split-per-abi APKs, so the update.json android-universal slot aliased the arm64 APK (uninstallable on 32-bit/x86). setup.dart now also builds a single all-ABI universal APK (dist/dropweb-universal.apk) when no --arch is given, and the YC publish step uploads it and points android-universal at it.
+
+- feat(modes): bind Smart to the primary MATCH router only + Smart chevron
+
+- Add detectPrimaryRouter() (the catch-all MATCH target, name-agnostic) and bind the additive 'Умный' group + selectedMap into that one router instead of every rule-referenced group, so per-service groups keep the template's own routing. Also give the Умный card the same «Серверы и группы» chevron as Стандарт.
+
+- fix(ui): notification card uses the 26 system radius
+
+- The MessageManager snackbar card was hardcoded to Radius.circular(12); switch it to Lumina.radiusLg (26) so it matches every other card and drops a hardcoded-radius design-lint violation.
+
+- fix(modes): stop the "restart VPN" tip firing on a profile switch
+
+- syncNetworkSettingsFromProvider writes the provider's tun.stack back into patchClashConfigProvider on every setup, churning vpnStateProvider — so switching profile (egress applies live) wrongly raised the restart tip. Guard it with globalState.suppressVpnTip around setupClashConfig; manual TUN/vpnProps changes still warn via _updateClashConfig.
+
+- feat(profiles): show the service name + logo on profile cards
+
+- Reuse SubscriptionCardLogo (now header-parametrized) and a new Profile.serviceName getter (profile-title -> dropweb-servicename -> label) so each profile card shows the branded name + accent bleed-off logo instead of the raw user_xxx label, with the user id kept as a muted secondary line.
+
+- feat(modes): country picker — liveness-filtered list + canonical load UX
+
+- Filter xray "crutch" nodes (АВТО/auto-selectors, balancer pseudo-hosts, DPI
+- decoys, expiry/HWID sentinels) generically — they have no static fingerprint
+- (ss-vs-vless, decoy-vs-real share identical crypto, flags reused), so liveness
+- is the only provider-agnostic signal. No name/flag hardcode.
+
+- - work_mode_patch: structural sentinel prefilter (_isRoutableProxy) drops
+-   0.0.0.0 / port<=1 / all-zero-uuid placeholders from the picker AND Smart group
+- - picker shows only probe-confirmed-alive nodes (n/a in mihomo = unusable)
+
+- Canonical load UX (no incremental reflow / jerk):
+- - skeleton -> crossfade -> settled stable list; _lastAlive cache so a re-ping
+-   never flickers; staggered fade+slide row reveal; Lumina shimmer badges
+- - probe awaits full completion (cold REALITY/gRPC handshakes captured on first
+-   open) + waits for core groups after a profile switch
+- - auto-ping on open + pull-to-refresh
+
+- feat(dashboard): provider logo on the sub card — accent-keyed corner bleed, feathered, fades in
+
+- feat(connect): living glass button — aurora core + holo rim on theme orbs
+
+- Connected look is driven by the theme orb trio (accent + orbColorPrimary +
+- orbColorSecondary): an aurora mesh core + iridescent holo rim, so it follows
+- presets and custom orbs. Dark orbs are normalised (near-black -> accent,
+- merely-dark -> HSL lightness floor) to stay readable on the dark glass.
+
+- Glyph gets a Fresnel 'rim внутри' (ShaderMask + SweepGradient over HugeIcon).
+
+- States: dormant / connecting (fast spin + halo pulse + iris bloom) / connected
+- (one settle spin, then freeze). No perpetual repaint while connected (controllers
+- stop -> battery/thermal-safe on mid-range); reduced-motion respected.
+
+- chore(repo): untrack tool/ (local-only dev/release scripts)
+
+- chore(repo): add ignore patterns for untracked AI/tooling/tests
+
+- chore(repo): untrack local-only AI/tooling, tool experiments, and tests
+
+- Move AGENTS.md, DESIGN.md, dev-only tool/ experiments, and test/ out of
+- git tracking (kept on disk) and add them to .gitignore so they stop
+- showing up. Also drop already-ignored .vscode/settings.json and
+- EnableLoopback.exe from the index.
+
+- docs(readme): bake the logo lockup (mark + wordmark) as the title
+
+- GitHub strips the CSS the site uses to flex-center the mark, so an inline image always sat off-baseline. Render the db mark + Onest wordmark into one image (same layout as the site), theme-aware via <picture> (white on dark, dark on light). Verified on both themes.
+
+- docs(readme): plain title, remove the inline logo mark
+
+- The pixel db mark clashed with the smooth wordmark and sat off inline. The header banner already carries the logo; keep the title as plain text.
+
+- docs(readme): vertically center and size the title logo mark
+
+- Was baseline-aligned and small (looked off). Set the db mark to height=36 align=middle so it centers with the dropweb wordmark; verified against a GitHub-accurate h1 render.
+
+- docs(readme): restore header banner, add db logo mark beside title
+
+- Keep header.png as the hero banner. Add a theme-aware db mark next to the title via <picture>: logo-mark.png (white) on dark, logo.png (tile) as the light-theme fallback.
+
+- docs(readme): use logo as header, drop platforms/build sections
+
+- Replace the retro banner with the centered db logo (assets/images/logo.png, copied from dropweb-site). Remove the redundant Platforms & download and Build from source sections and their now-unused icons.
+
+- docs(readme): correct upstream attribution to FlClashX (fork of FlClash)
+
+- docs(readme): rewrite RU/EN README, add icon set and screenshots
+
+- Differentiators, comparison, efficiency, provider customization, privacy and open-source attribution; neutral, store-review-safe businesslike tone. Hugeicons (MIT) section icons under docs/icons. Replace screenshots with current connected/modes/menu (EXIF stripped).
+
+## v0.8.1-pre.11
+
+- chore(core): bump Clash.Meta — resolve firefox/safari to newest custom spec
+
+- Pin xHomo dropweb-core-alpha-refresh acdf427->d4bdb09: the firefox/safari
+- uTLS aliases now resolve to the newest custom ClientHello spec (FF148 /
+- Safari 26.3) instead of the older built-in. Already exercised on-device in
+- this wave's QA build.
+
+- chore(release): bump build to 2026062610 for v0.8.1-pre.11
+
+- style(windows): rounded app and tray icons
+
+- All Windows .ico assets were fully opaque squares. Corners now rounded
+- with the system radius — 26 anchored at the 256px canvas, scaled
+- proportionally per mip frame (16..256), 8x supersampled edges. Covers the
+- window/taskbar/installer icon and both tray states; art untouched.
+
+- fix(announce): emoji-safe text runs on Windows
+
+- buildEmojiSpans extracted from EmojiText (single owner of the emoji regex)
+- and applied to the announcement's non-URL runs — flag emojis no longer drop
+- on Windows while URL spans keep their tap recognizers.
+
+- feat(connections): cached icons, GeoIP destination flags, per-connection traffic
+
+- FlClashX pre.17 parity for the (currently unrouted) connections screen:
+- - static future caches for package icons (fixes flicker on the 1s poll) and
+-   per-IP country codes, FFI getCountryCode lookups serialized via a promise
+-   queue so polling can't flood the bridge
+- - destination rendered as a Twemoji flag badge (countryCodeToFlag helper in
+-   country.dart), up/down traffic via TrafficValue in the metadata line
+- Screen stays out of navigation by owner decision — dormant code.
+
+- country.dart carries the one shared regional-indicator transform the view
+- depends on; they land together.
+
+- feat(tv): /status polling, Ethernet fallback, visible handoff errors
+
+- - GET /status returns waiting|received (read-only, never leaks the nonce;
+-   POST nonce checks untouched)
+- - Android TV on Ethernet: getWifiIP() returned null and the dialog silently
+-   popped — now falls back to NetworkInterface.list (prefers non-link-local)
+-   and renders an error state instead of vanishing (also for a busy :8899)
+- - phone polls /status after a failed POST to distinguish 'TV already got
+-   it' from 'unreachable'
+
+- fix(ui): lifecycle and resource guards
+
+- - ThemeManager: ref.watch for textScale — changing text scale now applies
+-   without a remount
+- - MessageManager: mounted guards around delayed notifier mutations (toast
+-   queued across dispose threw on a disposed ValueNotifier)
+- - super_grid: TickerCanceled guard on the drag-end animation
+- - tray_manager (Windows): calloc.free in finally — FFI throw leaked the
+-   native UTF-16 string
+
+- fix(ffi): free the getRunTime C string
+
+- The only sync FFI handler without freeCString — leaked a Go-allocated
+- string every second while connected.
+
+- fix(dns): macOS DNS — space-safe service names, origin persist, op queue
+
+- - getMacOSDefaultServiceName stripped via split(' ')[1]: names with spaces
+-   ('Thunderbolt Ethernet', 'USB 10/100/1000 LAN') were truncated and the
+-   networksetup calls hit the wrong service. Now only the leading '(N) '
+-   index is stripped
+- - the TRUE pre-injection DNS is persisted (macos_origin_dns): a crash while
+-   connected no longer bakes 1.1.1.1 in forever — the next inject trusts the
+-   persisted origin over the poisoned live read, restore clears the key, and
+-   AppStateManager restores at launch (no-op in a clean state)
+- - every set/restore chains onto a _dnsOp promise queue: rapid VPN toggles
+-   can no longer run parallel networksetup invocations and capture the
+-   injected DNS as the origin
+
+- fix(net): sequential ip-check with timeouts
+
+- checkIp fired all 4 geo sources in parallel through bare Dio() instances
+- with no timeouts — 3 of 4 completers never completed and a hung request
+- hung forever. Now a sequential loop (FlClashX parity) with 5s connect / 3s
+- receive timeouts, stops at first success, honors the caller's CancelToken.
+
+- fix(profiles): auto-update survives exceptions, atomic writes, sync dispose
+
+- - the 20-min auto-update timer chain re-arms even when a run throws
+-   (one secure-storage hiccup silently killed periodic updates until app
+-   restart); getProfileUrl moved inside the per-profile try
+- - saveFile/saveFileWithString stage into a .tmp sibling and rename over the
+-   target — a kill mid-write no longer corrupts the stored profile
+- - ApplicationState.dispose is synchronous again (Flutter calls dispose
+-   synchronously; everything after the first await ran on a torn-down tree);
+-   async exit work is kicked off unawaited, handleExit already covers
+-   savePreferences + core shutdown
+- - geo download write section enqueues onto the controller's geo-file lock;
+-   the HEAD metadata fetch stays outside the lock
+
+- fix(vpn): tri-state connect transitions, icon rollback, forced Android re-setup
+
+- - handleStart returns bool? (null = transition already in flight) and
+-   handleStop returns bool (false = stop ignored): updateStatus no longer
+-   tears down traffic/runtime/providers for a stop that never happened and
+-   no longer shows a false 'VPN Start Failed' toast on a double-tap
+- - status-bar icon is set only after the transition succeeds, and rolled
+-   back to disconnected on a failed start
+- - Android connect always forces a full profile re-setup (FlClashX parity:
+-   the long-lived mihomo executor degrades across stop/start) and the setup
+-   hash is dropped on disconnect so the forced apply is a REAL re-setup,
+-   while repeated applies during a live session stay cached
+- - withGeoFileLock: a single promise chain serializes _applyProfile's
+-   config/geo reads against the geo updater's on-disk writes (sharing
+-   violations on Windows, corrupt geodata)
+
+- Files must land together: the handleStart/handleStop signature change in
+- state.dart and its consumer in controller.dart do not compile apart.
+
+- fix(core): answer unsupported action methods instead of hanging the invoke
+
+- handleAction's default branch ignored nextHandle's boolean — an unhandled
+- method sent no reply, so the Dart Completer sat on the 30s safeFuture floor
+- and then resolved to a silent default value. Now replies
+- ActionResult{Code:-1, "unsupported method: X"} immediately on all three
+- nextHandle variants (android / other-cgo / server).
+
+- fix(android): crash-safe socket-address parse on the JNI resolver thread
+
+- parseInetSocketAddress used URL("https://$address") — bare IPv6 or a
+- missing port threw on a JNI callback thread and crashed the process.
+- Manual host:port split with bracket stripping, any failure falls back to
+- the wildcard:0 address which getConnectionOwnerUid tolerates (-1 uid).
+
+- fix(android): syncStatus is enrichment-only — never clobbers tile runState
+
+- runState stays the synchronous source of truth for the QS tile. The Dart
+- getStatus() round-trip bails on an indeterminate reply (no service engine
+- after process recreation) and never overwrites an in-flight PENDING —
+- previously both got forced to STOP, flipping a live tile to inactive.
+
+- fix(android): tear down Go core when the system destroys the VPN service
+
+- onDestroy now routes through VpnPlugin.handleStop() (idempotent for the
+- normal stop path): Core.stopTun + runState reconcile + receiver/job cleanup.
+- Previously an LMK/system kill left Go core threads running on a dead TUN
+- with runState stuck at START.
+
+- fix(android): harden VpnPlugin — bind race, double-attach, fd leak, stop leaks
+
+- - stop-during-bind race: startRequested flag — a stop() arriving while
+-   bindService() is in flight is honored when onServiceConnected re-enters
+-   handleStartService (VPN no longer starts after the user pressed stop)
+- - double-engine attach: attachCount guards scope creation and
+-   registerNetworkCallback (singleton is attached to both the main and the
+-   service engine; second register threw IllegalArgumentException inside an
+-   unhandled coroutine), unregister/teardown only on last detach
+- - detached tun fd is closed (adoptFd) and runState rolled back to STOP when
+-   Core.startTun throws
+- - handleStop: clear uidPageNameMap, unbind the BIND_AUTO_CREATE connection
+-   and null dropwebService (the binding kept the stopped service alive)
+- - onServiceDisconnected stops the 1s foreground-params polling job
+- - resolverProcess: getPackagesForUid()?.firstOrNull() — empty array crashed
+-   the JNI callback thread
+
+## v0.8.1-pre.10
+
+- chore(release): bump build to 2026062609 for v0.8.1-pre.10
+
+- fix(desktop): restore tray Старт/Стоп connect toggle
+
+- The connect/disconnect tray entry was dropped in eea7283 along with the
+- TUN/proxy/restart items. Bring back just the start/stop toggle (label
+- tracks trayState.isStart, same updateStart() as the hotkey path); TUN,
+- system-proxy, restart and copy-env stay removed.
+
+- fix(desktop): Windows 'Unknown Hard Error' crash on exit
+
+- Raw exit(0) tore down plugin DLLs (WinRT compositor, window_manager,
+- tray) with the engine still live, raising the Windows 'Unknown Hard
+- Error' dialog when WER is disabled; a 300ms watchdog fired exit(0)
+- mid-cleanup (helper /stop alone allows 2000ms).
+
+- - Window.close() on Windows: windowManager.destroy() (PostQuitMessage →
+-   clean wWinMain return, engine shutdown joins raster thread) instead of
+-   raw exit(0); Windows.forceExit() (TerminateProcess) as hard fallback.
+- - handleExit(): _isExiting re-entrancy guard; hide window first; each
+-   teardown step independently guarded so an early throw never skips core
+-   shutdown (orphaned core); watchdog 300ms→5s and TerminateProcess on
+-   Windows (re-posting WM_QUIT is a no-op when the loop is wedged).
+- - Settings disclaimer is now read-only (single Закрыть button); only the
+-   first-run flow keeps the accept/exit choice.
+
+## v0.8.1-pre.9
+
+- chore(release): bump build to 2026062608 for v0.8.1-pre.9
+
+- feat(dashboard): remove liquid provider-logo lens + connect morph — clean power button
+
+- Owner feedback: the morphing provider logo on the connect button reads as
+- too crazy («сносим под корень»). Removed in full:
+- - T21 connect morph (_morphController/_morph, optimistic isConnecting sync,
+-   the logoT surge multiplier, and the glyph recede in start_button)
+- - the entire pre-existing liquid logo subsystem: _logoImage/_flowController/
+-   _logoFade load+drift machinery, the painter's layer-2.5 liquid CTA
+-   treatment, _paintLiquidLogo + the value-noise/fbm/mesh-warp engine,
+-   channel-isolating colour filters and all _liquid* constants
+- The lens is now a clean glass power-button (body/veil/inset/specular/inner-
+- edge/iris/Fresnel-rim/halo layers retained). The success haptic on connect
+- is KEPT. Provider brand still shows on the subscription card.
+- Net: -605 lines, 4 now-unused imports dropped. Easily revertible if a static
+- logo is wanted later.
+
+- feat(onboarding): drop the attention pulse — keep only the glass hint callout
+
+- Owner feedback: the three expanding rings around the lens read as too busy.
+- Removed _AttentionPulsePainter + its bounded-cycle controller; the first-run
+- coach hint is now just the static glass callout (entrance fade/slide, reduce-
+- motion snap preserved).
+
+- i18n(zh): use 加速器 (accelerator) instead of VPN — China market convention
+
+- In China 'VPN' is politically sensitive and avoided in consumer apps; the
+- category norm is 加速器. All user-facing zh_CN strings switched to 加速器/系统设置.
+- Only vpnDisclosureBody keeps the literal 'Android VPN 权限' reference — that
+- is the honest name of the system VpnService permission being requested.
+
+- feat(onboarding): first-run hint, clipboard subscription hand-off, import→connect invite
+
+- refactor(controller): extract ProfileService behind facade
+
+- Carve the profile-domain concern out of the 2208-line AppController into
+- lib/services/profile_service.dart (ProfileService), constructed with the
+- WidgetRef the same way AppController holds _ref — mirroring the prior
+- AppUpdateService extraction.
+
+- Moved verbatim (delegation only, zero logic change):
+- - add/delete:        addProfile, deleteProfile
+- - setters:           setProfile, setProfileAndAutoApply, setProfiles
+- - subscription/theme headers: applySubscriptionSettings, applyAllHeaderSettings
+-   (was _applyAllHeaderSettings), applyActiveProfileHeaders, resetSubscriptionTheme
+-   (was _resetSubscriptionTheme) + service-private _applyProviderSettings,
+-   _applyThemeColor, _applyDropwebTheme, _parseHexColorValue, _applyCustomViewSettings
+- - geo metadata:      updateGeoFilesAfterProfileUpdate (was _updateGeoFiles...) +
+-   service-private _getRemoteFileMetadata, _getMetadataKey, _getSavedMetadata,
+-   _saveMetadata, _hasMetadataChanged
+- - auto-update:       autoUpdateProfiles, updateProfiles, updateCurrentProfileSubscription
+-   (was _updateCurrentProfileSubscription)
+
+- AppController keeps thin delegating methods with identical signatures so all
+- call sites stay untouched — public delegates for external callers
+- (application.dart, profiles.dart, subscription.dart, card_menu.dart,
+- add_profile.dart) and private delegate stubs for the staying internal callers
+- (updateProfile, handleChangeProfile, addProfileFormURL, init).
+
+- Stayed in the controller (depend on its private work-mode/config state or build
+- raw dialogs against the stored context — out of the profile-data concern):
+- updateProfile, setProfileWithRevalidationAndAutoApply (both call private
+- _revalidateWorkMode), handleChangeProfile (_lastSetupHash),
+- _showHwidLimitNotice + addProfileFormURL/File/QrCode (UI/Navigator/context).
+- The service reaches the few public staying methods via globalState.appController
+- (applyProfileDebounce, clearEffect, updateStatus, savePreferencesDebounce,
+- updateProfile). No BuildContext is stored in the service.
+
+- The pure helper shouldAutoUpdateProfile stays top-level in controller.dart (its
+- test imports it there). Dropped its @visibleForTesting marker: ProfileService is
+- now a legitimate cross-library production caller, so the annotation was
+- inaccurate — same reasoning the prior commit applied to shouldRunAutoUpdateCheck
+- / shouldHandleUpdateResult. Removed the now-unused http import from controller.
+
+- dart analyze: 0 errors, 1 warning (pre-existing subscription.dart baseline).
+- flutter test: 251 pass UNCHANGED. make android_arm64_core: exit 0.
+- controller.dart 2208 -> 1692 LOC.
+
+- chore: retire stale Skia claim in DESIGN.md; drop orphan zoom l10n key
+
+- refactor: delete dead DAV backup remnants and orphaned recoveryStrategy field
+
+- Completes T19's surface removal at the persisted-model layer:
+- - DAVClient + webdav_client dep; AppDAVSetting slice + configState dav line
+- - Config.dav + DAV freezed model + defaultDavFileName
+- - AppSettingProps.recoveryStrategy + RecoveryStrategy enum + getBackupFileName
+- - 17 orphaned backup/WebDAV arb keys × 4 locales (intl regen)
+- - 13→12 slice-count comments (T18 enumeration sites)
+- - NEW back-compat test: legacy persisted JSON with dav/recoveryStrategy keys
+-   still deserializes (no disallowUnrecognizedKeys; compatibleFromJson safe)
+- - round-trip fixture drops dav; drift-lock self-adjusts via toJson().keys
+
+- perf(settings): disabled provider-managed switches render M3 disabled colors
+
+- Follow-up to e349428: SwitchDelegate.onChanged nulled while the row is
+- provider-managed, restoring visual parity with the removed Opacity(0.5)
+- wrapper. AbsorbPointer already blocked interaction — zero behavior change.
+
+- perf(settings): drop saveLayer Opacity wrappers — alpha via color tokens
+
+- refactor(state): ConfigRepository owns the config mirror; round-trip test locks the field list
+
+- style(l10n): short labels in all locales — Update/更新, Always-on/常時接続/始终开启 (match RU «Обновить»/«Всегда включен»)
+
+- refactor(controller): extract UpdateService behind facade
+
+- Carve the app-update concern out of the 2260-line AppController into
+- lib/services/app_update_service.dart (AppUpdateService), constructed with
+- the WidgetRef the same way AppController holds _ref.
+
+- Moved verbatim:
+- - autoCheckUpdate
+- - checkUpdateResultHandle
+- - _resolveReleaseUrl (private; only those two used it)
+
+- AppController keeps thin delegating methods with identical signatures, so
+- all call sites stay untouched:
+- - lib/views/about.dart:36 globalState.appController.checkUpdateResultHandle(...)
+- - AppController.init() autoCheckUpdate() (in-process)
+
+- Notes:
+- - No BuildContext stored in the service. The one direct context use
+-   (context.textTheme) now reads globalState.navigatorKey.currentContext,
+-   guarding null (showMessage routes through the same navigatorKey, so the
+-   guard is behaviour-equivalent — no context, no dialog).
+- - The pure policy helpers shouldRunAutoUpdateCheck / shouldHandleUpdateResult
+-   stay top-level in controller.dart (their tests import them from there).
+-   Dropped their @visibleForTesting marker: they now have a legitimate
+-   cross-library production caller (the service), so the annotation was
+-   inaccurate. shouldAutoUpdateProfile keeps its marker.
+- - Removed now-unused url_launcher import from controller.dart.
+
+- dart analyze: 0 errors, 1 warning (pre-existing subscription.dart baseline).
+- flutter test: 248 pass — update tests (should_handle_update_result_test,
+- should_run_auto_update_check_test, about_check_update_test) pass UNCHANGED.
+- make android_arm64_core: builds (exit 0). controller.dart 2260 -> 2208 LOC.
+
+- refactor: delete dead Backup&Recovery feature (unreachable FlClash legacy)
+
+- BackupAndRecovery screen is FlClash legacy and unreachable: it was only
+- referenced by its own definition and the views.dart barrel export — no
+- navigation wires it (T17 evidence). Owner verdict: product is URL
+- subscriptions only, no backup concept.
+
+- Deleted (each verified to have no live caller outside the dead cluster):
+- - lib/views/backup_and_recovery.dart (the unreachable screen)
+- - AppController.backupData / recoveryData / _recovery (only the dead view
+-   called them)
+- - lib/common/archive.dart (ArchiveExt — only backupData used it)
+- - lib/common/archive_safety.dart + test/common/recovery_zip_slip_test.dart
+-   (T6 zip-slip helper; recoveryData was its ONLY caller — dead-code
+-   precedent: CryptoService/T13)
+- - RecoveryOption enum (only the dead cluster used it)
+- - archive: ^4.0.7 pubspec dep (sole consumers were the deleted files)
+- - scriptRestoreWarning l10n key (T9; orphaned by _recovery deletion) from
+-   4 arb + regenerated lib/l10n
+
+- Kept as follow-up (bigger blast radius, same rationale as DAV):
+- - Config.recoveryStrategy field + RecoveryStrategy enum (persisted model
+-   field; removal is a generated-code + ConfigRepository/T18 change)
+- - DAV model/provider slices (appDAVSettingProvider, Config.dav) and
+-   DAVClient (now unused but DAV-scoped)
+- - other orphaned backup-related l10n keys (harmless unused strings)
+
+- dart analyze: 0 errors. flutter test: 248 pass (257 baseline − 9 deleted
+- zip-slip cases).
+
+- feat(dashboard): liquid morph start↔lens, zero-lag state sync, connect haptics
+
+- - New connect-morph controller on Lumina motion tokens: the provider
+-   watermark idles as a 30% ghost and surges to full with the connect
+-   transition; driven OPTIMISTICALLY from globalState.isConnecting (sub-frame
+-   after the tap), settles on the real runTime flip, reverses on a failed
+-   start. Reduce-motion snaps; controllers disposed; no always-on tickers.
+- - Glyph layer counterpart: power glyph recedes (0.88 scale, 0.82 alpha)
+-   while connected so the logo reads as the primary surface; recede/restore
+-   rides the same Lumina duration/curve as the lens morph.
+- - New DropwebHapticCue.success on the established connection (OFF→ON only):
+-   CONTEXT_CLICK on Android R+, KEYBOARD_TAP fallback, mediumImpact Flutter
+-   shim; contract test extended (4 pass).
+
+- Device-verified on Pixel 10 (owner-confirmed morph quality).
+
+- fix(modes): same-flag servers no longer collapse — each is its own picker row
+
+- A flag group with >1 node now expands into one row per server
+- («🇩🇪 Германия-1», «🇩🇪 Германия-2»), keyed by the exact node name; a
+- single-server country keeps the classic flag-keyed row. New pure
+- resolveCountryKeyNodes accepts all three key kinds (flag emoji, flagged
+- node name, flagless node name) and backs both the work-mode pool builder
+- and the post-update revalidation, so a stored node-name selection
+- survives subscription refreshes and resets to Standard only when that
+- exact server disappears. 9 new tests.
+
+- fix(l10n): complete ja/zh translations (29 missing keys + 20 untranslated values), RU «Обновить», Always-on row re-localizes
+
+- - intl_ja/zh_CN.arb: fill 29 keys that fell back to English at runtime and
+-   20 values that were English text sitting in the locale files (mixed-language
+-   UI on the card menu / settings screens); key order aligned to intl_en.arb
+- - ru: updateSubscription «Обновить подписку» → «Обновить» (owner request)
+- - AlwaysOnVpnItem: AppLocalizations.of(context) instead of the global getter —
+-   const-instantiated row now registers a Localizations dependency and rebuilds
+-   on language change (the T22 getter fixed values-on-rebuild; this fixes the
+-   missing rebuild trigger)
+
+- fix(l10n): appLocalizations global re-reads current locale — was frozen at startup
+
+- The top-level `final appLocalizations = AppLocalizations.current;` is a lazy
+- final: it evaluates once on first read and freezes that locale's instance
+- forever. AppLocalizations.load() reassigns the static _current on every locale
+- change, but the frozen final never re-reads it, so ~60 global consumers keep
+- the STARTUP locale after a language switch (e.g. Toolbox Always-on row stays
+- RU in a JA app). Commit 2078118 whack-a-moled this per-widget; this fixes the
+- root.
+
+- Change to a getter so every read resolves the current static. It is
+- call-site-compatible with the final (all consumers use appLocalizations.X) and
+- resolves a static field — zero allocation, no hot-path cost. Per-widget
+- context lookups from 2078118 stay (harmless, context-correct).
+
+- Verified on Pixel 10: RU->JA switch + re-enter Toolbox now shows 常時接続VPN;
+- dashboard card unfreezes too. flutter test 248 pass, analyze 0 errors.
+
+- style(settings): Always-on row is title-only — «Всегда включен»
+
+- style: tokenize stray colors, drop dead light branches, conditional sheet blur
+
+- perf(size): ship single geo format, drop redundant databases (-19.6MB assets / -10.4MB compressed APK)
+
+- Drop geoip.metadb (9.2M) and ASN.mmdb (10.4M) from the bundled geo seed,
+- keeping GeoIP.dat + GeoSite.dat.
+
+- Proof the dropped files are redundant:
+- - The seed copy (ClashCore.initGeo / Geodata.ensureGeoFilesIfNeeded) only
+-   ever runs for profiles with geodata-mode == true, and in that mode mihomo
+-   loads GeoIP.dat (not geoip.metadb). In geodata-mode == false the app seeds
+-   nothing, so the bundled metadb is never load-bearing in any path.
+- - The real dropweb subscription has geodata-mode unset (false) and 0
+-   GEOIP/GEOSITE/ASN database rules (all geo matching via .mrs rule-providers).
+- - ASN.mmdb is unused by default rules; the only Fatalln path
+-   (getCountryCode -> mmdb.IPInstance) has no Dart callers.
+
+- Graceful degradation preserved: if a profile needs metadb/ASN, the
+- controller download path + manual geo-update UI + mihomo core auto-download
+- (init.go) fetch them on demand; absence never crashes.
+
+- Removed both files from the two copy lists only; filename constants and the
+- on-demand download/update paths are unchanged.
+
+- Device QA (Pixel 10, pm clear cold start): connects, tun0 up, subscription
+- refresh fetches through tunnel, geo copy correctly skipped, no geo errors.
+
+- Revert "feat: warn that backup export contains plaintext credentials"
+
+- This reverts commit cd45a53794397c0c58556b5438e68c46b5aff560.
+
+- feat: warn that backup export contains plaintext credentials
+
+- fix(security): trust user CAs only in debug builds
+
+- chore: log silently-swallowed VPN proxy-name and config-parse errors
+
+- chore: remove dead CryptoService (hardcoded infra)
+
+- fix(security): JS eval timeout; confirm scripts on restore
+
+- fix(security): move AlwaysOnVpn entry to Toolbox — more discoverable placement
+
+- feat(security): handle VPN revoke + surface Always-on/Lockdown guidance
+
+- fix(security): nonce-validate Send-to-TV profile handoff
+
+- fix(stability): FFI dispatch survives malformed core messages
+
+- fix(security): reject path-traversal entries in backup restore
+
+- fix: apply 50MiB cap to text fetches
+
+- perf(battery): pause group polling while app is backgrounded
+
+- docs(render): Impeller is production renderer; retire stale Skia/shader gotcha
+
+- feat(stability): global error handlers route uncaught errors to file log
+
+- fix(ffi): timeout returns error sentinel, not fake success
+
+- fix(security): redact URL path in logs — subscription tokens live in paths
+
+- feat(modes): country sheet scrolls; flagless nodes are individual 🏴 servers with liveness gate
+
+- shrinkWrap ListView locked scrolling once content hit the 85% cap → SingleChildScrollView + min Column (hug-when-short preserved); flagless nodes each become their own selectable «🏴 name» row (single black flag — Twemoji lacks the pirate ZWJ ligature), sorted last, shown only after their delay test succeeds (xray balancer pseudo-hosts never surface); symmetric row insets; AnimatedSize + fade-in reveal on Lumina motion tokens.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(dashboard): raise liquid provider logo to optical lens center
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(l10n): page/dialog titles re-localize on language change
+
+- titles were captured as plain String at push time; optional titleBuilder(context) re-resolves via AppLocalizations.of and registers a Localizations dependency.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(macos): expose autostart toggle, surface window on deep-link import
+
+- AutoLaunchItem was gated by unrelated overrideProviderSettings; status_bar_icon channel gains showWindow (NSApp.activate + popover).
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(desktop): tray menu to Show/Autostart/Exit, announce card clears connect lens
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(errors): humanize user-facing errors, gate QR-from-image off Windows/Linux
+
+- ErrorMapper covers Dio timeouts/connection/cert/HTTP-status/Format/MissingPlugin/Timeout; safeRun + loadingRun + addProfileFormURL fall back to localized generic message; mobile_scanner analyzeImage has no Windows/Linux impl so the QR entry is hidden there.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.1-pre.8
+
+- chore(release): v0.8.1-pre.8 (bump build for in-place upgrade)
+
+- feat(dashboard): liquid provider-logo connect lens + tuning lab
+
+- Port zencab's ConnectGlassCTA/LiquidLogoLayer into _ConnectGlassPainter
+- as layer 2.5: orb1->darkened-accent gradient base, top glass highlight,
+- and the subscription provider logo (dropweb-logo header, gated by
+- applySubscriptionLogo) stretched across the lens and liquid-warped.
+
+- The SVG filter chain is reproduced on pure canvas (no fragment shaders -
+- Impeller kills them silently): 32x32 static mesh via drawVertices with
+- BACKWARD-warped texture coordinates (feDisplacementMap semantics),
+- 2-octave fractal value noise sampled in the liquid_lab coordinate frame,
+- animated only by base-frequency breathing + chroma pulse (seamless 19s
+- loop). Chroma split renders as three channel-isolated passes; below
+- chroma 0.05 a single-pass path draws luminosity directly WITHOUT
+- saveLayer - Impeller rasterizes advanced-blend saveLayers at logical
+- resolution (no DPR), which blurred the whole layer.
+
+- Logo pipeline: 512px decode via CachedNetworkImageProvider/flutter_svg,
+- fade-in via Lumina curve, reduced-motion freezes the field, fallback =
+- stock dark lens. Idle dims the stack to 0.45 (lerped by irisT) and the
+- iris wash fades out while the logo is active. Rim/glow/icon-shadow
+- dials promoted to consts (_rimAlpha, haloAlpha, _iconShadow*).
+
+- tool/liquid_lab.html: WYSIWYG tuning lab (WebGL, identical formulas,
+- Copy-Dart-consts export, ?logo=&freeze= harness).
+
+## v0.8.1-pre.7
+
+- docs: add AGENTS.md + DESIGN.md context anchors; ignore .code-graph
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- l10n: drop the «Рекомендуем» line from the standard mode description
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- style(subscription): proxy selector rows as Lumina cards, radiusLg across sheet cards
+
+- Drill-in selector rows were flat edge-to-edge bands; restyle them as
+- rounded bordered cards mirroring the group cards, and align both the
+- group cards and selector rows to Lumina.radiusLg (26) to match the
+- mode cards.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ui): bottom sheet fills edge-to-edge behind gesture nav
+
+- Top-only SafeArea + useSafeArea:false so the sheet container reaches
+- the screen bottom; the gesture-nav inset moves inside
+- AdaptiveSheetScaffold as content padding.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(proxies): resolve smart group delay at the group itself, not the display label
+
+- Block B made GroupType.Smart computed-selected, so _getProxyCardState
+- recursed into the smart group and the localized «Авто» label leaked in
+- as a proxy name — delay tests hit a nonexistent proxy and the
+- First Available badge died. Split GroupExt into resolveSelectedName()
+- (resolution-safe, '' for the unpinned-smart placeholder so the chain
+- terminates at the group, which the core can URLTest directly) and
+- getCurrentSelectedName() (display-only, keeps «Авто»).
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(disconeko): keep 🧠 Smart health-checked, hide from list in UI not config
+
+- Root cause of 'smart doesn't select': 1aa3db8 set hidden:true on 🧠 Smart at the
+- CONFIG level. A config hidden flag makes the mihomo core deprioritize the group
+- and stop reporting its delay, so 📶 First Available (now = 🧠 Smart) lost its
+- selection/availability badge that worked before today. (Before today the Dart
+- GroupType had no 'smart' case, so 🧠 Smart wasn't parsed into the list at all,
+- yet the core still health-checked it — hence the old working badge.)
+
+- Fix: drop hidden from the config so the core health-checks 🧠 Smart again
+- (First Available auto-selects + shows ms), and filter 🧠 Smart from the
+- «Серверы и группы» list purely in the UI (_RulesProxiesView, by name via the new
+- public disconekoSmartGroupName) so it's still never a standalone selectable row.
+- NOTE: takes effect after the subscription is re-downloaded (patchSmartPool runs
+- at download; the saved config still carries the old hidden flag until refresh).
+
+- fix(modes): restore availability badge on First Available / smart pool
+
+- The hidden:true on 🧠 Smart (1aa3db8) dropped it from currentGroupsState, so
+- _pingAllProxies (which iterated the filtered groups) no longer delay-tested the
+- disconeko smart pool — 📶 First Available (now = 🧠 Smart) lost its ms badge that
+- worked before. Fix:
+- - _pingAllProxies now reads the RAW groupsProvider (includes hidden groups), so
+-   🧠 Smart and its members are delay-tested again → First Available shows a badge.
+- - _RulesProxiesView is now stateful and fires _pingAllProxies once on open
+-   (post-frame), so badges populate immediately like the old version (pull-to-
+-   refresh still re-tests). 🧠 Smart stays hidden from the list (no standalone row).
+
+- fix(ui): country picker sheet adapts to content height
+
+- Was a fixed 70% SizedBox → empty space with only a few countries. Now a
+- ConstrainedBox(maxHeight 70%) + shrinkWrap ListView: the sheet sizes to its
+- content (short for 3 countries) and only scrolls when the list exceeds 70%.
+
+- fix(modes): smart group shows «Авто», not «Smart - Select» placeholder
+
+- A type:smart group has no single current node (it picks per destination), so the
+- core's Now() returns the literal placeholder "Smart - Select". The UI rendered it
+- verbatim with no node highlighted — reading as an empty manual selector awaiting a
+- pick, though the group ALWAYS auto-selects at dial time. Map the placeholder to a
+- localized «Авто» so smart presents as auto-mode. Display-only; routing/auto-select
+- unchanged. (LightGBM uselightgbm stays off — see note: enabling it triggers a
+- synchronous 90s GitHub model download at config-apply that would hang pre-VPN on
+- RU/KZ; needs a bundled Model.bin or reachable lgbm-url mirror first.)
+
+- fix(modes): recompute country/smart provider on profile update
+
+- _modeProfileDataProvider (FutureProvider.autoDispose.family keyed by profileId)
+- kept a stale result after a subscription update because the key didn't change —
+- the cause of the transient 'страны пропали' after refresh. Watch the profile's
+- lastUpdateDate + providerHeaders count so the provider re-evaluates getProfileConfig
+- when the subscription actually changes.
+
+- feat(modes): shorten mode descriptions, remove Gaming card
+
+- - Стандарт: «Рекомендуем.\nВсё настроено за вас.» (two lines)
+- - Умный: «Сам выбирает лучший.»
+- - Страна: «Выберите страну.»
+- - Removed the «Игровой» (Gaming) card entirely from the modes tab.
+-   (workModeGaming/Desc/comingSoon l10n keys left orphaned per convention.)
+
+- feat(ui): country picker as modal sheet, gate Standard deep until selected
+
+- - Country picker now opens as a popup modal sheet (showSheet + AdaptiveSheetScaffold),
+-   matching «Серверы и группы» — was a full-page showExtend push.
+- - Standard's «Серверы и группы» chevron is gated: tappable only when Standard is
+-   the active mode; otherwise rendered greyed + non-tappable (taps fall through to
+-   the card, selecting Standard). _ModeCard.chevronDisabled + _ChevronAffordance.disabled.
+
+- feat(disconeko): hide 🧠 Smart emergency-pool group from groups list
+
+- The disconeko 🧠 Smart group surfaced as a standalone selectable row (with a
+- drill-in node picker) in «Серверы и группы». Per product owner it must be
+- emergency plumbing only — auto-selecting, never user-pickable, only a fallback
+- member of 📶 First Available.
+
+- Mihomo requires every group (incl. a fallback member) to be a named top-level
+- proxy-groups entry — anonymous subgroups are impossible. So instead of removing
+- it, mark it hidden: true (core honors hidden on smart groups; currentGroupsState
+- filters hidden==false — same mechanism the panel uses for ♻️ DIRECT). The group
+- stays referenceable by 📶 First Available (SOS isolation + smart ranking intact)
+- but its card and drill-in vanish from the UI. Applied to both the injected spec
+- and the pre-existing-group idempotent branch.
+
+- feat(modes): remove strict node + DoH, country picker shows availability badge
+
+- feat(ui): country strict-node shows resolved pool IPs
+
+- Strict-node picker branches on country shape (ИТЕРАЦИЯ 3):
+- - POOLED (exactly 1 leaf whose server is a domain) → DoH-resolve the pool
+-   domain via an autoDispose.family provider (shared 60s cache, loading
+-   spinner) and offer one row per real IP (flag + country name title, full
+-   IP subtitle since the user wants the exact pin). DoH empty/fail → fall
+-   back to pinning the pooled node itself with a subtle hint.
+- - DISCRETE (>1 leaf, or a leaf with an IP server) → unchanged per-node-name
+-   rows with masked-server subtitles.
+- Extracted a shared _StrictRow widget. No auto-pop; strict-off → onApply(country, null).
+
+- feat(modes): DoH pool unrolling — pin a fixed server IP in country strict mode
+
+- The panel delivers ONE pooled node per country (e.g. 🇩🇪 Германия,
+- server: de.meybz.asia). That domain's A record is a pool of several real
+- server IPs; mihomo's tcp-concurrent races them, so the exit IP is
+- non-deterministic — bad for an arbitrage user who needs a FIXED IP.
+
+- - common/doh.dart: Cloudflare DoH JSON resolver (resolvePoolIps) with a
+-   pure, unit-tested parser (parseDohAnswer) + a 60s per-host cache;
+-   returns [] on timeout/error/empty so callers fall back.
+- - common/country.dart: extract & export isIpv4(); maskServerAddress reuses it.
+- - common/work_mode_patch.dart: countryStrictProxyName('Страна <flag> <ip>')
+-   + staticStrictNode param. Country branch clones the pooled BASE leaf into
+-   a variant proxy with server=<IP>, preserving Reality SNI (synthesize
+-   servername=pool-domain only when both servername/sni absent; never clobber
+-   an existing steal-domain). Additive + idempotent; built only from the
+-   country's own leaf (no SOS-pool leak).
+- - controller.dart: applyWorkMode pins selectedMap[GLOBAL] to the variant
+-   name for an IPv4 pin; _revalidateWorkMode keeps an IP pin (not a member
+-   name) instead of dropping it.
+- - state.dart: thread profile.staticStrictNode into applyWorkModePatch.
+
+- fix(ui): strict-node rows keep flag + masked server IP, country tap no auto-return
+
+- - Strict-node list shows full node name WITH flag (was flag-stripped) +
+-   masked server address subtitle (IPv4 first two octets, e.g. 45.135.•.•;
+-   pooled domains shown as-is). nodeServers exposed via _modeProfileDataProvider.
+- - maskServerAddress() in country.dart + tests.
+- - Tapping a country selects it in place WITHOUT popping the screen, so the
+-   user can then toggle Строгая нода and pick a node before returning.
+
+- feat(ui): country names in picker, inline strict-node list
+
+- - Country rows show localized names derived from node names
+-   (stripCountryFlag of first informative node; ISO-letters fallback) —
+-   new countryDisplayName() in country.dart with tests.
+- - «Строгая нода» no longer opens a modal: the active country's nodes
+-   render inline below the toggle, tap pins in place. _openStrictNodePicker
+-   sheet removed.
+
+- fix(modes): country candidates from rule-group leaves only, close disconeko leak in country mode
+
+- fix(ui): country deep rows show node counts, uniform trailing
+
+- feat(ui): case+deep mode cards, country picker deep screen
+
+- feat(modes): smart intercepts all rule-referenced groups, fail-open revalidation
+
+- - «Умный» now binds into EVERY rule-referenced group (select/url-test/
+-   fallback, >=1 non-builtin member): member append + selectedMap, so
+-   YouTube/Discord etc. smart-rotate too, not only the primary router.
+- - Smart group rotates over the UNION of leaf nodes across intercepted
+-   groups; SOS chain hard-excluded on top of structural exclusion.
+- - CRITICAL: build path renames rules->rule (state.dart) before
+-   applyWorkModePatch; detection now reads both keys (was silently
+-   no-op in production).
+- - selectedMap ownership by VALUE ('Умный'/'Страна *') on cleanup.
+- - _revalidateWorkMode is fail-open: resets only on positive proof,
+-   malformed/unexpected config shape preserves mode (fixes spurious
+-   smart->standard reset after restart).
+
+- fix(modes): smart group from router leaf nodes, bind as router member (close SOS leak, fix inert binding)
+
+- fix(modes): harden country mode revalidation and apply rollback
+
+- feat(l10n): strict node reset notice
+
+- fix(modes): write derived mode back to provider, remove desktop mode switching surfaces
+
+- fix(modes): updateProfile re-reads latest profile state, stop stale-snapshot reverts
+
+- refactor(ui): profile tiles on flagship card language, kill hardcodes
+
+- feat(ui): work modes tab
+
+- feat(l10n): work mode strings
+
+- feat(modes): wire work modes into config pipeline
+
+- feat(modes): work mode patch engine
+
+- feat(proxies): surface core smart groups in Dart layer
+
+- feat(modes): country extraction utility
+
+- feat(modes): WorkMode fields on Profile
+
+- style(tokens): bump radiusLg 24->26
+
+## v0.8.1-pre.6
+
+- chore(release): v0.8.1-pre.6 (bump build for in-place upgrade)
+
+- fix(core): extend panic recovery to hub callback goroutines
+
+- fix(geo): fail loudly instead of exit(0) on geodata copy failure
+
+- perf(start): lazy geodata asset copy
+
+- perf(ui): bound image caches
+
+- perf(core): default find-process-mode strict
+
+- New installs and config resets now default to FindProcessMode.strict
+- instead of always. With always, every connection resolved UID/package
+- through the Kotlin VpnPlugin.resolverProcess callback, a measurable
+- per-connection CPU/memory cost.
+
+- mihomo strict mode still resolves the process when a rule actually
+- requires it (PROCESS-NAME / PROCESS-PATH / app-based routing); it only
+- skips resolution when no rule needs it.
+
+- Existing users are unaffected: their persisted find-process-mode value
+- is already serialized in saved config JSON, and the @Default only
+- applies when the key is absent (fromJson). They keep their chosen value.
+
+- Tradeoff: on profiles with no process-based rules, the Connections page
+- may show fewer app names. Accepted.
+
+- perf(core): bound Go heap with GOMEMLIMIT and tighter GC percent
+
+- Apply debug.SetMemoryLimit(192 MiB) and debug.SetGCPercent(70) once at
+- core init (handleInitClash, guarded by isInit so it runs once per process).
+
+- Without a limit the default GOGC=100 lets the heap double before each GC
+- cycle, inflating RSS on mid-range Android devices. 192 MiB is a soft limit
+- for the Go runtime only (not total app RSS): as the heap approaches it the
+- runtime GCs harder instead of OOM-ing. GOGC 70 trims the per-cycle growth
+- target from 100% to 70%, keeping the working set tighter.
+
+- hub.go is shared across platforms, so this applies to Android, Windows,
+- macOS and Linux builds. That is intended: desktop also benefits, and a
+- 192 MiB Go-heap soft limit is plenty for the core everywhere (typical core
+- heap is <100 MiB).
+
+- perf(config): skip full core setup when effective config hash unchanged
+
+- perf(connect): drop 300ms debounce from start path
+
+- fix(connect): gate tun ack on vpn service mode, not tun config flag
+
+- feat(connect): honest connected state gated on TUN readiness ack
+
+- feat(core): emit tun ready/error ack over message bus
+
+- fix(core): recover panics in bridge action handler and goroutines
+
+- perf(trace): instrument tap-to-traffic connect path
+
+- docs: add client-fingerprint (uTLS) reference incl. firefox148/safari26
+
+## v0.8.1-pre.5
+
+- chore(release): v0.8.1-pre.5 (bump build for in-place upgrade)
+
+- docs(headers): document dropweb-renew-url and dropweb-topup-url monetization headers
+
+- chore(android): read signing creds from env with local.properties fallback
+
+- Release signing credentials can now be supplied via DROPWEB_STORE_PASSWORD
+- / DROPWEB_KEY_ALIAS / DROPWEB_KEY_PASSWORD instead of plaintext in
+- local.properties. Non-breaking: falls back to local.properties when the
+- env vars are unset, so existing local and CI builds are unchanged.
+
+- chore: track core submodule on dropweb-core-alpha-refresh branch
+
+- .gitmodules pointed core/Clash.Meta at 'main' (metacubex upstream), but
+- the actual dropweb fork work lives on 'dropweb-core-alpha-refresh'. This
+- fixes 'git submodule update --remote' pulling the wrong branch. SHA-based
+- checkout (CI) was already correct.
+
+- feat: port FlClashX improvements - monetization, VPN lifecycle, uTLS
+
+- Batch of improvements adapted from pluralplay/FlClashX analysis,
+- implemented in dropweb's own conventions:
+
+- - monetization: header-driven renew/top-up buttons in the subscription
+-   card, gated by expiry<3d / traffic<10%, via dropweb-renew-url and
+-   dropweb-topup-url (our namespace; flclashx-* still rejected)
+- - vpn(fd): leak-free Android TUN fd ownership on start failure + bounded
+-   3s drain in TunHandler.close() to avoid stop/start deadlock
+- - vpn(consent): queue VPN consent callbacks so concurrent starts cannot
+-   strand a pending one
+- - vpn(battery): Play-safe one-time battery-optimization prompt, shown
+-   only after the first VPN start (never a cold-start nag)
+- - tls: bump core submodule for Firefox 148 / Safari 26.3 fingerprints
+
+- Verified: flutter analyze clean, go build + 11 core tests pass, debug APK
+- built and a live tunnel established on-device.
+
+## v0.8.1-pre.4
+
+- chore(release): v0.8.1-pre.4 (bump build for in-place upgrade)
+
+- fix: batch UI/profile/subscription fixes from on-device QA
+
+- - profile switch now routes through handleChangeProfile() and resets the operator (subscription) theme to the dropweb default when the new profile has no dropweb-theme — fixes the previous operator's theme persisting after switching back
+- - addProfile() always selects the freshly imported config (was skipped when a profile already existed)
+- - three-dots 'Update' + new 'Обновить подписку' card-menu item no longer no-op: dropped the post-migration 'type == file' guard that silently skipped every URL subscription (url is '' in memory). Mirrors the pull-to-refresh fix
+- - desktop window 375x600 -> 450x720 on Windows/Linux (macOS popover 5:8 proportions, roomier); native min/max synced in flutter_window.cpp (macOS popover untouched)
+- - unavailable locations show an 'n/a' badge via utils.delayBadgeLabel (server card, group row, proxy selector, proxy card)
+- - CommonDialog clips ink to its rounded corners (clipBehavior) — no more rectangular highlight behind the rounded card menu
+- - removed the useless wifi fallback icon on server/location group cards
+- - force Twemoji on server/group/proxy names for flag rendering
+- - keep the clash-verge UA token (load-bearing: Remnawave selects Mihomo YAML vs base64/VLESS by User-Agent; a plain dropweb UA broke subscription import)
+- - add updateSubscription l10n key (ru: 'Обновить подписку')
+- - tests: package UA contract + utils.delayBadgeLabel
+
+- fix(windows): use dropweb's own Inno AppId GUID (was inherited FlClashX 728B3532-...) — installer no longer detects/overwrites a FlClashX install; dropweb is now a distinct app
+
+## v0.8.1-pre.3
+
+- chore(release): v0.8.1-pre.3 (bump build above installed for in-place upgrade)
+
+- feat(update): show 'Check for updates' on sideloaded Android (our RU channel) — gated off for Play via --dart-define=PLAY_BUILD=true; _platformKey resolves android-arm64; test updated + passing
+
+- feat(update): in-app update check via our own server (dropweb.org/update.json, YC-backed) instead of GitHub API — РФ-reliable, graceful when absent (Phase 3)
+
+- fix(android): drop redundant runtime portrait re-assert (manifest already locks it) — avoids fixed-orientation letterbox leaking a compat frame to the launcher on exit (flutter#184963). Candidate fix for home-screen layout break on Pixel/Android 15
+
+- fix(profile): prevent subscription-URL loss on keystore write failure (verify-before-strip); profile menu = Обновить only (drop Редактировать/Переопределение); fixed 375x600 window on Windows + Linux like macOS popover
+
+- ci: on stable release, publish binaries + update.json to YC (own РФ update server, no PAT)
+
+- feat(privacy): hash ANDROID_ID like other platforms; never persist raw system id
+
+- Fresh HWID generation now SHA-256-hashes the stable device id on every
+- platform (Android included) instead of persisting/sending the raw ANDROID_ID.
+- Existing installs keep their stored HWID (read-first in _getOrCreatePersistentHwid),
+- so no forced re-hash and no x-hwid-limit churn. Makes Privacy §3.5 truthful.
+
+## v0.8.1-pre.2
+
+- chore: gitignore fvm local Flutter pin (.fvm/, .fvmrc)
+
+- core: rebase onto mihomo Alpha v1.19.27-1 (all features + security)
+
+- Rebase our 5 customizations (FlClashX Android patch-layer, Dropweb rebrand,
+- sing-box converter, TLS ClientHello fragmentation, Smart/LightGBM group) onto
+- fresh MetaCubeX Alpha HEAD 7031b756 (v1.19.27-1), superseding the pre.1
+- cherry-pick. Security fixes now native; adds PASS-RULE, empty-fallback,
+- path-in-bundle, age-secret-key, OpenVPN ping keepalive, allow-insecure listeners.
+- Followed upstream removal of global-client-fingerprint (config parsing kept).
+- xHomo @ dropweb-core-alpha-refresh (7cb57dc8). pubspec 0.8.1+2026060602.
+- Verified: host build + android cross-compile + device boot (no crash, core inits).
+
+## v0.8.1-pre.1
+
+- chore(release): v0.8.1-pre.1 — canonical repo slug + version bump
+
+- - pubspec 0.8.0+2026053101 -> 0.8.1+2026060601
+- - pre_release_template.md: enkinvsh/dropweb-app -> enkinvsh/dropweb (canonical)
+- - build.yaml: latest-release lookup uses ${{ github.repository }}
+
+- core: backport mihomo v1.19.27 security fixes; bump core to 1.19.27
+
+- Cherry-pick 5 upstream OOB/DoS fixes onto our Alpha core base (xHomo
+- dropweb-core-rebuild @ 2590b929):
+- - dns/doq readMsg out-of-bounds access (conflict-resolved)
+- - quic sniffer OOB crash via single UDP packet
+- - socks4 readUntilNull unbounded memory allocation
+- - trojan WaitReadFrom panic via oversized UDP relay length
+- - vless vision TLS filter OOB via crafted session_id length
+- Set constant.Version placeholder 1.10.0 -> 1.19.27 (fixes core version
+- shown in-app). Host go build (-tags with_gvisor) clean for submodule + wrapper.
+
+- chore: stop tracking android/build artifacts
+
+- Merge feat/core-alpha-rebase-smart: v0.8.0 — core MetaCubeX Alpha, TLS fragment, theming, subscription logo, Linux builds; scrub internal docs
+
+- # Conflicts:
+- #	CHANGELOG.md
+
+- docs: document developer mode (5-tap unlock on the Settings title)
+
+- Update changelog
+
+## v0.8.0
+
+- chore: drop internal parazitx/plans/release docs from public source
+
+- Remove docs/parazitx, docs/plans, docs/release (internal planning + infra notes) from the tracked tree and gitignore them so they don't ship in the public GPL source. Sanitize the parazitx reference in .gitignore.
+
+- ci(release): select latest stable Xcode on macOS
+
+- macOS build failed compiling connectivity_plus 7.1.1 (NWPath.isUltraConstrained missing in the runner's default Xcode SDK). Pin latest-stable Xcode for the macos matrix entry so a newer macOS SDK is used.
+
+- chore(release): 0.8.0; build Linux amd64 in the release matrix
+
+- Bump version to 0.8.0+2026053101. Add a linux/ubuntu-24.04/amd64 entry to build.yaml so Linux is built and attached to GitHub releases (mirrors build-linux.yaml).
+
+- docs: document dropweb-logo header
+
+- Circular provider logo on the subscription card: accent ring synced to the connect button, theme-filter applied, gated by the 'Лого из подписки' toggle.
+
+- feat(dashboard): subscription logo on the card with filter, accent ring, toggle
+
+- Render the dropweb-logo header as a circular logo on the subscription card (replacing the menu icon; menu stays reachable via the swipe-up handle). Logo is color-filtered to follow the active scheme variant (imageColorFilter mirrors applyColorFilter), with a thin 0.5px accent ring that lights up in sync with the connect button. Gated by a new 'Лого из подписки' setting (applySubscriptionLogo, default on) placed above 'Тема из подписки'.
+
+- feat(dashboard): card menu modal + bottom swipe-up handle
+
+- Collapse cabinet/support/settings into a reusable CommonDialog menu (showCardMenu); open via the card icon or an accent up-arrow swipe handle pinned in the gap above the bottom edge (adaptive). CommonDialog skips empty titles.
+
+- feat(theme): default to the Падение green theme
+
+- Set defaultThemeProps + presetEmerald to accent #29FF76, orbs #009938/#2BFF7A, blur 4 (fidelity scheme); match first primary swatch.
+
+- docs: add TLS Fragment reference; consolidate header docs
+
+- - docs/tls-fragment.md: SNI-targeted TLS fragmentation (DPI bypass) — how it works, params (tls-fragment/-size/-delay), how to enable
+- - subscription-headers.md: merge dropweb-cabinet section + summary row
+- - remove duplicate remnawave-response-headers.md (single source of truth)
+
+- feat(profile): surface disconeko pool via First Available, not VPN default
+
+- Retarget patchSmartPool to inject the Smart emergency group into the
+- "First Available" (fallback) proxy-group instead of prepending it as the
+- default of the rule-count primary router. The primary router's default is
+- now left untouched, so the emergency pool is opt-in. When the delivered
+- config lacks a First Available group, one is created and appended to the
+- primary router as a non-default option.
+
+- Tests updated to the new contract; disconeko comment in profile.dart
+- reworded accordingly.
+
+- docs: add subscription headers reference; remove legacy dropweb-hex
+
+- - docs/subscription-headers.md: operator reference for dropweb-custom gate, dropweb-theme contract (filter,hex,hex,hex,blur), 'Тема из подписки' toggle, dropweb-disconeko SOS pool
+- - remove legacy dropweb-hex parser (_applyThemeColorFromHex) and its dispatch; dropweb-theme is now the sole theme contract
+
+- feat(theme): operator-driven theming + user presets/filters/orbs/picker
+
+- - 6 brand presets (one-tap accent+orb trio): Падение/Иней/Аметист/Багрянец/Янтарь/Стелс
+- - per-orb colors (top/bottom) + blur slider (1-5, gradient sharpness)
+- - 5 HSL scheme filters: Обычные(exact accent)/Яркие/Моно/Нейтральные/Выразительные, applied to accent+orbs preserving hue
+- - flutter_colorpicker hue-wheel replaces buggy custom palette
+- - connect button retuned per design tuner + icon outline
+- - 'Тема из подписки' toggle (user master switch over operator theme)
+- - operator contract: dropweb-theme (filter,hex,hex,hex,blur) + dropweb-hex CSV; applied on subscription update and profile switch
+
+- feat(profile): merge disconeko emergency pool into a Smart group
+
+- Subscriptions may carry a `dropweb-disconeko` header pointing to an emergency server pool. On profile update the client fetches it, names the nodes by country (flag + country word), and exposes them through a `🧠 Smart` group (type: smart, include-all) set as the primary router default — so traffic uses the best live server among the subscription's own nodes plus the emergency pool, matching the smart UX of loading a raw subscription directly.
+
+- - common/smart_pool_patch: pure additive YAML patch (Smart group + nodes)
+- - common/mihomo_yaml_splice: shared text-splice + router-detection helpers
+- - common/share_link_profile: expose parseSubscriptionToProxies()
+- - models/profile: best-effort disconeko fetch + patch, guarded by clashCore.validateConfig (reverts on rejection, never breaks the base profile)
+- - deps: yaml, yaml_edit
+
+- chore: bump Clash.Meta (Alpha rebase + Smart group + TLS fragmentation + sing-box converter)
+
+- feat(profile): emit Smart group when building config from non-mihomo subscriptions
+
+- feat(ui): add opt-in TLS Fragment toggle
+
+- chore(core): rebase to MetaCubeX Alpha; adapt FFI bridge; fix codegen toolchain; bump NDK
+
+- docs: trim public README
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
 ## v0.7.1
 
 - fix(rebase): resolve release cleanup conflicts

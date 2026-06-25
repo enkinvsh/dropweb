@@ -9,6 +9,7 @@ import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/about.dart';
 import 'package:dropweb/views/access.dart';
+import 'package:dropweb/views/app_update_sheet.dart';
 import 'package:dropweb/views/application_setting.dart';
 import 'package:dropweb/views/config/config.dart';
 import 'package:dropweb/widgets/widgets.dart';
@@ -294,12 +295,35 @@ class _InfoItem extends StatelessWidget {
 }
 
 
-class _UpdateItem extends StatelessWidget {
+class _UpdateItem extends ConsumerWidget {
   const _UpdateItem();
 
-  Future<void> _checkUpdate(BuildContext context) async {
+  Future<void> _checkUpdate(BuildContext context, WidgetRef ref) async {
     final commonScaffoldState = context.commonScaffoldState;
     if (commonScaffoldState?.mounted != true) return;
+    // Android sideload: drive the in-app updater + reactive Lumina sheet.
+    if (Platform.isAndroid) {
+      final notifier = ref.read(appUpdateProvider.notifier);
+      await commonScaffoldState?.loadingRun<void>(
+        () => notifier.check(manual: true),
+        title: appLocalizations.checkUpdate,
+      );
+      if (!context.mounted) return;
+      final status = ref.read(appUpdateProvider).status;
+      final hasUpdate = status == AppUpdateStatus.available ||
+          status == AppUpdateStatus.downloading ||
+          status == AppUpdateStatus.readyToInstall;
+      if (hasUpdate) {
+        await showUpdateSheet(context);
+      } else {
+        await globalState.showMessage(
+          title: appLocalizations.checkUpdate,
+          message: TextSpan(text: appLocalizations.checkUpdateError),
+        );
+      }
+      return;
+    }
+    // Desktop: unchanged browser-open flow.
     final data = await commonScaffoldState?.loadingRun<Map<String, dynamic>?>(
       request.checkForUpdate,
       title: appLocalizations.checkUpdate,
@@ -311,12 +335,30 @@ class _UpdateItem extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final appLocale = AppLocalizations.of(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasUpdate = Platform.isAndroid &&
+        ref.watch(appUpdateProvider.select((state) =>
+            state.status == AppUpdateStatus.available ||
+            state.status == AppUpdateStatus.readyToInstall));
+    final version =
+        ref.watch(appUpdateProvider.select((state) => state.info?.version));
     return ListItem(
       leading: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 24),
-      title: Text(appLocale.checkUpdate),
-      onTap: () => _checkUpdate(context),
+      title: Text(appLocalizations.checkUpdate),
+      subtitle: hasUpdate && version != null
+          ? Text('${appLocalizations.discoverNewVersion} · $version')
+          : null,
+      trailing: hasUpdate
+          ? Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: context.colorScheme.primary,
+                shape: BoxShape.circle,
+              ),
+            )
+          : null,
+      onTap: () => _checkUpdate(context, ref),
     );
   }
 }

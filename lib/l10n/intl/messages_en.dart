@@ -250,9 +250,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "disclaimerDesc": MessageLookupByLibrary.simpleMessage(
       "This software is only used for non-commercial purposes such as learning exchanges and scientific research. It is strictly prohibited to use this software for commercial purposes. Any commercial activity, if any, has nothing to do with this software.",
     ),
-    "discoverNewVersion": MessageLookupByLibrary.simpleMessage(
-      "Discover the new version",
-    ),
+    "discoverNewVersion": MessageLookupByLibrary.simpleMessage("New version"),
     "discovery": MessageLookupByLibrary.simpleMessage(
       "Discovery a new version",
     ),
@@ -841,7 +839,17 @@ class MessageLookup extends MessageLookupByLibrary {
     "updateAllGeoData": MessageLookupByLibrary.simpleMessage(
       "Update All Geo Files",
     ),
+    "updateCancel": MessageLookupByLibrary.simpleMessage("Cancel"),
+    "updateDownloading": MessageLookupByLibrary.simpleMessage("Downloading…"),
+    "updateFailed": MessageLookupByLibrary.simpleMessage("Update failed"),
+    "updateInstall": MessageLookupByLibrary.simpleMessage("Install"),
+    "updateLater": MessageLookupByLibrary.simpleMessage("Later"),
+    "updateMandatoryNote": MessageLookupByLibrary.simpleMessage(
+      "This update is recommended",
+    ),
+    "updateRetry": MessageLookupByLibrary.simpleMessage("Retry"),
     "updateSubscription": MessageLookupByLibrary.simpleMessage("Update"),
+    "updateVerifying": MessageLookupByLibrary.simpleMessage("Verifying…"),
     "updated": MessageLookupByLibrary.simpleMessage("Updated"),
     "upload": MessageLookupByLibrary.simpleMessage("Upload"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),

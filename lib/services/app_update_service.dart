@@ -28,6 +28,7 @@ class AppUpdateService {
   Future<void> autoCheckUpdate() async {
     if (!shouldRunAutoUpdateCheck(
       isAndroid: Platform.isAndroid,
+      isPlayBuild: kIsPlayBuild,
       autoCheckUpdate: _ref.read(appSettingProvider).autoCheckUpdate,
     )) {
       return;
