@@ -12,6 +12,35 @@ library;
 /// Built-in rule targets that are not proxy-groups.
 const mihomoBuiltinTargets = {'DIRECT', 'REJECT', 'REJECT-DROP', 'PASS'};
 
+/// Whether [proxy] (a top-level `proxies[]` entry) is a structurally routable
+/// node, as opposed to a non-routable SENTINEL that Remnawave/xray-style panels
+/// inject for expiry / device-limit / HWID-lock / bot-link states (e.g. a
+/// 🇸🇴 «Подписка истекла» placeholder or a flagless «Докупите устройства»).
+///
+/// The check is provider-AGNOSTIC and structural — no name/flag regex: a real
+/// proxy never points at `0.0.0.0`/loopback, a port ≤ 1, or the all-zero
+/// VLESS/VMess UUID. Dropping these keeps dead "countries" out of routing
+/// candidate sets before any liveness probe runs. Shared single source of truth
+/// for `work_mode_patch` (Smart/Country candidate filtering) and `hy2_overlay`
+/// (auto-select group resolution).
+bool isRoutableProxy(Map proxy) {
+  final server = proxy['server']?.toString().trim() ?? '';
+  if (server.isEmpty ||
+      server == '0.0.0.0' ||
+      server == '::' ||
+      server == '127.0.0.1' ||
+      server == '::1') {
+    return false;
+  }
+  final rawPort = proxy['port'];
+  final port =
+      rawPort is int ? rawPort : int.tryParse(rawPort?.toString() ?? '');
+  if (port != null && port <= 1) return false;
+  final uuid = proxy['uuid']?.toString();
+  if (uuid == '00000000-0000-0000-0000-000000000000') return false;
+  return true;
+}
+
 /// Inserts [ruleLines] (rendered block-list items at correct indentation) at the
 /// TOP of the top-level `rules` block so they take precedence (mihomo evaluates
 /// rules top-down, first match wins). Creates a `rules` block at end of document

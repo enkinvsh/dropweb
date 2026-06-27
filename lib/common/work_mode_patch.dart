@@ -1,7 +1,8 @@
 import 'package:dropweb/enum/enum.dart';
 
 import 'country.dart';
-import 'mihomo_yaml_splice.dart' show mihomoBuiltinTargets, ruleTarget;
+import 'mihomo_yaml_splice.dart'
+    show isRoutableProxy, mihomoBuiltinTargets, ruleTarget;
 
 /// Name of the additive smart auto-selecting group injected for [WorkMode.smart].
 /// Distinct from `smart_pool_patch.dart`'s `🧠 Smart` (emergency-pool surface):
@@ -299,34 +300,6 @@ List<String> _unionLeafNodes(
   return leaves;
 }
 
-/// Whether [proxy] (a top-level `proxies[]` entry) is a structurally routable
-/// node, as opposed to a non-routable SENTINEL that Remnawave/xray-style panels
-/// inject for expiry / device-limit / HWID-lock / bot-link states (e.g. a
-/// 🇸🇴 «Подписка истекла» placeholder or a flagless «Докупите устройства»).
-///
-/// The check is provider-AGNOSTIC and structural — no name/flag regex: a real
-/// proxy never points at `0.0.0.0`/loopback, a port ≤ 1, or the all-zero
-/// VLESS/VMess UUID. Dropping these here keeps dead "countries" out of BOTH the
-/// country picker candidate set and the injected Smart group, before any
-/// liveness probe runs.
-bool _isRoutableProxy(Map proxy) {
-  final server = proxy['server']?.toString().trim() ?? '';
-  if (server.isEmpty ||
-      server == '0.0.0.0' ||
-      server == '::' ||
-      server == '127.0.0.1' ||
-      server == '::1') {
-    return false;
-  }
-  final rawPort = proxy['port'];
-  final port =
-      rawPort is int ? rawPort : int.tryParse(rawPort?.toString() ?? '');
-  if (port != null && port <= 1) return false;
-  final uuid = proxy['uuid']?.toString();
-  if (uuid == '00000000-0000-0000-0000-000000000000') return false;
-  return true;
-}
-
 /// Resolves the LEAF proxy nodes routed through the [primaryRouter] group of
 /// [rawConfig] — the explicit membership for the injected `Умный` smart group.
 ///
@@ -354,14 +327,14 @@ List<String> _smartLeafNodes(
   // ones only: non-routable sentinels (0.0.0.0 / port ≤ 1 / all-zero uuid the
   // panel injects for expiry / device-limit / HWID-lock) are dropped here so
   // they never reach the country picker NOR the Smart group (see
-  // [_isRoutableProxy]). Decoy/meta crutches that LOOK valid are NOT name-matched
+  // [isRoutableProxy]). Decoy/meta crutches that LOOK valid are NOT name-matched
   // here — they share identical crypto with real nodes and can only be told
   // apart by an actual liveness probe (done non-blocking in the picker).
   final proxyNames = <String>{};
   final proxies = rawConfig['proxies'];
   if (proxies is List) {
     for (final p in proxies) {
-      if (p is Map && p['name'] != null && _isRoutableProxy(p)) {
+      if (p is Map && p['name'] != null && isRoutableProxy(p)) {
         proxyNames.add(p['name'].toString());
       }
     }
