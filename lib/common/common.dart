@@ -17,6 +17,7 @@ export 'game_descriptor_loader.dart';
 export 'gaming_patch.dart';
 export 'geodata.dart';
 export 'http.dart';
+export 'hy2_overlay.dart';
 export 'icons.dart';
 export 'iterable.dart';
 export 'keyboard.dart';

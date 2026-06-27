@@ -66,6 +66,14 @@ const kGamingHeader = 'dropweb-game';
 /// as gaming proxies (see `parseGameNodeDomains` in `lib/common/gaming_patch.dart`).
 const kGamingNodesHeader = 'dropweb-game-nodes';
 
+/// Subscription header carrying the comma-separated Hy2 pool domains injected as
+/// a transport overlay across ALL work modes (see `lib/common/hy2_overlay.dart`).
+/// New canonical name; [kGamingNodesHeader] ('dropweb-game-nodes') is the legacy
+/// fallback during the dual-header transition (see `resolveHy2NodesHeader`). The
+/// pure overlay module restates both literals (it cannot import this
+/// Flutter-heavy file) — keep them in sync.
+const kHy2NodesHeader = 'dropweb-xnodes';
+
 // ─── In-app auto-update (sideloaded Android) — single source of truth ─────────
 // See docs/plans/2026-06-25-auto-update.md. No update literals are scattered
 // across services/native; everything funnels through these consts. The channel
