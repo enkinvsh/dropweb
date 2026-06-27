@@ -778,11 +778,24 @@ class GlobalState {
         )) {
       commonPrint.log('[workmode] country group missing, config falls back');
     }
+    // Header-gated Hy2 overlay — applies in EVERY work mode (a transport
+    // capability, not a mode). No-op when no dropweb-xnodes/-game-nodes header
+    // or no resolvable vless uuid. Runs BEFORE the mode patch: applyWorkModePatch
+    // only APPENDS groups (never reshapes proxies/rules), and _applyGamingMode
+    // re-injects the same '🎮 <domain>' proxy idempotently (skip-by-name), so the
+    // Hy2 nodes already sit in the auto-select group when either runs.
+    final hy2Domains =
+        parseGameNodeDomains(resolveHy2NodesHeader(profile.providerHeaders));
+    final hy2Uuid = hy2Domains.isEmpty ? null : extractGamingUuid(rawConfig);
+    final withHy2 = (hy2Domains.isNotEmpty && hy2Uuid != null)
+        ? injectHy2Overlay(rawConfig, domains: hy2Domains, password: hy2Uuid)
+        : rawConfig;
+
     if (profile.workMode == WorkMode.gaming) {
-      return _applyGamingMode(rawConfig, profile);
+      return _applyGamingMode(withHy2, profile);
     }
     return applyWorkModePatch(
-      rawConfig,
+      withHy2,
       workMode: profile.workMode,
       staticCountry: profile.staticCountry,
     );
