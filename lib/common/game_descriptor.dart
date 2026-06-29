@@ -59,12 +59,6 @@ class GameDescriptor with _$GameDescriptor {
   const factory GameDescriptor({
     required int version,
     required GameMode mode,
-    @JsonKey(
-      name: 'hysteria',
-      fromJson: _hysteriaTemplateFromJson,
-      toJson: _hysteriaTemplateToJson,
-    )
-    required GameHysteriaTemplate hysteriaTemplate,
     required GameGroup group,
     @JsonKey(name: 'rule-providers')
     @Default(<String, dynamic>{})
@@ -89,21 +83,6 @@ class GameMode with _$GameMode {
 
   factory GameMode.fromJson(Map<String, Object?> json) =>
       _$GameModeFromJson(json);
-}
-
-/// Generic Hysteria2 node template (port/alpn/skip-cert-verify) shared by the
-/// gaming nodes. Intentionally carries NO node domains — those arrive
-/// separately via the `dropweb-game-nodes` header.
-@freezed
-class GameHysteriaTemplate with _$GameHysteriaTemplate {
-  const factory GameHysteriaTemplate({
-    required int port,
-    @Default(<String>[]) List<String> alpn,
-    @JsonKey(name: 'skip-cert-verify') @Default(false) bool skipCertVerify,
-  }) = _GameHysteriaTemplate;
-
-  factory GameHysteriaTemplate.fromJson(Map<String, Object?> json) =>
-      _$GameHysteriaTemplateFromJson(json);
 }
 
 /// The proxy-group definition the gaming rules route through.
@@ -166,16 +145,6 @@ GameDescriptor? resolveGameDescriptor({
   GameDescriptor? cached,
 }) =>
     fresh ?? cached;
-
-/// Unwraps the `hysteria: { template: {...} }` nesting into the flat
-/// [GameHysteriaTemplate] field. Receives the already-deep-converted `hysteria`
-/// map; throws (→ parse returns `null`) when `template` is absent/malformed.
-GameHysteriaTemplate _hysteriaTemplateFromJson(Map<String, dynamic> json) =>
-    GameHysteriaTemplate.fromJson(json['template'] as Map<String, dynamic>);
-
-/// Re-nests [value] back under a `template` key, mirroring the source schema.
-Map<String, dynamic> _hysteriaTemplateToJson(GameHysteriaTemplate value) =>
-    <String, dynamic>{'template': value.toJson()};
 
 /// Recursively converts parsed-YAML nodes ([YamlMap]/[YamlList] + scalars) into
 /// plain `Map<String, dynamic>` / `List<dynamic>` / scalar values so the result

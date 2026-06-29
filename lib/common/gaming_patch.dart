@@ -7,97 +7,33 @@
 //
 // On 2.7.4 the panel's Mihomo subscription carries ZERO hysteria nodes
 // (Remnawave does not render Hy2 for clash.meta), so the app injects them. The
-// node domains arrive via the panel-only `dropweb-game-nodes` header (see
-// [parseGameNodeDomains]); the routing shape (group + rules) arrives via the
-// pinned `game.yml` descriptor. The Hy2 password is the user's own vless uuid
-// (proven e2e: Hy2 `auth == vlessUuid`).
+// node specs (name + server + port + alpn) arrive via the panel-pushed
+// `dropweb-xnodes` header (see [parseHy2NodeSpecs] in `hy2_overlay.dart`); the
+// routing shape (group + rules) arrives via the pinned `game.yml` descriptor.
+// The Hy2 password is the user's own vless uuid (proven e2e: Hy2
+// `auth == vlessUuid`). Nodes are built via the shared [buildHy2Proxy] so the
+// `🎮 Gaming` group and the all-modes overlay reference ONE proxy per node.
 //
 // This module is PURE — no I/O, no providers, no build-path wiring. The fetch /
 // build-path glue (Фаза 6) consumes these functions; this file is the pure core
 // only.
 
 import 'game_descriptor.dart';
-import 'work_mode_patch.dart' show interceptLeafNodes;
-
-/// Splits the `dropweb-game-nodes` header value into an ordered, de-duplicated
-/// list of Hy2 node domains.
-///
-/// Each comma-separated entry is trimmed; empty entries are dropped; duplicates
-/// are removed preserving first-seen order. A null/empty/whitespace-only header
-/// yields `const []`.
-List<String> parseGameNodeDomains(String? headerValue) {
-  if (headerValue == null) return const <String>[];
-  final domains = <String>[];
-  final seen = <String>{};
-  for (final part in headerValue.split(',')) {
-    final domain = part.trim();
-    if (domain.isEmpty) continue;
-    if (seen.add(domain)) domains.add(domain);
-  }
-  return domains;
-}
-
-/// Returns the USER's vless `uuid` to use as the Hy2 password, or `null` when
-/// there is no such node.
-///
-/// Reuses [interceptLeafNodes] — the codebase's "user's real nodes, SOS pool
-/// excluded" helper — to get the user's REAL leaf node names, then returns the
-/// `uuid` of the FIRST `rawConfig['proxies']` entry that is both a member of
-/// that leaf set AND `type == 'vless'`.
-///
-/// Drawing the uuid from the leaf set (not raw `proxies`) is load-bearing: it
-/// structurally EXCLUDES the disconeko emergency pool (~57 external vless nodes
-/// baked into top-level `proxies` with FOREIGN uuids), so gaming never injects a
-/// wrong Hy2 password.
-String? extractGamingUuid(Map<String, dynamic> rawConfig) {
-  final leaves = interceptLeafNodes(rawConfig).toSet();
-  if (leaves.isEmpty) return null;
-  final proxies = rawConfig['proxies'];
-  if (proxies is! List) return null;
-  for (final p in proxies) {
-    if (p is! Map) continue;
-    final name = p['name']?.toString();
-    if (name == null || !leaves.contains(name)) continue;
-    if (p['type']?.toString() != 'vless') continue;
-    return p['uuid']?.toString();
-  }
-  return null;
-}
-
-/// Builds ONE `hysteria2` proxy map for the gaming [domain], authenticating with
-/// [password] and shaped by [template] (port / alpn / skip-cert-verify).
-///
-/// The `name` follows the live `game.yml` convention `"🎮 " + domain`, and both
-/// `server` and `sni` are the [domain] itself. `alpn` is copied so the returned
-/// map never aliases the template's list.
-Map<String, dynamic> buildGamingHysteriaProxy({
-  required String domain,
-  required String password,
-  required GameHysteriaTemplate template,
-}) =>
-    <String, dynamic>{
-      'name': '🎮 $domain',
-      'type': 'hysteria2',
-      'server': domain,
-      'port': template.port,
-      'sni': domain,
-      'password': password,
-      'alpn': List<String>.from(template.alpn),
-      'skip-cert-verify': template.skipCertVerify,
-    };
+import 'hy2_overlay.dart' show Hy2NodeSpec, buildHy2Proxy;
 
 /// Additively injects the gaming Hy2 proxies + the `🎮 Gaming` group into
 /// [rawConfig]. PURE, IDEMPOTENT, ADDITIVE.
 ///
-///   * No-op (returns a shallow copy) when [nodeDomains] is empty or [password]
-///     is null/empty — gaming cannot work without nodes and a credential.
-///   * Otherwise appends one [buildGamingHysteriaProxy] per domain to `proxies`
-///     and appends a group (named [descriptor].group.name, of
-///     [descriptor].group.type, with the injected Hy2 names as members, plus
-///     `url`/`interval`/`tolerance` when non-null on the descriptor group) to
-///     `proxy-groups`.
-///   * IDEMPOTENT: any Hy2 proxy whose name already exists is skipped; the group
-///     is skipped entirely when one with that name already exists (mirrors
+///   * No-op (returns a shallow copy) when [specs] is empty or [password] is
+///     null/empty — gaming cannot work without nodes and a credential.
+///   * Otherwise appends one [buildHy2Proxy] per spec to `proxies` (skipping any
+///     name already present) and appends a group (named [descriptor].group.name,
+///     of [descriptor].group.type, plus `url`/`interval`/`tolerance` when
+///     non-null) to `proxy-groups`. The group references EVERY spec node — even
+///     one whose proxy already existed (e.g. injected by the all-modes overlay,
+///     which runs FIRST in the build path) — so both groups share ONE proxy.
+///   * IDEMPOTENT: a Hy2 proxy whose name already exists is not re-added; the
+///     group is skipped entirely when one with that name already exists (mirrors
 ///     `work_mode_patch.dart`'s skip-by-name pattern).
 ///   * The input map and its nested lists/maps are NEVER mutated — a new
 ///     top-level map is returned, and only the `proxies` / `proxy-groups` lists
@@ -105,15 +41,15 @@ Map<String, dynamic> buildGamingHysteriaProxy({
 Map<String, dynamic> injectGamingProxies(
   Map<String, dynamic> rawConfig, {
   required GameDescriptor descriptor,
-  required List<String> nodeDomains,
+  required List<Hy2NodeSpec> specs,
   required String? password,
 }) {
   final result = Map<String, dynamic>.from(rawConfig);
-  if (nodeDomains.isEmpty || password == null || password.isEmpty) {
+  if (specs.isEmpty || password == null || password.isEmpty) {
     return result;
   }
 
-  // Append one Hy2 proxy per domain, skipping names already present (idempotent).
+  // Append one Hy2 proxy per spec, skipping names already present (idempotent).
   final proxies = rawConfig['proxies'];
   final newProxies = <dynamic>[];
   final existingProxyNames = <String>{};
@@ -125,19 +61,18 @@ Map<String, dynamic> injectGamingProxies(
       }
     }
   }
-  final injectedNames = <String>[];
-  final injectedSeen = <String>{};
-  for (final domain in nodeDomains) {
-    final proxy = buildGamingHysteriaProxy(
-      domain: domain,
-      password: password,
-      template: descriptor.hysteriaTemplate,
-    );
-    final name = proxy['name'] as String;
-    if (existingProxyNames.contains(name)) continue;
-    if (!injectedSeen.add(name)) continue;
-    newProxies.add(proxy);
-    injectedNames.add(name);
+  // Membership tracks ALL spec names (deduped, order-preserving). The proxy LIST
+  // only grows for names not already present — the overlay may have injected
+  // them first, but the group must still reference that shared proxy.
+  final memberNames = <String>[];
+  final memberSeen = <String>{};
+  for (final spec in specs) {
+    final name = spec.name;
+    if (!memberSeen.add(name)) continue;
+    memberNames.add(name);
+    if (!existingProxyNames.contains(name)) {
+      newProxies.add(buildHy2Proxy(spec, password));
+    }
   }
   result['proxies'] = newProxies;
 
@@ -158,7 +93,7 @@ Map<String, dynamic> injectGamingProxies(
     final group = <String, dynamic>{
       'name': groupName,
       'type': descriptor.group.type,
-      'proxies': List<String>.from(injectedNames),
+      'proxies': List<String>.from(memberNames),
     };
     if (descriptor.group.url != null) group['url'] = descriptor.group.url;
     if (descriptor.group.interval != null) {

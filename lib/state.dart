@@ -784,12 +784,7 @@ class GlobalState {
     // only APPENDS groups (never reshapes proxies/rules), and _applyGamingMode
     // re-injects the same '🎮 <domain>' proxy idempotently (skip-by-name), so the
     // Hy2 nodes already sit in the auto-select group when either runs.
-    final hy2Domains =
-        parseGameNodeDomains(resolveHy2NodesHeader(profile.providerHeaders));
-    final hy2Uuid = hy2Domains.isEmpty ? null : extractGamingUuid(rawConfig);
-    final withHy2 = (hy2Domains.isNotEmpty && hy2Uuid != null)
-        ? injectHy2Overlay(rawConfig, domains: hy2Domains, password: hy2Uuid)
-        : rawConfig;
+    final withHy2 = applyHy2Overlay(rawConfig, profile.providerHeaders);
 
     if (profile.workMode == WorkMode.gaming) {
       return _applyGamingMode(withHy2, profile);
@@ -824,18 +819,17 @@ class GlobalState {
             .log('[gaming] descriptor unavailable → standard routing');
         return rawConfig;
       }
-      final domains =
-          parseGameNodeDomains(profile.providerHeaders[kGamingNodesHeader]);
-      final uuid = extractGamingUuid(rawConfig);
-      if (domains.isEmpty || uuid == null) {
-        commonPrint.log(
-            '[gaming] no node domains/uuid → standard routing');
+      final specs =
+          parseHy2NodeSpecs(resolveHy2NodesHeader(profile.providerHeaders));
+      final uuid = extractUserVlessUuid(rawConfig);
+      if (specs.isEmpty || uuid == null) {
+        commonPrint.log('[gaming] no node specs/uuid → standard routing');
         return rawConfig;
       }
       var cfg = injectGamingProxies(
         rawConfig,
         descriptor: descriptor,
-        nodeDomains: domains,
+        specs: specs,
         password: uuid,
       );
       cfg = applyGamingPatch(cfg, descriptor);

@@ -163,6 +163,54 @@ dropweb-topup-url: https://panel.example.com/buy-traffic
 
 ---
 
+## 8. dropweb-xnodes — Hy2-узлы (быстрый транспорт)
+
+Богатый дескриптор Hysteria2-узлов, которые приложение строит и вмёрживает в конфиг ядра как **транспорт-оверлей**. Применяется во ВСЕХ режимах (это транспорт, а не режим): узлы добавляются в авто-селект группу (`⚡ Fastest`, url-test), так что общий трафик идёт через Hy2 когда он жив/быстрее и падает на Reality когда UDP зарезан. В режиме «Игровой» те же узлы наполняют группу `🎮 Gaming`. В пикчере «Страна» узлы видны под своим флагом.
+
+### Формат
+
+```
+dropweb-xnodes: base64:<base64( utf8( JSON ) )>
+```
+
+Значение — `base64:`-обёрнутый UTF-8 JSON-массив спеков. Префикс `base64:` обязателен: HTTP-заголовок ASCII-only, а имена содержат эмодзи/кириллицу (та же конвенция, что `profile-title` / `announce`). Сырой JSON без префикса тоже принимается, но для не-ASCII непригоден.
+
+JSON — массив объектов:
+
+```json
+[
+  { "name": "🇵🇱 Польша🎮", "server": "pl.meybz.asia", "port": 443, "alpn": ["h3"] }
+]
+```
+
+| Поле | Тип | Обяз. | Семантика |
+|---|---|---|---|
+| `name` | string | да | Имя прокси verbatim. Должно начинаться с флага страны (для корректного бакета в «Стране») и отличаться от vless-ноды того же региона — mihomo требует уникальные имена. |
+| `server` | string | да | Хост узла (= `sni` по умолчанию). Пул-домен, который SAN'ит cert. |
+| `port` | int | да | UDP-порт Hy2. |
+| `alpn` | string[] | нет | ALPN; по умолчанию `[]`. |
+| `sni` | string | нет | SNI; по умолчанию = `server`. |
+| `skip-cert-verify` | bool | нет | По умолчанию `false` (реальный cert на пул-домене). |
+
+**Пароль НЕ передаётся в заголовке** — приложение использует собственный vless-uuid пользователя (per-user секрет в общий заголовок не уходит).
+
+### Поведение
+- Невалидные элементы пропускаются, дубли по `name` отсекаются, мусор/пустое значение → оверлей просто не применяется (no-op). Никогда не ломает сборку конфига.
+- Узел отсутствует в clash-теле подписки (Remnawave не рендерит Hy2 для clash.meta) — поэтому он и доставляется этим заголовком.
+
+### Пример
+```
+dropweb-custom: update
+dropweb-xnodes: base64:W3sibmFtZSI6IvCfh7Xwn4exINCf0L7Qu9GM0YjQsPCfjq4iLCJzZXJ2ZXIiOiJwbC5tZXliei5hc2lhIiwicG9ydCI6NDQzLCJhbHBuIjpbImgzIl19XQ==
+```
+Декодируется в `[{"name":"🇵🇱 Польша🎮","server":"pl.meybz.asia","port":443,"alpn":["h3"]}]`.
+
+### Связанные заголовки (режим «Игровой»)
+- `dropweb-game` — URL `game.yml` дескриптора: форма группы `🎮 Gaming` + правила маршрутизации игр. Узлы для группы берутся из `dropweb-xnodes`.
+- `dropweb-game-nodes` *(legacy, deprecated)* — CSV доменов. Новый парсер спеков его не читает (нет порта/ALPN), поэтому legacy-only подписка просто не получает Hy2-оверлей (graceful no-op). Переходите на `dropweb-xnodes`.
+
+---
+
 ## Сводка
 
 | Заголовок | Назначение | Пример значения |
@@ -174,3 +222,5 @@ dropweb-topup-url: https://panel.example.com/buy-traffic
 | `dropweb-logo` | Логотип провайдера на карточке (круглый, акцентная обводка, фильтр темы) | `https://example.com/logo.png` |
 | `dropweb-renew-url` | Кнопка «Продлить» (при <3 днях до конца подписки) | `https://panel.example.com/pay` |
 | `dropweb-topup-url` | Кнопка «Докупить трафик» (при <10% трафика) | `https://panel.example.com/buy-traffic` |
+| `dropweb-xnodes` | Hy2-узлы (быстрый транспорт, base64 JSON-спеки) | `base64:W3si…XQ==` |
+| `dropweb-game` | URL `game.yml` (режим «Игровой»: группа + правила) | `https://raw.githubusercontent.com/…/game.yml` |

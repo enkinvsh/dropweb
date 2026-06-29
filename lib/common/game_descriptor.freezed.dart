@@ -22,12 +22,6 @@ GameDescriptor _$GameDescriptorFromJson(Map<String, dynamic> json) {
 mixin _$GameDescriptor {
   int get version => throw _privateConstructorUsedError;
   GameMode get mode => throw _privateConstructorUsedError;
-  @JsonKey(
-      name: 'hysteria',
-      fromJson: _hysteriaTemplateFromJson,
-      toJson: _hysteriaTemplateToJson)
-  GameHysteriaTemplate get hysteriaTemplate =>
-      throw _privateConstructorUsedError;
   GameGroup get group => throw _privateConstructorUsedError;
   @JsonKey(name: 'rule-providers')
   Map<String, dynamic> get ruleProviders => throw _privateConstructorUsedError;
@@ -52,17 +46,11 @@ abstract class $GameDescriptorCopyWith<$Res> {
   $Res call(
       {int version,
       GameMode mode,
-      @JsonKey(
-          name: 'hysteria',
-          fromJson: _hysteriaTemplateFromJson,
-          toJson: _hysteriaTemplateToJson)
-      GameHysteriaTemplate hysteriaTemplate,
       GameGroup group,
       @JsonKey(name: 'rule-providers') Map<String, dynamic> ruleProviders,
       List<String> rules});
 
   $GameModeCopyWith<$Res> get mode;
-  $GameHysteriaTemplateCopyWith<$Res> get hysteriaTemplate;
   $GameGroupCopyWith<$Res> get group;
 }
 
@@ -83,7 +71,6 @@ class _$GameDescriptorCopyWithImpl<$Res, $Val extends GameDescriptor>
   $Res call({
     Object? version = null,
     Object? mode = null,
-    Object? hysteriaTemplate = null,
     Object? group = null,
     Object? ruleProviders = null,
     Object? rules = null,
@@ -97,10 +84,6 @@ class _$GameDescriptorCopyWithImpl<$Res, $Val extends GameDescriptor>
           ? _value.mode
           : mode // ignore: cast_nullable_to_non_nullable
               as GameMode,
-      hysteriaTemplate: null == hysteriaTemplate
-          ? _value.hysteriaTemplate
-          : hysteriaTemplate // ignore: cast_nullable_to_non_nullable
-              as GameHysteriaTemplate,
       group: null == group
           ? _value.group
           : group // ignore: cast_nullable_to_non_nullable
@@ -130,17 +113,6 @@ class _$GameDescriptorCopyWithImpl<$Res, $Val extends GameDescriptor>
   /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  $GameHysteriaTemplateCopyWith<$Res> get hysteriaTemplate {
-    return $GameHysteriaTemplateCopyWith<$Res>(_value.hysteriaTemplate,
-        (value) {
-      return _then(_value.copyWith(hysteriaTemplate: value) as $Val);
-    });
-  }
-
-  /// Create a copy of GameDescriptor
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
   $GameGroupCopyWith<$Res> get group {
     return $GameGroupCopyWith<$Res>(_value.group, (value) {
       return _then(_value.copyWith(group: value) as $Val);
@@ -159,19 +131,12 @@ abstract class _$$GameDescriptorImplCopyWith<$Res>
   $Res call(
       {int version,
       GameMode mode,
-      @JsonKey(
-          name: 'hysteria',
-          fromJson: _hysteriaTemplateFromJson,
-          toJson: _hysteriaTemplateToJson)
-      GameHysteriaTemplate hysteriaTemplate,
       GameGroup group,
       @JsonKey(name: 'rule-providers') Map<String, dynamic> ruleProviders,
       List<String> rules});
 
   @override
   $GameModeCopyWith<$Res> get mode;
-  @override
-  $GameHysteriaTemplateCopyWith<$Res> get hysteriaTemplate;
   @override
   $GameGroupCopyWith<$Res> get group;
 }
@@ -191,7 +156,6 @@ class __$$GameDescriptorImplCopyWithImpl<$Res>
   $Res call({
     Object? version = null,
     Object? mode = null,
-    Object? hysteriaTemplate = null,
     Object? group = null,
     Object? ruleProviders = null,
     Object? rules = null,
@@ -205,10 +169,6 @@ class __$$GameDescriptorImplCopyWithImpl<$Res>
           ? _value.mode
           : mode // ignore: cast_nullable_to_non_nullable
               as GameMode,
-      hysteriaTemplate: null == hysteriaTemplate
-          ? _value.hysteriaTemplate
-          : hysteriaTemplate // ignore: cast_nullable_to_non_nullable
-              as GameHysteriaTemplate,
       group: null == group
           ? _value.group
           : group // ignore: cast_nullable_to_non_nullable
@@ -231,11 +191,6 @@ class _$GameDescriptorImpl implements _GameDescriptor {
   const _$GameDescriptorImpl(
       {required this.version,
       required this.mode,
-      @JsonKey(
-          name: 'hysteria',
-          fromJson: _hysteriaTemplateFromJson,
-          toJson: _hysteriaTemplateToJson)
-      required this.hysteriaTemplate,
       required this.group,
       @JsonKey(name: 'rule-providers')
       final Map<String, dynamic> ruleProviders = const <String, dynamic>{},
@@ -250,12 +205,6 @@ class _$GameDescriptorImpl implements _GameDescriptor {
   final int version;
   @override
   final GameMode mode;
-  @override
-  @JsonKey(
-      name: 'hysteria',
-      fromJson: _hysteriaTemplateFromJson,
-      toJson: _hysteriaTemplateToJson)
-  final GameHysteriaTemplate hysteriaTemplate;
   @override
   final GameGroup group;
   final Map<String, dynamic> _ruleProviders;
@@ -277,7 +226,7 @@ class _$GameDescriptorImpl implements _GameDescriptor {
 
   @override
   String toString() {
-    return 'GameDescriptor(version: $version, mode: $mode, hysteriaTemplate: $hysteriaTemplate, group: $group, ruleProviders: $ruleProviders, rules: $rules)';
+    return 'GameDescriptor(version: $version, mode: $mode, group: $group, ruleProviders: $ruleProviders, rules: $rules)';
   }
 
   @override
@@ -287,8 +236,6 @@ class _$GameDescriptorImpl implements _GameDescriptor {
             other is _$GameDescriptorImpl &&
             (identical(other.version, version) || other.version == version) &&
             (identical(other.mode, mode) || other.mode == mode) &&
-            (identical(other.hysteriaTemplate, hysteriaTemplate) ||
-                other.hysteriaTemplate == hysteriaTemplate) &&
             (identical(other.group, group) || other.group == group) &&
             const DeepCollectionEquality()
                 .equals(other._ruleProviders, _ruleProviders) &&
@@ -301,7 +248,6 @@ class _$GameDescriptorImpl implements _GameDescriptor {
       runtimeType,
       version,
       mode,
-      hysteriaTemplate,
       group,
       const DeepCollectionEquality().hash(_ruleProviders),
       const DeepCollectionEquality().hash(_rules));
@@ -327,11 +273,6 @@ abstract class _GameDescriptor implements GameDescriptor {
   const factory _GameDescriptor(
       {required final int version,
       required final GameMode mode,
-      @JsonKey(
-          name: 'hysteria',
-          fromJson: _hysteriaTemplateFromJson,
-          toJson: _hysteriaTemplateToJson)
-      required final GameHysteriaTemplate hysteriaTemplate,
       required final GameGroup group,
       @JsonKey(name: 'rule-providers') final Map<String, dynamic> ruleProviders,
       required final List<String> rules}) = _$GameDescriptorImpl;
@@ -343,12 +284,6 @@ abstract class _GameDescriptor implements GameDescriptor {
   int get version;
   @override
   GameMode get mode;
-  @override
-  @JsonKey(
-      name: 'hysteria',
-      fromJson: _hysteriaTemplateFromJson,
-      toJson: _hysteriaTemplateToJson)
-  GameHysteriaTemplate get hysteriaTemplate;
   @override
   GameGroup get group;
   @override
@@ -565,216 +500,6 @@ abstract class _GameMode implements GameMode {
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$GameModeImplCopyWith<_$GameModeImpl> get copyWith =>
       throw _privateConstructorUsedError;
-}
-
-GameHysteriaTemplate _$GameHysteriaTemplateFromJson(Map<String, dynamic> json) {
-  return _GameHysteriaTemplate.fromJson(json);
-}
-
-/// @nodoc
-mixin _$GameHysteriaTemplate {
-  int get port => throw _privateConstructorUsedError;
-  List<String> get alpn => throw _privateConstructorUsedError;
-  @JsonKey(name: 'skip-cert-verify')
-  bool get skipCertVerify => throw _privateConstructorUsedError;
-
-  /// Serializes this GameHysteriaTemplate to a JSON map.
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-
-  /// Create a copy of GameHysteriaTemplate
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $GameHysteriaTemplateCopyWith<GameHysteriaTemplate> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $GameHysteriaTemplateCopyWith<$Res> {
-  factory $GameHysteriaTemplateCopyWith(GameHysteriaTemplate value,
-          $Res Function(GameHysteriaTemplate) then) =
-      _$GameHysteriaTemplateCopyWithImpl<$Res, GameHysteriaTemplate>;
-  @useResult
-  $Res call(
-      {int port,
-      List<String> alpn,
-      @JsonKey(name: 'skip-cert-verify') bool skipCertVerify});
-}
-
-/// @nodoc
-class _$GameHysteriaTemplateCopyWithImpl<$Res,
-        $Val extends GameHysteriaTemplate>
-    implements $GameHysteriaTemplateCopyWith<$Res> {
-  _$GameHysteriaTemplateCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
-  /// Create a copy of GameHysteriaTemplate
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? port = null,
-    Object? alpn = null,
-    Object? skipCertVerify = null,
-  }) {
-    return _then(_value.copyWith(
-      port: null == port
-          ? _value.port
-          : port // ignore: cast_nullable_to_non_nullable
-              as int,
-      alpn: null == alpn
-          ? _value.alpn
-          : alpn // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-      skipCertVerify: null == skipCertVerify
-          ? _value.skipCertVerify
-          : skipCertVerify // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ) as $Val);
-  }
-}
-
-/// @nodoc
-abstract class _$$GameHysteriaTemplateImplCopyWith<$Res>
-    implements $GameHysteriaTemplateCopyWith<$Res> {
-  factory _$$GameHysteriaTemplateImplCopyWith(_$GameHysteriaTemplateImpl value,
-          $Res Function(_$GameHysteriaTemplateImpl) then) =
-      __$$GameHysteriaTemplateImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call(
-      {int port,
-      List<String> alpn,
-      @JsonKey(name: 'skip-cert-verify') bool skipCertVerify});
-}
-
-/// @nodoc
-class __$$GameHysteriaTemplateImplCopyWithImpl<$Res>
-    extends _$GameHysteriaTemplateCopyWithImpl<$Res, _$GameHysteriaTemplateImpl>
-    implements _$$GameHysteriaTemplateImplCopyWith<$Res> {
-  __$$GameHysteriaTemplateImplCopyWithImpl(_$GameHysteriaTemplateImpl _value,
-      $Res Function(_$GameHysteriaTemplateImpl) _then)
-      : super(_value, _then);
-
-  /// Create a copy of GameHysteriaTemplate
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? port = null,
-    Object? alpn = null,
-    Object? skipCertVerify = null,
-  }) {
-    return _then(_$GameHysteriaTemplateImpl(
-      port: null == port
-          ? _value.port
-          : port // ignore: cast_nullable_to_non_nullable
-              as int,
-      alpn: null == alpn
-          ? _value._alpn
-          : alpn // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-      skipCertVerify: null == skipCertVerify
-          ? _value.skipCertVerify
-          : skipCertVerify // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ));
-  }
-}
-
-/// @nodoc
-@JsonSerializable()
-class _$GameHysteriaTemplateImpl implements _GameHysteriaTemplate {
-  const _$GameHysteriaTemplateImpl(
-      {required this.port,
-      final List<String> alpn = const <String>[],
-      @JsonKey(name: 'skip-cert-verify') this.skipCertVerify = false})
-      : _alpn = alpn;
-
-  factory _$GameHysteriaTemplateImpl.fromJson(Map<String, dynamic> json) =>
-      _$$GameHysteriaTemplateImplFromJson(json);
-
-  @override
-  final int port;
-  final List<String> _alpn;
-  @override
-  @JsonKey()
-  List<String> get alpn {
-    if (_alpn is EqualUnmodifiableListView) return _alpn;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_alpn);
-  }
-
-  @override
-  @JsonKey(name: 'skip-cert-verify')
-  final bool skipCertVerify;
-
-  @override
-  String toString() {
-    return 'GameHysteriaTemplate(port: $port, alpn: $alpn, skipCertVerify: $skipCertVerify)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$GameHysteriaTemplateImpl &&
-            (identical(other.port, port) || other.port == port) &&
-            const DeepCollectionEquality().equals(other._alpn, _alpn) &&
-            (identical(other.skipCertVerify, skipCertVerify) ||
-                other.skipCertVerify == skipCertVerify));
-  }
-
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  int get hashCode => Object.hash(runtimeType, port,
-      const DeepCollectionEquality().hash(_alpn), skipCertVerify);
-
-  /// Create a copy of GameHysteriaTemplate
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$GameHysteriaTemplateImplCopyWith<_$GameHysteriaTemplateImpl>
-      get copyWith =>
-          __$$GameHysteriaTemplateImplCopyWithImpl<_$GameHysteriaTemplateImpl>(
-              this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$GameHysteriaTemplateImplToJson(
-      this,
-    );
-  }
-}
-
-abstract class _GameHysteriaTemplate implements GameHysteriaTemplate {
-  const factory _GameHysteriaTemplate(
-          {required final int port,
-          final List<String> alpn,
-          @JsonKey(name: 'skip-cert-verify') final bool skipCertVerify}) =
-      _$GameHysteriaTemplateImpl;
-
-  factory _GameHysteriaTemplate.fromJson(Map<String, dynamic> json) =
-      _$GameHysteriaTemplateImpl.fromJson;
-
-  @override
-  int get port;
-  @override
-  List<String> get alpn;
-  @override
-  @JsonKey(name: 'skip-cert-verify')
-  bool get skipCertVerify;
-
-  /// Create a copy of GameHysteriaTemplate
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$GameHysteriaTemplateImplCopyWith<_$GameHysteriaTemplateImpl>
-      get copyWith => throw _privateConstructorUsedError;
 }
 
 GameGroup _$GameGroupFromJson(Map<String, dynamic> json) {

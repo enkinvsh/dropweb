@@ -61,17 +61,14 @@ const defaultTestUrl = "https://www.gstatic.com/generate_204";
 /// gaming mode is offered only when this header parses (see
 /// `lib/common/game_descriptor.dart` + `gamingModeAvailable` provider).
 const kGamingHeader = 'dropweb-game';
-/// Subscription header carrying the «Игровой» (gaming) Hy2 node POOL domains.
-/// Panel-only; its value is a comma-separated list of Hy2 node domains injected
-/// as gaming proxies (see `parseGameNodeDomains` in `lib/common/gaming_patch.dart`).
-const kGamingNodesHeader = 'dropweb-game-nodes';
 
-/// Subscription header carrying the comma-separated Hy2 pool domains injected as
-/// a transport overlay across ALL work modes (see `lib/common/hy2_overlay.dart`).
-/// New canonical name; [kGamingNodesHeader] ('dropweb-game-nodes') is the legacy
-/// fallback during the dual-header transition (see `resolveHy2NodesHeader`). The
-/// pure overlay module restates both literals (it cannot import this
-/// Flutter-heavy file) — keep them in sync.
+/// Subscription header carrying the panel-pushed Hy2 node specs: a
+/// base64-wrapped UTF-8 JSON array (`base64:<…>`) of `{name, server, port,
+/// alpn, …}` descriptors, injected as a transport overlay across ALL work modes
+/// (see `parseHy2NodeSpecs` / `applyHy2Overlay` in `lib/common/hy2_overlay.dart`).
+/// The pure overlay module restates this literal (it cannot import this
+/// Flutter-heavy file) — keep them in sync. The legacy `dropweb-game-nodes`
+/// (CSV of bare domains) remains a graceful no-op fallback in the overlay.
 const kHy2NodesHeader = 'dropweb-xnodes';
 
 // ─── In-app auto-update (sideloaded Android) — single source of truth ─────────

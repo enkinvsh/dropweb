@@ -323,7 +323,18 @@ final _modeProfileDataProvider =
       final p = profiles.getProfile(profileId);
       return (p?.lastUpdateDate, p?.providerHeaders.length);
     }));
+    final headers =
+        ref.read(profilesProvider).getProfile(profileId)?.providerHeaders ??
+            const <String, String>{};
     final cfg = await globalState.getProfileConfig(profileId);
+    // Mirror the build path's header-gated Hy2 overlay via the shared
+    // [applyHy2Overlay] (the single source of truth, also used by
+    // `patchRawConfig`) so the picker reflects the config the CORE actually
+    // runs: the panel-pushed `dropweb-xnodes` node(s) bucket under their country
+    // flag here, exactly as in the Standard/Country routing path. No-op when the
+    // header or vless uuid is absent — the picker then shows only the
+    // subscription's own nodes.
+    final withHy2 = applyHy2Overlay(cfg, headers);
     // Country candidates come from the rule-group leaves only (same structurally
     // SOS-free set as Smart) — NOT raw cfg['proxies'], which carries the
     // disconeko emergency pool. Otherwise the picker would surface SOS flags
@@ -331,7 +342,7 @@ final _modeProfileDataProvider =
     // resolves rules from either the 'rules' or 'rule' key (`_resolveRules`),
     // and getProfileConfig output uses 'rules'.
     return _ModeProfileData(
-      countries: groupNodesByCountry(interceptLeafNodes(cfg)),
+      countries: groupNodesByCountry(interceptLeafNodes(withHy2)),
       hasSmartCandidates: smartGroupWillInject(cfg),
     );
   },

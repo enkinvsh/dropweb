@@ -10,8 +10,6 @@ _$GameDescriptorImpl _$$GameDescriptorImplFromJson(Map<String, dynamic> json) =>
     _$GameDescriptorImpl(
       version: (json['version'] as num).toInt(),
       mode: GameMode.fromJson(json['mode'] as Map<String, dynamic>),
-      hysteriaTemplate:
-          _hysteriaTemplateFromJson(json['hysteria'] as Map<String, dynamic>),
       group: GameGroup.fromJson(json['group'] as Map<String, dynamic>),
       ruleProviders: json['rule-providers'] as Map<String, dynamic>? ??
           const <String, dynamic>{},
@@ -23,7 +21,6 @@ Map<String, dynamic> _$$GameDescriptorImplToJson(
     <String, dynamic>{
       'version': instance.version,
       'mode': instance.mode,
-      'hysteria': _hysteriaTemplateToJson(instance.hysteriaTemplate),
       'group': instance.group,
       'rule-providers': instance.ruleProviders,
       'rules': instance.rules,
@@ -43,24 +40,6 @@ Map<String, dynamic> _$$GameModeImplToJson(_$GameModeImpl instance) =>
       'name': instance.name,
       'icon': instance.icon,
       'minAppVersion': instance.minAppVersion,
-    };
-
-_$GameHysteriaTemplateImpl _$$GameHysteriaTemplateImplFromJson(
-        Map<String, dynamic> json) =>
-    _$GameHysteriaTemplateImpl(
-      port: (json['port'] as num).toInt(),
-      alpn:
-          (json['alpn'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-              const <String>[],
-      skipCertVerify: json['skip-cert-verify'] as bool? ?? false,
-    );
-
-Map<String, dynamic> _$$GameHysteriaTemplateImplToJson(
-        _$GameHysteriaTemplateImpl instance) =>
-    <String, dynamic>{
-      'port': instance.port,
-      'alpn': instance.alpn,
-      'skip-cert-verify': instance.skipCertVerify,
     };
 
 _$GameGroupImpl _$$GameGroupImplFromJson(Map<String, dynamic> json) =>

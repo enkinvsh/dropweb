@@ -9,52 +9,118 @@
 // Transport ≠ work mode: this is a header-gated capability that applies in every
 // WorkMode, NOT a new mode. When the header is absent the wiring no-ops.
 
+import 'dart:convert';
+
 import 'mihomo_yaml_splice.dart' show isRoutableProxy, mihomoBuiltinTargets;
-import 'work_mode_patch.dart' show detectPrimaryRouter;
+import 'work_mode_patch.dart' show detectPrimaryRouter, interceptLeafNodes;
 
-/// Hy2 inbound shape deployed by the webpanel Hysteria patch (UDP/443, alpn h3,
-/// real LE cert). Protocol constants of OUR deployment, not policy — changing
-/// them is a coordinated infra change. Kept here (not a remote descriptor) per
-/// the "no engine" decision: the overlay runs in EVERY work mode, where the
-/// gaming `game.yml` descriptor (and its header) may be absent, so there is no
-/// always-available remote source to read these from.
-const kHy2Port = 443;
-const kHy2Alpn = <String>['h3'];
-const kHy2SkipCertVerify = false;
+/// One Hy2 node as pushed by the panel via `dropweb-xnodes`. Pure data: the app
+/// constructs the proxy verbatim from these fields and invents nothing.
+class Hy2NodeSpec {
+  const Hy2NodeSpec({
+    required this.name,
+    required this.server,
+    required this.port,
+    this.alpn = const <String>[],
+    this.sni,
+    this.skipCertVerify = false,
+  });
 
-/// Name marker for injected Hy2 proxies. `🎮 ` is historical (live `game.yml`
-/// convention) AND intentionally NOT in `⚡ Fastest`'s exclude-filter
-/// (`🇪🇺|🚀|cascade…`) so an explicit member is never stripped. Shared with
-/// gaming so name-based dedup keeps a single Hy2 proxy per domain.
-const kHy2ProxyPrefix = '🎮 ';
+  final String name;
+  final String server;
+  final int port;
+  final List<String> alpn;
+  final String? sni;
+  final bool skipCertVerify;
+}
 
-/// Subscription header carrying the comma-separated Hy2 pool domains. Canonical
-/// name; documented in `constant.dart` as `kHy2NodesHeader`. Restated here (not
-/// imported) to keep this module pure / Flutter-free — `constant.dart` pulls in
-/// `dart:ui` + Flutter. Keep the two in sync.
+/// Parses the `dropweb-xnodes` header into node specs. Accepts an optional
+/// `base64:` prefix (the panel's convention for non-ASCII values, mirrored from
+/// `Profile.serviceName`) wrapping a UTF-8 JSON array. Each entry needs a
+/// non-empty `name` + `server` and an int-coercible `port`; `alpn` defaults to
+/// `[]`, `sni` to null (→ `server` at build time), `skip-cert-verify` to false.
+/// Duplicate names (first-seen wins) and malformed entries are skipped; a
+/// null/empty/garbage payload yields `const []`. NEVER throws.
+List<Hy2NodeSpec> parseHy2NodeSpecs(String? headerValue) {
+  final raw = headerValue?.trim();
+  if (raw == null || raw.isEmpty) return const <Hy2NodeSpec>[];
+
+  var jsonText = raw;
+  if (raw.startsWith('base64:')) {
+    try {
+      jsonText = utf8.decode(base64.decode(base64.normalize(raw.substring(7))));
+    } catch (_) {
+      return const <Hy2NodeSpec>[];
+    }
+  }
+
+  dynamic decoded;
+  try {
+    decoded = json.decode(jsonText);
+  } catch (_) {
+    return const <Hy2NodeSpec>[];
+  }
+  if (decoded is! List) return const <Hy2NodeSpec>[];
+
+  final specs = <Hy2NodeSpec>[];
+  final seen = <String>{};
+  for (final item in decoded) {
+    if (item is! Map) continue;
+    final name = item['name']?.toString();
+    final server = item['server']?.toString();
+    final port = item['port'] is int
+        ? item['port'] as int
+        : int.tryParse('${item['port']}');
+    if (name == null ||
+        name.isEmpty ||
+        server == null ||
+        server.isEmpty ||
+        port == null) {
+      continue;
+    }
+    if (!seen.add(name)) continue;
+    final alpnRaw = item['alpn'];
+    final alpn = alpnRaw is List
+        ? alpnRaw.map((e) => e.toString()).toList(growable: false)
+        : const <String>[];
+    specs.add(Hy2NodeSpec(
+      name: name,
+      server: server,
+      port: port,
+      alpn: alpn,
+      sni: item['sni']?.toString() ?? server,
+      skipCertVerify: item['skip-cert-verify'] == true,
+    ));
+  }
+  return specs;
+}
+
+/// Subscription header carrying the rich Hy2 node specs (base64-wrapped JSON;
+/// see [parseHy2NodeSpecs]). Canonical name; documented in `constant.dart` as
+/// `kHy2NodesHeader`. Restated here (not imported) to keep this module pure /
+/// Flutter-free — `constant.dart` pulls in `dart:ui` + Flutter. Keep in sync.
 const _hy2NodesHeader = 'dropweb-xnodes';
 
-/// Legacy header name, kept as a fallback during the dual-header rollout.
-/// Mirrors `constant.dart`'s `kGamingNodesHeader` (same purity caveat as above).
+/// Legacy header name, kept ONLY as a graceful fallback: its value is a CSV of
+/// bare domains, which [parseHy2NodeSpecs] cannot turn into a spec (no port /
+/// alpn), so a legacy-only subscription simply yields no Hy2 overlay. Retained
+/// so a transient panel reversion degrades to "no overlay" rather than throwing.
 const _legacyHy2NodesHeader = 'dropweb-game-nodes';
 
-/// Builds ONE `hysteria2` proxy for [domain], authed with [password] (the user's
-/// vless uuid). `server == sni == [domain]` (the regional POOL domain, SAN'd in
-/// the LE cert, so `skip-cert-verify: false` is valid). The `alpn` list is copied
-/// so the result never aliases [kHy2Alpn].
-Map<String, dynamic> buildHy2Proxy({
-  required String domain,
-  required String password,
-}) =>
+/// Builds ONE `hysteria2` proxy from a panel [spec], authed with [password]
+/// (the user's vless uuid). Everything but `type` comes from the spec — the app
+/// hardcodes nothing. `sni` falls back to `server` when the spec omits it; the
+/// `alpn` list is copied so the result never aliases the spec's list.
+Map<String, dynamic> buildHy2Proxy(Hy2NodeSpec spec, String password) =>
     <String, dynamic>{
-      'name': '$kHy2ProxyPrefix$domain',
+      'name': spec.name,
       'type': 'hysteria2',
-      'server': domain,
-      'port': kHy2Port,
-      'sni': domain,
+      'server': spec.server,
+      'port': spec.port,
+      'sni': spec.sni ?? spec.server,
       'password': password,
-      'alpn': List<String>.from(kHy2Alpn),
-      'skip-cert-verify': kHy2SkipCertVerify,
+      'alpn': List<String>.from(spec.alpn),
+      'skip-cert-verify': spec.skipCertVerify,
     };
 
 /// Picks the Hy2-nodes header value: new [_hy2NodesHeader] first, legacy
@@ -63,6 +129,48 @@ Map<String, dynamic> buildHy2Proxy({
 /// neither header is present.
 String? resolveHy2NodesHeader(Map<String, String> headers) =>
     headers[_hy2NodesHeader] ?? headers[_legacyHy2NodesHeader];
+
+/// The USER's own vless `uuid` — the per-user Hy2 password — or `null` when no
+/// such node exists. Transport-neutral: the all-modes overlay AND the gaming
+/// hook both authenticate Hy2 with it.
+///
+/// Reuses [interceptLeafNodes] (the "user's real nodes, SOS pool excluded"
+/// helper) to get the user's REAL leaf node names, then returns the `uuid` of
+/// the FIRST `rawConfig['proxies']` entry that is both a member of that leaf set
+/// AND `type == 'vless'`. Drawing it from the leaf set (not raw `proxies`)
+/// structurally EXCLUDES the disconeko emergency pool (~57 external vless nodes
+/// with FOREIGN uuids), so the overlay never injects a wrong Hy2 password.
+String? extractUserVlessUuid(Map<String, dynamic> rawConfig) {
+  final leaves = interceptLeafNodes(rawConfig).toSet();
+  if (leaves.isEmpty) return null;
+  final proxies = rawConfig['proxies'];
+  if (proxies is! List) return null;
+  for (final p in proxies) {
+    if (p is! Map) continue;
+    final name = p['name']?.toString();
+    if (name == null || !leaves.contains(name)) continue;
+    if (p['type']?.toString() != 'vless') continue;
+    return p['uuid']?.toString();
+  }
+  return null;
+}
+
+/// The complete header-gated Hy2 overlay, applied VERBATIM by every config
+/// consumer (the build path `patchRawConfig` AND the «Страна» picker) so they
+/// can never diverge — the single source of truth for "config + headers → config
+/// with the panel's Hy2 nodes". Resolves the [Hy2NodeSpec]s from [headers] and
+/// the user's vless uuid from [cfg]; injects via [injectHy2Overlay] only when
+/// BOTH are present, otherwise returns [cfg] unchanged (no-op).
+Map<String, dynamic> applyHy2Overlay(
+  Map<String, dynamic> cfg,
+  Map<String, String> headers,
+) {
+  final specs = parseHy2NodeSpecs(resolveHy2NodesHeader(headers));
+  if (specs.isEmpty) return cfg;
+  final password = extractUserVlessUuid(cfg);
+  if (password == null) return cfg;
+  return injectHy2Overlay(cfg, specs: specs, password: password);
+}
 
 /// Resolves the auto-select group general VPN traffic actually flows through:
 /// the `url-test`/`smart`/`fallback` group reached from the `MATCH` target
@@ -123,8 +231,8 @@ String? detectAutoSelectGroup(Map<String, dynamic> rawConfig) {
 }
 
 /// Header-gated Hy2 overlay. PURE / ADDITIVE / IDEMPOTENT.
-///   * No-op (shallow copy) when [domains] is empty or [password] null/empty.
-///   * Appends one [buildHy2Proxy] per domain to top-level `proxies`, skipping
+///   * No-op (shallow copy) when [specs] is empty or [password] null/empty.
+///   * Appends one [buildHy2Proxy] per spec to top-level `proxies`, skipping
 ///     names already present.
 ///   * Appends each injected name to the auto-select group
 ///     ([detectAutoSelectGroup]); when none is found the proxies are still
@@ -133,11 +241,11 @@ String? detectAutoSelectGroup(Map<String, dynamic> rawConfig) {
 ///     target group list are reallocated (existing entries kept by reference).
 Map<String, dynamic> injectHy2Overlay(
   Map<String, dynamic> rawConfig, {
-  required List<String> domains,
+  required List<Hy2NodeSpec> specs,
   required String? password,
 }) {
   final result = Map<String, dynamic>.from(rawConfig);
-  if (domains.isEmpty || password == null || password.isEmpty) return result;
+  if (specs.isEmpty || password == null || password.isEmpty) return result;
 
   // 1. Append Hy2 proxies (idempotent by name).
   final existing = <String>{};
@@ -150,8 +258,8 @@ Map<String, dynamic> injectHy2Overlay(
     }
   }
   final injected = <String>[];
-  for (final d in domains) {
-    final proxy = buildHy2Proxy(domain: d, password: password);
+  for (final spec in specs) {
+    final proxy = buildHy2Proxy(spec, password);
     final name = proxy['name'] as String;
     if (existing.contains(name) || injected.contains(name)) continue;
     newProxies.add(proxy);
