@@ -105,7 +105,17 @@ abstract class ClashHandlerInterface with ClashInterface {
           return;
       }
     } catch (e) {
-      commonPrint.log("${result.id} error $e");
+      // DIAGNOSTIC: surface the raw core payload that broke dispatch. Without
+      // this the real error (e.g. the core's getConfig error body) is invisible
+      // because `result.toResult` throws before anything can read `data`.
+      commonPrint.log(
+          "${result.id} error $e | code=${result.code} dataType=${result.data.runtimeType} data=${result.data}");
+      // FAIL-FAST: never leave the caller's completer hanging until its invoke
+      // timeout (getConfig = 2 min) on a malformed/error message — surface the
+      // error immediately so the UI shows a fast error, not an infinite spinner.
+      if (completer != null && !completer.isCompleted) {
+        completer.completeError(e);
+      }
     }
   }
 
@@ -223,7 +233,9 @@ abstract class ClashHandlerInterface with ClashInterface {
         method: ActionMethod.getConfig,
         data: path,
         timeout: const Duration(minutes: 2),
-        defaultValue: Result.success({}),
+        // Typed empty map: a bare `{}` is Map<dynamic,dynamic>, which then throws
+        // on the `res.data as Map<String,dynamic>` cast in ClashCore.getConfig.
+        defaultValue: Result.success(<String, dynamic>{}),
       );
 
   @override

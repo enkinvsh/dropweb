@@ -246,7 +246,12 @@ extension ActionResultExt on ActionResult {
     if (code == ResultType.success) {
       return Result.success(data);
     } else {
-      return Result.error(data);
+      // The core's error payload is `dynamic` (it can be a Map/JSON object), but
+      // Result.error requires a String. Stringify so a non-String error body is
+      // surfaced as a readable message instead of throwing a cast — that cast
+      // previously escaped into handleResult and left the caller's completer
+      // hanging until its invoke timeout (getConfig = 2 min → frozen UI).
+      return Result.error(data is String ? data : '$data');
     }
   }
 }
