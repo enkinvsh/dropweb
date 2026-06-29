@@ -442,7 +442,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Этими параметрами управляет ваш провайдер",
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("Информация о памяти"),
-    "menu": MessageLookupByLibrary.simpleMessage("Меню"),
+    "menu": MessageLookupByLibrary.simpleMessage("MENU"),
     "messageTest": MessageLookupByLibrary.simpleMessage(
       "Тестирование сообщения",
     ),

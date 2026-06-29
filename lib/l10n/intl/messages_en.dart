@@ -425,7 +425,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "These parameters are managed by your provider",
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("Memory info"),
-    "menu": MessageLookupByLibrary.simpleMessage("Menu"),
+    "menu": MessageLookupByLibrary.simpleMessage("MENU"),
     "messageTest": MessageLookupByLibrary.simpleMessage("Message test"),
     "messageTestTip": MessageLookupByLibrary.simpleMessage(
       "This is a message.",

@@ -244,9 +244,9 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
           ),
         ),
         // Bottom swipe-up handle that opens the shared card menu. The accent
-        // up-arrow is pinned near the TOP of the hit band; the band stretches
+        // MENU label is pinned near the TOP of the hit band; the band stretches
         // down to the bottom edge so a natural bottom-up swipe (started below
-        // the arrow) is still captured. Band height scales with viewport height
+        // the label) is still captured. Band height scales with viewport height
         // (adaptive). An upward fling OR a tap opens the menu. Translucent hit
         // area so it never blocks the connect button, scroll, or pull-to-refresh.
         Positioned(
@@ -268,10 +268,12 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
               alignment: Alignment.topCenter,
               child: Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: HugeIcon(
-                  icon: HugeIcons.strokeRoundedArrowUp01,
-                  size: 28,
-                  color: Theme.of(context).colorScheme.primary,
+                child: Text(
+                  appLocalizations.menu,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        letterSpacing: 2,
+                      ),
                 ),
               ),
             ),

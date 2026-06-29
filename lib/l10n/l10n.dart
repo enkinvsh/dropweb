@@ -3639,9 +3639,9 @@ class AppLocalizations {
     );
   }
 
-  /// `Menu`
+  /// `MENU`
   String get menu {
-    return Intl.message('Menu', name: 'menu', desc: '', args: []);
+    return Intl.message('MENU', name: 'menu', desc: '', args: []);
   }
 
   /// `Close`
