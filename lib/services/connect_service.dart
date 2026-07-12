@@ -187,42 +187,122 @@ class ConnectService {
     await restartCore();
   }
 
+  /// Confirm window before treating a `null` runtime as a real external stop.
+  /// A single `getRunTime()==null` during screen-lock churn is a transient miss
+  /// (dropped bridge reply / invoke timeout), NOT a stop (handoff §2). Wait,
+  /// then re-probe: a live tunnel answers on the second read within this window.
+  static const _stopConfirmDelay = Duration(milliseconds: 300);
+
+  /// Single-flight state for [syncRunStateFromNative]. Every `resumed` fires an
+  /// unawaited sync; overlapping probes whose stale, out-of-order completion
+  /// could tear down a live dashboard are collapsed: a probe already running
+  /// marks the run dirty (re-reconcile once) and the generation counter makes
+  /// every post-`await` continuation bail if a newer resume superseded it.
+  int _syncGeneration = 0;
+  bool _syncInFlight = false;
+  bool _syncDirty = false;
+
   /// Read-only reconcile of Dart VPN state with native runtime. Never toggles VPN.
   Future<void> syncRunStateFromNative() async {
     if (!Platform.isAndroid) return;
-    final prevStartTime = globalState.startTime;
-    await globalState.updateStartTime();
-    final nativeIsRunning = globalState.startTime != null;
+    ++_syncGeneration;
+    if (_syncInFlight) {
+      _syncDirty = true;
+      return;
+    }
+    _syncInFlight = true;
+    try {
+      do {
+        _syncDirty = false;
+        await _reconcileRunStateOnce(_syncGeneration);
+      } while (_syncDirty);
+    } finally {
+      _syncInFlight = false;
+    }
+  }
+
+  Future<void> _reconcileRunStateOnce(int gen) async {
+    final firstProbe = await clashLib?.getRunTime();
+    if (gen != _syncGeneration) return; // superseded by a newer resume
+    final nativeIsRunning = firstProbe != null;
     final uiIsRunning = _ref.read(runTimeProvider.notifier).isStart;
     if (nativeIsRunning == uiIsRunning) return;
 
-    commonPrint.log(
-      'syncRunStateFromNative: native=$nativeIsRunning ui=$uiIsRunning '
-      '(prev startTime=$prevStartTime, new=${globalState.startTime})',
-    );
-
     if (nativeIsRunning) {
-      updateRunTime();
-      // The periodic ticker (runtime + speed) is armed only by
-      // handleStart -> startUpdateTasks. On an EXTERNAL start (QS tile /
-      // notification) the app isolate can be fresh, so globalState.tasks is
-      // empty and the dashboard would freeze at a static runtime and 0 B/s.
-      // Re-arm with the same task pair handleStart uses; startUpdateTasks is
-      // idempotent via its timer.isActive guard.
-      unawaited(globalState.startUpdateTasks([updateRunTime, updateTraffic]));
-      // Symmetry with the stop branch's updateIcon(false) — macOS-only no-op
-      // on Android, kept for parity with updateStatus(true)'s connected icon.
-      await StatusBarManager.updateIcon(isConnected: true);
-    } else {
-      // Native already stopped — tear down Dart bookkeeping without re-calling handleStop.
-      clashCore.resetTraffic();
-      _ref.read(trafficsProvider.notifier).clear();
-      _ref.read(totalTrafficProvider.notifier).value = Traffic();
-      _ref.read(runTimeProvider.notifier).value = null;
-      globalState.stopUpdateTasks();
-      await StatusBarManager.updateIcon(isConnected: false);
-      globalState.appController.addCheckIpNumDebounce();
+      // Native running, UI not (external start / fresh isolate) — heal to running.
+      globalState.startTime = firstProbe;
+      commonPrint.log(
+        'syncRunStateFromNative: native=true ui=false '
+        'disposition=heal_running (startTime=$firstProbe)',
+      );
+      await _applyRunning();
+      return;
     }
+
+    // Suspected stop: first probe null while UI shows running. Confirm before teardown.
+    await Future<void>.delayed(_stopConfirmDelay);
+    if (gen != _syncGeneration) return;
+    final confirmProbe = await clashLib?.getRunTime();
+    if (gen != _syncGeneration) return;
+
+    if (confirmProbe != null) {
+      // Transient miss — tunnel is alive. Heal instead of tearing down.
+      globalState.startTime = confirmProbe;
+      commonPrint.log(
+        'syncRunStateFromNative: native=true ui=false '
+        'disposition=heal_transient (startTime=$confirmProbe)',
+      );
+      if (!_ref.read(runTimeProvider.notifier).isStart) {
+        await _applyRunning();
+      } else {
+        await StatusBarManager.updateIcon(isConnected: true);
+      }
+      return;
+    }
+
+    // UI may have caught up to stopped during the confirm delay.
+    if (!_ref.read(runTimeProvider.notifier).isStart) return;
+
+    // Two consecutive nulls, UI still running — a REAL external stop
+    // (QS tile / notification STOP). Tunnel already down; tear down Dart state.
+    globalState.startTime = null;
+    commonPrint.log(
+      'syncRunStateFromNative: native=false ui=true disposition=confirmed_stop',
+    );
+    await _applyStopped();
+  }
+
+  /// Re-arm the live dashboard (runtime + speed ticker + connected icon). The
+  /// periodic ticker is armed only by handleStart -> startUpdateTasks; on an
+  /// external start the app isolate can be fresh with an empty task list, so the
+  /// dashboard would freeze at a static runtime and 0 B/s. startUpdateTasks is
+  /// idempotent via its timer.isActive guard.
+  Future<void> _applyRunning() async {
+    updateRunTime();
+    // The periodic ticker (runtime + speed) is armed only by
+    // handleStart -> startUpdateTasks. On an EXTERNAL start (QS tile /
+    // notification) the app isolate can be fresh, so globalState.tasks is
+    // empty and the dashboard would freeze at a static runtime and 0 B/s.
+    // Re-arm with the same task pair handleStart uses; startUpdateTasks is
+    // idempotent via its timer.isActive guard.
+    unawaited(globalState.startUpdateTasks([updateRunTime, updateTraffic]));
+    // Symmetry with the stop branch's updateIcon(false) — macOS-only no-op
+    // on Android, kept for parity with updateStatus(true)'s connected icon.
+    await StatusBarManager.updateIcon(isConnected: true);
+  }
+
+  /// Tear down Dart bookkeeping for a confirmed native stop WITHOUT re-calling
+  /// handleStop (the native side already stopped). Body preserved verbatim from
+  /// the original else-branch — do not alter its order or calls.
+  Future<void> _applyStopped() async {
+    // Native already stopped — tear down Dart bookkeeping without re-calling handleStop.
+    clashCore.resetTraffic();
+    _ref.read(trafficsProvider.notifier).clear();
+    _ref.read(totalTrafficProvider.notifier).value = Traffic();
+    _ref.read(runTimeProvider.notifier).value = null;
+    globalState.stopUpdateTasks();
+    await StatusBarManager.updateIcon(isConnected: false);
+    globalState.appController.addCheckIpNumDebounce();
   }
 
   Future<void> updateStatus(bool isStart) async {
