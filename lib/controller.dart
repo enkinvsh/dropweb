@@ -625,18 +625,28 @@ class AppController {
       return;
     }
     final realTunEnable = _ref.read(realTunEnableProvider);
-    // The effective mihomo mode is DERIVED from the current profile's work mode
-    // (Country ⇒ global, everything else ⇒ rule), mirroring how realTunEnable
-    // overrides tun.enable. The persisted patchClashConfig.mode (the old
-    // rule/global UI axis) is irrelevant on this path — work mode owns it now.
-    final workMode =
-        _ref.read(currentProfileProvider)?.workMode ?? WorkMode.standard;
-    final effectiveMode =
-        workMode == WorkMode.country ? Mode.global : Mode.rule;
+    // The effective mihomo mode is DERIVED from the current profile's work mode,
+    // mirroring how realTunEnable overrides tun.enable. The persisted
+    // patchClashConfig.mode (the old rule/global UI axis) is irrelevant on this
+    // path — work mode owns it now.
+    //   • standard / smart ⇒ rule (the provider's rules stay live);
+    //   • country ⇒ rule WHEN the country binding will actually route the
+    //     proxied surface through the chosen country (fork Б, anti-VPN-detect:
+    //     RU traffic stays DIRECT by the template rules), else global as a
+    //     fallback for degenerate configs. The country decision reads the profile
+    //     config ONCE (only on the country path — no new I/O on standard/smart),
+    //     self-heals the persisted selectedMap to the derived scheme, and logs
+    //     the choice; see [_resolveCountryModeAndHeal].
+    final currentProfile = _ref.read(currentProfileProvider);
+    final workMode = currentProfile?.workMode ?? WorkMode.standard;
+    final effectiveMode = workMode == WorkMode.country && currentProfile != null
+        ? await _resolveCountryModeAndHeal(currentProfile)
+        : Mode.rule;
     // Write the derived mode back into the provider so EVERY consumer reads the
     // mode the core actually runs, not the stale rule/global UI axis:
     //   • currentGroupsState (state.dart) filters groups on patchConfig.mode —
-    //     a Country profile runs global, so GroupName.GLOBAL must be visible.
+    //     a Country profile normally runs rule now (fork Б); only the degenerate
+    //     global FALLBACK makes GroupName.GLOBAL the visible surface.
     //   • trayState.mode (the desktop checkmark) and the VPN notification's
     //     mode label (service isolate, fed via the 'updateMode' IPC below).
     // Loop-safety: this mutates only `mode`. It does NOT touch needSetupProvider
@@ -708,6 +718,99 @@ class AppController {
     }
     // Only record the hash after a successful core setup.
     _lastSetupHash = setupHash;
+  }
+
+  /// Country path of [_setupClashConfig]. Reads the profile config ONCE (only on
+  /// the country path — no new I/O on standard/smart), decides `Mode.rule` vs the
+  /// `Mode.global` fallback via [countryRuleModeAvailable] (provably identical to
+  /// the patch's own binding condition), self-heals/reconciles the persisted
+  /// selectedMap to the derived scheme, logs the decision, and returns the mode.
+  ///
+  /// Read failure ⇒ `Mode.global` (the old Country behavior — safe: the GLOBAL
+  /// selector degrades to `proxies[0]` even with nothing wired).
+  Future<Mode> _resolveCountryModeAndHeal(Profile profile) async {
+    Map<String, dynamic> cfg;
+    try {
+      cfg = await globalState.getProfileConfig(profile.id);
+    } catch (e) {
+      commonPrint.log('country-mode: FALLBACK global (config read failed: $e)');
+      return Mode.global;
+    }
+    final staticCountry = profile.staticCountry;
+    // willInject = the «Страна <flag>» group WILL be present (≥1 node, or already
+    // defined). available = willInject AND ≥1 intercept group to bind into — the
+    // exact condition the patch binds under. Distinguishing them separates the
+    // two global-fallback sub-cases (degenerate-but-present vs no-nodes).
+    final willInject = countryGroupWillInject(cfg,
+        workMode: WorkMode.country, staticCountry: staticCountry);
+    final bindingGroups = countryBindingGroups(cfg);
+    final available =
+        countryRuleModeAvailable(cfg, staticCountry: staticCountry);
+    // Self-heal BEFORE getSetupParams reads config.currentProfile.selectedMap:
+    // migrates OLD-scheme profiles (GLOBAL-key only) and reconciles drift
+    // (intercept set shifted after a subscription update) to the derived scheme.
+    _healCountrySelectedMap(
+      profile,
+      staticCountry,
+      available: available,
+      willInject: willInject,
+      bindingGroups: bindingGroups,
+    );
+    if (available) {
+      commonPrint.log('country-mode: rule (${bindingGroups.length} bound groups)');
+      return Mode.rule;
+    }
+    commonPrint.log('country-mode: FALLBACK global '
+        '(${willInject ? "empty intercept set" : "no country nodes"})');
+    return Mode.global;
+  }
+
+  /// Idempotently reconciles the persisted selectedMap of a Country [profile] to
+  /// the derived scheme, so an existing user's traffic follows the country
+  /// WITHOUT any user action after a normal app start / profile apply.
+  ///
+  /// Mirrors [applyWorkMode]'s country wiring exactly:
+  ///   * rule available → every [bindingGroups] group → the `Страна <flag>` group;
+  ///   * degenerate global fallback (group present, empty intercept set) → the
+  ///     GLOBAL key → the country group (consistent with the Mode.global fallback);
+  ///   * unavailable (no nodes) → nothing wired.
+  /// It first strips OUR keys by VALUE-ownership (any «Умный»/«Страна *» value +
+  /// GLOBAL), which drops stale keys left by drift (a dropped intercept group /
+  /// the OLD GLOBAL-scheme) without touching the user's own manual selections.
+  ///
+  /// Idempotent: only writes when the derived map differs ([mapEquals] guard), so
+  /// a second run is a no-op. Loop-safe: it writes ONLY `profiles`, which
+  /// [needSetupProvider] (profileId + script content + dns) does NOT watch — the
+  /// sole trigger of `handleChangeProfile → _setupClashConfig` — so it can never
+  /// re-enter setup. The write also does not feed [_computeSetupHash] (selectedMap
+  /// is excluded there), so it never invalidates the hash either; getSetupParams
+  /// applies the healed map on THIS setup pass regardless.
+  void _healCountrySelectedMap(
+    Profile profile,
+    String? staticCountry, {
+    required bool available,
+    required bool willInject,
+    required List<String> bindingGroups,
+  }) {
+    if (staticCountry == null || staticCountry.isEmpty) return;
+    final groupName = workModeCountryGroupName(staticCountry);
+    final desired = Map<String, String>.from(profile.selectedMap)
+      ..removeWhere((_, v) =>
+          v == workModeSmartGroupName ||
+          v.startsWith('$workModeCountryGroupPrefix '))
+      ..remove(GroupName.GLOBAL.name);
+    if (available) {
+      for (final g in bindingGroups) {
+        desired[g] = groupName;
+      }
+    } else if (willInject) {
+      desired[GroupName.GLOBAL.name] = groupName;
+    }
+    if (!mapEquals(profile.selectedMap, desired)) {
+      _ref.read(profilesProvider.notifier).setProfile(
+            profile.copyWith(selectedMap: desired),
+          );
+    }
   }
 
   /// Builds the content hash for [_setupClashConfig]'s cache gate over the
@@ -1565,7 +1668,8 @@ class AppController {
   }
 
   /// Applies a per-profile work mode. Persists the mode fields, rewrites only
-  /// the `selectedMap` keys WE own (the main router + `GLOBAL`) without touching
+  /// the `selectedMap` keys WE own (Smart: the primary router; Country: every
+  /// intercept group, or `GLOBAL` in the degenerate fallback) without touching
   /// the user's other selections, invalidates the Block A setup-hash cache and
   /// triggers a full re-setup. The additive YAML group itself is injected by
   /// [applyWorkModePatch] in the config-build path (`patchRawConfig`).
@@ -1584,6 +1688,14 @@ class AppController {
     // the patch's injection condition exactly so we never point selectedMap at a
     // group that was never created.
     var smartAvailable = false;
+    // Country binds into EVERY intercept group (fork Б — the whole proxied
+    // surface egresses through the chosen country). `countryAvailable` is the
+    // SAME pure helper the config-build path uses to derive Mode.rule, so the
+    // wiring never disagrees with the effective mode; `countryWillInject`
+    // separates the two global-fallback sub-cases (group present vs no nodes).
+    var countryGroups = const <String>[];
+    var countryAvailable = false;
+    var countryWillInject = false;
     try {
       final cfg = await globalState.getProfileConfig(currentProfile.id);
       // «Умный» binds ONLY into the primary router (the catch-all MATCH target,
@@ -1594,6 +1706,11 @@ class AppController {
       smartGroups =
           primaryRouter == null ? const <String>[] : <String>[primaryRouter];
       smartAvailable = smartGroupWillInject(cfg);
+      countryGroups = countryBindingGroups(cfg);
+      countryWillInject = countryGroupWillInject(cfg,
+          workMode: WorkMode.country, staticCountry: staticCountry);
+      countryAvailable =
+          countryRuleModeAvailable(cfg, staticCountry: staticCountry);
     } catch (e) {
       commonPrint.log('applyWorkMode: failed to read profile config: $e');
     }
@@ -1624,10 +1741,25 @@ class AppController {
         break;
       case WorkMode.country:
         if (staticCountry != null && staticCountry.isNotEmpty) {
-          // Point GLOBAL at the additive «Страна <flag>» fallback group injected
-          // by applyWorkModePatch (in-country failover). No per-node/IP pin.
-          selectedMap[GroupName.GLOBAL.name] =
-              workModeCountryGroupName(staticCountry);
+          final groupName = workModeCountryGroupName(staticCountry);
+          if (countryAvailable) {
+            // rule-mode (fork Б): point EVERY intercept group at the «Страна
+            // <flag>» group, which applyWorkModePatch binds as a member of each
+            // (D2 — the core honors a forced `selected` only among a group's own
+            // members). The whole proxied surface egresses through the country
+            // while the template's DIRECT rules keep RU traffic local.
+            for (final group in countryGroups) {
+              selectedMap[group] = groupName;
+            }
+          } else if (countryWillInject) {
+            // Degenerate global fallback (group injects but no intercept groups):
+            // point GLOBAL at the «Страна <flag>» group, consistent with the
+            // Mode.global fallback the config-build path derives here.
+            selectedMap[GroupName.GLOBAL.name] = groupName;
+          }
+          // else: the country group won't inject (no nodes) — wire nothing,
+          // mirroring smartAvailable gating (the GLOBAL selector degrades to
+          // proxies[0]); binding a dangling group would be inert.
         }
         break;
       case WorkMode.standard:
