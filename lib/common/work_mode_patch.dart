@@ -41,10 +41,22 @@ String workModeCountryGroupName(String flag) =>
 ///     (`type: fallback`) whose members are exactly the [interceptLeafNodes]
 ///     of [staticCountry] (the flag-emoji key, grouped via [groupNodesByCountry]
 ///     over the rule-group leaves — NOT the raw `proxies`, which carry the SOS
-///     pool). When [staticCountry] is null/unknown or has no such nodes, nothing
-///     is injected (the caller is expected to have revalidated first).
+///     pool). It ALSO binds that group as the LAST member of EVERY intercept
+///     group ([countryBindingGroups] == [smartInterceptGroups]) so the core —
+///     staying in `mode: rule` — routes the whole proxied surface through the
+///     chosen country, while the template's DIRECT/REJECT rules keep RU traffic
+///     local (the anti-VPN-detect fix: fork Б, "«Страна» = «Умный» с ручным
+///     выбором" — see docs/plans/2026-07-12-country-mode-rule-based.md). Unlike
+///     Smart (primary router only — ИТЕРАЦИЯ 2), Country binds all of them.
+///     `Страна *` groups are never rule-referenced, so they never bind into
+///     themselves; the SOS chain is excluded by [smartInterceptGroups]. When the
+///     intercept set is empty (degenerate config) the group is still injected but
+///     nothing is bound. When [staticCountry] is null/unknown or has no such
+///     nodes, nothing is injected (the caller is expected to have revalidated
+///     first).
 ///
-/// Idempotent: re-applying never duplicates an already-present group.
+/// Idempotent: re-applying never duplicates an already-present group NOR an
+/// appended member.
 Map<String, dynamic> applyWorkModePatch(
   Map<String, dynamic> rawConfig, {
   required WorkMode workMode,
@@ -68,7 +80,17 @@ Map<String, dynamic> applyWorkModePatch(
         // node) — inject nothing, mirroring the country-no-nodes path.
         return Map<String, dynamic>.from(rawConfig);
       }
-      return _injectSmartGroup(rawConfig, [primaryRouter], leaves);
+      return _injectBoundGroup(
+        rawConfig,
+        [primaryRouter],
+        workModeSmartGroupName,
+        () => <String, dynamic>{
+          'name': workModeSmartGroupName,
+          'type': 'smart',
+          'collectdata': false,
+          'proxies': List<String>.from(leaves),
+        },
+      );
     case WorkMode.country:
       if (staticCountry == null || staticCountry.isEmpty) {
         return Map<String, dynamic>.from(rawConfig);
@@ -77,13 +99,21 @@ Map<String, dynamic> applyWorkModePatch(
       if (nodes.isEmpty) {
         return Map<String, dynamic>.from(rawConfig);
       }
-      // Ensure the country fallback group (in-country failover safety net).
-      // selectedMap[GLOBAL] is pointed at this group elsewhere (controller).
-      return _injectGroup(
+      // Ensure the country fallback group (in-country failover safety net) AND
+      // bind it as the last member of EVERY intercept group ([countryBindingGroups]
+      // == [smartInterceptGroups]) so the whole proxied surface egresses through
+      // the chosen country while DIRECT/REJECT rules keep RU traffic local — the
+      // fork-Б "«Страна» = «Умный» с ручным выбором" mechanic. `selectedMap[g]` is
+      // pointed at this group for each such g elsewhere (controller / W2). When the
+      // intercept set is empty (degenerate config) the group is still injected but
+      // nothing is bound.
+      final groupName = workModeCountryGroupName(staticCountry);
+      return _injectBoundGroup(
         rawConfig,
-        workModeCountryGroupName(staticCountry),
+        countryBindingGroups(rawConfig),
+        groupName,
         () => <String, dynamic>{
-          'name': workModeCountryGroupName(staticCountry),
+          'name': groupName,
           'type': 'fallback',
           'url': 'https://cp.cloudflare.com/generate_204',
           'interval': 180,
@@ -235,6 +265,39 @@ List<String> smartInterceptGroups(Map<String, dynamic> rawConfig) {
   ];
 }
 
+/// The proxy-groups the `Страна <flag>` country group is bound into as a last
+/// member — IDENTICAL to [smartInterceptGroups] (every rule-referenced, routable,
+/// non-SOS group in `proxy-groups` declaration order). A documented alias that
+/// fixes the plan's fork-Б decision ("«Страна» = «Умный» с ручным выбором") in
+/// code: unlike Smart (which binds only the primary router — ИТЕРАЦИЯ 2), Country
+/// binds ALL intercept groups so the entire proxied surface egresses through the
+/// chosen country, while DIRECT/REJECT rules keep RU traffic local (anti-detect).
+/// The controller (W2) imports this to point `selectedMap[g]` at the country
+/// group for each such group. `Страна *` groups are never rule-referenced, so
+/// they never appear here (never bind into themselves).
+List<String> countryBindingGroups(Map<String, dynamic> rawConfig) =>
+    smartInterceptGroups(rawConfig);
+
+/// Whether Country mode can run the core in `mode: rule` (vs the `mode: global`
+/// fallback for degenerate configs) for [rawConfig] / [staticCountry].
+///
+/// This is the SINGLE decision the controller (W2) uses to derive the effective
+/// mihomo mode for a Country profile, and it is provably IDENTICAL to what
+/// [applyWorkModePatch]'s country branch actually does: rule mode is available
+/// iff the `Страна <flag>` group WILL be present ([countryGroupWillInject] — the
+/// country has ≥1 node, or the group already exists) AND there is ≥1 intercept
+/// group to bind it into ([countryBindingGroups] non-empty). When either fails,
+/// the binding cannot route the proxied surface through the country, so the
+/// caller falls back to `mode: global` (GLOBAL-key wiring). PURE — same inputs,
+/// same nested pure functions as the patch.
+bool countryRuleModeAvailable(
+  Map<String, dynamic> rawConfig, {
+  String? staticCountry,
+}) =>
+    countryGroupWillInject(rawConfig,
+        workMode: WorkMode.country, staticCountry: staticCountry) &&
+    countryBindingGroups(rawConfig).isNotEmpty;
+
 /// The PRIMARY router group the `Умный` work mode binds into: the catch-all
 /// `MATCH` rule's target — the group all otherwise-unmatched traffic flows to,
 /// i.e. the semantic "VPN" router — provided it is a qualifying intercept group
@@ -379,49 +442,50 @@ List<String> _smartLeafNodes(
   return leaves;
 }
 
-/// Returns a shallow copy of [rawConfig] with two additive smart-mode edits to
-/// `proxy-groups`:
-///   1. appends the `Умный` smart group (members == [leaves]) unless present;
-///   2. appends `Умный` as the LAST member of EACH group in [interceptGroups]
+/// Returns a shallow copy of [rawConfig] with two additive edits to
+/// `proxy-groups`, shared by the Smart and Country work modes:
+///   1. appends the group named [groupName] (built by [buildGroup]) unless it is
+///      already present;
+///   2. appends [groupName] as the LAST member of EACH group in [interceptGroups]
 ///      (non-destructive copy; idempotent; never reorders/removes existing
 ///      members).
 ///
+/// Smart binds only the primary router (`interceptGroups == [primaryRouter]`,
+/// `groupName == 'Умный'`); Country binds EVERY intercept group
+/// (`interceptGroups == countryBindingGroups(...)`, `groupName == 'Страна <flag>'`).
 /// Because [applyWorkModePatch] is workMode-gated and runs per-setup, the
-/// Standard/Country setups never carry the appended router member — so
-/// the routers' url-test never race `Умный` outside Smart mode. Every group
-/// NOT in [interceptGroups] is preserved by reference (deep-equal to the input).
-Map<String, dynamic> _injectSmartGroup(
+/// Standard setup never carries an appended member — so the routers' url-test
+/// never races the injected group outside its mode. Every group NOT in
+/// [interceptGroups] (and not the injected group itself) is preserved by
+/// reference (deep-equal to the input). PURE: the input is never mutated.
+Map<String, dynamic> _injectBoundGroup(
   Map<String, dynamic> rawConfig,
   List<String> interceptGroups,
-  List<String> leaves,
+  String groupName,
+  Map<String, dynamic> Function() buildGroup,
 ) {
   final interceptSet = interceptGroups.toSet();
   final result = Map<String, dynamic>.from(rawConfig);
   final groups = rawConfig['proxy-groups'];
   final newGroups = <dynamic>[];
-  var smartPresent = false;
+  var present = false;
   if (groups is List) {
     for (final g in groups) {
       final name = g is Map ? g['name']?.toString() : null;
-      if (name == workModeSmartGroupName) {
-        smartPresent = true;
+      if (name == groupName) {
+        present = true;
         newGroups.add(g);
         continue;
       }
       if (name != null && interceptSet.contains(name)) {
-        newGroups.add(_withAppendedMember(g as Map, workModeSmartGroupName));
+        newGroups.add(_withAppendedMember(g as Map, groupName));
         continue;
       }
       newGroups.add(g);
     }
   }
-  if (!smartPresent) {
-    newGroups.add(<String, dynamic>{
-      'name': workModeSmartGroupName,
-      'type': 'smart',
-      'collectdata': false,
-      'proxies': List<String>.from(leaves),
-    });
+  if (!present) {
+    newGroups.add(buildGroup());
   }
   result['proxy-groups'] = newGroups;
   return result;
@@ -462,32 +526,3 @@ Map _withAppendedMember(Map group, String member) {
 /// individually) — [resolveCountryKeyNodes] handles both key kinds.
 List<String> _countryNodes(Map<String, dynamic> rawConfig, String flag) =>
     resolveCountryKeyNodes(interceptLeafNodes(rawConfig), flag);
-
-/// Returns a shallow copy of [rawConfig] whose `proxy-groups` list has the group
-/// produced by [buildGroup] appended — unless a group named [groupName] already
-/// exists, in which case the config is returned unchanged (a shallow copy).
-///
-/// Only the `proxy-groups` list is reallocated (copy + append); every existing
-/// group entry is preserved by reference, so existing groups/rules/proxies stay
-/// deep-equal to the input.
-Map<String, dynamic> _injectGroup(
-  Map<String, dynamic> rawConfig,
-  String groupName,
-  Map<String, dynamic> Function() buildGroup,
-) {
-  final result = Map<String, dynamic>.from(rawConfig);
-  final groups = rawConfig['proxy-groups'];
-  final newGroups = <dynamic>[];
-  if (groups is List) {
-    for (final g in groups) {
-      if (g is Map && g['name']?.toString() == groupName) {
-        // Already present — idempotent no-op.
-        return result;
-      }
-      newGroups.add(g);
-    }
-  }
-  newGroups.add(buildGroup());
-  result['proxy-groups'] = newGroups;
-  return result;
-}
