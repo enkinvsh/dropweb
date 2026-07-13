@@ -134,7 +134,8 @@ _$TunImpl _$$TunImplFromJson(Map<String, dynamic> json) => _$TunImpl(
       enable: json['enable'] as bool? ?? true,
       device: json['device'] as String? ?? appName,
       autoRoute: json['auto-route'] as bool? ?? false,
-      stack: $enumDecodeNullable(_$TunStackEnumMap, json['stack']) ??
+      stack: $enumDecodeNullable(_$TunStackEnumMap, json['stack'],
+              unknownValue: TunStack.mixed) ??
           TunStack.mixed,
       dnsHijack: (json['dns-hijack'] as List<dynamic>?)
               ?.map((e) => e as String)
@@ -201,9 +202,9 @@ _$DnsImpl _$$DnsImplFromJson(Map<String, dynamic> json) => _$DnsImpl(
               ?.map((e) => e as String)
               .toList() ??
           const ["223.5.5.5"],
-      enhancedMode:
-          $enumDecodeNullable(_$DnsModeEnumMap, json['enhanced-mode']) ??
-              DnsMode.fakeIp,
+      enhancedMode: $enumDecodeNullable(_$DnsModeEnumMap, json['enhanced-mode'],
+              unknownValue: DnsMode.fakeIp) ??
+          DnsMode.fakeIp,
       fakeIpRange: json['fake-ip-range'] as String? ?? "198.18.0.1/16",
       fakeIpFilter: (json['fake-ip-filter'] as List<dynamic>?)
               ?.map((e) => e as String)
@@ -338,9 +339,12 @@ _$ClashConfigImpl _$$ClashConfigImplFromJson(Map<String, dynamic> json) =>
       port: (json['port'] as num?)?.toInt() ?? 0,
       redirPort: (json['redir-port'] as num?)?.toInt() ?? 0,
       tproxyPort: (json['tproxy-port'] as num?)?.toInt() ?? 0,
-      mode: $enumDecodeNullable(_$ModeEnumMap, json['mode']) ?? Mode.rule,
+      mode: $enumDecodeNullable(_$ModeEnumMap, json['mode'],
+              unknownValue: Mode.rule) ??
+          Mode.rule,
       allowLan: json['allow-lan'] as bool? ?? false,
-      logLevel: $enumDecodeNullable(_$LogLevelEnumMap, json['log-level']) ??
+      logLevel: $enumDecodeNullable(_$LogLevelEnumMap, json['log-level'],
+              unknownValue: LogLevel.error) ??
           LogLevel.error,
       ipv6: json['ipv6'] as bool? ?? true,
       findProcessMode: $enumDecodeNullable(
@@ -361,9 +365,10 @@ _$ClashConfigImpl _$$ClashConfigImplFromJson(Map<String, dynamic> json) =>
       geoXUrl: json['geox-url'] == null
           ? defaultGeoXUrl
           : GeoXUrl.safeFormJson(json['geox-url'] as Map<String, Object?>?),
-      geodataLoader:
-          $enumDecodeNullable(_$GeodataLoaderEnumMap, json['geodata-loader']) ??
-              GeodataLoader.memconservative,
+      geodataLoader: $enumDecodeNullable(
+              _$GeodataLoaderEnumMap, json['geodata-loader'],
+              unknownValue: GeodataLoader.memconservative) ??
+          GeodataLoader.memconservative,
       proxyGroups: (json['proxy-groups'] as List<dynamic>?)
               ?.map((e) => ProxyGroup.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -373,7 +378,8 @@ _$ClashConfigImpl _$$ClashConfigImplFromJson(Map<String, dynamic> json) =>
               const [],
       globalUa: json['global-ua'] as String?,
       externalController: $enumDecodeNullable(
-              _$ExternalControllerStatusEnumMap, json['external-controller']) ??
+              _$ExternalControllerStatusEnumMap, json['external-controller'],
+              unknownValue: ExternalControllerStatus.close) ??
           ExternalControllerStatus.close,
       hosts: (json['hosts'] as Map<String, dynamic>?)?.map(
             (k, e) => MapEntry(k, e as String),

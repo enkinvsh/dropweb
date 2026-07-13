@@ -179,7 +179,9 @@ class Tun with _$Tun {
     @Default(true) bool enable,
     @Default(appName) String device,
     @JsonKey(name: "auto-route") @Default(false) bool autoRoute,
-    @Default(TunStack.mixed) TunStack stack,
+    @JsonKey(unknownEnumValue: TunStack.mixed)
+    @Default(TunStack.mixed)
+    TunStack stack,
     @JsonKey(name: "dns-hijack") @Default(["any:53"]) List<String> dnsHijack,
     @JsonKey(name: "route-address") @Default([]) List<String> routeAddress,
   }) = _Tun;
@@ -249,7 +251,7 @@ class Dns with _$Dns {
     @JsonKey(name: "default-nameserver")
     List<String> defaultNameserver,
     @Default(DnsMode.fakeIp)
-    @JsonKey(name: "enhanced-mode")
+    @JsonKey(name: "enhanced-mode", unknownEnumValue: DnsMode.fakeIp)
     DnsMode enhancedMode,
     @Default("198.18.0.1/16")
     @JsonKey(name: "fake-ip-range")
@@ -470,9 +472,11 @@ class ClashConfig with _$ClashConfig {
     @Default(0) @JsonKey(name: "port") int port,
     @Default(0) @JsonKey(name: "redir-port") int redirPort,
     @Default(0) @JsonKey(name: "tproxy-port") int tproxyPort,
-    @Default(Mode.rule) Mode mode,
+    @Default(Mode.rule) @JsonKey(unknownEnumValue: Mode.rule) Mode mode,
     @Default(false) @JsonKey(name: "allow-lan") bool allowLan,
-    @Default(LogLevel.error) @JsonKey(name: "log-level") LogLevel logLevel,
+    @Default(LogLevel.error)
+    @JsonKey(name: "log-level", unknownEnumValue: LogLevel.error)
+    LogLevel logLevel,
     @Default(true) bool ipv6,
     @Default(FindProcessMode.strict)
     @JsonKey(
@@ -492,13 +496,19 @@ class ClashConfig with _$ClashConfig {
     @JsonKey(name: "geox-url", fromJson: GeoXUrl.safeFormJson)
     GeoXUrl geoXUrl,
     @Default(GeodataLoader.memconservative)
-    @JsonKey(name: "geodata-loader")
+    @JsonKey(
+      name: "geodata-loader",
+      unknownEnumValue: GeodataLoader.memconservative,
+    )
     GeodataLoader geodataLoader,
     @Default([]) @JsonKey(name: "proxy-groups") List<ProxyGroup> proxyGroups,
     @Default([]) List<String> rule,
     @JsonKey(name: "global-ua") String? globalUa,
     @Default(ExternalControllerStatus.close)
-    @JsonKey(name: "external-controller")
+    @JsonKey(
+      name: "external-controller",
+      unknownEnumValue: ExternalControllerStatus.close,
+    )
     ExternalControllerStatus externalController,
     @Default({}) HostsMap hosts,
   }) = _ClashConfig;

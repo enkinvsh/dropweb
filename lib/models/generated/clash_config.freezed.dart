@@ -1296,6 +1296,7 @@ mixin _$Tun {
   String get device => throw _privateConstructorUsedError;
   @JsonKey(name: "auto-route")
   bool get autoRoute => throw _privateConstructorUsedError;
+  @JsonKey(unknownEnumValue: TunStack.mixed)
   TunStack get stack => throw _privateConstructorUsedError;
   @JsonKey(name: "dns-hijack")
   List<String> get dnsHijack => throw _privateConstructorUsedError;
@@ -1320,7 +1321,7 @@ abstract class $TunCopyWith<$Res> {
       {bool enable,
       String device,
       @JsonKey(name: "auto-route") bool autoRoute,
-      TunStack stack,
+      @JsonKey(unknownEnumValue: TunStack.mixed) TunStack stack,
       @JsonKey(name: "dns-hijack") List<String> dnsHijack,
       @JsonKey(name: "route-address") List<String> routeAddress});
 }
@@ -1385,7 +1386,7 @@ abstract class _$$TunImplCopyWith<$Res> implements $TunCopyWith<$Res> {
       {bool enable,
       String device,
       @JsonKey(name: "auto-route") bool autoRoute,
-      TunStack stack,
+      @JsonKey(unknownEnumValue: TunStack.mixed) TunStack stack,
       @JsonKey(name: "dns-hijack") List<String> dnsHijack,
       @JsonKey(name: "route-address") List<String> routeAddress});
 }
@@ -1444,7 +1445,7 @@ class _$TunImpl implements _Tun {
       {this.enable = true,
       this.device = appName,
       @JsonKey(name: "auto-route") this.autoRoute = false,
-      this.stack = TunStack.mixed,
+      @JsonKey(unknownEnumValue: TunStack.mixed) this.stack = TunStack.mixed,
       @JsonKey(name: "dns-hijack")
       final List<String> dnsHijack = const ["any:53"],
       @JsonKey(name: "route-address")
@@ -1465,7 +1466,7 @@ class _$TunImpl implements _Tun {
   @JsonKey(name: "auto-route")
   final bool autoRoute;
   @override
-  @JsonKey()
+  @JsonKey(unknownEnumValue: TunStack.mixed)
   final TunStack stack;
   final List<String> _dnsHijack;
   @override
@@ -1538,7 +1539,7 @@ abstract class _Tun implements Tun {
           {final bool enable,
           final String device,
           @JsonKey(name: "auto-route") final bool autoRoute,
-          final TunStack stack,
+          @JsonKey(unknownEnumValue: TunStack.mixed) final TunStack stack,
           @JsonKey(name: "dns-hijack") final List<String> dnsHijack,
           @JsonKey(name: "route-address") final List<String> routeAddress}) =
       _$TunImpl;
@@ -1553,6 +1554,7 @@ abstract class _Tun implements Tun {
   @JsonKey(name: "auto-route")
   bool get autoRoute;
   @override
+  @JsonKey(unknownEnumValue: TunStack.mixed)
   TunStack get stack;
   @override
   @JsonKey(name: "dns-hijack")
@@ -1860,7 +1862,7 @@ mixin _$Dns {
   bool get ipv6 => throw _privateConstructorUsedError;
   @JsonKey(name: "default-nameserver")
   List<String> get defaultNameserver => throw _privateConstructorUsedError;
-  @JsonKey(name: "enhanced-mode")
+  @JsonKey(name: "enhanced-mode", unknownEnumValue: DnsMode.fakeIp)
   DnsMode get enhancedMode => throw _privateConstructorUsedError;
   @JsonKey(name: "fake-ip-range")
   String get fakeIpRange => throw _privateConstructorUsedError;
@@ -1899,7 +1901,8 @@ abstract class $DnsCopyWith<$Res> {
       @JsonKey(name: "respect-rules") bool respectRules,
       bool ipv6,
       @JsonKey(name: "default-nameserver") List<String> defaultNameserver,
-      @JsonKey(name: "enhanced-mode") DnsMode enhancedMode,
+      @JsonKey(name: "enhanced-mode", unknownEnumValue: DnsMode.fakeIp)
+      DnsMode enhancedMode,
       @JsonKey(name: "fake-ip-range") String fakeIpRange,
       @JsonKey(name: "fake-ip-filter") List<String> fakeIpFilter,
       @JsonKey(name: "nameserver-policy") Map<String, String> nameserverPolicy,
@@ -2037,7 +2040,8 @@ abstract class _$$DnsImplCopyWith<$Res> implements $DnsCopyWith<$Res> {
       @JsonKey(name: "respect-rules") bool respectRules,
       bool ipv6,
       @JsonKey(name: "default-nameserver") List<String> defaultNameserver,
-      @JsonKey(name: "enhanced-mode") DnsMode enhancedMode,
+      @JsonKey(name: "enhanced-mode", unknownEnumValue: DnsMode.fakeIp)
+      DnsMode enhancedMode,
       @JsonKey(name: "fake-ip-range") String fakeIpRange,
       @JsonKey(name: "fake-ip-filter") List<String> fakeIpFilter,
       @JsonKey(name: "nameserver-policy") Map<String, String> nameserverPolicy,
@@ -2161,7 +2165,8 @@ class _$DnsImpl implements _Dns {
       this.ipv6 = true,
       @JsonKey(name: "default-nameserver")
       final List<String> defaultNameserver = const ["223.5.5.5"],
-      @JsonKey(name: "enhanced-mode") this.enhancedMode = DnsMode.fakeIp,
+      @JsonKey(name: "enhanced-mode", unknownEnumValue: DnsMode.fakeIp)
+      this.enhancedMode = DnsMode.fakeIp,
       @JsonKey(name: "fake-ip-range") this.fakeIpRange = "198.18.0.1/16",
       @JsonKey(name: "fake-ip-filter") final List<String> fakeIpFilter = const [
         "*.lan",
@@ -2226,7 +2231,7 @@ class _$DnsImpl implements _Dns {
   }
 
   @override
-  @JsonKey(name: "enhanced-mode")
+  @JsonKey(name: "enhanced-mode", unknownEnumValue: DnsMode.fakeIp)
   final DnsMode enhancedMode;
   @override
   @JsonKey(name: "fake-ip-range")
@@ -2368,7 +2373,8 @@ abstract class _Dns implements Dns {
       @JsonKey(name: "respect-rules") final bool respectRules,
       final bool ipv6,
       @JsonKey(name: "default-nameserver") final List<String> defaultNameserver,
-      @JsonKey(name: "enhanced-mode") final DnsMode enhancedMode,
+      @JsonKey(name: "enhanced-mode", unknownEnumValue: DnsMode.fakeIp)
+      final DnsMode enhancedMode,
       @JsonKey(name: "fake-ip-range") final String fakeIpRange,
       @JsonKey(name: "fake-ip-filter") final List<String> fakeIpFilter,
       @JsonKey(name: "nameserver-policy")
@@ -2404,7 +2410,7 @@ abstract class _Dns implements Dns {
   @JsonKey(name: "default-nameserver")
   List<String> get defaultNameserver;
   @override
-  @JsonKey(name: "enhanced-mode")
+  @JsonKey(name: "enhanced-mode", unknownEnumValue: DnsMode.fakeIp)
   DnsMode get enhancedMode;
   @override
   @JsonKey(name: "fake-ip-range")
@@ -3494,10 +3500,11 @@ mixin _$ClashConfig {
   int get redirPort => throw _privateConstructorUsedError;
   @JsonKey(name: "tproxy-port")
   int get tproxyPort => throw _privateConstructorUsedError;
+  @JsonKey(unknownEnumValue: Mode.rule)
   Mode get mode => throw _privateConstructorUsedError;
   @JsonKey(name: "allow-lan")
   bool get allowLan => throw _privateConstructorUsedError;
-  @JsonKey(name: "log-level")
+  @JsonKey(name: "log-level", unknownEnumValue: LogLevel.error)
   LogLevel get logLevel => throw _privateConstructorUsedError;
   bool get ipv6 => throw _privateConstructorUsedError;
   @JsonKey(name: "find-process-mode", unknownEnumValue: FindProcessMode.always)
@@ -3516,14 +3523,17 @@ mixin _$ClashConfig {
   Dns get dns => throw _privateConstructorUsedError;
   @JsonKey(name: "geox-url", fromJson: GeoXUrl.safeFormJson)
   GeoXUrl get geoXUrl => throw _privateConstructorUsedError;
-  @JsonKey(name: "geodata-loader")
+  @JsonKey(
+      name: "geodata-loader", unknownEnumValue: GeodataLoader.memconservative)
   GeodataLoader get geodataLoader => throw _privateConstructorUsedError;
   @JsonKey(name: "proxy-groups")
   List<ProxyGroup> get proxyGroups => throw _privateConstructorUsedError;
   List<String> get rule => throw _privateConstructorUsedError;
   @JsonKey(name: "global-ua")
   String? get globalUa => throw _privateConstructorUsedError;
-  @JsonKey(name: "external-controller")
+  @JsonKey(
+      name: "external-controller",
+      unknownEnumValue: ExternalControllerStatus.close)
   ExternalControllerStatus get externalController =>
       throw _privateConstructorUsedError;
   Map<String, String> get hosts => throw _privateConstructorUsedError;
@@ -3550,9 +3560,10 @@ abstract class $ClashConfigCopyWith<$Res> {
       @JsonKey(name: "port") int port,
       @JsonKey(name: "redir-port") int redirPort,
       @JsonKey(name: "tproxy-port") int tproxyPort,
-      Mode mode,
+      @JsonKey(unknownEnumValue: Mode.rule) Mode mode,
       @JsonKey(name: "allow-lan") bool allowLan,
-      @JsonKey(name: "log-level") LogLevel logLevel,
+      @JsonKey(name: "log-level", unknownEnumValue: LogLevel.error)
+      LogLevel logLevel,
       bool ipv6,
       @JsonKey(
           name: "find-process-mode", unknownEnumValue: FindProcessMode.always)
@@ -3565,11 +3576,16 @@ abstract class $ClashConfigCopyWith<$Res> {
       @JsonKey(fromJson: Dns.safeDnsFromJson) Dns dns,
       @JsonKey(name: "geox-url", fromJson: GeoXUrl.safeFormJson)
       GeoXUrl geoXUrl,
-      @JsonKey(name: "geodata-loader") GeodataLoader geodataLoader,
+      @JsonKey(
+          name: "geodata-loader",
+          unknownEnumValue: GeodataLoader.memconservative)
+      GeodataLoader geodataLoader,
       @JsonKey(name: "proxy-groups") List<ProxyGroup> proxyGroups,
       List<String> rule,
       @JsonKey(name: "global-ua") String? globalUa,
-      @JsonKey(name: "external-controller")
+      @JsonKey(
+          name: "external-controller",
+          unknownEnumValue: ExternalControllerStatus.close)
       ExternalControllerStatus externalController,
       Map<String, String> hosts});
 
@@ -3758,9 +3774,10 @@ abstract class _$$ClashConfigImplCopyWith<$Res>
       @JsonKey(name: "port") int port,
       @JsonKey(name: "redir-port") int redirPort,
       @JsonKey(name: "tproxy-port") int tproxyPort,
-      Mode mode,
+      @JsonKey(unknownEnumValue: Mode.rule) Mode mode,
       @JsonKey(name: "allow-lan") bool allowLan,
-      @JsonKey(name: "log-level") LogLevel logLevel,
+      @JsonKey(name: "log-level", unknownEnumValue: LogLevel.error)
+      LogLevel logLevel,
       bool ipv6,
       @JsonKey(
           name: "find-process-mode", unknownEnumValue: FindProcessMode.always)
@@ -3773,11 +3790,16 @@ abstract class _$$ClashConfigImplCopyWith<$Res>
       @JsonKey(fromJson: Dns.safeDnsFromJson) Dns dns,
       @JsonKey(name: "geox-url", fromJson: GeoXUrl.safeFormJson)
       GeoXUrl geoXUrl,
-      @JsonKey(name: "geodata-loader") GeodataLoader geodataLoader,
+      @JsonKey(
+          name: "geodata-loader",
+          unknownEnumValue: GeodataLoader.memconservative)
+      GeodataLoader geodataLoader,
       @JsonKey(name: "proxy-groups") List<ProxyGroup> proxyGroups,
       List<String> rule,
       @JsonKey(name: "global-ua") String? globalUa,
-      @JsonKey(name: "external-controller")
+      @JsonKey(
+          name: "external-controller",
+          unknownEnumValue: ExternalControllerStatus.close)
       ExternalControllerStatus externalController,
       Map<String, String> hosts});
 
@@ -3932,9 +3954,10 @@ class _$ClashConfigImpl implements _ClashConfig {
       @JsonKey(name: "port") this.port = 0,
       @JsonKey(name: "redir-port") this.redirPort = 0,
       @JsonKey(name: "tproxy-port") this.tproxyPort = 0,
-      this.mode = Mode.rule,
+      @JsonKey(unknownEnumValue: Mode.rule) this.mode = Mode.rule,
       @JsonKey(name: "allow-lan") this.allowLan = false,
-      @JsonKey(name: "log-level") this.logLevel = LogLevel.error,
+      @JsonKey(name: "log-level", unknownEnumValue: LogLevel.error)
+      this.logLevel = LogLevel.error,
       this.ipv6 = true,
       @JsonKey(
           name: "find-process-mode", unknownEnumValue: FindProcessMode.always)
@@ -3948,13 +3971,17 @@ class _$ClashConfigImpl implements _ClashConfig {
       @JsonKey(fromJson: Dns.safeDnsFromJson) this.dns = defaultDns,
       @JsonKey(name: "geox-url", fromJson: GeoXUrl.safeFormJson)
       this.geoXUrl = defaultGeoXUrl,
-      @JsonKey(name: "geodata-loader")
+      @JsonKey(
+          name: "geodata-loader",
+          unknownEnumValue: GeodataLoader.memconservative)
       this.geodataLoader = GeodataLoader.memconservative,
       @JsonKey(name: "proxy-groups")
       final List<ProxyGroup> proxyGroups = const [],
       final List<String> rule = const [],
       @JsonKey(name: "global-ua") this.globalUa,
-      @JsonKey(name: "external-controller")
+      @JsonKey(
+          name: "external-controller",
+          unknownEnumValue: ExternalControllerStatus.close)
       this.externalController = ExternalControllerStatus.close,
       final Map<String, String> hosts = const {}})
       : _proxyGroups = proxyGroups,
@@ -3980,13 +4007,13 @@ class _$ClashConfigImpl implements _ClashConfig {
   @JsonKey(name: "tproxy-port")
   final int tproxyPort;
   @override
-  @JsonKey()
+  @JsonKey(unknownEnumValue: Mode.rule)
   final Mode mode;
   @override
   @JsonKey(name: "allow-lan")
   final bool allowLan;
   @override
-  @JsonKey(name: "log-level")
+  @JsonKey(name: "log-level", unknownEnumValue: LogLevel.error)
   final LogLevel logLevel;
   @override
   @JsonKey()
@@ -4016,7 +4043,8 @@ class _$ClashConfigImpl implements _ClashConfig {
   @JsonKey(name: "geox-url", fromJson: GeoXUrl.safeFormJson)
   final GeoXUrl geoXUrl;
   @override
-  @JsonKey(name: "geodata-loader")
+  @JsonKey(
+      name: "geodata-loader", unknownEnumValue: GeodataLoader.memconservative)
   final GeodataLoader geodataLoader;
   final List<ProxyGroup> _proxyGroups;
   @override
@@ -4040,7 +4068,9 @@ class _$ClashConfigImpl implements _ClashConfig {
   @JsonKey(name: "global-ua")
   final String? globalUa;
   @override
-  @JsonKey(name: "external-controller")
+  @JsonKey(
+      name: "external-controller",
+      unknownEnumValue: ExternalControllerStatus.close)
   final ExternalControllerStatus externalController;
   final Map<String, String> _hosts;
   @override
@@ -4153,9 +4183,10 @@ abstract class _ClashConfig implements ClashConfig {
       @JsonKey(name: "port") final int port,
       @JsonKey(name: "redir-port") final int redirPort,
       @JsonKey(name: "tproxy-port") final int tproxyPort,
-      final Mode mode,
+      @JsonKey(unknownEnumValue: Mode.rule) final Mode mode,
       @JsonKey(name: "allow-lan") final bool allowLan,
-      @JsonKey(name: "log-level") final LogLevel logLevel,
+      @JsonKey(name: "log-level", unknownEnumValue: LogLevel.error)
+      final LogLevel logLevel,
       final bool ipv6,
       @JsonKey(
           name: "find-process-mode", unknownEnumValue: FindProcessMode.always)
@@ -4168,11 +4199,16 @@ abstract class _ClashConfig implements ClashConfig {
       @JsonKey(fromJson: Dns.safeDnsFromJson) final Dns dns,
       @JsonKey(name: "geox-url", fromJson: GeoXUrl.safeFormJson)
       final GeoXUrl geoXUrl,
-      @JsonKey(name: "geodata-loader") final GeodataLoader geodataLoader,
+      @JsonKey(
+          name: "geodata-loader",
+          unknownEnumValue: GeodataLoader.memconservative)
+      final GeodataLoader geodataLoader,
       @JsonKey(name: "proxy-groups") final List<ProxyGroup> proxyGroups,
       final List<String> rule,
       @JsonKey(name: "global-ua") final String? globalUa,
-      @JsonKey(name: "external-controller")
+      @JsonKey(
+          name: "external-controller",
+          unknownEnumValue: ExternalControllerStatus.close)
       final ExternalControllerStatus externalController,
       final Map<String, String> hosts}) = _$ClashConfigImpl;
 
@@ -4195,12 +4231,13 @@ abstract class _ClashConfig implements ClashConfig {
   @JsonKey(name: "tproxy-port")
   int get tproxyPort;
   @override
+  @JsonKey(unknownEnumValue: Mode.rule)
   Mode get mode;
   @override
   @JsonKey(name: "allow-lan")
   bool get allowLan;
   @override
-  @JsonKey(name: "log-level")
+  @JsonKey(name: "log-level", unknownEnumValue: LogLevel.error)
   LogLevel get logLevel;
   @override
   bool get ipv6;
@@ -4229,7 +4266,8 @@ abstract class _ClashConfig implements ClashConfig {
   @JsonKey(name: "geox-url", fromJson: GeoXUrl.safeFormJson)
   GeoXUrl get geoXUrl;
   @override
-  @JsonKey(name: "geodata-loader")
+  @JsonKey(
+      name: "geodata-loader", unknownEnumValue: GeodataLoader.memconservative)
   GeodataLoader get geodataLoader;
   @override
   @JsonKey(name: "proxy-groups")
@@ -4240,7 +4278,9 @@ abstract class _ClashConfig implements ClashConfig {
   @JsonKey(name: "global-ua")
   String? get globalUa;
   @override
-  @JsonKey(name: "external-controller")
+  @JsonKey(
+      name: "external-controller",
+      unknownEnumValue: ExternalControllerStatus.close)
   ExternalControllerStatus get externalController;
   @override
   Map<String, String> get hosts;

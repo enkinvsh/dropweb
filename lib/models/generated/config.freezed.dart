@@ -670,9 +670,11 @@ AccessControl _$AccessControlFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$AccessControl {
   bool get enable => throw _privateConstructorUsedError;
+  @JsonKey(unknownEnumValue: AccessControlMode.rejectSelected)
   AccessControlMode get mode => throw _privateConstructorUsedError;
   List<String> get acceptList => throw _privateConstructorUsedError;
   List<String> get rejectList => throw _privateConstructorUsedError;
+  @JsonKey(unknownEnumValue: AccessSortType.none)
   AccessSortType get sort => throw _privateConstructorUsedError;
   bool get isFilterSystemApp => throw _privateConstructorUsedError;
   bool get isFilterNonInternetApp => throw _privateConstructorUsedError;
@@ -695,10 +697,11 @@ abstract class $AccessControlCopyWith<$Res> {
   @useResult
   $Res call(
       {bool enable,
+      @JsonKey(unknownEnumValue: AccessControlMode.rejectSelected)
       AccessControlMode mode,
       List<String> acceptList,
       List<String> rejectList,
-      AccessSortType sort,
+      @JsonKey(unknownEnumValue: AccessSortType.none) AccessSortType sort,
       bool isFilterSystemApp,
       bool isFilterNonInternetApp});
 }
@@ -769,10 +772,11 @@ abstract class _$$AccessControlImplCopyWith<$Res>
   @useResult
   $Res call(
       {bool enable,
+      @JsonKey(unknownEnumValue: AccessControlMode.rejectSelected)
       AccessControlMode mode,
       List<String> acceptList,
       List<String> rejectList,
-      AccessSortType sort,
+      @JsonKey(unknownEnumValue: AccessSortType.none) AccessSortType sort,
       bool isFilterSystemApp,
       bool isFilterNonInternetApp});
 }
@@ -836,9 +840,11 @@ class __$$AccessControlImplCopyWithImpl<$Res>
 class _$AccessControlImpl implements _AccessControl {
   const _$AccessControlImpl(
       {this.enable = false,
+      @JsonKey(unknownEnumValue: AccessControlMode.rejectSelected)
       this.mode = AccessControlMode.rejectSelected,
       final List<String> acceptList = const [],
       final List<String> rejectList = const [],
+      @JsonKey(unknownEnumValue: AccessSortType.none)
       this.sort = AccessSortType.none,
       this.isFilterSystemApp = true,
       this.isFilterNonInternetApp = true})
@@ -852,7 +858,7 @@ class _$AccessControlImpl implements _AccessControl {
   @JsonKey()
   final bool enable;
   @override
-  @JsonKey()
+  @JsonKey(unknownEnumValue: AccessControlMode.rejectSelected)
   final AccessControlMode mode;
   final List<String> _acceptList;
   @override
@@ -873,7 +879,7 @@ class _$AccessControlImpl implements _AccessControl {
   }
 
   @override
-  @JsonKey()
+  @JsonKey(unknownEnumValue: AccessSortType.none)
   final AccessSortType sort;
   @override
   @JsonKey()
@@ -936,10 +942,11 @@ class _$AccessControlImpl implements _AccessControl {
 abstract class _AccessControl implements AccessControl {
   const factory _AccessControl(
       {final bool enable,
+      @JsonKey(unknownEnumValue: AccessControlMode.rejectSelected)
       final AccessControlMode mode,
       final List<String> acceptList,
       final List<String> rejectList,
-      final AccessSortType sort,
+      @JsonKey(unknownEnumValue: AccessSortType.none) final AccessSortType sort,
       final bool isFilterSystemApp,
       final bool isFilterNonInternetApp}) = _$AccessControlImpl;
 
@@ -949,12 +956,14 @@ abstract class _AccessControl implements AccessControl {
   @override
   bool get enable;
   @override
+  @JsonKey(unknownEnumValue: AccessControlMode.rejectSelected)
   AccessControlMode get mode;
   @override
   List<String> get acceptList;
   @override
   List<String> get rejectList;
   @override
+  @JsonKey(unknownEnumValue: AccessSortType.none)
   AccessSortType get sort;
   @override
   bool get isFilterSystemApp;
@@ -1437,6 +1446,7 @@ NetworkProps _$NetworkPropsFromJson(Map<String, dynamic> json) {
 mixin _$NetworkProps {
   bool get systemProxy => throw _privateConstructorUsedError;
   List<String> get bypassDomain => throw _privateConstructorUsedError;
+  @JsonKey(unknownEnumValue: RouteMode.config)
   RouteMode get routeMode => throw _privateConstructorUsedError;
   bool get autoSetSystemDns => throw _privateConstructorUsedError;
 
@@ -1459,7 +1469,7 @@ abstract class $NetworkPropsCopyWith<$Res> {
   $Res call(
       {bool systemProxy,
       List<String> bypassDomain,
-      RouteMode routeMode,
+      @JsonKey(unknownEnumValue: RouteMode.config) RouteMode routeMode,
       bool autoSetSystemDns});
 }
 
@@ -1515,7 +1525,7 @@ abstract class _$$NetworkPropsImplCopyWith<$Res>
   $Res call(
       {bool systemProxy,
       List<String> bypassDomain,
-      RouteMode routeMode,
+      @JsonKey(unknownEnumValue: RouteMode.config) RouteMode routeMode,
       bool autoSetSystemDns});
 }
 
@@ -1564,6 +1574,7 @@ class _$NetworkPropsImpl implements _NetworkProps {
   const _$NetworkPropsImpl(
       {this.systemProxy = false,
       final List<String> bypassDomain = defaultBypassDomain,
+      @JsonKey(unknownEnumValue: RouteMode.config)
       this.routeMode = RouteMode.config,
       this.autoSetSystemDns = true})
       : _bypassDomain = bypassDomain;
@@ -1584,7 +1595,7 @@ class _$NetworkPropsImpl implements _NetworkProps {
   }
 
   @override
-  @JsonKey()
+  @JsonKey(unknownEnumValue: RouteMode.config)
   final RouteMode routeMode;
   @override
   @JsonKey()
@@ -1639,7 +1650,7 @@ abstract class _NetworkProps implements NetworkProps {
   const factory _NetworkProps(
       {final bool systemProxy,
       final List<String> bypassDomain,
-      final RouteMode routeMode,
+      @JsonKey(unknownEnumValue: RouteMode.config) final RouteMode routeMode,
       final bool autoSetSystemDns}) = _$NetworkPropsImpl;
 
   factory _NetworkProps.fromJson(Map<String, dynamic> json) =
@@ -1650,6 +1661,7 @@ abstract class _NetworkProps implements NetworkProps {
   @override
   List<String> get bypassDomain;
   @override
+  @JsonKey(unknownEnumValue: RouteMode.config)
   RouteMode get routeMode;
   @override
   bool get autoSetSystemDns;
@@ -1668,11 +1680,15 @@ ProxiesStyle _$ProxiesStyleFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$ProxiesStyle {
+  @JsonKey(unknownEnumValue: ProxiesType.list)
   ProxiesType get type => throw _privateConstructorUsedError;
+  @JsonKey(unknownEnumValue: ProxiesSortType.none)
   ProxiesSortType get sortType => throw _privateConstructorUsedError;
+  @JsonKey(unknownEnumValue: ProxiesLayout.standard)
   ProxiesLayout get layout => throw _privateConstructorUsedError;
   @JsonKey(unknownEnumValue: ProxiesIconStyle.icon)
   ProxiesIconStyle get iconStyle => throw _privateConstructorUsedError;
+  @JsonKey(unknownEnumValue: ProxyCardType.expand)
   ProxyCardType get cardType => throw _privateConstructorUsedError;
   Map<String, String> get iconMap => throw _privateConstructorUsedError;
 
@@ -1693,12 +1709,12 @@ abstract class $ProxiesStyleCopyWith<$Res> {
       _$ProxiesStyleCopyWithImpl<$Res, ProxiesStyle>;
   @useResult
   $Res call(
-      {ProxiesType type,
-      ProxiesSortType sortType,
-      ProxiesLayout layout,
+      {@JsonKey(unknownEnumValue: ProxiesType.list) ProxiesType type,
+      @JsonKey(unknownEnumValue: ProxiesSortType.none) ProxiesSortType sortType,
+      @JsonKey(unknownEnumValue: ProxiesLayout.standard) ProxiesLayout layout,
       @JsonKey(unknownEnumValue: ProxiesIconStyle.icon)
       ProxiesIconStyle iconStyle,
-      ProxyCardType cardType,
+      @JsonKey(unknownEnumValue: ProxyCardType.expand) ProxyCardType cardType,
       Map<String, String> iconMap});
 }
 
@@ -1762,12 +1778,12 @@ abstract class _$$ProxiesStyleImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {ProxiesType type,
-      ProxiesSortType sortType,
-      ProxiesLayout layout,
+      {@JsonKey(unknownEnumValue: ProxiesType.list) ProxiesType type,
+      @JsonKey(unknownEnumValue: ProxiesSortType.none) ProxiesSortType sortType,
+      @JsonKey(unknownEnumValue: ProxiesLayout.standard) ProxiesLayout layout,
       @JsonKey(unknownEnumValue: ProxiesIconStyle.icon)
       ProxiesIconStyle iconStyle,
-      ProxyCardType cardType,
+      @JsonKey(unknownEnumValue: ProxyCardType.expand) ProxyCardType cardType,
       Map<String, String> iconMap});
 }
 
@@ -1824,11 +1840,15 @@ class __$$ProxiesStyleImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$ProxiesStyleImpl implements _ProxiesStyle {
   const _$ProxiesStyleImpl(
-      {this.type = ProxiesType.list,
+      {@JsonKey(unknownEnumValue: ProxiesType.list)
+      this.type = ProxiesType.list,
+      @JsonKey(unknownEnumValue: ProxiesSortType.none)
       this.sortType = ProxiesSortType.none,
+      @JsonKey(unknownEnumValue: ProxiesLayout.standard)
       this.layout = ProxiesLayout.standard,
       @JsonKey(unknownEnumValue: ProxiesIconStyle.icon)
       this.iconStyle = ProxiesIconStyle.icon,
+      @JsonKey(unknownEnumValue: ProxyCardType.expand)
       this.cardType = ProxyCardType.expand,
       final Map<String, String> iconMap = const {}})
       : _iconMap = iconMap;
@@ -1837,19 +1857,19 @@ class _$ProxiesStyleImpl implements _ProxiesStyle {
       _$$ProxiesStyleImplFromJson(json);
 
   @override
-  @JsonKey()
+  @JsonKey(unknownEnumValue: ProxiesType.list)
   final ProxiesType type;
   @override
-  @JsonKey()
+  @JsonKey(unknownEnumValue: ProxiesSortType.none)
   final ProxiesSortType sortType;
   @override
-  @JsonKey()
+  @JsonKey(unknownEnumValue: ProxiesLayout.standard)
   final ProxiesLayout layout;
   @override
   @JsonKey(unknownEnumValue: ProxiesIconStyle.icon)
   final ProxiesIconStyle iconStyle;
   @override
-  @JsonKey()
+  @JsonKey(unknownEnumValue: ProxyCardType.expand)
   final ProxyCardType cardType;
   final Map<String, String> _iconMap;
   @override
@@ -1904,11 +1924,14 @@ class _$ProxiesStyleImpl implements _ProxiesStyle {
 
 abstract class _ProxiesStyle implements ProxiesStyle {
   const factory _ProxiesStyle(
-      {final ProxiesType type,
+      {@JsonKey(unknownEnumValue: ProxiesType.list) final ProxiesType type,
+      @JsonKey(unknownEnumValue: ProxiesSortType.none)
       final ProxiesSortType sortType,
+      @JsonKey(unknownEnumValue: ProxiesLayout.standard)
       final ProxiesLayout layout,
       @JsonKey(unknownEnumValue: ProxiesIconStyle.icon)
       final ProxiesIconStyle iconStyle,
+      @JsonKey(unknownEnumValue: ProxyCardType.expand)
       final ProxyCardType cardType,
       final Map<String, String> iconMap}) = _$ProxiesStyleImpl;
 
@@ -1916,15 +1939,19 @@ abstract class _ProxiesStyle implements ProxiesStyle {
       _$ProxiesStyleImpl.fromJson;
 
   @override
+  @JsonKey(unknownEnumValue: ProxiesType.list)
   ProxiesType get type;
   @override
+  @JsonKey(unknownEnumValue: ProxiesSortType.none)
   ProxiesSortType get sortType;
   @override
+  @JsonKey(unknownEnumValue: ProxiesLayout.standard)
   ProxiesLayout get layout;
   @override
   @JsonKey(unknownEnumValue: ProxiesIconStyle.icon)
   ProxiesIconStyle get iconStyle;
   @override
+  @JsonKey(unknownEnumValue: ProxyCardType.expand)
   ProxyCardType get cardType;
   @override
   Map<String, String> get iconMap;
@@ -2112,7 +2139,9 @@ mixin _$ThemeProps {
   int? get orbColorSecondary => throw _privateConstructorUsedError;
   double get orbBlur => throw _privateConstructorUsedError;
   List<int> get primaryColors => throw _privateConstructorUsedError;
+  @JsonKey(unknownEnumValue: ThemeMode.dark)
   ThemeMode get themeMode => throw _privateConstructorUsedError;
+  @JsonKey(unknownEnumValue: DynamicSchemeVariant.fidelity)
   DynamicSchemeVariant get schemeVariant => throw _privateConstructorUsedError;
   bool get pureBlack => throw _privateConstructorUsedError;
   TextScale get textScale => throw _privateConstructorUsedError;
@@ -2139,7 +2168,8 @@ abstract class $ThemePropsCopyWith<$Res> {
       int? orbColorSecondary,
       double orbBlur,
       List<int> primaryColors,
-      ThemeMode themeMode,
+      @JsonKey(unknownEnumValue: ThemeMode.dark) ThemeMode themeMode,
+      @JsonKey(unknownEnumValue: DynamicSchemeVariant.fidelity)
       DynamicSchemeVariant schemeVariant,
       bool pureBlack,
       TextScale textScale});
@@ -2237,7 +2267,8 @@ abstract class _$$ThemePropsImplCopyWith<$Res>
       int? orbColorSecondary,
       double orbBlur,
       List<int> primaryColors,
-      ThemeMode themeMode,
+      @JsonKey(unknownEnumValue: ThemeMode.dark) ThemeMode themeMode,
+      @JsonKey(unknownEnumValue: DynamicSchemeVariant.fidelity)
       DynamicSchemeVariant schemeVariant,
       bool pureBlack,
       TextScale textScale});
@@ -2319,7 +2350,9 @@ class _$ThemePropsImpl implements _ThemeProps {
       this.orbColorSecondary,
       this.orbBlur = 5.0,
       final List<int> primaryColors = defaultPrimaryColors,
+      @JsonKey(unknownEnumValue: ThemeMode.dark)
       this.themeMode = ThemeMode.dark,
+      @JsonKey(unknownEnumValue: DynamicSchemeVariant.fidelity)
       this.schemeVariant = DynamicSchemeVariant.fidelity,
       this.pureBlack = true,
       this.textScale = const TextScale()})
@@ -2347,10 +2380,10 @@ class _$ThemePropsImpl implements _ThemeProps {
   }
 
   @override
-  @JsonKey()
+  @JsonKey(unknownEnumValue: ThemeMode.dark)
   final ThemeMode themeMode;
   @override
-  @JsonKey()
+  @JsonKey(unknownEnumValue: DynamicSchemeVariant.fidelity)
   final DynamicSchemeVariant schemeVariant;
   @override
   @JsonKey()
@@ -2425,7 +2458,8 @@ abstract class _ThemeProps implements ThemeProps {
       final int? orbColorSecondary,
       final double orbBlur,
       final List<int> primaryColors,
-      final ThemeMode themeMode,
+      @JsonKey(unknownEnumValue: ThemeMode.dark) final ThemeMode themeMode,
+      @JsonKey(unknownEnumValue: DynamicSchemeVariant.fidelity)
       final DynamicSchemeVariant schemeVariant,
       final bool pureBlack,
       final TextScale textScale}) = _$ThemePropsImpl;
@@ -2444,8 +2478,10 @@ abstract class _ThemeProps implements ThemeProps {
   @override
   List<int> get primaryColors;
   @override
+  @JsonKey(unknownEnumValue: ThemeMode.dark)
   ThemeMode get themeMode;
   @override
+  @JsonKey(unknownEnumValue: DynamicSchemeVariant.fidelity)
   DynamicSchemeVariant get schemeVariant;
   @override
   bool get pureBlack;

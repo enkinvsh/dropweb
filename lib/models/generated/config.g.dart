@@ -81,7 +81,8 @@ const _$DashboardWidgetEnumMap = {
 _$AccessControlImpl _$$AccessControlImplFromJson(Map<String, dynamic> json) =>
     _$AccessControlImpl(
       enable: json['enable'] as bool? ?? false,
-      mode: $enumDecodeNullable(_$AccessControlModeEnumMap, json['mode']) ??
+      mode: $enumDecodeNullable(_$AccessControlModeEnumMap, json['mode'],
+              unknownValue: AccessControlMode.rejectSelected) ??
           AccessControlMode.rejectSelected,
       acceptList: (json['acceptList'] as List<dynamic>?)
               ?.map((e) => e as String)
@@ -91,7 +92,8 @@ _$AccessControlImpl _$$AccessControlImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => e as String)
               .toList() ??
           const [],
-      sort: $enumDecodeNullable(_$AccessSortTypeEnumMap, json['sort']) ??
+      sort: $enumDecodeNullable(_$AccessSortTypeEnumMap, json['sort'],
+              unknownValue: AccessSortType.none) ??
           AccessSortType.none,
       isFilterSystemApp: json['isFilterSystemApp'] as bool? ?? true,
       isFilterNonInternetApp: json['isFilterNonInternetApp'] as bool? ?? true,
@@ -163,7 +165,8 @@ _$NetworkPropsImpl _$$NetworkPropsImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => e as String)
               .toList() ??
           defaultBypassDomain,
-      routeMode: $enumDecodeNullable(_$RouteModeEnumMap, json['routeMode']) ??
+      routeMode: $enumDecodeNullable(_$RouteModeEnumMap, json['routeMode'],
+              unknownValue: RouteMode.config) ??
           RouteMode.config,
       autoSetSystemDns: json['autoSetSystemDns'] as bool? ?? true,
     );
@@ -183,18 +186,21 @@ const _$RouteModeEnumMap = {
 
 _$ProxiesStyleImpl _$$ProxiesStyleImplFromJson(Map<String, dynamic> json) =>
     _$ProxiesStyleImpl(
-      type: $enumDecodeNullable(_$ProxiesTypeEnumMap, json['type']) ??
+      type: $enumDecodeNullable(_$ProxiesTypeEnumMap, json['type'],
+              unknownValue: ProxiesType.list) ??
           ProxiesType.list,
-      sortType:
-          $enumDecodeNullable(_$ProxiesSortTypeEnumMap, json['sortType']) ??
-              ProxiesSortType.none,
-      layout: $enumDecodeNullable(_$ProxiesLayoutEnumMap, json['layout']) ??
+      sortType: $enumDecodeNullable(_$ProxiesSortTypeEnumMap, json['sortType'],
+              unknownValue: ProxiesSortType.none) ??
+          ProxiesSortType.none,
+      layout: $enumDecodeNullable(_$ProxiesLayoutEnumMap, json['layout'],
+              unknownValue: ProxiesLayout.standard) ??
           ProxiesLayout.standard,
       iconStyle: $enumDecodeNullable(
               _$ProxiesIconStyleEnumMap, json['iconStyle'],
               unknownValue: ProxiesIconStyle.icon) ??
           ProxiesIconStyle.icon,
-      cardType: $enumDecodeNullable(_$ProxyCardTypeEnumMap, json['cardType']) ??
+      cardType: $enumDecodeNullable(_$ProxyCardTypeEnumMap, json['cardType'],
+              unknownValue: ProxyCardType.expand) ??
           ProxyCardType.expand,
       iconMap: (json['iconMap'] as Map<String, dynamic>?)?.map(
             (k, e) => MapEntry(k, e as String),
@@ -263,10 +269,12 @@ _$ThemePropsImpl _$$ThemePropsImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => (e as num).toInt())
               .toList() ??
           defaultPrimaryColors,
-      themeMode: $enumDecodeNullable(_$ThemeModeEnumMap, json['themeMode']) ??
+      themeMode: $enumDecodeNullable(_$ThemeModeEnumMap, json['themeMode'],
+              unknownValue: ThemeMode.dark) ??
           ThemeMode.dark,
       schemeVariant: $enumDecodeNullable(
-              _$DynamicSchemeVariantEnumMap, json['schemeVariant']) ??
+              _$DynamicSchemeVariantEnumMap, json['schemeVariant'],
+              unknownValue: DynamicSchemeVariant.fidelity) ??
           DynamicSchemeVariant.fidelity,
       pureBlack: json['pureBlack'] as bool? ?? true,
       textScale: json['textScale'] == null

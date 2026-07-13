@@ -112,10 +112,14 @@ class AppSettingProps with _$AppSettingProps {
 class AccessControl with _$AccessControl {
   const factory AccessControl({
     @Default(false) bool enable,
-    @Default(AccessControlMode.rejectSelected) AccessControlMode mode,
+    @JsonKey(unknownEnumValue: AccessControlMode.rejectSelected)
+    @Default(AccessControlMode.rejectSelected)
+    AccessControlMode mode,
     @Default([]) List<String> acceptList,
     @Default([]) List<String> rejectList,
-    @Default(AccessSortType.none) AccessSortType sort,
+    @JsonKey(unknownEnumValue: AccessSortType.none)
+    @Default(AccessSortType.none)
+    AccessSortType sort,
     @Default(true) bool isFilterSystemApp,
     @Default(true) bool isFilterNonInternetApp,
   }) = _AccessControl;
@@ -163,7 +167,9 @@ class NetworkProps with _$NetworkProps {
   const factory NetworkProps({
     @Default(false) bool systemProxy,
     @Default(defaultBypassDomain) List<String> bypassDomain,
-    @Default(RouteMode.config) RouteMode routeMode,
+    @JsonKey(unknownEnumValue: RouteMode.config)
+    @Default(RouteMode.config)
+    RouteMode routeMode,
     @Default(true) bool autoSetSystemDns,
   }) = _NetworkProps;
 
@@ -174,13 +180,21 @@ class NetworkProps with _$NetworkProps {
 @freezed
 class ProxiesStyle with _$ProxiesStyle {
   const factory ProxiesStyle({
-    @Default(ProxiesType.list) ProxiesType type,
-    @Default(ProxiesSortType.none) ProxiesSortType sortType,
-    @Default(ProxiesLayout.standard) ProxiesLayout layout,
+    @JsonKey(unknownEnumValue: ProxiesType.list)
+    @Default(ProxiesType.list)
+    ProxiesType type,
+    @JsonKey(unknownEnumValue: ProxiesSortType.none)
+    @Default(ProxiesSortType.none)
+    ProxiesSortType sortType,
+    @JsonKey(unknownEnumValue: ProxiesLayout.standard)
+    @Default(ProxiesLayout.standard)
+    ProxiesLayout layout,
     @JsonKey(unknownEnumValue: ProxiesIconStyle.icon)
     @Default(ProxiesIconStyle.icon)
     ProxiesIconStyle iconStyle,
-    @Default(ProxyCardType.expand) ProxyCardType cardType,
+    @JsonKey(unknownEnumValue: ProxyCardType.expand)
+    @Default(ProxyCardType.expand)
+    ProxyCardType cardType,
     @Default({}) Map<String, String> iconMap,
   }) = _ProxiesStyle;
 
@@ -207,8 +221,12 @@ class ThemeProps with _$ThemeProps {
     int? orbColorSecondary,
     @Default(5.0) double orbBlur,
     @Default(defaultPrimaryColors) List<int> primaryColors,
-    @Default(ThemeMode.dark) ThemeMode themeMode,
-    @Default(DynamicSchemeVariant.fidelity) DynamicSchemeVariant schemeVariant,
+    @JsonKey(unknownEnumValue: ThemeMode.dark)
+    @Default(ThemeMode.dark)
+    ThemeMode themeMode,
+    @JsonKey(unknownEnumValue: DynamicSchemeVariant.fidelity)
+    @Default(DynamicSchemeVariant.fidelity)
+    DynamicSchemeVariant schemeVariant,
     @Default(true) bool pureBlack,
     @Default(TextScale()) TextScale textScale,
   }) = _ThemeProps;
