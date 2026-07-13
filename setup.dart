@@ -739,10 +739,16 @@ class BuildCommand extends Command {
     required String env,
   }) async {
     await Build.getDistributor();
+    // Run the just-activated package through `dart pub global run` instead of
+    // a bare `flutter_distributor` executable: activation only shims binaries
+    // into ~/.pub-cache/bin, which is NOT guaranteed to be on PATH (pub itself
+    // warns about it). A bare invocation reproduces as `command not found` on
+    // any clean machine/CI runner — the build must not depend on shell rc
+    // files having exported that directory.
     await Build.exec(
       name: name,
       Build.getExecutable(
-        "flutter_distributor package --skip-clean --platform ${target.name} --targets $targets --flutter-build-args=verbose$args --build-dart-define=APP_ENV=$env",
+        "dart pub global run flutter_distributor:main package --skip-clean --platform ${target.name} --targets $targets --flutter-build-args=verbose$args --build-dart-define=APP_ENV=$env",
       ),
     );
   }

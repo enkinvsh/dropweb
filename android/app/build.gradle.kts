@@ -72,6 +72,26 @@ android {
         }
     }
 
+    // Neutralize Flutter's per-ABI versionCode offset for --split-per-abi
+    // builds (armeabi-v7a +1000, arm64-v8a +2000, x86_64 +4000). That offset
+    // exists only for Google Play's LEGACY multi-APK publishing; we sideload
+    // split APKs directly, so it is pure poison here:
+    //   * the in-app updater compares update.json `build` (the pubspec BASE
+    //     code) against PackageInfo.buildNumber (the OFFSET code) — with a
+    //     monotonic +1-per-release scheme an arm64 user (base+2000) would not
+    //     be offered the universal update for ~2000 releases;
+    //   * installing the universal APK (base) over an arm64 split (base+2000)
+    //     is an Android versionCode downgrade → INSTALL_FAILED_VERSION_DOWNGRADE.
+    // Every artifact must carry EXACTLY pubspec's base versionCode. This
+    // callback registers after the Flutter plugin's own (plugins apply first),
+    // so this override wins.
+    applicationVariants.all {
+        outputs.all {
+            val apkOutput = this as com.android.build.gradle.internal.api.ApkVariantOutputImpl
+            apkOutput.versionCodeOverride = flutter.versionCode
+        }
+    }
+
     packaging {
         jniLibs {
             // Extract bundled .so files onto disk rather than loading them
