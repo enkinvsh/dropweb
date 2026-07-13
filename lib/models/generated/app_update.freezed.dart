@@ -16,11 +16,18 @@ final _privateConstructorUsedError = UnsupportedError(
 
 /// @nodoc
 mixin _$AppUpdateInfo {
-  /// Marketing version WITHOUT a leading `v`, e.g. `0.8.2`.
+  /// Marketing version WITHOUT a leading `v`, e.g. `0.8.2`. Display/tag data
+  /// only — install eligibility is decided by [build] (Android versionCode)
+  /// when both remote and installed builds are usable.
   String get version => throw _privateConstructorUsedError;
 
   /// Release tag, e.g. `v0.8.2` — used to build the GitHub fallback URL.
   String get tag => throw _privateConstructorUsedError;
+
+  /// Remote Android versionCode (`build`) from the manifest, when it is a
+  /// valid positive integer. Null when the manifest omits/malforms it and the
+  /// resolver fell back to semver. Diagnostics + logging aid.
+  int? get build => throw _privateConstructorUsedError;
 
   /// Release notes (bullets), already split per line.
   List<String> get notes => throw _privateConstructorUsedError;
@@ -60,6 +67,7 @@ abstract class $AppUpdateInfoCopyWith<$Res> {
   $Res call(
       {String version,
       String tag,
+      int? build,
       List<String> notes,
       String primaryUrl,
       String? fallbackUrl,
@@ -85,6 +93,7 @@ class _$AppUpdateInfoCopyWithImpl<$Res, $Val extends AppUpdateInfo>
   $Res call({
     Object? version = null,
     Object? tag = null,
+    Object? build = freezed,
     Object? notes = null,
     Object? primaryUrl = null,
     Object? fallbackUrl = freezed,
@@ -101,6 +110,10 @@ class _$AppUpdateInfoCopyWithImpl<$Res, $Val extends AppUpdateInfo>
           ? _value.tag
           : tag // ignore: cast_nullable_to_non_nullable
               as String,
+      build: freezed == build
+          ? _value.build
+          : build // ignore: cast_nullable_to_non_nullable
+              as int?,
       notes: null == notes
           ? _value.notes
           : notes // ignore: cast_nullable_to_non_nullable
@@ -140,6 +153,7 @@ abstract class _$$AppUpdateInfoImplCopyWith<$Res>
   $Res call(
       {String version,
       String tag,
+      int? build,
       List<String> notes,
       String primaryUrl,
       String? fallbackUrl,
@@ -163,6 +177,7 @@ class __$$AppUpdateInfoImplCopyWithImpl<$Res>
   $Res call({
     Object? version = null,
     Object? tag = null,
+    Object? build = freezed,
     Object? notes = null,
     Object? primaryUrl = null,
     Object? fallbackUrl = freezed,
@@ -179,6 +194,10 @@ class __$$AppUpdateInfoImplCopyWithImpl<$Res>
           ? _value.tag
           : tag // ignore: cast_nullable_to_non_nullable
               as String,
+      build: freezed == build
+          ? _value.build
+          : build // ignore: cast_nullable_to_non_nullable
+              as int?,
       notes: null == notes
           ? _value._notes
           : notes // ignore: cast_nullable_to_non_nullable
@@ -213,6 +232,7 @@ class _$AppUpdateInfoImpl implements _AppUpdateInfo {
   const _$AppUpdateInfoImpl(
       {required this.version,
       required this.tag,
+      this.build,
       final List<String> notes = const <String>[],
       required this.primaryUrl,
       this.fallbackUrl,
@@ -221,13 +241,21 @@ class _$AppUpdateInfoImpl implements _AppUpdateInfo {
       this.minSupported})
       : _notes = notes;
 
-  /// Marketing version WITHOUT a leading `v`, e.g. `0.8.2`.
+  /// Marketing version WITHOUT a leading `v`, e.g. `0.8.2`. Display/tag data
+  /// only — install eligibility is decided by [build] (Android versionCode)
+  /// when both remote and installed builds are usable.
   @override
   final String version;
 
   /// Release tag, e.g. `v0.8.2` — used to build the GitHub fallback URL.
   @override
   final String tag;
+
+  /// Remote Android versionCode (`build`) from the manifest, when it is a
+  /// valid positive integer. Null when the manifest omits/malforms it and the
+  /// resolver fell back to semver. Diagnostics + logging aid.
+  @override
+  final int? build;
 
   /// Release notes (bullets), already split per line.
   final List<String> _notes;
@@ -268,7 +296,7 @@ class _$AppUpdateInfoImpl implements _AppUpdateInfo {
 
   @override
   String toString() {
-    return 'AppUpdateInfo(version: $version, tag: $tag, notes: $notes, primaryUrl: $primaryUrl, fallbackUrl: $fallbackUrl, sha256: $sha256, mandatory: $mandatory, minSupported: $minSupported)';
+    return 'AppUpdateInfo(version: $version, tag: $tag, build: $build, notes: $notes, primaryUrl: $primaryUrl, fallbackUrl: $fallbackUrl, sha256: $sha256, mandatory: $mandatory, minSupported: $minSupported)';
   }
 
   @override
@@ -278,6 +306,7 @@ class _$AppUpdateInfoImpl implements _AppUpdateInfo {
             other is _$AppUpdateInfoImpl &&
             (identical(other.version, version) || other.version == version) &&
             (identical(other.tag, tag) || other.tag == tag) &&
+            (identical(other.build, build) || other.build == build) &&
             const DeepCollectionEquality().equals(other._notes, _notes) &&
             (identical(other.primaryUrl, primaryUrl) ||
                 other.primaryUrl == primaryUrl) &&
@@ -295,6 +324,7 @@ class _$AppUpdateInfoImpl implements _AppUpdateInfo {
       runtimeType,
       version,
       tag,
+      build,
       const DeepCollectionEquality().hash(_notes),
       primaryUrl,
       fallbackUrl,
@@ -315,6 +345,7 @@ abstract class _AppUpdateInfo implements AppUpdateInfo {
   const factory _AppUpdateInfo(
       {required final String version,
       required final String tag,
+      final int? build,
       final List<String> notes,
       required final String primaryUrl,
       final String? fallbackUrl,
@@ -322,13 +353,21 @@ abstract class _AppUpdateInfo implements AppUpdateInfo {
       final bool mandatory,
       final String? minSupported}) = _$AppUpdateInfoImpl;
 
-  /// Marketing version WITHOUT a leading `v`, e.g. `0.8.2`.
+  /// Marketing version WITHOUT a leading `v`, e.g. `0.8.2`. Display/tag data
+  /// only — install eligibility is decided by [build] (Android versionCode)
+  /// when both remote and installed builds are usable.
   @override
   String get version;
 
   /// Release tag, e.g. `v0.8.2` — used to build the GitHub fallback URL.
   @override
   String get tag;
+
+  /// Remote Android versionCode (`build`) from the manifest, when it is a
+  /// valid positive integer. Null when the manifest omits/malforms it and the
+  /// resolver fell back to semver. Diagnostics + logging aid.
+  @override
+  int? get build;
 
   /// Release notes (bullets), already split per line.
   @override

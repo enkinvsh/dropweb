@@ -191,7 +191,8 @@ class Request {
   /// [_clashDio] so a ТСПУ block on dropweb.org/YC is bypassed via the active
   /// node; otherwise it goes direct via [_dio]. The caller owns the tunnel-state
   /// decision and the direct→proxy fallback ordering.
-  Future<Map<String, dynamic>?> fetchUpdateManifest({bool viaProxy = false}) async {
+  Future<Map<String, dynamic>?> fetchUpdateManifest(
+      {bool viaProxy = false}) async {
     try {
       final response = await (viaProxy ? _clashDio : _dio).get(
         kUpdateManifestUrl,
@@ -241,11 +242,13 @@ class Request {
   }
 
   String _platformKey() {
-    if (Platform.isAndroid) return 'android-arm64';
+    // Universal is the default Android artifact (installs on every ABI); the
+    // in-app updater's per-arch resolver uses an explicit key when needed.
+    if (Platform.isAndroid) return 'android-universal';
     if (Platform.isWindows) return 'windows-amd64';
     if (Platform.isMacOS) return 'macos';
     if (Platform.isLinux) return 'linux-amd64';
-    return 'android-arm64';
+    return 'android-universal';
   }
 
   final Map<String, IpInfo Function(Map<String, dynamic>)> _ipInfoSources = {

@@ -16,16 +16,24 @@ enum AppUpdateStatus {
   error,
 }
 
-/// A resolved, newer-than-installed update for the android-arm64 platform,
-/// produced by `resolveAndroidUpdate` from the fetched update.json manifest.
+/// A resolved, newer-than-installed update for the requested Android platform
+/// (default `android-universal`), produced by `resolveAndroidUpdate` from the
+/// fetched update.json manifest.
 @freezed
 class AppUpdateInfo with _$AppUpdateInfo {
   const factory AppUpdateInfo({
-    /// Marketing version WITHOUT a leading `v`, e.g. `0.8.2`.
+    /// Marketing version WITHOUT a leading `v`, e.g. `0.8.2`. Display/tag data
+    /// only — install eligibility is decided by [build] (Android versionCode)
+    /// when both remote and installed builds are usable.
     required String version,
 
     /// Release tag, e.g. `v0.8.2` — used to build the GitHub fallback URL.
     required String tag,
+
+    /// Remote Android versionCode (`build`) from the manifest, when it is a
+    /// valid positive integer. Null when the manifest omits/malforms it and the
+    /// resolver fell back to semver. Diagnostics + logging aid.
+    int? build,
 
     /// Release notes (bullets), already split per line.
     @Default(<String>[]) List<String> notes,
@@ -50,7 +58,6 @@ class AppUpdateInfo with _$AppUpdateInfo {
     String? minSupported,
   }) = _AppUpdateInfo;
 }
-
 
 /// Reactive state for the in-app updater, surfaced by `appUpdateProvider` and
 /// rendered by the Lumina update banner/sheet.

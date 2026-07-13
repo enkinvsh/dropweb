@@ -62,6 +62,7 @@ class AppUpdate extends _$AppUpdate {
     final info = resolveAndroidUpdate(
       manifest: manifest,
       localVersion: globalState.packageInfo.version,
+      localBuild: globalState.packageInfo.buildNumber,
     );
     state = info == null
         ? state.copyWith(status: AppUpdateStatus.upToDate, info: null)
