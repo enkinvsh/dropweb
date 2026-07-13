@@ -70,7 +70,15 @@ Future<void> main() async {
   }
 
   final version = await system.version;
-  await clashCore.preload();
+  final coreBridgeReady = await clashCore.preload();
+  if (!coreBridgeReady) {
+    // Bounded preload gave up (see ClashLib.preload). Boot the UI anyway:
+    // AppController._initCore() retries later and every core call degrades
+    // via its own timeout sentinel instead of hanging the native splash.
+    commonPrint.log(
+      "[boot] core bridge not ready — continuing to UI without it",
+    );
+  }
   await globalState.initApp(version);
   await android?.init();
   await window?.init(version);
@@ -106,7 +114,26 @@ Future<void> _service(List<String> flags) async {
   final quickStart = flags.contains("quick");
   commonPrint.log("[DART] quickStart = $quickStart");
 
-  final clashLibHandler = ClashLibHandler();
+  // FFI load is the single most dangerous line of the service isolate: if
+  // DynamicLibrary.open("libclash.so") throws (ABI mismatch, linker/loader
+  // failure, corrupt install), the throw would be swallowed by the global
+  // handlers while the MAIN isolate keeps waiting for a SendPort handshake
+  // that can never come — the historical eternal-splash class. Contain it
+  // and tell the main isolate explicitly so its preload() resolves NOW.
+  final ClashLibHandler clashLibHandler;
+  try {
+    clashLibHandler = ClashLibHandler();
+  } catch (e, stackTrace) {
+    commonPrint.log("=== [DART] _service FATAL: ClashLibHandler failed ===");
+    commonPrint.log("[DART] Error: $e");
+    commonPrint.log("[DART] StackTrace: $stackTrace");
+    IsolateNameServer.lookupPortByName(mainIsolate)?.send({
+      'type': 'serviceInitFailed',
+      'error': '$e',
+    });
+    // Without the native lib no listener below can function — bail out.
+    return;
+  }
   commonPrint.log("[DART] ClashLibHandler created");
 
   commonPrint.log("[DART] BEFORE try-catch block");

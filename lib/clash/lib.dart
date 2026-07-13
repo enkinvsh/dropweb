@@ -33,8 +33,27 @@ class ClashLib extends ClashHandlerInterface with AndroidClashInterface {
   // is a re-creatable nullable field rather than a `final` created once.
   ReceivePort? _receiverPort;
 
+  /// Upper bound for the cold-boot service handshake. `main()` awaits
+  /// [preload] BEFORE `runApp`: an unbounded wait here is an eternal native
+  /// splash whenever the service engine, `libclash.so`, or the SendPort
+  /// handshake fails (the global error handlers swallow the throw but nothing
+  /// ever completes the completer). Bounded, the app always reaches its first
+  /// frame; a late handshake still lands via [_listenPort] and heals the
+  /// bridge for subsequent calls.
+  static const _preloadTimeout = Duration(seconds: 15);
+
   @override
-  Future<bool> preload() => _canSendCompleter.future;
+  Future<bool> preload() async {
+    try {
+      return await _canSendCompleter.future.timeout(_preloadTimeout);
+    } on TimeoutException {
+      commonPrint.log(
+        "[bridge] preload timed out after ${_preloadTimeout.inSeconds}s — "
+        "booting UI without a live core bridge",
+      );
+      return false;
+    }
+  }
 
   /// How long [_tryRehandshake] waits for the live service isolate to answer a
   /// re-handshake before falling back to destroy+init. Bounded so a zombie
@@ -98,7 +117,21 @@ class ClashLib extends ClashHandlerInterface with AndroidClashInterface {
         sendPort = message;
         _canSendCompleter.complete(true);
       } else if (message is Map) {
-        // Ignore IPC responses (Map type) - they don't need processing
+        if (message['type'] == 'serviceInitFailed') {
+          // The service isolate failed before it could hand us a SendPort
+          // (e.g. DynamicLibrary.open("libclash.so") threw). Complete the
+          // handshake with `false` IMMEDIATELY so preload()/sendMessage do
+          // not sit out their full timeouts on a wait that can never win.
+          commonPrint.log(
+            "[bridge] service isolate reported init failure: "
+            "${message['error']}",
+          );
+          if (!_canSendCompleter.isCompleted) {
+            _canSendCompleter.complete(false);
+          }
+          return;
+        }
+        // Ignore other IPC responses (Map type) - they don't need processing
         return;
       } else {
         handleResult(
@@ -133,15 +166,35 @@ class ClashLib extends ClashHandlerInterface with AndroidClashInterface {
     return true;
   }
 
+  /// Bound for waiting on the bridge before sending. Unbounded waits here
+  /// propagate a dead handshake into every caller (invoke() timeouts only
+  /// start counting AFTER the send resolves). On timeout the message is
+  /// dropped; downstream invoke() calls then fail via their own sentinels.
+  static const _sendTimeout = Duration(seconds: 10);
+
+  Future<bool> _awaitBridge() async {
+    try {
+      return await _canSendCompleter.future.timeout(_sendTimeout);
+    } on TimeoutException {
+      return false;
+    }
+  }
+
   @override
   Future<void> sendMessage(String message) async {
-    await _canSendCompleter.future;
+    if (!await _awaitBridge()) {
+      commonPrint.log("[bridge] dropping message — no live service bridge");
+      return;
+    }
     sendPort?.send(message);
   }
 
   /// Send a custom IPC message to service (for foreground notification updates)
   Future<void> sendIpcMessage(Map<String, dynamic> message) async {
-    await _canSendCompleter.future;
+    if (!await _awaitBridge()) {
+      commonPrint.log("[bridge] dropping IPC message — no live service bridge");
+      return;
+    }
     sendPort?.send(message);
   }
 
