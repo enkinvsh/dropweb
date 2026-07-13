@@ -34,6 +34,26 @@ class Preferences {
   @visibleForTesting
   Future<Directory?> Function() quarantineDirResolver = defaultQuarantineDir;
 
+  /// The encrypted subscription-URL store. Overridable in tests with an
+  /// in-memory fake so the migration/save paths run without a real KeyStore.
+  @visibleForTesting
+  SecureProfileUrlStoreInterface secureStore = secureProfileUrlStore;
+
+  /// Low-level Config-blob writer. A seam so tests can simulate a durable
+  /// SharedPreferences write failure (the mock store otherwise always succeeds)
+  /// and assert the transactional migration/save invariants.
+  @visibleForTesting
+  Future<bool> Function(SharedPreferences, String, String) rawStringWriter =
+      defaultRawStringWriter;
+
+  @visibleForTesting
+  static Future<bool> defaultRawStringWriter(
+    SharedPreferences preferences,
+    String key,
+    String value,
+  ) =>
+      preferences.setString(key, value);
+
   @visibleForTesting
   static Future<Directory?> defaultQuarantineDir() async {
     try {
@@ -203,50 +223,89 @@ class Preferences {
   /// Profile URL from encrypted store; falls back to in-memory copy if
   /// migration hasn't run yet. Tolerate keystore being slow right after boot.
   Future<String?> getProfileUrl(Profile profile) async {
-    final fromStore = await secureProfileUrlStore.getUrl(profile.id);
+    final fromStore = await secureStore.getUrl(profile.id);
     if (fromStore != null && fromStore.isNotEmpty) return fromStore;
     return profile.url.isEmpty ? null : profile.url;
   }
 
   Future<String?> getProfileFallbackUrl(Profile profile) async {
-    final fromStore = await secureProfileUrlStore.getFallbackUrl(profile.id);
+    final fromStore = await secureStore.getFallbackUrl(profile.id);
     if (fromStore != null && fromStore.isNotEmpty) return fromStore;
     return profile.fallbackUrl;
   }
 
-  /// One-time move of plaintext URLs into encrypted store. Idempotent.
+  /// One-time move of plaintext URLs into the encrypted store. Idempotent and
+  /// TRANSACTIONAL: the "migrated" marker is set ONLY after every required
+  /// per-profile secure write succeeds AND the stripped Config is durably
+  /// persisted AND the marker itself reads back. Any partial failure keeps the
+  /// failed profile's plaintext in Config with the marker false, so the next
+  /// run safely retries the remaining plaintext without ever losing a URL.
+  ///
+  /// Stays `Future<void>` for the deferred post-frame caller in controller.dart
+  /// (`.catchError`); success/failure is an internal, self-retrying concern.
   /// MUST run post-frame so a slow keystore can't keep the splash on screen.
   Future<void> migrateProfileUrlsIfNeeded() async {
-    if (await secureProfileUrlStore.isMigrated()) return;
+    if (await secureStore.isMigrated()) return;
 
     final preferences = await sharedPreferencesCompleter.future;
     if (preferences == null) return;
-    final configString = preferences.getString(configKey);
-    if (configString == null) {
-      await secureProfileUrlStore.markMigrated();
+
+    // Decode via the shared safe/quarantine path — never a bare json.decode
+    // that could crash the deferred post-frame task on a corrupt blob.
+    final config = await getConfig();
+    if (config == null) {
+      // getConfig returns null for two very different cases; only one is safe
+      // to complete the one-time migration on:
+      //   (a) no config was ever persisted — nothing to migrate now or later;
+      //   (b) a corrupt active config was quarantined into configBackupKey — a
+      //       future recovery/reinjection may restore plaintext URLs that still
+      //       need migrating, so completing now would strand them permanently.
+      // Distinguish them via the quarantine backup: if a backup exists, leave
+      // the marker false so a later recovery re-runs migration.
+      final quarantined = preferences.getString(configBackupKey) != null;
+      if (quarantined) return;
+      await secureStore.markMigrated();
       return;
     }
 
-    final config = Config.compatibleFromJson(json.decode(configString));
-    var wrotePlaintext = false;
+    // Migrate each profile independently. A profile joins [stripIds] only once
+    // its secret(s) are confirmed in the secure store; a failed write leaves
+    // that profile's plaintext untouched and blocks completion.
     final stripIds = <String>{};
+    var allMigrated = true;
     for (final profile in config.profiles) {
-      var ok = true;
-      if (profile.url.isNotEmpty) {
-        ok = await secureProfileUrlStore.setUrl(profile.id, profile.url);
-        wrotePlaintext = true;
-      }
+      final hasUrl = profile.url.isNotEmpty;
       final fb = profile.fallbackUrl;
-      if (fb != null && fb.isNotEmpty) {
-        final fbOk = await secureProfileUrlStore.setFallbackUrl(profile.id, fb);
-        ok = ok && fbOk;
-        wrotePlaintext = true;
+      final hasFb = fb != null && fb.isNotEmpty;
+      if (!hasUrl && !hasFb) continue;
+
+      var ok = true;
+      if (hasUrl) {
+        ok = await secureStore.setUrl(profile.id, profile.url);
       }
-      if (ok) stripIds.add(profile.id);
+      if (hasFb) {
+        final fbOk = await secureStore.setFallbackUrl(profile.id, fb);
+        ok = ok && fbOk;
+      }
+      if (ok) {
+        stripIds.add(profile.id);
+      } else {
+        allMigrated = false;
+      }
     }
-    await secureProfileUrlStore.markMigrated();
-    if (wrotePlaintext) {
-      await _writeConfigStripped(config, preferences, stripIds);
+
+    // Persist Config with EXACTLY the successfully-migrated profiles stripped.
+    // Strip successfully-migrated profiles even on a partial run (bounds secret
+    // retention), but only when the persist itself succeeds — otherwise the old
+    // blob (with plaintext) stays on disk and the next run retries.
+    final persisted = stripIds.isEmpty
+        ? true
+        : await _writeConfigStripped(config, preferences, stripIds);
+
+    // Complete only when every profile migrated AND the stripped config is
+    // durable AND the marker reads back. Any failure ⇒ marker stays false.
+    if (allMigrated && persisted) {
+      await secureStore.markMigrated();
     }
   }
 
@@ -259,10 +318,10 @@ class Preferences {
     for (final profile in config.profiles) {
       var ok = true;
       if (profile.url.isNotEmpty) {
-        ok = await secureProfileUrlStore.setUrl(profile.id, profile.url);
+        ok = await secureStore.setUrl(profile.id, profile.url);
       }
       if (profile.fallbackUrl != null && profile.fallbackUrl!.isNotEmpty) {
-        final fbOk = await secureProfileUrlStore.setFallbackUrl(
+        final fbOk = await secureStore.setFallbackUrl(
           profile.id,
           profile.fallbackUrl,
         );
@@ -301,7 +360,8 @@ class Preferences {
         )
         .toList();
     final strippedConfig = config.copyWith(profiles: strippedProfiles);
-    return preferences.setString(
+    return rawStringWriter(
+      preferences,
       configKey,
       json.encode(strippedConfig),
     );

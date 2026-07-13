@@ -57,7 +57,20 @@ class Geodata {
     final homePath = await appPath.homeDirPath;
     for (final geoFileName in geoFileNameList) {
       final geoFile = File(join(homePath, geoFileName));
-      if (!await geoFile.exists()) {
+      var needsInit = !await geoFile.exists();
+      if (!needsInit) {
+        // A zero-length file is a poisoned/interrupted seed. Detect it with a
+        // cheap stat (no bundle load) so the connect hot path stays light while
+        // still triggering the atomic repair in ClashCore.initGeo. Any deeper
+        // truncation/wrong-length is caught by initGeo's exact-length
+        // validation once triggered here or on the profile-init path.
+        try {
+          needsInit = await geoFile.length() == 0;
+        } catch (_) {
+          needsInit = true;
+        }
+      }
+      if (needsInit) {
         await ClashCore.initGeo();
         return;
       }

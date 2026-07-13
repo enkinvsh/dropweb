@@ -13,6 +13,7 @@ export 'file_logger.dart';
 export 'fixed.dart';
 export 'function.dart';
 export 'future.dart';
+export 'geo_asset_installer.dart';
 export 'geodata.dart';
 export 'http.dart';
 export 'icons.dart';

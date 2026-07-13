@@ -40,6 +40,15 @@ const mmdbFileName = "geoip.metadb";
 const asnFileName = "ASN.mmdb";
 const geoIpFileName = "GeoIP.dat";
 const geoSiteFileName = "GeoSite.dat";
+// Exact byte lengths of the bundled geo seed assets under assets/data/. The
+// installer validates a destination by length WITHOUT loading the ~24 MB assets
+// off the hot path, and detects asset/metadata drift. A regression test asserts
+// the real repo assets match these — replacing an asset without updating this
+// map fails CI (see test/common/geo_asset_installer_test.dart).
+const geoAssetExpectedLengths = <String, int>{
+  geoIpFileName: 20473205,
+  geoSiteFileName: 4101081,
+};
 final double kHeaderHeight = system.isDesktop
     ? !Platform.isMacOS
         ? 40

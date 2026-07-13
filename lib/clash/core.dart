@@ -42,29 +42,37 @@ class ClashCore {
     // profiles with `geodata-mode == true`, and in that mode mihomo loads
     // GeoIP.dat (not metadb); ASN.mmdb is unused by the default rule set. If a
     // profile ever needs metadb/ASN, mihomo downloads them on demand (init.go).
-    const geoFileNameList = [
-      geoIpFileName,
-      geoSiteFileName,
-    ];
-    try {
-      for (final geoFileName in geoFileNameList) {
-        final geoFile = File(
-          join(homePath, geoFileName),
+    // Bundled geodata is a BOOTSTRAP SEED, kept in the APK so the app starts on
+    // a device with no internet — the whole point in RU, where the user
+    // installs us precisely because they can't reach the internet without a
+    // working VPN. mihomo refreshes these files from the profile config once
+    // the tunnel is up. Trimmed to GeoIP.dat + GeoSite.dat (~24 MB): geoip.metadb
+    // and ASN.mmdb were redundant.
+    //
+    // The install is ATOMIC + self-repairing (GeoAssetInstaller): a good file
+    // is validated by a cheap length stat against geoAssetExpectedLengths and
+    // left untouched WITHOUT loading the ~24 MB asset (no re-copy on a repeated
+    // init); a missing/zero/truncated/wrong-length file is staged in a same-dir
+    // temp, flushed, length-validated, then atomically renamed over the
+    // destination — so a power/process loss mid-write can never poison the seed
+    // permanently (the prior good file survives until a validated replacement
+    // exists).
+    final installer = GeoAssetInstaller(
+      loadAsset: (assetName) async {
+        final data = await rootBundle.load('assets/data/$assetName');
+        return data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
         );
-        final isExists = await geoFile.exists();
-        if (isExists) {
-          continue;
-        }
-        // Bundled geodata is a BOOTSTRAP SEED, kept in the APK so the app
-        // starts on a device with no internet — which is the whole point
-        // in RU, where the user installs us precisely because they can't
-        // reach the internet without a working VPN. mihomo refreshes these
-        // files from the URLs in the profile config once the tunnel is up.
-        // Trimmed to GeoIP.dat + GeoSite.dat (~23 MB): geoip.metadb and
-        // ASN.mmdb were redundant (see geoFileNameList note above).
-        final data = await rootBundle.load('assets/data/$geoFileName');
-        final List<int> bytes = data.buffer.asUint8List();
-        await geoFile.writeAsBytes(bytes, flush: true);
+      },
+    );
+    try {
+      for (final entry in geoAssetExpectedLengths.entries) {
+        await installer.ensureInstalled(
+          entry.key,
+          join(homePath, entry.key),
+          expectedLength: entry.value,
+        );
       }
     } catch (e) {
       // Fail loudly instead of exit(0): since lazy geodata, initGeo can run
