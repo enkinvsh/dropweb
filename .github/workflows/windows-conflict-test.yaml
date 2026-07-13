@@ -7,24 +7,83 @@ on:
     paths:
       - '.github/workflows/windows-conflict-test.yaml'
       - '.github/scripts/win_conflict_inspect.ps1'
+      - 'windows/packaging/exe/inno_setup.iss'
+      - 'windows/**'
+      - 'lib/common/windows.dart'
+      - 'lib/common/windows_conflict.dart'
+      - 'services/helper/**'
+      - 'setup.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
 
 permissions:
   contents: read
 
 jobs:
+  build-installer:
+    name: Build Windows amd64 installer from source
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.0"
+          cache-dependency-path: |
+            core/go.sum
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+          flutter-version: 3.41.6
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
+      - name: Build (Go core + Rust helper + Flutter + Inno installer)
+        run: dart setup.dart windows --arch amd64
+
+      - name: Verify installer artifact
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist -Filter '*setup*.exe' -Recurse -EA SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { $exe = Get-ChildItem dist -Filter '*amd64*.exe' -Recurse -EA SilentlyContinue | Select-Object -First 1 }
+          if (-not $exe) { Write-Host "::error::setup.dart produced no installer .exe in dist/"; Get-ChildItem dist -Recurse -EA SilentlyContinue | ForEach-Object { Write-Host $_.FullName }; exit 1 }
+          Write-Host "installer: $($exe.FullName)"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: dropweb-windows-installer
+          path: dist/*.exe
+          if-no-files-found: error
+          overwrite: true
+
   decouple-check:
     name: Clean coexistence (current dropweb + FlClashX)
     runs-on: windows-latest
+    needs: build-installer
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download installers
+      - name: Download dropweb installer (built from this commit)
+        uses: actions/download-artifact@v4
+        with:
+          name: dropweb-windows-installer
+          path: dl/dropweb
+
+      - name: Download FlClashX (external, latest release)
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          New-Item -ItemType Directory -Force dl\flclashx, dl\dropweb | Out-Null
-
+          New-Item -ItemType Directory -Force dl\flclashx | Out-Null
           Write-Host "=== FlClashX latest release assets ==="
           gh release view --repo pluralplay/FlClashX --json assets --jq '.assets[].name'
           gh release download --repo pluralplay/FlClashX -p "*amd64*setup*.exe" -D dl\flclashx
@@ -34,16 +93,6 @@ jobs:
           if (-not (Get-ChildItem dl\flclashx -Filter *.exe -EA SilentlyContinue)) {
             gh release download --repo pluralplay/FlClashX -p "*.exe" -D dl\flclashx
           }
-
-          Write-Host "=== dropweb latest pre-release ==="
-          $tag = (gh release list --repo ${{ github.repository }} -L 30 --json tagName,isPrerelease | ConvertFrom-Json | Where-Object { $_.isPrerelease } | Select-Object -First 1).tagName
-          Write-Host "latest pre-release tag: $tag"
-          gh release view $tag --repo ${{ github.repository }} --json assets --jq '.assets[].name'
-          gh release download $tag --repo ${{ github.repository }} -p "*amd64*.exe" -D dl\dropweb
-          if (-not (Get-ChildItem dl\dropweb -Filter *.exe -EA SilentlyContinue)) {
-            gh release download $tag --repo ${{ github.repository }} -p "*setup*.exe" -D dl\dropweb
-          }
-
           Write-Host "=== downloaded ==="
           Get-ChildItem -Recurse dl | ForEach-Object { Write-Host $_.FullName }
 
@@ -61,17 +110,18 @@ jobs:
           Write-Host "FlClashX installer exit=$($p.ExitCode)"
           & ./.github/scripts/win_conflict_inspect.ps1 -Label "1. after FlClashX"
 
-      - name: 2 - install current dropweb
+      - name: 2 - install dropweb (built from this commit)
         shell: pwsh
         run: |
           $dw = Get-ChildItem dl\dropweb -Filter *.exe -Recurse | Select-Object -First 1
           if (-not $dw) { Write-Host "::error::dropweb installer not found"; exit 1 }
           Write-Host "Installing $($dw.FullName)"
-          $p = Start-Process -FilePath $dw.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS','/NOCANCEL' -Wait -PassThru
+          $p = Start-Process -FilePath $dw.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NORESTARTAPPLICATIONS','/NOICONS','/NOCANCEL' -Wait -PassThru
           Write-Host "dropweb installer exit=$($p.ExitCode)"
-          & ./.github/scripts/win_conflict_inspect.ps1 -Label "2. after current dropweb"
+          if ($p.ExitCode -ne 0) { Write-Host "::error::dropweb installer returned $($p.ExitCode)"; exit 1 }
+          & ./.github/scripts/win_conflict_inspect.ps1 -Label "2. after dropweb"
 
-      - name: 3 - verdict
+      - name: 3 - verdict (dropweb decoupled into its own folder)
         shell: pwsh
         run: |
           $keys = @(
@@ -86,7 +136,7 @@ jobs:
               if ($p.DisplayName -match 'dropweb') { $dw = $p }
             }
           }
-          if (-not $dw) { Write-Host "::warning::no dropweb uninstall entry - install may have failed"; exit 1 }
+          if (-not $dw) { Write-Host "::error::no dropweb uninstall entry - install failed"; exit 1 }
           Write-Host "dropweb InstallLocation = $($dw.InstallLocation)"
           if ($dw.InstallLocation -match 'FlClashX') {
             Write-Host "::error::CONFLICT - dropweb installed inside FlClashX folder: $($dw.InstallLocation)"
@@ -97,20 +147,24 @@ jobs:
   flclashx-running-then-dropweb:
     name: FlClashX running first, then install dropweb (runtime helper-port)
     runs-on: windows-latest
+    needs: build-installer
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download installers
+      - name: Download dropweb installer (built from this commit)
+        uses: actions/download-artifact@v4
+        with:
+          name: dropweb-windows-installer
+          path: dl/dropweb
+
+      - name: Download FlClashX (external, latest release)
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          New-Item -ItemType Directory -Force dl\flclashx, dl\dropweb | Out-Null
+          New-Item -ItemType Directory -Force dl\flclashx | Out-Null
           gh release download --repo pluralplay/FlClashX -p "*amd64*setup*.exe" -D dl\flclashx
           if (-not (Get-ChildItem dl\flclashx -Filter *.exe -EA SilentlyContinue)) { gh release download --repo pluralplay/FlClashX -p "*setup*.exe" -D dl\flclashx }
-          $tag = (gh release list --repo ${{ github.repository }} -L 30 --json tagName,isPrerelease | ConvertFrom-Json | Where-Object { $_.isPrerelease } | Select-Object -First 1).tagName
-          Write-Host "dropweb pre-release: $tag"
-          gh release download $tag --repo ${{ github.repository }} -p "*amd64*.exe" -D dl\dropweb
           Get-ChildItem -Recurse dl | ForEach-Object { Write-Host $_.FullName }
 
       - name: Install FlClashX, then bring it ALIVE (helper on 47890 + launch app)
@@ -128,29 +182,34 @@ jobs:
           & ./.github/scripts/win_conflict_inspect.ps1 -Label "FlClashX alive (helper + app)"
           Write-Host "-- who holds 47890 --"; (netstat -ano | Select-String ':47890') | ForEach-Object { Write-Host "  $_" }
 
-      - name: Install dropweb WHILE FlClashX runs, then start its helper
+      - name: Install dropweb WHILE FlClashX runs (installer owns its helper)
         shell: pwsh
         run: |
           $dw = Get-ChildItem dl\dropweb -Filter *.exe -Recurse | Select-Object -First 1
-          $p = Start-Process -FilePath $dw.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS','/NOCANCEL' -Wait -PassThru
+          $p = Start-Process -FilePath $dw.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NORESTARTAPPLICATIONS','/NOICONS','/NOCANCEL' -Wait -PassThru
           Write-Host "dropweb installer exit=$($p.ExitCode)"
-          $hexe = 'C:\Program Files\dropweb\DropwebHelperService.exe'
-          if (Test-Path $hexe) {
-            try { New-Service -Name DropwebHelperService -BinaryPathName "`"$hexe`"" -StartupType Manual -ErrorAction Stop | Out-Null } catch { Write-Host "create DropwebHelperService: $_" }
-            try { Start-Service DropwebHelperService -ErrorAction Stop; Write-Host "DropwebHelperService started OK" } catch { Write-Host "start DropwebHelperService FAILED: $_" }
-          } else { Write-Host "dropweb helper exe not found at $hexe" }
+          if ($p.ExitCode -ne 0) { Write-Host "::error::dropweb installer returned $($p.ExitCode) while FlClashX was running"; exit 1 }
           Start-Process -FilePath 'C:\Program Files\dropweb\dropweb.exe' -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 6
+          Start-Sleep -Seconds 8
           & ./.github/scripts/win_conflict_inspect.ps1 -Label "after dropweb install (FlClashX still alive)"
-          Write-Host "-- who holds 47890 now --"; (netstat -ano | Select-String ':47890') | ForEach-Object { Write-Host "  $_" }
+          Write-Host "-- who holds 47890 (FlClashX) / 47896 (dropweb) --"
+          (netstat -ano | Select-String ':47890|:47896') | ForEach-Object { Write-Host "  $_" }
 
-      - name: Summary (informational - does not fail)
+      - name: Verdict - FlClashX untouched, dropweb helper installer-owned
         shell: pwsh
         run: |
-          $fl = (Get-Service FlClashHelperService -EA SilentlyContinue).Status
-          $dw = (Get-Service DropwebHelperService -EA SilentlyContinue).Status
-          Write-Host "FlClashHelperService = $fl"
-          Write-Host "DropwebHelperService = $dw"
-          Write-Host "NOTE: pre.4 still uses port 47890 for BOTH helpers (the 47896 fix is unreleased)."
-          Write-Host "      So dropweb's helper is expected to FAIL while FlClashX holds 47890 - that PROVES the runtime port conflict."
-          Write-Host "      Install folders stay separate (other job); this job isolates the runtime helper-port clash."
+          $flProc = Get-Process -Name FlClashX -EA SilentlyContinue
+          $flSvc  = (Get-Service FlClashHelperService -EA SilentlyContinue).Status
+          Write-Host "FlClashX.exe running     = $([bool]$flProc)"
+          Write-Host "FlClashHelperService     = $flSvc"
+          if (-not $flProc) { Write-Host "::error::FlClashX.exe was killed by the dropweb install - hostile process kill regression"; exit 1 }
+          if ($flSvc -ne 'Running') { Write-Host "::error::FlClashHelperService is no longer Running ($flSvc) - dropweb tampered with a foreign service"; exit 1 }
+
+          $dwSvc = Get-Service DropwebHelperService -EA SilentlyContinue
+          if (-not $dwSvc) { Write-Host "::error::installer did NOT create DropwebHelperService (EnsureHelperService regression)"; exit 1 }
+          for ($i = 0; $i -lt 6 -and $dwSvc.Status -ne 'Running'; $i++) { Start-Sleep -Seconds 2; $dwSvc.Refresh() }
+          Write-Host "DropwebHelperService     = $($dwSvc.Status)"
+          if ($dwSvc.Status -ne 'Running') { Write-Host "::error::installer created DropwebHelperService but it is not Running ($($dwSvc.Status))"; exit 1 }
+          $dwBound = netstat -ano | Select-String ':47896' | Select-String 'LISTENING'
+          if (-not $dwBound) { Write-Host "::error::DropwebHelperService Running but not LISTENING on 47896"; exit 1 }
+          Write-Host "OK - FlClashX coexists untouched; dropweb helper installer-owned on 47896"

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 import 'package:dropweb/common/common.dart';
+import 'package:dropweb/common/windows_conflict.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:path/path.dart';
 import 'package:win32/win32.dart';
@@ -224,42 +225,103 @@ class Windows {
     return true;
   }
 
-  Future<void> _killProcess(int port) async {
-    final result = await Process.run('netstat', ['-ano']);
-    final lines = result.stdout.toString().trim().split('\n');
-    for (final line in lines) {
-      if (!line.contains(":$port") || !line.contains("LISTENING")) {
-        continue;
-      }
-      final parts = line.trim().split(RegExp(r'\s+'));
-      final pid = int.tryParse(parts.last);
-      if (pid != null) {
-        commonPrint.log("[helper-conflict] freeing port $port: killing pid=$pid");
-        await Process.run('taskkill', ['/PID', pid.toString(), '/F']);
-      }
+  /// Executable path of a running PID, via CIM/WMI. Null when the process is
+  /// gone or the path is inaccessible. Kept isolated so the parsing is trivial
+  /// (the value is a single line) and the ownership decision stays pure.
+  Future<String?> _pidExecutablePath(int pid) async {
+    try {
+      final res = await Process.run('powershell', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        '(Get-CimInstance Win32_Process -Filter "ProcessId=$pid").ExecutablePath',
+      ]);
+      final out = res.stdout.toString().trim();
+      return out.isEmpty ? null : out;
+    } catch (_) {
+      return null;
     }
   }
 
-  /// Detect and resolve a conflict on our fixed helper port (47896)
-  /// DYNAMICALLY — by detected PID + identity probe, never by a hardcoded
-  /// process name.
+  /// Detect and resolve a conflict on our fixed helper port (47896).
   ///
-  /// We ping the port: if it answers with OUR core hash (pingHelper compares
-  /// coreSHA256) it is our own healthy helper, so we leave it untouched.
-  /// Otherwise the port is squatted by a stale own instance or a foreign
-  /// clash-lineage helper (e.g. FlClashX), which would block our helper from
-  /// binding — so we free it by killing the detected PID. This is legitimate
-  /// desktop conflict resolution: we never touch a verified-healthy holder,
-  /// and we never target by application name.
-  Future<void> resolveHelperPortConflict() async {
+  /// Fast path: if the port answers /ping with OUR core hash it is our own
+  /// healthy helper — leave it ([HelperPortConflictResult.healthy]).
+  ///
+  /// Otherwise we identify the PID LISTENING on the port and gather POSITIVE
+  /// ownership evidence: (1) the holder's own executable is our installed
+  /// `{app}\DropwebHelperService.exe`, or (2) our DropwebHelperService's
+  /// binPath is that exe AND the SCM reports it as the holder PID. Only on
+  /// proof do we kill it ([freedOurs]). A FOREIGN holder (a separately
+  /// installed FlClashX, or anything unrelated) is LEFT ALONE — we log an
+  /// actionable conflict and return [foreignHeld] so callers do NOT assume the
+  /// port is free. We never kill by process name and never kill an
+  /// unidentified PID.
+  Future<HelperPortConflictResult> resolveHelperPortConflict() async {
     if (await request.pingHelper()) {
       commonPrint.log(
           "[helper-conflict] port $helperPort held by our healthy helper — keeping");
-      return;
+      return HelperPortConflictResult.healthy;
     }
-    commonPrint.log(
-        "[helper-conflict] port $helperPort is not our verified helper — freeing it for our service");
-    await _killProcess(helperPort);
+
+    final netstat = await Process.run('netstat', ['-ano']);
+    final holders =
+        WindowsConflict.listeningPids(netstat.stdout.toString(), helperPort);
+    if (holders.isEmpty) {
+      commonPrint.log(
+          "[helper-conflict] port $helperPort is free — nothing holding it");
+      return HelperPortConflictResult.free;
+    }
+
+    final ourHelperPath = appPath.helperPath;
+
+    // Service evidence (gathered once): does OUR DropwebHelperService point at
+    // our helper binary, and which PID does the SCM say it is running as?
+    final qc = await Process.run('sc', ['qc', appHelperService]);
+    final serviceBinPath =
+        WindowsConflict.serviceBinPath(qc.stdout.toString());
+    int? servicePid;
+    if (WindowsConflict.exePathIsOurs(serviceBinPath, ourHelperPath)) {
+      final qex = await Process.run('sc', ['queryex', appHelperService]);
+      servicePid =
+          WindowsConflict.serviceQueryexPid(qex.stdout.toString());
+    }
+
+    for (final pid in holders) {
+      final exePath = await _pidExecutablePath(pid);
+      final isOurs = WindowsConflict.holderIsOurStaleHelper(
+        pidExePath: exePath,
+        ourHelperPath: ourHelperPath,
+        serviceBinPathValue: serviceBinPath,
+        servicePid: servicePid,
+        holderPid: pid,
+      );
+      if (isOurs) {
+        commonPrint.log(
+            "[helper-conflict] port $helperPort held by a STALE copy of our "
+            "helper (pid=$pid, exe=$exePath) — freeing it for our service");
+        final kill =
+            await Process.run('taskkill', ['/PID', pid.toString(), '/F']);
+        if (kill.exitCode != 0) {
+          // Could not kill our own stale helper (already gone, or elevation
+          // denied). The port may still be occupied — report it as still held
+          // so the caller does not assume it was freed.
+          commonPrint.log(
+              "[helper-conflict] taskkill /PID $pid failed (exit=${kill.exitCode}): "
+              "${kill.stderr.toString().trim()} — port $helperPort may still be held");
+          return HelperPortConflictResult.foreignHeld;
+        }
+        return HelperPortConflictResult.freedOurs;
+      }
+      commonPrint.log(
+          "[helper-conflict] port $helperPort held by a FOREIGN process "
+          "(pid=$pid, exe=${exePath ?? 'unknown'}) — leaving it untouched. Our "
+          "helper cannot bind the port, so this launch runs WITHOUT the "
+          "privileged helper: TUN mode is unavailable (system-proxy / "
+          "proxy-only fallback), not a guaranteed direct core spawn");
+    }
+
+    return HelperPortConflictResult.foreignHeld;
   }
 
   /// Poll the helper until it verifiably answers /ping with OUR core hash.
@@ -332,7 +394,21 @@ class Windows {
       return true;
     }
 
-    await resolveHelperPortConflict();
+    final conflict = await resolveHelperPortConflict();
+    if (conflict == HelperPortConflictResult.foreignHeld) {
+      // A foreign process holds 47896 and we will NOT kill it. Our helper
+      // cannot bind the port, so creating/starting the service is pointless —
+      // bail without pretending the helper is available. The caller
+      // (authorizeCore) then returns an error: this launch has no privileged
+      // helper, so TUN mode is unavailable and the app falls back to
+      // system-proxy / proxy-only operation. It is NOT a guaranteed direct
+      // core spawn.
+      commonPrint.log(
+          "[helper] port $helperPort held by a foreign process — skipping "
+          "helper service install; launch continues without the privileged "
+          "helper (TUN unavailable, proxy-only fallback)");
+      return false;
+    }
 
     final command = [
       "/c",

@@ -19,6 +19,13 @@ ArchitecturesAllowed={{ARCH}}
 ArchitecturesInstallIn64BitMode={{ARCH}}
 UninstallDisplayIcon={uninstallexe}
 ChangesAssociations=yes
+; Restart Manager: on install AND uninstall, close ONLY the applications that
+; are locking files under {app} (our own running app/core/helper). This is
+; path-scoped by the OS to the files Setup touches — a separately-installed
+; FlClashX (in its own folder) is never detected or closed. RestartApplications
+; is off so we never silently relaunch anything after the install.
+CloseApplications=yes
+RestartApplications=no
 ; Update mode settings
 UsePreviousAppDir=yes
 UsePreviousGroup=yes
@@ -35,38 +42,14 @@ var
 
 procedure SHChangeNotify(wEventId: Integer; uFlags: Integer; dwItem1: Integer; dwItem2: Integer); external 'SHChangeNotify@shell32.dll stdcall';
 
-procedure KillProcesses;
-var
-  Processes: TArrayOfString;
-  i: Integer;
-  ResultCode: Integer;
-begin
-  // dropweb lineage: current names, the FlClash upstream names that older
-  // dropweb builds shipped under our identity, and Koala Clash. Killing these
-  // by name during install is transient/recoverable and frees the global
-  // resources (mixed-port 7890, TUN, system proxy) so a clean install settles.
-  Processes := ['dropweb.exe', 'DropwebCore.exe', 'DropwebHelperService.exe',
-                'FlClashX.exe', 'FlClashCore.exe', 'FlClashHelperService.exe',
-                'FlClash.exe', 'koala-clash-service.exe', 'KoalaClash.exe'];
-
-  // First try graceful shutdown
-  for i := 0 to GetArrayLength(Processes)-1 do
-  begin
-    Exec('taskkill', '/im ' + Processes[i], '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  end;
-  
-  // Wait for processes to terminate gracefully
-  Sleep(1000);
-
-  // Force kill any remaining processes
-  for i := 0 to GetArrayLength(Processes)-1 do
-  begin
-    Exec('taskkill', '/f /im ' + Processes[i], '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  end;
-  
-  // Give time for cleanup
-  Sleep(1000);
-end;
+// NOTE: process shutdown is deliberately NOT done by image name. Terminating a
+// process by name (dropweb.exe / DropwebCore.exe / DropwebHelperService.exe)
+// would also stop a foreign binary of the same name living OUTSIDE {app}, which
+// we do not own. Shutdown is handled two ways, both path/ownership scoped:
+//   * our running app/core - Restart Manager (CloseApplications=yes) closes only
+//     processes locking files under {app};
+//   * our helper service   - an ownership-gated service stop (ServiceBelongsToApp),
+//     which only ever touches a service whose binPath is inside {app}.
 
 function IsAppInstalled(): Boolean;
 var
@@ -109,13 +92,128 @@ var
   AppDir: String;
 begin
   Result := False;
-  AppDir := ExpandConstant('{app}');
+  // Path BOUNDARY: compare against "{app}\" (AddBackslash), not the bare "{app}".
+  // Without the trailing separator, install dir "…\dropweb" would falsely match
+  // a foreign "…\dropweb2\…" binPath (prefix collision). The trailing "\" pins
+  // the match to a real directory boundary.
+  AppDir := AddBackslash(ExpandConstant('{app}'));
   TmpFile := ExpandConstant('{tmp}\dwsvc_qc.txt');
   if Exec(ExpandConstant('{cmd}'), '/c sc qc "' + ServiceName + '" > "' + TmpFile + '" 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
   begin
     if LoadStringFromFile(TmpFile, Output) then
       Result := Pos(Lowercase(AppDir), Lowercase(String(Output))) > 0;
   end;
+end;
+
+function ServiceExists(ServiceName: String): Boolean;
+var
+  ResultCode: Integer;
+begin
+  // `sc query` exits 0 when the service exists, 1060 (ERROR_SERVICE_DOES_NOT_EXIST)
+  // when it does not. Route through cmd so we capture sc's own exit code.
+  Result := False;
+  if Exec(ExpandConstant('{cmd}'), '/c sc query "' + ServiceName + '" > nul 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    Result := (ResultCode = 0);
+end;
+
+function ServiceIsRunning(ServiceName: String): Boolean;
+var
+  TmpFile: String;
+  Output: AnsiString;
+  ResultCode: Integer;
+begin
+  Result := False;
+  TmpFile := ExpandConstant('{tmp}\dwsvc_st.txt');
+  if Exec(ExpandConstant('{cmd}'), '/c sc query "' + ServiceName + '" > "' + TmpFile + '" 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    if LoadStringFromFile(TmpFile, Output) then
+      Result := Pos('RUNNING', Uppercase(String(Output))) > 0;
+  end;
+end;
+
+// Idempotently ensure DropwebHelperService exists, points at OUR helper exe,
+// and is set to auto-start. Invoked as the [Files] AfterInstall hook on the
+// helper entry (NOT ssPostInstall) so it runs inside PerformInstall: a raise
+// here yields a FATAL Setup exit code 4, whereas ssPostInstall exceptions are
+// swallowed by Inno (SetStep(ssPostInstall, True)).
+//
+//   absent            -> sc create + start          (fresh install)
+//   present & ours    -> stop + sc config + start    (upgrade / repair)
+//   present & foreign -> ABORT (never overwrite/delete a service we don't own)
+//
+// FATAL (raise -> exit 4): missing helper binary, foreign same-name service,
+// sc create failure, sc config failure. NON-FATAL (log + continue): the service
+// is registered but has not reached RUNNING within 15s (auto-start will bring
+// it up on next boot / launch; failing here would be a false negative).
+procedure EnsureHelperService;
+var
+  ServiceName: String;
+  HelperExe: String;
+  BinPathArg: String;
+  ResultCode: Integer;
+  i: Integer;
+begin
+  ServiceName := 'DropwebHelperService';
+  HelperExe := ExpandConstant('{app}\DropwebHelperService.exe');
+
+  // [Files] must have copied the helper. A missing binary means a broken
+  // install — refuse to register a service pointing at a non-existent exe.
+  if not FileExists(HelperExe) then
+    RaiseException('Установка повреждена: не найден "' + HelperExe + '". ' +
+      'Служба помощника не может быть настроена.');
+
+  // Quote the exe for the space in "Program Files". `sc` requires a space
+  // after "binPath="/"start=" and the quoted value protects the path spaces.
+  BinPathArg := 'binPath= "' + HelperExe + '"';
+
+  if ServiceExists(ServiceName) then
+  begin
+    if ServiceBelongsToApp(ServiceName) then
+    begin
+      // OURS (upgrade / repair): stop so the config takes cleanly, fix the
+      // binPath (in case {app} moved) and force auto-start.
+      Exec('sc.exe', 'stop "' + ServiceName + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      Sleep(700);
+      if not Exec('sc.exe', 'config "' + ServiceName + '" ' + BinPathArg + ' start= auto', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
+        RaiseException('Не удалось перенастроить службу помощника "' + ServiceName +
+          '" (код ' + IntToStr(ResultCode) + '). Установка прервана.');
+    end
+    else
+    begin
+      // FOREIGN service with the same name whose binary is OUTSIDE {app}. We
+      // will not overwrite or delete a service we do not own. Abort with an
+      // actionable message; under /VERYSILENT this exits nonzero.
+      RaiseException('Обнаружена сторонняя служба "' + ServiceName +
+        '", не принадлежащая этой программе (путь вне папки установки). ' +
+        'Удалите её вручную и повторите установку — установка прервана, ' +
+        'чтобы не повредить чужую службу.');
+    end;
+  end
+  else
+  begin
+    // Absent (fresh install): create it.
+    if not Exec('sc.exe', 'create "' + ServiceName + '" ' + BinPathArg + ' start= auto', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
+      RaiseException('Не удалось создать службу помощника "' + ServiceName +
+        '" (код ' + IntToStr(ResultCode) + '). Установка прервана.');
+  end;
+
+  // Start and wait for RUNNING (bounded ~15s for slow disks / AV scanning).
+  // NOT reaching RUNNING here is NOT fatal: the service IS registered with
+  // start=auto, so AV/slow-disk latency (or a pending reboot) may simply delay
+  // the first start — it will come up on the next boot / app launch. Failing a
+  // fully-registered install over a slow start would be a false negative, so we
+  // LOG a warning and continue. (Missing binary / foreign service / sc
+  // create/config failures above are the real, fatal errors and DO raise.)
+  Exec('sc.exe', 'start "' + ServiceName + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  for i := 0 to 29 do
+  begin
+    if ServiceIsRunning(ServiceName) then
+      Break;
+    Sleep(500);
+  end;
+  if not ServiceIsRunning(ServiceName) then
+    Log('WARNING: DropwebHelperService is registered (auto-start) but did not ' +
+      'reach RUNNING within 15s; it should start on next boot / app launch.');
 end;
 
 procedure RemoveServiceIfOurs(ServiceName: String);
@@ -136,7 +234,9 @@ var
   Data: String;
   AppDir: String;
 begin
-  AppDir := ExpandConstant('{app}');
+  // Path BOUNDARY "{app}\" (AddBackslash) — see ServiceBelongsToApp: prevents a
+  // foreign "…\dropweb2\…" Run command from matching our "…\dropweb" dir.
+  AppDir := AddBackslash(ExpandConstant('{app}'));
   if RegQueryStringValue(RootKey, 'Software\Microsoft\Windows\CurrentVersion\Run', ValueName, Data) then
   begin
     if Pos(Lowercase(AppDir), Lowercase(Data)) > 0 then
@@ -152,7 +252,9 @@ var
   AppDir: String;
 begin
   Result := False;
-  AppDir := ExpandConstant('{app}');
+  // Path BOUNDARY "{app}\" (AddBackslash) — see ServiceBelongsToApp: prevents a
+  // foreign "…\dropweb2\…" scheduled-task action from matching "…\dropweb".
+  AppDir := AddBackslash(ExpandConstant('{app}'));
   TmpFile := ExpandConstant('{tmp}\dwtask_q.txt');
   if Exec(ExpandConstant('{cmd}'), '/c schtasks /Query /TN "' + TaskName + '" /XML > "' + TmpFile + '" 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
   begin
@@ -199,21 +301,15 @@ end;
 // --- end clean-install helpers ----------------------------------------------
 
 function InitializeSetup(): Boolean;
-var
-  ResultCode: Integer;
 begin
-  // Check if app is already installed
+  // Detection only — NOTHING destructive here. {app} is not yet resolved for a
+  // fresh install, so we must not stop services or close processes before we
+  // can prove ownership. All process/service handling is deferred to ssInstall
+  // (ownership-gated stop + Restart Manager) and ssPostInstall
+  // (EnsureHelperService).
   IsUpgrade := IsAppInstalled();
   if IsUpgrade then
     PreviousVersion := GetInstalledVersion();
-  
-   // Stop service if running
-   Exec('sc.exe', 'stop "DropwebHelperService"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Sleep(1000);
-  
-  // Kill all processes
-  KillProcesses;
-  
   Result := True;
 end;
 
@@ -259,16 +355,22 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
-  LegacyDir: String;
 begin
   if CurStep = ssInstall then
   begin
     // CLEAN INSTALL (Tier 1): runs before [InstallDelete] wipes {app} and
     // before [Files] copies fresh binaries ({app} is resolved by now).
-    // Stop our service so its .exe unlocks for the wipe; ssPostInstall restarts it.
-    Exec('sc.exe', 'stop "DropwebHelperService"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Sleep(500);
-    KillProcesses;
+    //
+    // Stop OUR helper service so its .exe unlocks for the wipe — but ONLY if it
+    // is ours (binPath inside {app}). A foreign same-name service is left
+    // untouched here; EnsureHelperService (ssPostInstall) will abort on it.
+    // Our own running app/core are closed by Restart Manager (CloseApplications),
+    // which is scoped to files under {app} — no name-based kill.
+    if ServiceBelongsToApp('DropwebHelperService') then
+    begin
+      Exec('sc.exe', 'stop "DropwebHelperService"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      Sleep(500);
+    end;
     // Drop stale services / autostart from older or pre-rebrand builds that
     // live inside our install dir (a separate FlClashX elsewhere is untouched).
     CleanLineageLeftovers;
@@ -276,29 +378,14 @@ begin
 
   if CurStep = ssPostInstall then
   begin
-    // Refresh icon cache/associations
+    // Refresh icon cache/associations only. The helper-service lifecycle is
+    // NOT done here: exceptions raised in ssPostInstall are handled
+    // non-fatally by Inno (SetStep(ssPostInstall, True)) and would NOT fail
+    // Setup / return a nonzero exit. Service create/config validation runs in
+    // the [Files] AfterInstall hook (EnsureHelperService), which sits inside
+    // PerformInstall and gives a fatal exit code 4 on failure.
     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, 0, 0);
     Sleep(500);
-     // Ensure helper service is started after install/upgrade, independent of app
-     try
-       Exec('sc.exe', 'start "DropwebHelperService"', '', SW_HIDE, ewNoWait, ResultCode);
-    except
-    end;
-
-    // CLEAN INSTALL (Tier 2): offer to remove legacy-identity data left by
-    // pre-rebrand builds (%APPDATA%\com.follow\clashx). Current profiles and
-    // settings (%APPDATA%\dropweb\dropweb) are NOT touched. Skipped on silent.
-    LegacyDir := ExpandConstant('{userappdata}\com.follow\clashx');
-    if DirExists(LegacyDir) and (not WizardSilent) then
-    begin
-      if MsgBox('Обнаружены данные от старой версии dropweb (com.follow\clashx).' + #13#10 +
-                'Удалить их? Текущие профили и настройки не пострадают.',
-                mbConfirmation, MB_YESNO) = IDYES then
-      begin
-        DelTree(LegacyDir, True, True, True);
-        RemoveDir(ExpandConstant('{userappdata}\com.follow'));
-      end;
-    end;
   end;
 end;
 
@@ -332,22 +419,20 @@ begin
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
-var
-  ResultCode: Integer;
 begin
   case CurUninstallStep of
      usUninstall:
      begin
-       // Stop service first
-       Exec('sc.exe', 'stop "DropwebHelperService"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-      Sleep(1000);
-      
-      // Kill all processes
-      KillProcesses;
-      
-       // Delete service
-       Exec('sc.exe', 'delete "DropwebHelperService"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-      Sleep(500);
+      // NO name-based kill. Our own running app/core are closed by Restart
+      // Manager (CloseApplications, scoped to files under {app}); a foreign
+      // same-name process elsewhere is never touched.
+      //
+      // Stop + delete the helper service ONLY if it is OURS (binPath inside
+      // {app}). If a foreign service of the same name exists (path mismatch)
+      // it is left completely untouched — RemoveServiceIfOurs gates on
+      // ServiceBelongsToApp('DropwebHelperService').
+      RemoveServiceIfOurs('DropwebHelperService');
+      Sleep(300);
     end;
     
     usPostUninstall:
@@ -409,8 +494,16 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; and is untouched. Processed after CurStepChanged(ssInstall) and before [Files].
 Type: filesandordirs; Name: "{app}\*"
 [Files]
-Source: "{{SOURCE_DIR}}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Copy everything EXCEPT the helper first. The helper is installed LAST (below)
+; with AfterInstall so EnsureHelperService runs while all other program files
+; are already on disk.
+Source: "{{SOURCE_DIR}}\\*"; DestDir: "{app}"; Excludes: "DropwebHelperService.exe"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
+; Helper LAST + AfterInstall: EnsureHelperService runs INSIDE PerformInstall
+; (the fatal install transaction). An exception it raises there aborts Setup
+; with exit code 4 — unlike ssPostInstall, whose exceptions Inno swallows
+; (SetStep(ssPostInstall, True)) and would let a broken helper "succeed".
+Source: "{{SOURCE_DIR}}\\DropwebHelperService.exe"; DestDir: "{app}"; Flags: ignoreversion; AfterInstall: EnsureHelperService
 
 [Icons]
 Name: "{autoprograms}\\{{DISPLAY_NAME}}"; Filename: "{app}\\{{EXECUTABLE_NAME}}"

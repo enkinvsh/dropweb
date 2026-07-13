@@ -14,29 +14,84 @@ on:
     paths:
       - '.github/workflows/windows-clean-install.yaml'
       - '.github/scripts/win_conflict_inspect.ps1'
+      - 'windows/packaging/exe/inno_setup.iss'
+      - 'windows/**'
+      - 'lib/common/windows.dart'
+      - 'lib/common/windows_conflict.dart'
+      - 'services/helper/**'
+      - 'setup.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
 
 permissions:
   contents: read
 
 jobs:
+  # Build the amd64 Windows installer FROM THE CHECKED-OUT COMMIT so the runtime
+  # job tests THIS branch's installer (EnsureHelperService, AfterInstall hook,
+  # ownership gating) — never a stale published release.
+  build-installer:
+    name: Build Windows amd64 installer from source
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.0"
+          cache-dependency-path: |
+            core/go.sum
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+          flutter-version: 3.41.6
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
+      - name: Build (Go core + Rust helper + Flutter + Inno installer)
+        run: dart setup.dart windows --arch amd64
+
+      - name: Verify installer artifact
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist -Filter '*setup*.exe' -Recurse -EA SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { $exe = Get-ChildItem dist -Filter '*amd64*.exe' -Recurse -EA SilentlyContinue | Select-Object -First 1 }
+          if (-not $exe) { Write-Host "::error::setup.dart produced no installer .exe in dist/"; Get-ChildItem dist -Recurse -EA SilentlyContinue | ForEach-Object { Write-Host $_.FullName }; exit 1 }
+          Write-Host "installer: $($exe.FullName)"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: dropweb-windows-installer
+          path: dist/*.exe
+          if-no-files-found: error
+          overwrite: true
+
   clean-install:
     name: Clean install (no FlClashX) — install + helper:47896 + app boot
     runs-on: windows-latest
+    needs: build-installer
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download dropweb installer (latest pre-release)
+      - name: Download dropweb installer (built from this commit)
+        uses: actions/download-artifact@v4
+        with:
+          name: dropweb-windows-installer
+          path: dl/dropweb
+
+      - name: Show downloaded installer
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          New-Item -ItemType Directory -Force dl\dropweb | Out-Null
-          $tag = (gh release list --repo ${{ github.repository }} -L 30 --json tagName,isPrerelease | ConvertFrom-Json | Where-Object { $_.isPrerelease } | Select-Object -First 1).tagName
-          Write-Host "dropweb pre-release: $tag"
-          gh release view $tag --repo ${{ github.repository }} --json assets --jq '.assets[].name'
-          gh release download $tag --repo ${{ github.repository }} -p "*amd64*.exe" -D dl\dropweb
-          if (-not (Get-ChildItem dl\dropweb -Filter *.exe -EA SilentlyContinue)) { gh release download $tag --repo ${{ github.repository }} -p "*setup*.exe" -D dl\dropweb }
-          if (-not (Get-ChildItem dl\dropweb -Filter *.exe -EA SilentlyContinue)) { Write-Host "::error::no dropweb .exe in pre-release $tag (a broken windows build produces no installer)"; exit 1 }
+          if (-not (Get-ChildItem dl\dropweb -Filter *.exe -EA SilentlyContinue)) { Write-Host "::error::no installer .exe downloaded from build-installer"; exit 1 }
           Get-ChildItem -Recurse dl | ForEach-Object { Write-Host $_.FullName }
 
       - name: 0 - baseline (clean runner, no FlClashX)
@@ -48,7 +103,7 @@ jobs:
         run: |
           $dw = Get-ChildItem dl\dropweb -Filter *.exe -Recurse | Select-Object -First 1
           Write-Host "Installing $($dw.FullName)"
-          $p = Start-Process -FilePath $dw.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS','/NOCANCEL' -Wait -PassThru
+          $p = Start-Process -FilePath $dw.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NORESTARTAPPLICATIONS','/NOICONS','/NOCANCEL' -Wait -PassThru
           Write-Host "dropweb installer exit=$($p.ExitCode)"
           if ($p.ExitCode -ne 0) { Write-Host "::error::installer returned $($p.ExitCode)"; exit 1 }
           & ./.github/scripts/win_conflict_inspect.ps1 -Label "1. after dropweb install"
@@ -77,19 +132,29 @@ jobs:
             Write-Host "  OK  $f"
           }
 
-      - name: 3 - helper binds its OWN port 47896
+      - name: 3 - installer ALREADY created + started the helper on 47896
         shell: pwsh
         run: |
-          $hexe = 'C:\Program Files\dropweb\DropwebHelperService.exe'
-          try { New-Service -Name DropwebHelperService -BinaryPathName "`"$hexe`"" -StartupType Manual -ErrorAction Stop | Out-Null } catch { Write-Host "create: $_" }
-          try { Start-Service DropwebHelperService -ErrorAction Stop } catch { Write-Host "::error::Start-Service DropwebHelperService failed: $_"; exit 1 }
-          Start-Sleep -Seconds 3
-          $svc = (Get-Service DropwebHelperService -EA SilentlyContinue).Status
-          Write-Host "DropwebHelperService = $svc"
-          if ($svc -ne 'Running') { Write-Host "::error::helper not Running ($svc)"; exit 1 }
+          # The installer's [Files] AfterInstall hook (EnsureHelperService) is
+          # the sole owner of the service lifecycle: it creates
+          # DropwebHelperService with binPath "{app}\DropwebHelperService.exe",
+          # start=auto, starts it and waits for RUNNING. NO manual New-Service
+          # here — the installer under test is built from THIS commit (the
+          # build-installer job), so an absent/stopped service is a real
+          # EnsureHelperService regression and must fail.
+          $svc = Get-Service DropwebHelperService -EA SilentlyContinue
+          if (-not $svc) { Write-Host "::error::installer did NOT create DropwebHelperService (EnsureHelperService regression)"; exit 1 }
+          # Give SCM a brief settle window in case the boot start is still racing.
+          for ($i = 0; $i -lt 6 -and $svc.Status -ne 'Running'; $i++) { Start-Sleep -Seconds 2; $svc.Refresh() }
+          Write-Host "DropwebHelperService = $($svc.Status)"
+          if ($svc.Status -ne 'Running') { Write-Host "::error::installer created the helper but it is not Running ($($svc.Status))"; exit 1 }
+          # binPath must point INTO our install dir (proves ownership + quoting).
+          $qc = (& sc.exe qc DropwebHelperService) -join "`n"
+          Write-Host $qc
+          if ($qc -notmatch [regex]::Escape('\dropweb\DropwebHelperService.exe')) { Write-Host "::error::helper binPath does not point into the dropweb install dir"; exit 1 }
           $bound = netstat -ano | Select-String ':47896' | Select-String 'LISTENING'
           if (-not $bound) { Write-Host "::error::helper is Running but not LISTENING on 47896"; (netstat -ano | Select-String ':47896') | ForEach-Object { Write-Host "  $_" }; exit 1 }
-          Write-Host "OK - helper LISTENING on 47896:"; $bound | ForEach-Object { Write-Host "  $_" }
+          Write-Host "OK - installer-owned helper LISTENING on 47896:"; $bound | ForEach-Object { Write-Host "  $_" }
 
       - name: 4 - launch app, assess UI-health from boot log
         shell: pwsh
