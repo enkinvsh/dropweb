@@ -117,7 +117,9 @@ class GlobalState {
     if (ack == null || ack.isCompleted) return;
     ack.complete(error);
   }
+
   final navigatorKey = GlobalKey<NavigatorState>();
+
   /// When true, `vpnTip` notifications are suppressed. Set while a config setup
   /// is applying (see [AppController.setupClashConfig]) so the provider-driven
   /// tun.stack sync on a profile switch does not fire a spurious "restart VPN"
@@ -338,7 +340,8 @@ class GlobalState {
             commonPrint
                 .log('service.stopVpn() timed out during TUN-ack rollback');
           } catch (e) {
-            commonPrint.log('service.stopVpn() failed during TUN-ack rollback: $e');
+            commonPrint
+                .log('service.stopVpn() failed during TUN-ack rollback: $e');
           }
           showNotifier(ackError);
           return false;
@@ -458,8 +461,8 @@ class GlobalState {
       return res;
     } catch (e) {
       commonPrint.log("$e");
-      final message =
-          ErrorMapper.mapError(e.toString()) ?? appLocalizations.genericErrorMessage;
+      final message = ErrorMapper.mapError(e.toString()) ??
+          appLocalizations.genericErrorMessage;
       if (silence) {
         showNotifier(message);
       } else {
@@ -515,11 +518,28 @@ class GlobalState {
   Future<void> migrateOldData(Config config) async {
     final clashConfig = await preferences.getClashConfig();
     if (clashConfig != null) {
-      config = config.copyWith(
-        patchClashConfig: clashConfig,
-      );
-      preferences.clearClashConfig();
-      preferences.saveConfig(config);
+      // Valid legacy clash_config: fold it into the LIVE main Config, persist
+      // the merged Config, and ONLY on a confirmed save drop the legacy active
+      // key + clash quarantine. Ordering is load-bearing: clearing before a
+      // successful save could lose the merged patch on a write failure, and
+      // firing save/clear unawaited (the old bug) left the live mirror stale.
+      final merged = config.copyWith(patchClashConfig: clashConfig);
+      globalState.config = merged;
+      if (await preferences.saveConfig(merged)) {
+        await preferences.clearClashConfig();
+      }
+      return;
+    }
+    // getClashConfig returned null: either the legacy key never existed
+    // (nothing to do — avoid needless writes) or it was corrupt and already
+    // quarantined (active key removed, raw blob held in the clash backup). For
+    // the corrupt case, establish a successful recovery checkpoint by persisting
+    // the current valid main Config, then drop the lower-sensitivity legacy
+    // backup/file so it is not retained forever.
+    if (await preferences.hasClashConfigBackup()) {
+      if (await preferences.saveConfig(config)) {
+        await preferences.clearClashConfig();
+      }
     }
   }
 
@@ -888,16 +908,14 @@ class GlobalState {
     } else {
       runtime = getJavascriptRuntime();
     }
-    final res = await runtime
-        .evaluateAsync("""
+    final res = await runtime.evaluateAsync("""
       ${currentScript.content}
       main($configJs)
-    """)
-        .guardWithTimeout(
-          timeout: evalTimeout,
-          message: 'script evaluation timed out (${evalTimeout.inSeconds}s)',
-          onTimeout: runtime.dispose,
-        );
+    """).guardWithTimeout(
+      timeout: evalTimeout,
+      message: 'script evaluation timed out (${evalTimeout.inSeconds}s)',
+      onTimeout: runtime.dispose,
+    );
     if (res.isError) {
       final error = res.stringResult;
       // A native QuickJS interrupt surfaces as an "interrupted" exception —

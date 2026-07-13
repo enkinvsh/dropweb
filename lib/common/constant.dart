@@ -49,6 +49,11 @@ const profilesDirectoryName = "profiles";
 const localhost = "127.0.0.1";
 const clashConfigKey = "clash_config";
 const configKey = "config";
+// Deterministic, bounded (latest-only) private backup keys holding the raw
+// unreadable blob when [configKey]/[clashConfigKey] fail to decode. Distinct
+// per config so one corruption cannot clobber the other's forensic copy.
+const configBackupKey = "config_corrupt_backup";
+const clashConfigBackupKey = "clash_config_corrupt_backup";
 const socksPortKey = "socks_port";
 const double dialogCommonWidth = 300;
 const repository = "enkinvsh/dropweb";
