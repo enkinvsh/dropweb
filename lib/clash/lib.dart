@@ -91,10 +91,10 @@ class ClashLib extends ClashHandlerInterface with AndroidClashInterface {
         return false;
       }
       servicePort.send({'action': 'rehandshake'});
-      // _listenPort()'s handler completes _canSendCompleter when the service
-      // isolate re-sends its SendPort.
-      await _canSendCompleter.future.timeout(_rehandshakeTimeout);
-      return true;
+      // serviceInitFailed completes the same bridge future with false. Preserve
+      // that value so a failed service cannot masquerade as a revived one and
+      // suppress the destroy+init recovery path.
+      return await _canSendCompleter.future.timeout(_rehandshakeTimeout);
     } catch (_) {
       return false;
     }
@@ -167,9 +167,9 @@ class ClashLib extends ClashHandlerInterface with AndroidClashInterface {
   }
 
   /// Bound for waiting on the bridge before sending. Unbounded waits here
-  /// propagate a dead handshake into every caller (invoke() timeouts only
-  /// start counting AFTER the send resolves). On timeout the message is
-  /// dropped; downstream invoke() calls then fail via their own sentinels.
+  /// make every core call sit until its outer invoke timeout. On timeout the
+  /// message is dropped; downstream invoke() calls fail via their existing
+  /// timeout sentinels instead of waiting on the bridge forever.
   static const _sendTimeout = Duration(seconds: 10);
 
   Future<bool> _awaitBridge() async {

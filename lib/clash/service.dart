@@ -282,8 +282,16 @@ class ClashService extends ClashHandlerInterface {
 
   @override
   Future<bool> preload() async {
-    await serverCompleter.future;
-    return true;
+    try {
+      await serverCompleter.future.timeout(const Duration(seconds: 15));
+      return true;
+    } on TimeoutException {
+      commonPrint.log(
+        '[bridge] desktop server preload timed out after 15s — '
+        'booting UI without a live core bridge',
+      );
+      return false;
+    }
   }
 }
 
