@@ -16,12 +16,15 @@
     <!-- Required for the persistent VPN status notification on Android 13+
          (runtime request in AppPlugin.requestNotificationPermission). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Read-only network state observation for VPN reconnect handling
-         (VpnPlugin.registerNetworkCallback + NET_CAPABILITY_* in NetworkRequest
-         + ConnectivityManager.resolveDns). No CHANGE_NETWORK_STATE needed:
-         we never mutate global network configuration; only the tunnel's own
-         setUnderlyingNetworks(...) is used. -->
+    <!-- Network state observation for active-bearer tracking
+         (VpnPlugin.startBearerTracking + NET_CAPABILITY_* in NetworkRequest). -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Required specifically by the API 28-30 tier of the bearer-tracking
+         ladder: ConnectivityManager.requestNetwork(bearerRequest, ...) needs
+         CHANGE_NETWORK_STATE. The app does not otherwise mutate global network
+         configuration; only the tunnel's own setUnderlyingNetworks(...) is
+         used. The request exists only while the VPN session is live. -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- VPN services use systemExempted FGS type to avoid the Android 14+
 

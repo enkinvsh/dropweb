@@ -21,7 +21,6 @@ import (
 	"golang.org/x/sync/semaphore"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -248,13 +247,21 @@ func handleGetAndroidVpnOptions() string {
 	return string(data)
 }
 
+// handleUpdateDns is deliberately SYNCHRONOUS: it must complete
+// UpdateSystemDNS, cache clearing, and resolver connection reset before
+// returning to Dart, so the ordered bearer-change sequence
+// (dnsChanged -> networkChanged -> resetConnections -> closeConnections)
+// is deterministic. Do not restore the old goroutine. These operations are
+// small; parseDNSPayload also fixes the ""->[""] garbage-slice bug of the
+// previous strings.Split path.
 func handleUpdateDns(value string) {
-	go func() {
-		defer recoverGo("updateDns")
-		log.Infoln("[DNS] updateDns %s", value)
-		dns.UpdateSystemDNS(strings.Split(value, ","))
-		dns.FlushCacheWithDefaultResolver()
-	}()
+	defer recoverGo("updateDns")
+
+	addresses := parseDNSPayload(value)
+	log.Infoln("[DNS] updateDns count=%d value=%s", len(addresses), value)
+
+	dns.UpdateSystemDNS(addresses)
+	dns.FlushCacheWithDefaultResolver()
 }
 
 func handleGetCurrentProfileName() string {

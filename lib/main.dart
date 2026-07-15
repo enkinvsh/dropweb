@@ -338,7 +338,11 @@ Future<void> _service(List<String> flags) async {
   vpn?.addListener(
     _VpnListenerWithService(
       onDnsChanged: (dns) {
-        commonPrint.log("handle dns $dns");
+        // Empty payload is forwarded intentionally: it clears the Go
+        // resolver's system DNS state when the active bearer is lost.
+        commonPrint.log(
+          "[DNS] system payload ${dns.isEmpty ? "<empty>" : dns}",
+        );
         clashLibHandler.updateDns(dns);
       },
     ),

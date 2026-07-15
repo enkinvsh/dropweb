@@ -223,4 +223,8 @@ dependencies {
         exclude(group = "com.google.guava", module = "guava")
     }
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    // Local JVM tests for the pure BearerTracker reducer only. Deliberately no
+    // Robolectric/Mockito/coroutines-test: the reducer contains no Android
+    // classes, so plain JUnit is sufficient (see docs/plans network-switch fix).
+    testImplementation("junit:junit:4.13.2")
 }

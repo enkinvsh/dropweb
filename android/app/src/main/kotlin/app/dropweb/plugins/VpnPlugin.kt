@@ -16,9 +16,11 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
+import android.os.Looper
 import android.os.ParcelFileDescriptor
-import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.getSystemService
@@ -26,8 +28,8 @@ import app.dropweb.DropwebApplication
 import app.dropweb.GlobalState
 import app.dropweb.RunState
 import org.dropweb.vpn.core.Core
+import app.dropweb.extensions.asSocketAddressText
 import app.dropweb.extensions.awaitResult
-import app.dropweb.extensions.resolveDns
 import app.dropweb.models.StartForegroundParams
 import app.dropweb.models.VpnOptions
 import app.dropweb.services.BaseServiceInterface
@@ -48,6 +50,8 @@ import java.net.InetSocketAddress
 import kotlin.concurrent.withLock
 
 data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
+    private const val TAG = "VpnPlugin"
+
     private lateinit var flutterMethodChannel: MethodChannel
     private var dropwebService: BaseServiceInterface? = null
     private var options: VpnOptions? = null
@@ -60,18 +64,50 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     // A plain HashMap corrupts / throws ConcurrentModificationException under
     // that fan-in; ConcurrentHashMap gives lock-free reads and atomic writes.
     private val uidPageNameMap = java.util.concurrent.ConcurrentHashMap<Int, String>()
-    private val networks = mutableSetOf<Network>()
-    // Identity of the underlying physical network set (sorted networkHandle list).
-    // A change here under a live tunnel means WiFi<->cell / pocket-Doze switch —
-    // stale upstream proxy sessions (mux, Hy2/QUIC) must be dropped. null = no
-    // snapshot yet (the first snapshot after start never triggers a close).
-    private var lastNetworkKey: String? = null
-    // Debounce: collapse the burst of onAvailable/onLost/onLinkPropertiesChanged
-    // callbacks a single physical switch emits into at most one core notify / 2s.
-    private var lastNetworkChangeMs = 0L
     private var screenReceiverRegistered: Boolean = false
     private var startRequested: Boolean = false
     private var attachCount = 0
+
+    // ---------------------------------------------------------------------
+    // Active-bearer tracking (single authoritative physical network).
+    //
+    // One serialized actor (dedicated HandlerThread) owns all bearer state.
+    // A pure BearerTracker reducer owns identity + first-snapshot semantics.
+    // The old all-network-set tracking keyed identity on the sorted SET of
+    // INTERNET+NOT_VPN networks, which double-reset the core on LTE→WiFi
+    // (cellular 30s linger teardown) and missed gradual WiFi death entirely.
+    // ---------------------------------------------------------------------
+
+    /** Networks seen via callbacks but not yet committed as the bearer. */
+    private data class Candidate(
+        val network: Network,
+        var capabilities: NetworkCapabilities? = null,
+        var linkProperties: LinkProperties? = null,
+        var readinessAttempt: Int = 0,
+        var token: Long = 0L,
+    )
+
+    private lateinit var bearerThread: HandlerThread
+    private lateinit var bearerHandler: Handler
+
+    private val bearerTracker = BearerTracker()
+    private val candidates = mutableMapOf<Network, Candidate>()
+
+    private var activeNetwork: Network? = null
+    private var activeCapabilities: NetworkCapabilities? = null
+    private var activeLinkProperties: LinkProperties? = null
+
+    private var lastPublishedDns: List<String>? = null
+
+    // Written from start/stop control paths, read from the actor thread.
+    @Volatile
+    private var callbackRegistered = false
+
+    @Volatile
+    private var bearerSession = 0L
+
+    private var candidateToken = 0L
+    private var pendingLoss: Runnable? = null
 
     private val connectivity by lazy {
         DropwebApplication.getAppContext().getSystemService<ConnectivityManager>()
@@ -97,15 +133,15 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         // This singleton is attached to BOTH the main engine and the service engine.
-        // Create the scope and register the network callback only once (first attach)
-        // so we never overwrite the live scope (leak) nor register `callback` twice
-        // (Android throws IllegalArgumentException → unhandled-coroutine crash).
+        // Create the scope and the bearer actor thread only once (first attach) so
+        // we never overwrite the live scope (leak) nor spawn a second actor.
+        // NO ConnectivityManager callback is registered here: tracking starts only
+        // after Core.startTun succeeds (startBearerTracking in handleStartService).
         attachCount++
         if (attachCount == 1) {
             scope = CoroutineScope(Dispatchers.Default)
-            scope.launch {
-                registerNetworkCallback()
-            }
+            bearerThread = HandlerThread("dropweb-bearer").also { it.start() }
+            bearerHandler = Handler(bearerThread.looper)
         }
         // Channel assignment stays last-wins by design: the service engine attaches
         // later and is the correct receiver for VPN logic (service isolate runs it).
@@ -116,10 +152,17 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     override fun onDetachedFromEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         attachCount--
         // Only tear down once the last engine detaches; otherwise the surviving
-        // engine keeps its handler and the shared network callback stays registered.
+        // engine keeps its handler and the bearer tracking stays live.
         if (attachCount <= 0) {
             attachCount = 0
-            unRegisterNetworkCallback()
+            stopBearerTracking()
+            if (::bearerHandler.isInitialized) {
+                // Drop queued actor work (including the state-clear posted by
+                // stopBearerTracking — startBearerTracking re-clears on next start)
+                // and quit the thread safely.
+                bearerHandler.removeCallbacksAndMessages(null)
+                bearerThread.quitSafely()
+            }
             flutterMethodChannel.setMethodCallHandler(null)
         }
     }
@@ -153,7 +196,6 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     fun handleStart(options: VpnOptions): Boolean {
         startRequested = true
-        onUpdateNetwork();
         if (options.enable != this.options?.enable) {
             this.dropwebService = null
         }
@@ -175,80 +217,531 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         flutterMethodChannel.invokeMethod("gc", null)
     }
 
-    fun onUpdateNetwork() {
-        val dns = networks.flatMap { network ->
-            connectivity?.resolveDns(network) ?: emptyList()
-        }.toSet().joinToString(",")
-        scope.launch {
-            withContext(Dispatchers.Main) {
-                flutterMethodChannel.invokeMethod("dnsChanged", dns)
-            }
+    // -----------------------------------------------------------------
+    // Bearer actor plumbing
+    // -----------------------------------------------------------------
+
+    private fun onBearerActor(block: () -> Unit) {
+        if (Looper.myLooper() == bearerHandler.looper) {
+            block()
+        } else {
+            bearerHandler.post(block)
         }
     }
+
+    private fun isLiveBearerSession(): Boolean =
+        callbackRegistered && GlobalState.runState.value == RunState.START
+
+    // INTERNET + NOT_RESTRICTED + NOT_VPN, and deliberately NEVER VALIDATED:
+    // RU/KZ networks with blocked Android validation endpoints, captive
+    // portals, or partial internet access must remain eligible bearers.
+    // VALIDATED / CAPTIVE_PORTAL are diagnostic fields only.
+    private val bearerRequest = NetworkRequest.Builder()
+        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
+        .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+        .build()
 
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            Log.d("VpnPlugin", "Network available: $network")
-            networks.add(network)
-            onUpdateNetwork()
-            updateUnderlyingNetworks()
-        }
-
-        override fun onLost(network: Network) {
-            Log.d("VpnPlugin", "Network lost: $network")
-            networks.remove(network)
-            onUpdateNetwork()
-            updateUnderlyingNetworks()
-        }
-
-        override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
-            Log.d("VpnPlugin", "Link properties changed: $network")
-            onUpdateNetwork()
-            updateUnderlyingNetworks()
-        }
-    }
-
-    private val request = NetworkRequest.Builder().apply {
-        addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
-        addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
-    }.build()
-
-    // Doze can stale the Network ref — keep VPN routing through the live physical network
-    private fun updateUnderlyingNetworks() {
-        // Change-detection runs BEFORE the service null-check below: the network
-        // callback is registered app-wide at first attach, so this fires while
-        // dropwebService is still null (bind in flight). We only NOTIFY when the
-        // tunnel is actually up (runState==START), so a null service is harmless.
-        val key = networks.map { it.networkHandle }.sorted().joinToString(",")
-        val prev = lastNetworkKey
-        lastNetworkKey = key
-        if (prev != null && prev != key && key.isNotEmpty()
-            && GlobalState.runState.value == RunState.START) {
-            val now = SystemClock.elapsedRealtime()
-            if (now - lastNetworkChangeMs > 2000) {
-                lastNetworkChangeMs = now
-                Log.d("VpnPlugin", "Underlying network changed ($prev -> $key) — asking core to drop stale connections")
-                scope.launch {
-                    withContext(Dispatchers.Main) {
-                        flutterMethodChannel.invokeMethod("networkChanged", null)
-                    }
-                }
+            onBearerActor {
+                if (!isLiveBearerSession()) return@onBearerActor
+                candidateToken++
+                candidates[network] = Candidate(
+                    network = network,
+                    token = candidateToken,
+                )
+                Log.d(TAG, "[bearer] available session=$bearerSession id=${network.networkHandle}")
+                // Never commit from onAvailable alone: a candidate is ready only
+                // when BOTH capabilities and LinkProperties have been observed.
+                // On API 31 there is no onLost(old) when a better network
+                // supersedes — onAvailable(new) + readiness IS the switch signal.
+                scheduleLinkPropertiesReadiness(
+                    network = network,
+                    session = bearerSession,
+                    token = candidateToken,
+                )
             }
         }
 
-        val vpnService = dropwebService as? DropwebVpnService ?: return
-        vpnService.setUnderlyingNetworks(
-            if (networks.isEmpty()) null else networks.toTypedArray()
+        override fun onCapabilitiesChanged(
+            network: Network,
+            capabilities: NetworkCapabilities,
+        ) {
+            onBearerActor {
+                if (!isLiveBearerSession()) return@onBearerActor
+
+                val eligible = isEligiblePhysicalNetwork(capabilities)
+                Log.d(
+                    TAG,
+                    "[bearer] capabilities id=${network.networkHandle} eligible=$eligible " +
+                        "validated=${capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)} " +
+                        "metered=${!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)}"
+                )
+
+                if (network == activeNetwork) {
+                    if (!eligible) {
+                        scheduleActiveLoss(network, reason = "capability-loss")
+                        return@onBearerActor
+                    }
+                    cancelPendingLoss()
+                    activeCapabilities = capabilities
+                    applyUnderlyingNetwork()
+                    // VALIDATED/CAPTIVE/metered changes do not change identity and
+                    // do not emit networkChanged.
+                    return@onBearerActor
+                }
+
+                val candidate = candidates.getOrPut(network) {
+                    Candidate(network = network, token = ++candidateToken)
+                }
+                candidate.capabilities = capabilities
+
+                if (!eligible) {
+                    // On API 24–27 the default callback cannot take a
+                    // NetworkRequest, so this capability check is mandatory;
+                    // it also rejects the app's own VPN network.
+                    candidates.remove(network)
+                    return@onBearerActor
+                }
+
+                tryCommitCandidate(candidate, reason = "capabilities-ready")
+            }
+        }
+
+        override fun onLinkPropertiesChanged(
+            network: Network,
+            linkProperties: LinkProperties,
+        ) {
+            onBearerActor {
+                if (!isLiveBearerSession()) return@onBearerActor
+                handleLinkProperties(network, linkProperties)
+            }
+        }
+
+        override fun onLosing(network: Network, maxMsToLive: Int) {
+            onBearerActor {
+                // Advisory only: never null the bearer, alter underlying
+                // networks, emit DNS, or notify the core from onLosing.
+                Log.d(
+                    TAG,
+                    "[bearer] losing id=${network.networkHandle} " +
+                        "current=${network == activeNetwork} maxMs=$maxMsToLive"
+                )
+            }
+        }
+
+        override fun onLost(network: Network) {
+            onBearerActor {
+                if (!isLiveBearerSession()) return@onBearerActor
+
+                candidates.remove(network)
+
+                if (network != activeNetwork) {
+                    // The 30–35s cellular linger teardown after LTE→WiFi lands
+                    // here: the WiFi bearer is already committed, so the stale
+                    // loss must produce ZERO additional core resets.
+                    Log.d(
+                        TAG,
+                        "[bearer] ignore stale lost id=${network.networkHandle} " +
+                            "active=${activeNetwork?.networkHandle}"
+                    )
+                    return@onBearerActor
+                }
+
+                scheduleActiveLoss(network, reason = "lost")
+            }
+        }
+    }
+
+    /** Uses the callback-supplied LinkProperties; runs on the actor thread. */
+    private fun handleLinkProperties(network: Network, linkProperties: LinkProperties) {
+        if (network == activeNetwork) {
+            // Active bearer's DNS/routes/MTU change does not change identity and
+            // must not close connections; DNS still propagates via dnsChanged.
+            activeLinkProperties = linkProperties
+            publishActiveDnsIfChanged()
+            return
+        }
+
+        val candidate = candidates.getOrPut(network) {
+            Candidate(network = network, token = ++candidateToken)
+        }
+        candidate.linkProperties = linkProperties
+        Log.d(
+            TAG,
+            "[bearer] link-properties id=${network.networkHandle} " +
+                "iface=${linkProperties.interfaceName} dns=${linkProperties.dnsServers.size}"
+        )
+        tryCommitCandidate(candidate, reason = "link-properties-ready")
+    }
+
+    // Sing-box-style LinkProperties fallback for devices whose callbacks skip
+    // onLinkPropertiesChanged: up to 10 delayed actor tasks, 100 ms apart.
+    // getLinkProperties is called ONLY from the delayed task, never
+    // synchronously inside a ConnectivityManager callback.
+    private fun scheduleLinkPropertiesReadiness(network: Network, session: Long, token: Long) {
+        bearerHandler.postDelayed({
+            if (session != bearerSession) return@postDelayed
+            if (GlobalState.runState.value != RunState.START) return@postDelayed
+            val candidate = candidates[network] ?: return@postDelayed
+            if (candidate.token != token) return@postDelayed
+            if (candidate.linkProperties != null) return@postDelayed
+
+            candidate.readinessAttempt++
+            val linkProperties = runCatching {
+                connectivity?.getLinkProperties(network)
+            }.getOrNull()
+            if (linkProperties != null) {
+                handleLinkProperties(network, linkProperties)
+                return@postDelayed
+            }
+            if (candidate.readinessAttempt >= 10) {
+                // Keep the candidate uncommitted; a later real LinkProperties
+                // callback may still commit it.
+                Log.d(
+                    TAG,
+                    "[bearer] readiness timeout id=${network.networkHandle} " +
+                        "attempts=${candidate.readinessAttempt}"
+                )
+                return@postDelayed
+            }
+            scheduleLinkPropertiesReadiness(network, session, token)
+        }, 100L)
+    }
+
+    private fun isEligiblePhysicalNetwork(capabilities: NetworkCapabilities): Boolean =
+        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) &&
+            !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+
+    private fun tryCommitCandidate(candidate: Candidate, reason: String) {
+        val capabilities = candidate.capabilities ?: return
+        val linkProperties = candidate.linkProperties ?: return
+        if (!isEligiblePhysicalNetwork(capabilities)) return
+
+        commitBearer(
+            network = candidate.network,
+            capabilities = capabilities,
+            linkProperties = linkProperties,
+            reason = reason,
         )
     }
 
+    private fun commitBearer(
+        network: Network,
+        capabilities: NetworkCapabilities,
+        linkProperties: LinkProperties,
+        reason: String,
+    ) {
+        val transition = bearerTracker.commit(network.networkHandle)
+
+        if (!transition.identityChanged) {
+            // Same bearer re-confirmed: refresh caches and publish a DNS delta
+            // only; never notify the core.
+            activeCapabilities = capabilities
+            activeLinkProperties = linkProperties
+            publishActiveDnsIfChanged()
+            return
+        }
+
+        cancelPendingLoss()
+        activeNetwork = network
+        activeCapabilities = capabilities
+        activeLinkProperties = linkProperties
+        // Invalidate every remaining candidate and in-flight readiness task: a
+        // superseded network must re-earn full readiness before recommitting.
+        candidates.clear()
+        candidateToken++
+
+        applyUnderlyingNetwork()
+
+        val dnsPayload = publishDnsIfChanged(dnsFrom(linkProperties))
+        if (dnsPayload != null) {
+            Log.i(
+                TAG,
+                "[bearer] dns id=${network.networkHandle} " +
+                    "count=${linkProperties.dnsServers.size} changed=true"
+            )
+        }
+        Log.i(
+            TAG,
+            "[bearer] commit session=$bearerSession old=${transition.previousId} " +
+                "new=${transition.currentId} notifyCore=${transition.notifyCore} reason=$reason"
+        )
+
+        val details = mapOf(
+            "session" to bearerSession,
+            "from" to transition.previousId?.toString(),
+            "to" to transition.currentId?.toString(),
+            "reason" to reason,
+        )
+        // One ordered Main-thread effect block: DNS first (so the core resolver
+        // state is current), then the single core reset for a real replacement.
+        scope.launch {
+            withContext(Dispatchers.Main) {
+                dnsPayload?.let {
+                    flutterMethodChannel.invokeMethod("dnsChanged", it)
+                }
+                if (transition.notifyCore) {
+                    flutterMethodChannel.invokeMethod("networkChanged", details)
+                }
+            }
+        }
+    }
+
+    private fun commitNoBearer(reason: String) {
+        val transition = bearerTracker.commit(null)
+        activeNetwork = null
+        activeCapabilities = null
+        activeLinkProperties = null
+        applyUnderlyingNetwork()
+        Log.i(
+            TAG,
+            "[bearer] commit session=$bearerSession old=${transition.previousId} " +
+                "new=null notifyCore=false reason=$reason"
+        )
+        // Empty is a meaningful command: clear system DNS state. networkChanged
+        // is never emitted on loss — old connections are reset when the NEXT
+        // ready bearer commits, so an offline gap costs zero extra resets.
+        val dnsPayload = publishDnsIfChanged(emptyList())
+        if (dnsPayload != null) {
+            scope.launch {
+                withContext(Dispatchers.Main) {
+                    flutterMethodChannel.invokeMethod("dnsChanged", dnsPayload)
+                }
+            }
+        }
+    }
+
+    // 300 ms grace applies ONLY to loss of the currently committed bearer. A
+    // ready replacement cancels it by committing (merely seeing onAvailable(new)
+    // does not cancel — an unready candidate must not preserve a stale bearer).
+    private fun scheduleActiveLoss(network: Network, reason: String) {
+        pendingLoss?.let(bearerHandler::removeCallbacks)
+
+        val session = bearerSession
+        val expectedId = network.networkHandle
+
+        val task = Runnable {
+            if (session != bearerSession) return@Runnable
+            if (GlobalState.runState.value != RunState.START) return@Runnable
+            if (activeNetwork?.networkHandle != expectedId) return@Runnable
+
+            commitNoBearer(reason = "$reason-timeout")
+        }
+
+        pendingLoss = task
+        bearerHandler.postDelayed(task, 300L)
+    }
+
+    private fun cancelPendingLoss() {
+        pendingLoss?.let(bearerHandler::removeCallbacks)
+        pendingLoss = null
+    }
+
+    // -----------------------------------------------------------------
+    // Effects: underlying network + DNS publication
+    // -----------------------------------------------------------------
+
+    private fun applyUnderlyingNetwork() {
+        val vpnService = dropwebService as? DropwebVpnService ?: return
+        val network = activeNetwork
+        val capabilities = activeCapabilities
+
+        val metered = capabilities?.hasCapability(
+            NetworkCapabilities.NET_CAPABILITY_NOT_METERED
+        ) == false
+
+        // Only null or a one-element array is ever passed:
+        //   * arrayOf(active) — the committed bearer;
+        //   * null            — no bearer (follow Android's default network) or
+        //                       the Android 9 (API 28) metered workaround;
+        //   * NEVER emptyArray() — that means "VPN intentionally offline" and
+        //     imposes traffic-blocked semantics;
+        //   * never the candidate set or lingering networks.
+        val underlying: Array<Network>? = when {
+            network == null -> null
+            Build.VERSION.SDK_INT == 28 && metered -> null
+            else -> arrayOf(network)
+        }
+
+        val result = vpnService.setUnderlyingNetworks(underlying)
+
+        Log.i(
+            TAG,
+            "[bearer] underlying id=${network?.networkHandle} " +
+                "policy=${
+                    when {
+                        network == null -> "null-offline"
+                        Build.VERSION.SDK_INT == 28 && metered -> "null-api28-metered"
+                        else -> "single"
+                    }
+                } result=$result"
+        )
+    }
+
+    // DNS comes exclusively from the committed active network's LinkProperties.
+    // Android's DNS order is preserved; distinct() keeps first occurrence. The
+    // old union over all observed networks leaked cellular DNS into WiFi
+    // sessions (and vice versa) — never restore it.
+    private fun dnsFrom(linkProperties: LinkProperties?): List<String> {
+        if (linkProperties == null) return emptyList()
+
+        return linkProperties.dnsServers
+            .map { it.asSocketAddressText(53) }
+            .distinct()
+    }
+
+    // emptyList().joinToString(",") intentionally produces "": an empty payload
+    // is a meaningful clear-system-DNS command carried through Dart to Go.
+    private fun publishDnsIfChanged(next: List<String>): String? {
+        if (lastPublishedDns == next) return null
+        lastPublishedDns = next
+        return next.joinToString(",")
+    }
+
+    private fun publishActiveDnsIfChanged() {
+        val payload = publishDnsIfChanged(dnsFrom(activeLinkProperties)) ?: return
+        Log.i(
+            TAG,
+            "[bearer] dns id=${activeNetwork?.networkHandle} " +
+                "count=${activeLinkProperties?.dnsServers?.size ?: 0} changed=true"
+        )
+        scope.launch {
+            withContext(Dispatchers.Main) {
+                flutterMethodChannel.invokeMethod("dnsChanged", payload)
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Bearer tracking lifecycle — registered ONLY while the core session
+    // is live (after Core.startTun success), never at engine attach.
+    // -----------------------------------------------------------------
+
+    private fun startBearerTracking() {
+        // Fresh actor state before any callback of the new session can land:
+        // the clear-block is queued ahead of registration, and callbacks are
+        // delivered onto the same handler, so FIFO order guarantees it runs
+        // first. bearerTracker.reset() restores first-snapshot suppression so
+        // the session's first bearer is a baseline, not a core reset.
+        onBearerActor {
+            candidates.clear()
+            activeNetwork = null
+            activeCapabilities = null
+            activeLinkProperties = null
+            lastPublishedDns = null
+            bearerTracker.reset()
+        }
+
+        bearerSession++
+        val session = bearerSession
+
+        try {
+            val mode = when {
+                Build.VERSION.SDK_INT >= 31 -> {
+                    // Passive: tracks the one best non-VPN network and does not
+                    // hold cellular alive.
+                    connectivity?.registerBestMatchingNetworkCallback(
+                        bearerRequest,
+                        callback,
+                        bearerHandler,
+                    )
+                    "best_matching"
+                }
+
+                Build.VERSION.SDK_INT >= 28 -> {
+                    // The only reliable pre-31 way to migrate a filtered non-VPN
+                    // request to the better satisfier. Radio-lifetime cost is
+                    // bounded by lifecycle scoping: the request exists only
+                    // while RunState.START. Requires CHANGE_NETWORK_STATE.
+                    connectivity?.requestNetwork(
+                        bearerRequest,
+                        callback,
+                        bearerHandler,
+                    )
+                    "request"
+                }
+
+                Build.VERSION.SDK_INT >= 26 -> {
+                    connectivity?.registerDefaultNetworkCallback(
+                        callback,
+                        bearerHandler,
+                    )
+                    "default_handler"
+                }
+
+                else -> {
+                    // API 24–25: callbacks arrive on ConnectivityManager's
+                    // thread and are forwarded to the actor by every override.
+                    connectivity?.registerDefaultNetworkCallback(callback)
+                    "default"
+                }
+            }
+            callbackRegistered = true
+            Log.i(TAG, "[bearer] start session=$session api=${Build.VERSION.SDK_INT} mode=$mode")
+        } catch (e: Exception) {
+            // No fallback to the old all-network listener. Fail open:
+            // setUnderlyingNetworks(null) below lets protected sockets follow
+            // Android's default network.
+            Log.e(
+                TAG,
+                "[bearer] registration failed session=$session api=${Build.VERSION.SDK_INT} error=$e"
+            )
+        }
+
+        // Apply routing once even before the first callback arrives: with no
+        // committed bearer this applies null (follow the default network).
+        onBearerActor { applyUnderlyingNetwork() }
+    }
+
+    private fun stopBearerTracking() {
+        bearerSession++
+
+        if (::bearerHandler.isInitialized) {
+            pendingLoss?.let(bearerHandler::removeCallbacks)
+        }
+        pendingLoss = null
+
+        val wasRegistered = callbackRegistered
+        if (callbackRegistered) {
+            runCatching { connectivity?.unregisterNetworkCallback(callback) }
+            callbackRegistered = false
+        }
+
+        if (::bearerHandler.isInitialized) {
+            onBearerActor {
+                candidates.clear()
+                activeNetwork = null
+                activeCapabilities = null
+                activeLinkProperties = null
+                lastPublishedDns = null
+                bearerTracker.reset()
+            }
+        }
+
+        // Never pass an empty array. No dnsChanged/networkChanged is emitted
+        // during normal VPN shutdown.
+        (dropwebService as? DropwebVpnService)?.setUnderlyingNetworks(null)
+        Log.i(TAG, "[bearer] stop session=$bearerSession registered=$wasRegistered")
+    }
+
+    // -----------------------------------------------------------------
+    // Screen receiver — cached routing reassertion ONLY. No
+    // ConnectivityManager queries, no identity change, no readiness, no
+    // dnsChanged, no networkChanged, no connection close.
+    // -----------------------------------------------------------------
+
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == Intent.ACTION_SCREEN_ON) {
-                Log.d("VpnPlugin", "Screen ON — refreshing network state")
-                onUpdateNetwork()
-                updateUnderlyingNetworks()
+            if (intent.action != Intent.ACTION_SCREEN_ON) return
+
+            onBearerActor {
+                if (!isLiveBearerSession()) return@onBearerActor
+                Log.d(TAG, "[bearer] screen-on reassert active=${activeNetwork?.networkHandle}")
+                applyUnderlyingNetwork()
             }
         }
     }
@@ -274,28 +767,6 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             DropwebApplication.getAppContext().unregisterReceiver(screenReceiver)
         } catch (_: Exception) {}
         screenReceiverRegistered = false
-    }
-
-    private fun registerNetworkCallback() {
-        networks.clear()
-        // Defense in depth: a registration error must never escape and crash the
-        // process via an unhandled coroutine.
-        try {
-            connectivity?.registerNetworkCallback(request, callback)
-        } catch (e: Exception) {
-            Log.e("VpnPlugin", "registerNetworkCallback failed", e)
-        }
-    }
-
-    private fun unRegisterNetworkCallback() {
-        // IllegalArgumentException if `callback` was never registered.
-        try {
-            connectivity?.unregisterNetworkCallback(callback)
-        } catch (e: IllegalArgumentException) {
-            Log.w("VpnPlugin", "unregisterNetworkCallback: callback not registered", e)
-        }
-        networks.clear()
-        onUpdateNetwork()
     }
 
     private suspend fun startForeground() {
@@ -365,14 +836,20 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     resolverProcess = this::resolverProcess,
                 )
             } catch (e: Exception) {
-                Log.e("VpnPlugin", "Core.startTun failed", e)
+                Log.e(TAG, "Core.startTun failed", e)
+                // Partial-start protection: tracking must never survive a failed
+                // start (it was not started yet on this path, but the increment
+                // invalidates any stray delayed task from a previous session).
+                stopBearerTracking()
                 if (fd != null && fd > 0) {
                     runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
                 }
                 GlobalState.runState.value = RunState.STOP
                 return
             }
-            updateUnderlyingNetworks()
+            // Tracking starts ONLY after Core.startTun success — a live core
+            // session is what makes bearer commits meaningful.
+            startBearerTracking()
             registerScreenReceiver()
             startForegroundJob()
             // Cross-file flag read by MainActivity.maybeRequestBatteryExemption()
@@ -416,22 +893,28 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     fun handleStop() {
         Log.d(
-            "VpnPlugin",
+            TAG,
             "handleStop: runState=${GlobalState.runState.value} caller=${Throwable().stackTrace.getOrNull(1)}"
         )
         startRequested = false
         GlobalState.runLock.withLock {
-            if (GlobalState.runState.value == RunState.STOP) return
+            if (GlobalState.runState.value == RunState.STOP) {
+                // Partial-start / late-callback protection: bearer tracking must
+                // never outlive a stop, even when the run state is already STOP.
+                stopBearerTracking()
+                return
+            }
             GlobalState.runState.value = RunState.STOP
+            // Before stopping the service or core, so no late callback can act
+            // on a dying session (fresh identity baseline for the next session
+            // comes from bearerTracker.reset() inside).
+            stopBearerTracking()
             dropwebService?.stop()
             unregisterScreenReceiver()
             stopForegroundJob()
             Core.stopTun()
             // UID→package mappings go stale across sessions.
             uidPageNameMap.clear()
-            // Fresh network-identity baseline for the next session: the first
-            // snapshot after the next start must not fire a spurious close.
-            lastNetworkKey = null
             // With BIND_AUTO_CREATE the binding keeps the stopped service instance
             // alive forever unless we unbind. After this isBind=false so bindService()
             // won't double-unbind; dropwebService=null forces a clean rebind on next start.

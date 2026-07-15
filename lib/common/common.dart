@@ -3,6 +3,7 @@ export 'app_localizations.dart';
 export 'base64_text.dart';
 export 'clipboard_subscription.dart';
 export 'color.dart';
+export 'connectivity_close_policy.dart';
 export 'constant.dart';
 export 'config_repository.dart';
 export 'context.dart';

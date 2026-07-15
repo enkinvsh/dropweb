@@ -84,7 +84,12 @@ const (
 	asyncTestDelayMethod           Method = "asyncTestDelay"
 	getConnectionsMethod           Method = "getConnections"
 	closeConnectionsMethod         Method = "closeConnections"
-	resetConnectionsMethod         Method = "resetConnectionsMethod"
+	// The Dart side serializes ActionMethod.resetConnections as
+	// "resetConnections" (models/generated/core.g.dart); the old value
+	// "resetConnectionsMethod" never matched, so resetConnections silently
+	// fell through to "unsupported method" and the resolver pools were
+	// never reset.
+	resetConnectionsMethod         Method = "resetConnections"
 	closeConnectionMethod          Method = "closeConnection"
 	getExternalProvidersMethod     Method = "getExternalProviders"
 	getExternalProviderMethod      Method = "getExternalProvider"

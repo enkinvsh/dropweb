@@ -155,11 +155,18 @@ class ApplicationState extends ConsumerState<Application> {
         child: ClashManager(
           child: ConnectivityManager(
             onConnectivityChanged: (results) async {
-              if (!results.contains(ConnectivityResult.vpn)) {
-                clashCore.closeConnections();
-              }
-              globalState.appController.updateLocalIp();
-              globalState.appController.addCheckIpNumDebounce();
+              // Desktop-only destructive close (no native bearer watcher
+              // there); Android relies exclusively on the native bearer
+              // tracker and must never close connections from
+              // connectivity_plus. The two non-destructive updates always run.
+              await handleConnectivityChanged(
+                isDesktop: system.isDesktop,
+                results: results,
+                closeConnections: clashCore.closeConnections,
+                updateLocalIp: globalState.appController.updateLocalIp,
+                addCheckIpNumDebounce:
+                    globalState.appController.addCheckIpNumDebounce,
+              );
             },
             child: child,
           ),

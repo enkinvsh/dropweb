@@ -178,13 +178,12 @@ class ClashCore {
     clashInterface.closeConnection(id);
   }
 
-  void closeConnections() {
-    clashInterface.closeConnections();
-  }
+  // Callers that participate in the bearer-change reset sequence must be able
+  // to await completion (reset DNS pools BEFORE closing tracked flows); call
+  // sites that deliberately fire-and-forget may keep ignoring the result.
+  FutureOr<bool> closeConnections() => clashInterface.closeConnections();
 
-  void resetConnections() {
-    clashInterface.resetConnections();
-  }
+  FutureOr<bool> resetConnections() => clashInterface.resetConnections();
 
   Future<List<ExternalProvider>> getExternalProviders() async {
     final externalProvidersRawString =
