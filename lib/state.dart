@@ -461,7 +461,8 @@ class GlobalState {
                       .map((log) => log.toString())
                       .toList();
                   final bundle = await fileLogger.buildSupportBundle(
-                    appVersion: packageInfo.version,
+                    appVersion:
+                        "${packageInfo.version}+${packageInfo.buildNumber}",
                     inAppLines: inAppLines,
                     phase: diagnosticPhase,
                     operatingSystem: Platform.operatingSystem,

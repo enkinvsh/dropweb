@@ -134,6 +134,10 @@ void main() {
       await dialogFuture;
 
       expect(copiedText, startsWith('dropweb diagnostics'));
+      expect(
+        copiedText!.split('\n').first,
+        contains('/ 0.8.6+2050000001 /'),
+      );
       expect(dialogStayedOpen, 1);
       expect(copiedNotifier, 1);
       expect(find.byType(AlertDialog), findsNothing);
