@@ -148,7 +148,8 @@ function Get-ObkatkaListenerPids {
       [int]$Matches[1]
     }
   }
-  return @($pids | Sort-Object -Unique)
+  $uniquePids = @($pids | Sort-Object -Unique)
+  Write-Output -NoEnumerate $uniquePids
 }
 
 function Get-ObkatkaServiceExecutablePath {
