@@ -34,6 +34,84 @@ SERVICE_NAME: DropwebHelperService
       expect(result.value, isTrue);
       expect(result.conflict, isNull);
       expect(destructiveInvocations, 1);
+
+      const quotedRegOutput = r'''
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\DropwebHelperService
+    ImagePath    REG_EXPAND_SZ    "C:\Program Files\dropweb\DropwebHelperService.exe" --run-service
+''';
+      const unquotedRegOutput =
+          'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\DropwebHelperService\n'
+          '\tImagePath\t REG_SZ   C:\\Program Files\\dropweb\\DropwebHelperService.exe\n';
+      const russianScQcOutput = r'''
+[SC] QueryServiceConfig SUCCESS
+        ИМЯ_ДВОИЧНОГО_ФАЙЛА   : "C:\Program Files\dropweb\DropwebHelperService.exe"
+''';
+      const foreignRegOutput = r'''
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\DropwebHelperService
+    ImagePath    REG_SZ    C:\Other\foo.exe
+''';
+
+      expect(
+        WindowsConflict.serviceImagePathFromRegQuery(quotedRegOutput),
+        r'"C:\Program Files\dropweb\DropwebHelperService.exe" --run-service',
+      );
+      expect(
+        WindowsConflict.helperServiceOwnership(
+          regQueryOutput: quotedRegOutput,
+          scQcOutput: '',
+          ourHelperPath: ourHelper,
+        ),
+        HelperServiceOwnership.owned,
+      );
+      expect(
+        WindowsConflict.serviceImagePathFromRegQuery(unquotedRegOutput),
+        ourHelper,
+      );
+      expect(
+        WindowsConflict.helperServiceOwnership(
+          regQueryOutput: unquotedRegOutput,
+          scQcOutput: '',
+          ourHelperPath: ourHelper,
+        ),
+        HelperServiceOwnership.owned,
+      );
+      expect(WindowsConflict.serviceBinPath(russianScQcOutput), isNull);
+      expect(
+        WindowsConflict.helperServiceOwnership(
+          regQueryOutput: quotedRegOutput,
+          scQcOutput: russianScQcOutput,
+          ourHelperPath: ourHelper,
+        ),
+        HelperServiceOwnership.owned,
+      );
+
+      for (final (regQueryOutput, scQcOutput, expectedOwnership) in [
+        (foreignRegOutput, russianScQcOutput, HelperServiceOwnership.foreign),
+        (
+          'unparseable registry',
+          russianScQcOutput,
+          HelperServiceOwnership.unknown
+        ),
+      ]) {
+        var blockedInvocations = 0;
+        final blockedOwnership = WindowsConflict.helperServiceOwnership(
+          regQueryOutput: regQueryOutput,
+          scQcOutput: scQcOutput,
+          ourHelperPath: ourHelper,
+        );
+        final blockedResult =
+            await WindowsConflict.runOwnedHelperDestructiveOperation(
+          ownership: blockedOwnership,
+          operation: () async {
+            blockedInvocations++;
+            return true;
+          },
+        );
+
+        expect(blockedOwnership, expectedOwnership);
+        expect(blockedResult.conflict, isA<HelperServiceConflictException>());
+        expect(blockedInvocations, 0);
+      }
     });
 
     test('foreign binPath returns specific conflict and invokes no operation',

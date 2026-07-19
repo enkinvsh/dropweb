@@ -388,16 +388,53 @@ class Windows {
   }
 
   Future<HelperServiceOwnership> checkHelperServiceOwnership() async {
+    ProcessResult? regResult;
     try {
-      final result = await Process.run('sc', ['qc', appHelperService]);
-      if (result.exitCode != 0) return HelperServiceOwnership.unknown;
+      regResult = await Process.run('reg', [
+        'query',
+        r'HKLM\SYSTEM\CurrentControlSet\Services\DropwebHelperService',
+        '/v',
+        'ImagePath',
+      ]);
+    } catch (_) {
+      regResult = null;
+    }
+
+    final regOutput =
+        regResult?.exitCode == 0 ? regResult!.stdout.toString() : '';
+    final regImagePath =
+        WindowsConflict.serviceImagePathFromRegQuery(regOutput);
+    if (regImagePath != null) {
       return WindowsConflict.helperServiceOwnership(
-        scQcOutput: result.stdout.toString(),
+        regQueryOutput: regOutput,
+        scQcOutput: '',
         ourHelperPath: appPath.helperPath,
       );
+    }
+
+    ProcessResult scResult;
+    try {
+      scResult = await Process.run('sc', ['qc', appHelperService]);
     } catch (_) {
       return HelperServiceOwnership.unknown;
     }
+    if (scResult.exitCode != 0) return HelperServiceOwnership.unknown;
+
+    final scOutput = scResult.stdout.toString();
+    final ownership = WindowsConflict.helperServiceOwnership(
+      regQueryOutput: regOutput,
+      scQcOutput: scOutput,
+      ourHelperPath: appPath.helperPath,
+    );
+    if (ownership == HelperServiceOwnership.unknown &&
+        regResult?.exitCode == 0) {
+      final rawOutput = '$regOutput\n$scOutput';
+      final rawHead =
+          rawOutput.length <= 160 ? rawOutput : rawOutput.substring(0, 160);
+      final head = rawHead.replaceAll('\r', r'\r').replaceAll('\n', r'\n');
+      commonPrint.log('[helper] ownership parse failed head=$head');
+    }
+    return ownership;
   }
 
   Future<HelperDestructiveOperationResult<T>>

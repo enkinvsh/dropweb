@@ -99,11 +99,30 @@ class WindowsConflict {
     return null;
   }
 
+  /// Parse the locale-stable `ImagePath` value out of `reg query` output.
+  /// The value may be `REG_EXPAND_SZ` or `REG_SZ`; everything after that type
+  /// token is the service command line and is normalized by [exePathIsOurs].
+  static String? serviceImagePathFromRegQuery(String regQueryOutput) {
+    final field = RegExp(
+      r'\bImagePath\b\s+(?:REG_EXPAND_SZ|REG_SZ)\s+(.+)$',
+      caseSensitive: false,
+    );
+    for (final raw in regQueryOutput.split('\n')) {
+      final match = field.firstMatch(raw);
+      if (match == null) continue;
+      final value = match.group(1)!.trim();
+      return value.isEmpty ? null : value;
+    }
+    return null;
+  }
+
   static HelperServiceOwnership helperServiceOwnership({
+    String regQueryOutput = '',
     required String scQcOutput,
     required String ourHelperPath,
   }) {
-    final servicePath = serviceBinPath(scQcOutput);
+    final servicePath = serviceImagePathFromRegQuery(regQueryOutput) ??
+        serviceBinPath(scQcOutput);
     if (servicePath == null) return HelperServiceOwnership.unknown;
     return exePathIsOurs(servicePath, ourHelperPath)
         ? HelperServiceOwnership.owned
