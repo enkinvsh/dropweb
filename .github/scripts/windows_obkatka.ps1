@@ -200,8 +200,9 @@ function Get-ObkatkaUninstallEntry {
   )
   foreach ($key in $keys) {
     foreach ($child in @(Get-ChildItem $key -ErrorAction SilentlyContinue)) {
-      $displayName = Get-ItemPropertyValue $child.PSPath -Name DisplayName -ErrorAction SilentlyContinue
       $properties = Get-ItemProperty $child.PSPath -ErrorAction SilentlyContinue
+      $displayNameProperty = if ($properties) { $properties.PSObject.Properties['DisplayName'] } else { $null }
+      $displayName = if ($displayNameProperty) { [string]$displayNameProperty.Value } else { '' }
       if ($properties -and $displayName -match $NamePattern) {
         return $properties
       }
