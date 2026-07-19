@@ -3,9 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
-import 'package:win32_registry/win32_registry.dart';
 
 import 'constant.dart';
+import 'print.dart';
 import 'system.dart';
 
 class AutoLaunch {
@@ -15,41 +15,57 @@ class AutoLaunch {
   }
 
   AutoLaunch._internal() {
-    launchAtStartup.setup(
-      appName: appName,
-      appPath: Platform.resolvedExecutable,
-    );
+    try {
+      launchAtStartup.setup(
+        appName: appName,
+        appPath: Platform.resolvedExecutable,
+      );
+    } catch (err) {
+      commonPrint.log('[autolaunch] setup failed: $err');
+    }
   }
   static AutoLaunch? _instance;
 
-  Future<bool> get isEnable async => launchAtStartup.isEnabled();
+  Future<bool> get isEnable async {
+    try {
+      return await launchAtStartup.isEnabled();
+    } catch (err) {
+      commonPrint.log('[autolaunch] isEnable failed: $err');
+      return false;
+    }
+  }
 
-  Future<bool> enable() async => launchAtStartup.enable();
+  Future<bool> enable() async {
+    try {
+      return await launchAtStartup.enable();
+    } catch (err) {
+      commonPrint.log('[autolaunch] enable failed: $err');
+      return false;
+    }
+  }
 
-  Future<bool> disable() async => launchAtStartup.disable();
+  Future<bool> disable() async {
+    try {
+      return await launchAtStartup.disable();
+    } catch (err) {
+      commonPrint.log('[autolaunch] disable failed: $err');
+      return false;
+    }
+  }
 
   Future<void> updateStatus(bool isAutoLaunch) async {
-    if (kDebugMode) {
-      return;
-    }
-    if (Platform.isWindows) {
-      final currentUser = Registry.currentUser;
-      try {
-        for (final path in [
-          r'Software\Microsoft\Windows\CurrentVersion\Run',
-          r'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run',
-        ]) {
-          currentUser.createKey(path).close();
-        }
-      } finally {
-        currentUser.close();
+    try {
+      if (kDebugMode) {
+        return;
       }
-    }
-    if (await isEnable == isAutoLaunch) return;
-    if (isAutoLaunch) {
-      await enable();
-    } else {
-      await disable();
+      if (await isEnable == isAutoLaunch) return;
+      if (isAutoLaunch) {
+        await enable();
+      } else {
+        await disable();
+      }
+    } catch (err) {
+      commonPrint.log('[autolaunch] updateStatus failed: $err');
     }
   }
 }
