@@ -135,7 +135,7 @@ jobs:
 
           try {
             Export-ObkatkaSnapshot -Label 'conflict baseline'
-            & ./.github/scripts/win_conflict_inspect.ps1 -Label 'conflict baseline' *>&1 |
+            & pwsh -NoProfile -File ./.github/scripts/win_conflict_inspect.ps1 -Label 'conflict baseline' *>&1 |
               Tee-Object -FilePath (Join-Path (Get-ObkatkaEvidenceRoot) 'inspector.txt')
             Add-GateCheck 'baseline-dropweb-service-absent' (-not (Get-Service DropwebHelperService -ErrorAction SilentlyContinue)) 'DropwebHelperService must not pre-exist'
             Add-GateCheck 'baseline-dropweb-port-free' ((Get-ObkatkaListenerPids -Port 47896).Count -eq 0) 'port 47896 must not have a listener'
@@ -272,7 +272,7 @@ jobs:
             $dropwebCommand = if ($dropwebHandler) { $dropwebHandler.command } else { 'ABSENT' }
             Add-GateCheck 'dropweb-protocol-owned' ($dropwebHandler -and $dropwebHandler.command -match [regex]::Escape($dropwebApp)) "command=$dropwebCommand"
             Export-ObkatkaSnapshot -Label 'foreign conflict final pass'
-            & ./.github/scripts/win_conflict_inspect.ps1 -Label 'foreign conflict final pass' *>&1 |
+            & pwsh -NoProfile -File ./.github/scripts/win_conflict_inspect.ps1 -Label 'foreign conflict final pass' *>&1 |
               Tee-Object -FilePath (Join-Path (Get-ObkatkaEvidenceRoot) 'inspector.txt') -Append
             $result = 'PASS'
           } catch {

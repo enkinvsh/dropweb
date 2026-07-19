@@ -115,7 +115,7 @@ jobs:
 
           try {
             Export-ObkatkaSnapshot -Label 'clean baseline'
-            & ./.github/scripts/win_conflict_inspect.ps1 -Label 'clean baseline' *>&1 |
+            & pwsh -NoProfile -File ./.github/scripts/win_conflict_inspect.ps1 -Label 'clean baseline' *>&1 |
               Tee-Object -FilePath (Join-Path (Get-ObkatkaEvidenceRoot) 'inspector.txt')
 
             $existingData = @(
