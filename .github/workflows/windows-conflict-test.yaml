@@ -176,7 +176,8 @@ jobs:
             Start-Sleep -Seconds 12
 
             $foreignAppProcess = @(Get-Process FlClashX -ErrorAction SilentlyContinue)
-            Add-GateCheck 'foreign-process-running-before' ($foreignAppProcess.Count -gt 0) "pids=$($foreignAppProcess.Id -join ',')"
+            $foreignPidsBefore = if ($foreignAppProcess.Count -gt 0) { ($foreignAppProcess | ForEach-Object { $_.Id }) -join ',' } else { 'none' }
+            Add-GateCheck 'foreign-process-running-before' ($foreignAppProcess.Count -gt 0) "pids=$foreignPidsBefore"
             $foreignCimBefore = Get-CimInstance Win32_Service -Filter "Name='FlClashHelperService'"
             $foreignServiceExeBefore = Get-ObkatkaServiceExecutablePath $foreignCimBefore.PathName
             Add-GateCheck 'foreign-service-path-before' ([string]::Equals($foreignServiceExeBefore, $foreignHelper, [StringComparison]::OrdinalIgnoreCase)) $foreignServiceExeBefore
@@ -220,7 +221,8 @@ jobs:
             }
 
             $foreignAppProcessAfter = @(Get-Process FlClashX -ErrorAction SilentlyContinue)
-            Add-GateCheck 'foreign-process-survives' ($foreignAppProcessAfter.Count -gt 0) "pids=$($foreignAppProcessAfter.Id -join ',')"
+            $foreignPidsAfter = if ($foreignAppProcessAfter.Count -gt 0) { ($foreignAppProcessAfter | ForEach-Object { $_.Id }) -join ',' } else { 'none' }
+            Add-GateCheck 'foreign-process-survives' ($foreignAppProcessAfter.Count -gt 0) "pids=$foreignPidsAfter"
             $foreignCimAfter = Get-CimInstance Win32_Service -Filter "Name='FlClashHelperService'" -ErrorAction SilentlyContinue
             $foreignStateAfter = if ($foreignCimAfter) { $foreignCimAfter.State } else { 'ABSENT' }
             Add-GateCheck 'foreign-service-survives' ($foreignCimAfter -and $foreignCimAfter.State -eq 'Running') "state=$foreignStateAfter"
@@ -257,7 +259,8 @@ jobs:
             $settleSeconds = [math]::Round($settleClock.Elapsed.TotalSeconds, 1)
             Save-ObkatkaScreenshot -Name 'foreign-conflict-after-25s' | Out-Null
             $dropwebProcesses = @(Get-Process dropweb -ErrorAction SilentlyContinue)
-            Add-GateCheck 'dropweb-app-alive-after-25s' ($dropwebProcesses.Count -gt 0) "pids=$($dropwebProcesses.Id -join ',')"
+            $dropwebPids = if ($dropwebProcesses.Count -gt 0) { ($dropwebProcesses | ForEach-Object { $_.Id }) -join ',' } else { 'none' }
+            Add-GateCheck 'dropweb-app-alive-after-25s' ($dropwebProcesses.Count -gt 0) "pids=$dropwebPids"
             $log = Find-ObkatkaAppLog
             $logPath = if ($log) { $log.FullName } else { 'ABSENT' }
             Add-GateCheck 'dropweb-app-log-produced' ($null -ne $log) "path=$logPath"

@@ -277,7 +277,8 @@ function Find-ObkatkaAppLog {
   }
 
   $uniqueDirectories = @($logDirectories | Sort-Object FullName -Unique)
-  Add-ObkatkaSnapshotSection -FileName 'app-log-discovery.txt' -Label 'log discovery' -Content (($uniqueDirectories.FullName) -join "`n")
+  $discoveredPaths = @($uniqueDirectories | ForEach-Object { $_.FullName })
+  Add-ObkatkaSnapshotSection -FileName 'app-log-discovery.txt' -Label 'log discovery' -Content ($discoveredPaths -join "`n")
   $destination = Join-Path $evidenceRoot 'app-logs'
   New-Item -ItemType Directory -Force $destination | Out-Null
   foreach ($directory in $uniqueDirectories) {

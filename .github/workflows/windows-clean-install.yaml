@@ -122,7 +122,8 @@ jobs:
               Get-ChildItem $env:APPDATA -Directory -ErrorAction SilentlyContinue |
                 Where-Object { $_.Name -match 'dropweb' }
             )
-            Add-GateCheck 'baseline-app-data-absent' ($existingData.Count -eq 0) (($existingData.FullName) -join ', ')
+            $existingDataDetail = if ($existingData.Count -eq 0) { 'none' } else { ($existingData | ForEach-Object { $_.FullName }) -join ', ' }
+            Add-GateCheck 'baseline-app-data-absent' ($existingData.Count -eq 0) $existingDataDetail
             Add-GateCheck 'baseline-service-absent' (-not (Get-Service DropwebHelperService -ErrorAction SilentlyContinue)) 'DropwebHelperService must not pre-exist'
             Add-GateCheck 'baseline-process-absent' (-not (Get-Process dropweb -ErrorAction SilentlyContinue)) 'dropweb.exe must not pre-exist'
             Add-GateCheck 'baseline-port-47896-free' ((Get-ObkatkaListenerPids -Port 47896).Count -eq 0) 'port 47896 must not have a listener'
@@ -186,7 +187,8 @@ jobs:
             Save-ObkatkaScreenshot -Name 'clean-first-start-after-25s' | Out-Null
 
             $running = @(Get-Process dropweb -ErrorAction SilentlyContinue)
-            Add-GateCheck 'app-alive-after-25s' ($running.Count -gt 0) "pids=$($running.Id -join ',')"
+            $runningPids = if ($running.Count -gt 0) { ($running | ForEach-Object { $_.Id }) -join ',' } else { 'none' }
+            Add-GateCheck 'app-alive-after-25s' ($running.Count -gt 0) "pids=$runningPids"
             $log = Find-ObkatkaAppLog
             $logPath = if ($log) { $log.FullName } else { 'ABSENT' }
             Add-GateCheck 'app-log-produced' ($null -ne $log) "path=$logPath"
