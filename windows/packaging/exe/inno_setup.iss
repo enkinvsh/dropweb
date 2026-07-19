@@ -35,6 +35,9 @@ UsePreviousTasks=yes
 const
   SHCNE_ASSOCCHANGED = $08000000;
   SHCNF_IDLIST = $0000;
+  HELPER_PING_TIMEOUT_MS = 15000;
+  HELPER_PING_POLL_MS = 300;
+  HELPER_HTTP_TIMEOUT_MS = 250;
 
 var
   IsUpgrade: Boolean;
@@ -131,6 +134,70 @@ begin
   end;
 end;
 
+function HelperPingMatchesToken(ExpectedToken: String): Boolean;
+var
+  Response: Variant;
+  ResponseBody: String;
+begin
+  Result := False;
+  try
+    Response := CreateOleObject('WinHttp.WinHttpRequest.5.1');
+    Response.SetTimeouts(HELPER_HTTP_TIMEOUT_MS, HELPER_HTTP_TIMEOUT_MS,
+      HELPER_HTTP_TIMEOUT_MS, HELPER_HTTP_TIMEOUT_MS);
+    Response.Open('GET', 'http://127.0.0.1:47896/ping', False);
+    Response.Send;
+    ResponseBody := Response.ResponseText;
+    Result := (Response.Status = 200) and
+      (Lowercase(Trim(ResponseBody)) = Lowercase(ExpectedToken));
+  except
+    // OLE creation, HTTP, and response errors mean "not ready yet". The
+    // bounded caller retries and ultimately lets installation continue.
+    Result := False;
+  end;
+end;
+
+procedure WaitForVerifiedHelperPing;
+var
+  StartedAt: Cardinal;
+  Elapsed: Cardinal;
+  ExpectedToken: String;
+begin
+  StartedAt := GetTickCount;
+  ExpectedToken := '';
+  Log('helper ping wait start: verifying /ping against the installed core ' +
+    'SHA-256 (timeout ' + IntToStr(HELPER_PING_TIMEOUT_MS) + 'ms).');
+
+  while (GetTickCount - StartedAt) < HELPER_PING_TIMEOUT_MS do
+  begin
+    // setup.dart bakes this same DropwebCore.exe SHA-256 into both the helper
+    // TOKEN and the app CORE_SHA256 define. Hash failures are retried because
+    // AV may still have the freshly copied core locked.
+    if ExpectedToken = '' then
+    begin
+      try
+        ExpectedToken := Lowercase(
+          GetSHA256OfFile(ExpandConstant('{app}\DropwebCore.exe')));
+      except
+        ExpectedToken := '';
+      end;
+    end;
+
+    if (ExpectedToken <> '') and HelperPingMatchesToken(ExpectedToken) then
+    begin
+      Elapsed := GetTickCount - StartedAt;
+      Log('helper ping ok after ' + IntToStr(Integer(Elapsed)) +
+        'ms (verified core SHA-256).');
+      Exit;
+    end;
+
+    Sleep(HELPER_PING_POLL_MS);
+  end;
+
+  Elapsed := GetTickCount - StartedAt;
+  Log('helper ping timeout after ' + IntToStr(Integer(Elapsed)) +
+    'ms - proceeding with app launch; app watchdog remains authoritative.');
+end;
+
 // Idempotently ensure DropwebHelperService exists, points at OUR helper exe,
 // and is set to auto-start. Invoked as the [Files] AfterInstall hook on the
 // helper entry (NOT ssPostInstall) so it runs inside PerformInstall: a raise
@@ -214,6 +281,11 @@ begin
   if not ServiceIsRunning(ServiceName) then
     Log('WARNING: DropwebHelperService is registered (auto-start) but did not ' +
       'reach RUNNING within 15s; it should start on next boot / app launch.');
+
+  // SCM RUNNING only proves the service process started, not that its HTTP
+  // endpoint is bound. Wait for the same token-verified /ping used by the app.
+  // Timeout is deliberately non-fatal: Wave 1B's app watchdog is authoritative.
+  WaitForVerifiedHelperPing;
 end;
 
 procedure RemoveServiceIfOurs(ServiceName: String);

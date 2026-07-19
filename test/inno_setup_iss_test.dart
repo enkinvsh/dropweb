@@ -199,6 +199,51 @@ void main() {
     });
   });
 
+  group('verified helper ping readiness wait (Wave 3)', () {
+    test('verifies /ping against the installed core SHA-256', () {
+      final probe = bodyOf('function HelperPingMatchesToken');
+      final wait = bodyOf('procedure WaitForVerifiedHelperPing');
+
+      expect(probe, contains('WinHttp.WinHttpRequest.5.1'));
+      expect(probe, contains('http://127.0.0.1:47896/ping'));
+      expect(probe, contains('Response.Status = 200'));
+      expect(probe, contains('Response.ResponseText'));
+      expect(wait,
+          contains(r"GetSHA256OfFile(ExpandConstant('{app}\DropwebCore.exe'))"),
+          reason: 'the installer must use the same core-hash token as the app');
+    });
+
+    test('poll is bounded to 15 seconds and exceptions remain non-fatal', () {
+      final wait = bodyOf('procedure WaitForVerifiedHelperPing');
+
+      expect(iss, contains('HELPER_PING_TIMEOUT_MS = 15000'));
+      expect(iss, contains('HELPER_PING_POLL_MS = 300'));
+      expect(wait, contains('GetTickCount'));
+      expect(wait, contains('Sleep(HELPER_PING_POLL_MS)'));
+      expect(wait, contains('except'));
+      expect(wait, contains('helper ping timeout'));
+      expect(wait, contains('proceeding with app launch'));
+      expect(wait.contains('RaiseException'), isFalse,
+          reason: 'ping timeout/errors must never fail installation');
+    });
+
+    test('runs after the SCM wait and before the unchanged app launch', () {
+      final ensure = bodyOf('procedure EnsureHelperService');
+      final runningGuard =
+          ensure.lastIndexOf('if not ServiceIsRunning(ServiceName)');
+      final pingWait = ensure.indexOf('WaitForVerifiedHelperPing;');
+      final runSection = iss.indexOf('\n[Run]');
+
+      expect(runningGuard, greaterThan(-1));
+      expect(pingWait, greaterThan(runningGuard),
+          reason: 'verified HTTP readiness follows the existing SCM wait');
+      expect(runSection, greaterThan(iss.indexOf('procedure EnsureHelperService')),
+          reason: 'the [Run] launch remains after helper setup code');
+      expect(iss.substring(runSection), contains(
+          r'Filename: "{app}\\{{EXECUTABLE_NAME}}"'));
+    });
+  });
+
   group('path-boundary ownership uses AddBackslash (finding #4)', () {
     for (final fn in const [
       'function ServiceBelongsToApp',
