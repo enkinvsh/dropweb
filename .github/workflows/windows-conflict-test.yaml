@@ -6,11 +6,21 @@ on:
     branches: [dev]
     paths:
       - '.github/workflows/windows-conflict-test.yaml'
+      - '.github/scripts/windows_obkatka.ps1'
       - '.github/scripts/win_conflict_inspect.ps1'
       - 'windows/packaging/exe/inno_setup.iss'
       - 'windows/**'
+      - 'lib/main.dart'
+      - 'lib/application.dart'
+      - 'lib/controller.dart'
+      - 'lib/state.dart'
+      - 'lib/clash/**'
+      - 'lib/services/**'
+      - 'lib/manager/**'
       - 'lib/common/windows.dart'
       - 'lib/common/windows_conflict.dart'
+      - 'core/**'
+      - 'plugins/**'
       - 'services/helper/**'
       - 'setup.dart'
       - 'pubspec.yaml'
@@ -19,10 +29,15 @@ on:
 permissions:
   contents: read
 
+env:
+  FLCLASHX_VERSION: v0.4.2
+  FLCLASHX_ASSET: FlClashX-windows-amd64-setup.exe
+  FLCLASHX_SHA256: 232a1a5f65e4c4d9c5f27e53f06768c9810db0a730f20362ca2828294cf90f11
+
 jobs:
   build-installer:
     name: Build Windows amd64 installer from source
-    runs-on: windows-latest
+    runs-on: windows-2025
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,16 +61,19 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
 
-      - name: Build (Go core + Rust helper + Flutter + Inno installer)
+      - name: Build candidate installer
         run: dart setup.dart windows --arch amd64
 
       - name: Verify installer artifact
         shell: pwsh
         run: |
-          $exe = Get-ChildItem dist -Filter '*setup*.exe' -Recurse -EA SilentlyContinue | Select-Object -First 1
-          if (-not $exe) { $exe = Get-ChildItem dist -Filter '*amd64*.exe' -Recurse -EA SilentlyContinue | Select-Object -First 1 }
-          if (-not $exe) { Write-Host "::error::setup.dart produced no installer .exe in dist/"; Get-ChildItem dist -Recurse -EA SilentlyContinue | ForEach-Object { Write-Host $_.FullName }; exit 1 }
-          Write-Host "installer: $($exe.FullName)"
+          $installers = @(Get-ChildItem dist -Filter '*.exe' -Recurse | Where-Object { $_.Name -match 'setup|amd64' })
+          if ($installers.Count -ne 1) {
+            Write-Host "::error::expected exactly one installer, found $($installers.Count)"
+            Get-ChildItem dist -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_.FullName }
+            exit 1
+          }
+          Write-Host "installer: $($installers[0].FullName)"
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
@@ -65,151 +83,228 @@ jobs:
           if-no-files-found: error
           overwrite: true
 
-  decouple-check:
-    name: Clean coexistence (current dropweb + FlClashX)
-    runs-on: windows-latest
+  foreign-client-conflict:
+    name: Strict FlClashX coexistence gate
+    runs-on: windows-2025
     needs: build-installer
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Download dropweb installer (built from this commit)
+      - name: Download candidate installer
         uses: actions/download-artifact@v4
         with:
           name: dropweb-windows-installer
           path: dl/dropweb
 
-      - name: Download FlClashX (external, latest release)
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          New-Item -ItemType Directory -Force dl\flclashx | Out-Null
-          Write-Host "=== FlClashX latest release assets ==="
-          gh release view --repo pluralplay/FlClashX --json assets --jq '.assets[].name'
-          gh release download --repo pluralplay/FlClashX -p "*amd64*setup*.exe" -D dl\flclashx
-          if (-not (Get-ChildItem dl\flclashx -Filter *.exe -EA SilentlyContinue)) {
-            gh release download --repo pluralplay/FlClashX -p "*setup*.exe" -D dl\flclashx
-          }
-          if (-not (Get-ChildItem dl\flclashx -Filter *.exe -EA SilentlyContinue)) {
-            gh release download --repo pluralplay/FlClashX -p "*.exe" -D dl\flclashx
-          }
-          Write-Host "=== downloaded ==="
-          Get-ChildItem -Recurse dl | ForEach-Object { Write-Host $_.FullName }
-
-      - name: 0 - baseline (clean runner)
-        shell: pwsh
-        run: '& ./.github/scripts/win_conflict_inspect.ps1 -Label "0. clean runner"'
-
-      - name: 1 - install FlClashX
+      - name: Download pinned FlClashX installer
         shell: pwsh
         run: |
-          $fl = Get-ChildItem dl\flclashx -Filter *.exe -Recurse | Select-Object -First 1
-          if (-not $fl) { Write-Host "::error::FlClashX installer not found"; exit 1 }
-          Write-Host "Installing $($fl.FullName)"
-          $p = Start-Process -FilePath $fl.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS','/NOCANCEL' -Wait -PassThru
-          Write-Host "FlClashX installer exit=$($p.ExitCode)"
-          & ./.github/scripts/win_conflict_inspect.ps1 -Label "1. after FlClashX"
-
-      - name: 2 - install dropweb (built from this commit)
-        shell: pwsh
-        run: |
-          $dw = Get-ChildItem dl\dropweb -Filter *.exe -Recurse | Select-Object -First 1
-          if (-not $dw) { Write-Host "::error::dropweb installer not found"; exit 1 }
-          Write-Host "Installing $($dw.FullName)"
-          $p = Start-Process -FilePath $dw.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NORESTARTAPPLICATIONS','/NOICONS','/NOCANCEL' -Wait -PassThru
-          Write-Host "dropweb installer exit=$($p.ExitCode)"
-          if ($p.ExitCode -ne 0) { Write-Host "::error::dropweb installer returned $($p.ExitCode)"; exit 1 }
-          & ./.github/scripts/win_conflict_inspect.ps1 -Label "2. after dropweb"
-
-      - name: 3 - verdict (dropweb decoupled into its own folder)
-        shell: pwsh
-        run: |
-          $keys = @(
-            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
-            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall',
-            'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'
-          )
-          $dw = $null
-          foreach ($k in $keys) {
-            Get-ChildItem $k -ErrorAction SilentlyContinue | ForEach-Object {
-              $p = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
-              if ($p.DisplayName -match 'dropweb') { $dw = $p }
-            }
-          }
-          if (-not $dw) { Write-Host "::error::no dropweb uninstall entry - install failed"; exit 1 }
-          Write-Host "dropweb InstallLocation = $($dw.InstallLocation)"
-          if ($dw.InstallLocation -match 'FlClashX') {
-            Write-Host "::error::CONFLICT - dropweb installed inside FlClashX folder: $($dw.InstallLocation)"
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force dl/flclashx | Out-Null
+          $url = "https://github.com/pluralplay/FlClashX/releases/download/$env:FLCLASHX_VERSION/$env:FLCLASHX_ASSET"
+          $path = Join-Path (Resolve-Path dl/flclashx) $env:FLCLASHX_ASSET
+          Invoke-WebRequest -Uri $url -OutFile $path
+          $actual = (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -cne $env:FLCLASHX_SHA256) {
+            Write-Host "::error::FlClashX hash mismatch: actual=$actual expected=$env:FLCLASHX_SHA256"
             exit 1
           }
-          Write-Host "OK - dropweb decoupled (own install folder: $($dw.InstallLocation))"
+          Write-Host "pinned FlClashX $env:FLCLASHX_VERSION sha256=$actual"
 
-  flclashx-running-then-dropweb:
-    name: FlClashX running first, then install dropweb (runtime helper-port)
-    runs-on: windows-latest
-    needs: build-installer
-    steps:
-      - uses: actions/checkout@v4
+      - name: Run strict foreign-client-conflict scenario
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          . ./.github/scripts/windows_obkatka.ps1
+          Initialize-ObkatkaEvidence -Reset | Out-Null
+          $checks = [System.Collections.Generic.List[object]]::new()
+          $clock = [System.Diagnostics.Stopwatch]::StartNew()
+          $foreignInstallSeconds = 0
+          $dropwebInstallSeconds = 0
+          $settleSeconds = 0
+          $result = 'FAIL'
+          $firstFailure = $null
 
-      - name: Download dropweb installer (built from this commit)
-        uses: actions/download-artifact@v4
+          function Add-GateCheck {
+            param([string]$Name, [bool]$Passed, [string]$Detail)
+            $status = if ($Passed) { 'PASS' } else { 'FAIL' }
+            $checks.Add((New-ObkatkaCheck -Name $Name -Status $status -Detail $Detail))
+            if (-not $Passed) { throw "$Name`: $Detail" }
+          }
+
+          try {
+            Export-ObkatkaSnapshot -Label 'conflict baseline'
+            & ./.github/scripts/win_conflict_inspect.ps1 -Label 'conflict baseline' *>&1 |
+              Tee-Object -FilePath (Join-Path (Get-ObkatkaEvidenceRoot) 'inspector.txt')
+            Add-GateCheck 'baseline-dropweb-service-absent' (-not (Get-Service DropwebHelperService -ErrorAction SilentlyContinue)) 'DropwebHelperService must not pre-exist'
+            Add-GateCheck 'baseline-dropweb-port-free' ((Get-ObkatkaListenerPids -Port 47896).Count -eq 0) 'port 47896 must not have a listener'
+            Add-GateCheck 'baseline-dropweb-entry-absent' (-not (Get-ObkatkaUninstallEntry -NamePattern '(?i)^dropweb')) 'dropweb uninstall entry must not pre-exist'
+
+            $foreignInstallers = @(Get-ChildItem dl/flclashx -Filter '*.exe' -Recurse)
+            Add-GateCheck 'foreign-installer-count' ($foreignInstallers.Count -eq 1) "count=$($foreignInstallers.Count)"
+            $foreignInstaller = $foreignInstallers[0]
+            $foreignHash = (Get-FileHash $foreignInstaller.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            Add-GateCheck 'foreign-installer-pinned-sha256' ($foreignHash -ceq $env:FLCLASHX_SHA256) "version=$env:FLCLASHX_VERSION sha256=$foreignHash"
+            @("version=$env:FLCLASHX_VERSION", "path=$($foreignInstaller.FullName)", "sha256=$foreignHash") |
+              Set-Content (Join-Path (Get-ObkatkaEvidenceRoot) 'foreign-installer.txt') -Encoding utf8
+
+            $foreignClock = [System.Diagnostics.Stopwatch]::StartNew()
+            $foreignProcess = Start-Process -FilePath $foreignInstaller.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS','/NOCANCEL' -Wait -PassThru
+            $foreignClock.Stop()
+            $foreignInstallSeconds = [math]::Round($foreignClock.Elapsed.TotalSeconds, 1)
+            Add-GateCheck 'foreign-installer-exit' ($foreignProcess.ExitCode -eq 0) "exit=$($foreignProcess.ExitCode)"
+
+            $foreignRoot = 'C:\Program Files\FlClashX'
+            $foreignApp = Join-Path $foreignRoot 'FlClashX.exe'
+            $foreignHelper = Join-Path $foreignRoot 'FlClashHelperService.exe'
+            Add-GateCheck 'foreign-app-installed' (Test-Path $foreignApp) $foreignApp
+            Add-GateCheck 'foreign-helper-installed' (Test-Path $foreignHelper) $foreignHelper
+
+            $foreignService = Get-Service FlClashHelperService -ErrorAction SilentlyContinue
+            if (-not $foreignService) {
+              New-Service -Name FlClashHelperService -BinaryPathName "`"$foreignHelper`"" -StartupType Manual | Out-Null
+              $foreignService = Get-Service FlClashHelperService
+            }
+            if ($foreignService.Status -ne 'Running') { Start-Service FlClashHelperService }
+            for ($attempt = 0; $attempt -lt 10 -and $foreignService.Status -ne 'Running'; $attempt++) {
+              Start-Sleep -Seconds 1
+              $foreignService.Refresh()
+            }
+            Add-GateCheck 'foreign-helper-running-before' ($foreignService.Status -eq 'Running') "status=$($foreignService.Status)"
+            Start-Process -FilePath $foreignApp | Out-Null
+            Start-Sleep -Seconds 12
+
+            $foreignAppProcess = @(Get-Process FlClashX -ErrorAction SilentlyContinue)
+            Add-GateCheck 'foreign-process-running-before' ($foreignAppProcess.Count -gt 0) "pids=$($foreignAppProcess.Id -join ',')"
+            $foreignCimBefore = Get-CimInstance Win32_Service -Filter "Name='FlClashHelperService'"
+            $foreignServiceExeBefore = Get-ObkatkaServiceExecutablePath $foreignCimBefore.PathName
+            Add-GateCheck 'foreign-service-path-before' ([string]::Equals($foreignServiceExeBefore, $foreignHelper, [StringComparison]::OrdinalIgnoreCase)) $foreignServiceExeBefore
+            $foreignPortPidsBefore = Get-ObkatkaListenerPids -Port 47890
+            Add-GateCheck 'foreign-service-pid-owns-47890-before' ($foreignPortPidsBefore -contains [int]$foreignCimBefore.ProcessId) "servicePid=$($foreignCimBefore.ProcessId) listenerPids=$($foreignPortPidsBefore -join ',')"
+
+            $flclashHandlerBefore = Get-ObkatkaProtocolHandler -Scheme 'flclash'
+            $clashxHandlerBefore = Get-ObkatkaProtocolHandler -Scheme 'clashx'
+            $flclashCommandBefore = if ($flclashHandlerBefore) { $flclashHandlerBefore.command } else { 'ABSENT' }
+            $clashxCommandBefore = if ($clashxHandlerBefore) { $clashxHandlerBefore.command } else { 'ABSENT' }
+            Add-GateCheck 'foreign-flclash-protocol-before' ($flclashHandlerBefore -and $flclashHandlerBefore.command -match [regex]::Escape($foreignApp)) "command=$flclashCommandBefore"
+            Add-GateCheck 'foreign-clashx-protocol-before' ($clashxHandlerBefore -and $clashxHandlerBefore.command -match [regex]::Escape($foreignApp)) "command=$clashxCommandBefore"
+            Export-ObkatkaSnapshot -Label 'foreign client alive before dropweb'
+
+            $candidateInstallers = @(Get-ChildItem dl/dropweb -Filter '*.exe' -Recurse)
+            Add-GateCheck 'candidate-installer-count' ($candidateInstallers.Count -eq 1) "count=$($candidateInstallers.Count)"
+            $candidateInstaller = $candidateInstallers[0]
+            $candidateHash = (Get-FileHash $candidateInstaller.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            @("path=$($candidateInstaller.FullName)", "sha256=$candidateHash") |
+              Set-Content (Join-Path (Get-ObkatkaEvidenceRoot) 'installer.txt') -Encoding utf8
+            $checks.Add((New-ObkatkaCheck -Name 'candidate-installer-sha256' -Status 'PASS' -Detail $candidateHash))
+            $checks.Add((New-ObkatkaCheck -Name 'runner-image' -Status 'PASS' -Detail "$env:ImageOS/$env:ImageVersion; $([Environment]::OSVersion.VersionString)"))
+
+            $dropwebClock = [System.Diagnostics.Stopwatch]::StartNew()
+            $dropwebInstaller = Start-Process -FilePath $candidateInstaller.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NORESTARTAPPLICATIONS','/NOICONS','/NOCANCEL' -Wait -PassThru
+            $dropwebClock.Stop()
+            $dropwebInstallSeconds = [math]::Round($dropwebClock.Elapsed.TotalSeconds, 1)
+            Add-GateCheck 'dropweb-installer-exit' ($dropwebInstaller.ExitCode -eq 0) "exit=$($dropwebInstaller.ExitCode)"
+
+            $dropwebEntry = Get-ObkatkaUninstallEntry -NamePattern '(?i)^dropweb'
+            Add-GateCheck 'dropweb-install-entry' ($null -ne $dropwebEntry) 'dropweb uninstall entry exists'
+            $dropwebRoot = [string]$dropwebEntry.InstallLocation
+            if (-not $dropwebRoot) { $dropwebRoot = 'C:\Program Files\dropweb' }
+            $dropwebRoot = $dropwebRoot.TrimEnd('\')
+            Add-GateCheck 'dropweb-own-install-folder' ($dropwebRoot -notmatch '(?i)FlClashX') $dropwebRoot
+            $dropwebApp = Join-Path $dropwebRoot 'dropweb.exe'
+            $dropwebCore = Join-Path $dropwebRoot 'DropwebCore.exe'
+            $dropwebHelper = Join-Path $dropwebRoot 'DropwebHelperService.exe'
+            foreach ($path in @($dropwebApp, $dropwebCore, $dropwebHelper)) {
+              Add-GateCheck "dropweb-file-$([IO.Path]::GetFileName($path))" (Test-Path $path) $path
+            }
+
+            $foreignAppProcessAfter = @(Get-Process FlClashX -ErrorAction SilentlyContinue)
+            Add-GateCheck 'foreign-process-survives' ($foreignAppProcessAfter.Count -gt 0) "pids=$($foreignAppProcessAfter.Id -join ',')"
+            $foreignCimAfter = Get-CimInstance Win32_Service -Filter "Name='FlClashHelperService'" -ErrorAction SilentlyContinue
+            $foreignStateAfter = if ($foreignCimAfter) { $foreignCimAfter.State } else { 'ABSENT' }
+            Add-GateCheck 'foreign-service-survives' ($foreignCimAfter -and $foreignCimAfter.State -eq 'Running') "state=$foreignStateAfter"
+            $foreignServiceExeAfter = Get-ObkatkaServiceExecutablePath $foreignCimAfter.PathName
+            Add-GateCheck 'foreign-service-path-unchanged' ([string]::Equals($foreignServiceExeAfter, $foreignServiceExeBefore, [StringComparison]::OrdinalIgnoreCase)) "before=$foreignServiceExeBefore after=$foreignServiceExeAfter"
+            $foreignPortPidsAfter = Get-ObkatkaListenerPids -Port 47890
+            Add-GateCheck 'foreign-port-47890-survives' ($foreignPortPidsAfter -contains [int]$foreignCimAfter.ProcessId) "servicePid=$($foreignCimAfter.ProcessId) listenerPids=$($foreignPortPidsAfter -join ',')"
+            $flclashHandlerAfter = Get-ObkatkaProtocolHandler -Scheme 'flclash'
+            $clashxHandlerAfter = Get-ObkatkaProtocolHandler -Scheme 'clashx'
+            $flclashCommandAfter = if ($flclashHandlerAfter) { $flclashHandlerAfter.command } else { 'ABSENT' }
+            $clashxCommandAfter = if ($clashxHandlerAfter) { $clashxHandlerAfter.command } else { 'ABSENT' }
+            Add-GateCheck 'foreign-flclash-protocol-unchanged' ($flclashHandlerAfter -and $flclashHandlerAfter.command -ceq $flclashHandlerBefore.command) "before=$flclashCommandBefore after=$flclashCommandAfter"
+            Add-GateCheck 'foreign-clashx-protocol-unchanged' ($clashxHandlerAfter -and $clashxHandlerAfter.command -ceq $clashxHandlerBefore.command) "before=$clashxCommandBefore after=$clashxCommandAfter"
+
+            $dropwebService = Get-Service DropwebHelperService -ErrorAction SilentlyContinue
+            if ($dropwebService) {
+              for ($attempt = 0; $attempt -lt 6 -and $dropwebService.Status -ne 'Running'; $attempt++) {
+                Start-Sleep -Seconds 2
+                $dropwebService.Refresh()
+              }
+            }
+            $dropwebServiceStatus = if ($dropwebService) { $dropwebService.Status } else { 'ABSENT' }
+            Add-GateCheck 'dropweb-helper-running' ($dropwebService -and $dropwebService.Status -eq 'Running') "status=$dropwebServiceStatus"
+            $dropwebIdentity = Test-ObkatkaHelperIdentity -CorePath $dropwebCore -ServiceName 'DropwebHelperService' -Port 47896
+            $dropwebServiceExe = Get-ObkatkaServiceExecutablePath $dropwebIdentity.service.PathName
+            Add-GateCheck 'dropweb-helper-service-path' ([string]::Equals($dropwebServiceExe, $dropwebHelper, [StringComparison]::OrdinalIgnoreCase)) $dropwebServiceExe
+            Add-GateCheck 'dropweb-helper-ping-core-token' $dropwebIdentity.pingMatches "ping=$($dropwebIdentity.pingBody) core=$($dropwebIdentity.coreHash)"
+            Add-GateCheck 'dropweb-helper-pid-owns-47896' $dropwebIdentity.pidOwnsPort "servicePid=$($dropwebIdentity.servicePid) listenerPids=$($dropwebIdentity.listenerPids -join ',')"
+
+            Start-Process -FilePath $dropwebApp | Out-Null
+            $settleClock = [System.Diagnostics.Stopwatch]::StartNew()
+            Start-Sleep -Seconds 25
+            $settleClock.Stop()
+            $settleSeconds = [math]::Round($settleClock.Elapsed.TotalSeconds, 1)
+            Save-ObkatkaScreenshot -Name 'foreign-conflict-after-25s' | Out-Null
+            $dropwebProcesses = @(Get-Process dropweb -ErrorAction SilentlyContinue)
+            Add-GateCheck 'dropweb-app-alive-after-25s' ($dropwebProcesses.Count -gt 0) "pids=$($dropwebProcesses.Id -join ',')"
+            $log = Find-ObkatkaAppLog
+            $logPath = if ($log) { $log.FullName } else { 'ABSENT' }
+            Add-GateCheck 'dropweb-app-log-produced' ($null -ne $log) "path=$logPath"
+            Get-Content $log.FullName -Tail 150 | ForEach-Object { Write-Host $_ }
+            foreach ($bootCheck in @(Test-ObkatkaBootLog -LogPath $log.FullName -RequireHelperSpawn)) {
+              $checks.Add($bootCheck)
+            }
+            $failedBoot = @($checks | Where-Object { $_.status -eq 'FAIL' })
+            if ($failedBoot.Count -gt 0) { throw "$($failedBoot[0].name): $($failedBoot[0].detail)" }
+
+            $dropwebHandler = Get-ObkatkaProtocolHandler -Scheme 'dropweb'
+            $dropwebCommand = if ($dropwebHandler) { $dropwebHandler.command } else { 'ABSENT' }
+            Add-GateCheck 'dropweb-protocol-owned' ($dropwebHandler -and $dropwebHandler.command -match [regex]::Escape($dropwebApp)) "command=$dropwebCommand"
+            Export-ObkatkaSnapshot -Label 'foreign conflict final pass'
+            & ./.github/scripts/win_conflict_inspect.ps1 -Label 'foreign conflict final pass' *>&1 |
+              Tee-Object -FilePath (Join-Path (Get-ObkatkaEvidenceRoot) 'inspector.txt') -Append
+            $result = 'PASS'
+          } catch {
+            Write-Host "::error::$($_.Exception.Message)"
+            if (@($checks | Where-Object { $_.status -eq 'FAIL' }).Count -eq 0) {
+              $checks.Add((New-ObkatkaCheck -Name 'scenario-exception' -Status 'FAIL' -Detail $_.Exception.Message))
+            }
+          } finally {
+            try { Export-ObkatkaSnapshot -Label 'foreign conflict final' } catch { Write-Host "::warning::final snapshot failed: $_" }
+            if (-not (Test-Path (Join-Path (Get-ObkatkaEvidenceRoot) 'foreign-conflict-after-25s.png'))) {
+              Save-ObkatkaScreenshot -Name 'foreign-conflict-final' | Out-Null
+            }
+            $clock.Stop()
+            $first = @($checks | Where-Object { $_.status -eq 'FAIL' } | Select-Object -First 1)
+            if ($first.Count -gt 0) { $firstFailure = $first[0].name; $result = 'FAIL' }
+            $durations = [pscustomobject][ordered]@{
+              foreignInstallSeconds = $foreignInstallSeconds
+              dropwebInstallSeconds = $dropwebInstallSeconds
+              settleSeconds = $settleSeconds
+              totalSeconds = [math]::Round($clock.Elapsed.TotalSeconds, 1)
+            }
+            Write-ObkatkaVerdict -Scenario 'foreign-client-conflict' -Result $result -Checks @($checks) -FirstFailure $firstFailure -Durations $durations
+          }
+
+          if ($result -ne 'PASS') { exit 1 }
+
+      - name: Upload verdict, evidence, and app logs
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: dropweb-windows-installer
-          path: dl/dropweb
-
-      - name: Download FlClashX (external, latest release)
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          New-Item -ItemType Directory -Force dl\flclashx | Out-Null
-          gh release download --repo pluralplay/FlClashX -p "*amd64*setup*.exe" -D dl\flclashx
-          if (-not (Get-ChildItem dl\flclashx -Filter *.exe -EA SilentlyContinue)) { gh release download --repo pluralplay/FlClashX -p "*setup*.exe" -D dl\flclashx }
-          Get-ChildItem -Recurse dl | ForEach-Object { Write-Host $_.FullName }
-
-      - name: Install FlClashX, then bring it ALIVE (helper on 47890 + launch app)
-        shell: pwsh
-        run: |
-          $fl = Get-ChildItem dl\flclashx -Filter *.exe -Recurse | Select-Object -First 1
-          Start-Process -FilePath $fl.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS','/NOCANCEL' -Wait
-          $hexe = 'C:\Program Files\FlClashX\FlClashHelperService.exe'
-          if (Test-Path $hexe) {
-            try { New-Service -Name FlClashHelperService -BinaryPathName "`"$hexe`"" -StartupType Manual -ErrorAction Stop | Out-Null } catch { Write-Host "create FlClashHelperService: $_" }
-            try { Start-Service FlClashHelperService -ErrorAction Stop; Write-Host "FlClashHelperService started" } catch { Write-Host "start FlClashHelperService failed: $_" }
-          } else { Write-Host "FlClashX helper exe not found at $hexe" }
-          Start-Process -FilePath 'C:\Program Files\FlClashX\FlClashX.exe' -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 6
-          & ./.github/scripts/win_conflict_inspect.ps1 -Label "FlClashX alive (helper + app)"
-          Write-Host "-- who holds 47890 --"; (netstat -ano | Select-String ':47890') | ForEach-Object { Write-Host "  $_" }
-
-      - name: Install dropweb WHILE FlClashX runs (installer owns its helper)
-        shell: pwsh
-        run: |
-          $dw = Get-ChildItem dl\dropweb -Filter *.exe -Recurse | Select-Object -First 1
-          $p = Start-Process -FilePath $dw.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NORESTARTAPPLICATIONS','/NOICONS','/NOCANCEL' -Wait -PassThru
-          Write-Host "dropweb installer exit=$($p.ExitCode)"
-          if ($p.ExitCode -ne 0) { Write-Host "::error::dropweb installer returned $($p.ExitCode) while FlClashX was running"; exit 1 }
-          Start-Process -FilePath 'C:\Program Files\dropweb\dropweb.exe' -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 8
-          & ./.github/scripts/win_conflict_inspect.ps1 -Label "after dropweb install (FlClashX still alive)"
-          Write-Host "-- who holds 47890 (FlClashX) / 47896 (dropweb) --"
-          (netstat -ano | Select-String ':47890|:47896') | ForEach-Object { Write-Host "  $_" }
-
-      - name: Verdict - FlClashX untouched, dropweb helper installer-owned
-        shell: pwsh
-        run: |
-          $flProc = Get-Process -Name FlClashX -EA SilentlyContinue
-          $flSvc  = (Get-Service FlClashHelperService -EA SilentlyContinue).Status
-          Write-Host "FlClashX.exe running     = $([bool]$flProc)"
-          Write-Host "FlClashHelperService     = $flSvc"
-          if (-not $flProc) { Write-Host "::error::FlClashX.exe was killed by the dropweb install - hostile process kill regression"; exit 1 }
-          if ($flSvc -ne 'Running') { Write-Host "::error::FlClashHelperService is no longer Running ($flSvc) - dropweb tampered with a foreign service"; exit 1 }
-
-          $dwSvc = Get-Service DropwebHelperService -EA SilentlyContinue
-          if (-not $dwSvc) { Write-Host "::error::installer did NOT create DropwebHelperService (EnsureHelperService regression)"; exit 1 }
-          for ($i = 0; $i -lt 6 -and $dwSvc.Status -ne 'Running'; $i++) { Start-Sleep -Seconds 2; $dwSvc.Refresh() }
-          Write-Host "DropwebHelperService     = $($dwSvc.Status)"
-          if ($dwSvc.Status -ne 'Running') { Write-Host "::error::installer created DropwebHelperService but it is not Running ($($dwSvc.Status))"; exit 1 }
-          $dwBound = netstat -ano | Select-String ':47896' | Select-String 'LISTENING'
-          if (-not $dwBound) { Write-Host "::error::DropwebHelperService Running but not LISTENING on 47896"; exit 1 }
-          Write-Host "OK - FlClashX coexists untouched; dropweb helper installer-owned on 47896"
+          name: foreign-client-conflict-evidence
+          path: ci-evidence/
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
