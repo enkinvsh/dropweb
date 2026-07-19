@@ -3,12 +3,12 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
+import 'package:win32_registry/win32_registry.dart';
 
 import 'constant.dart';
 import 'system.dart';
 
 class AutoLaunch {
-
   factory AutoLaunch() {
     _instance ??= AutoLaunch._internal();
     return _instance!;
@@ -32,11 +32,24 @@ class AutoLaunch {
     if (kDebugMode) {
       return;
     }
+    if (Platform.isWindows) {
+      final currentUser = Registry.currentUser;
+      try {
+        for (final path in [
+          r'Software\Microsoft\Windows\CurrentVersion\Run',
+          r'Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run',
+        ]) {
+          currentUser.createKey(path).close();
+        }
+      } finally {
+        currentUser.close();
+      }
+    }
     if (await isEnable == isAutoLaunch) return;
-    if (isAutoLaunch == true) {
-      enable();
+    if (isAutoLaunch) {
+      await enable();
     } else {
-      disable();
+      await disable();
     }
   }
 }
