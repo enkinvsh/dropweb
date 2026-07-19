@@ -1,23 +1,26 @@
 name: windows-clean-install
 
-# Baseline counterpart to windows-conflict-test: proves a FRESH dropweb install
-# on a pristine Windows box (NO FlClashX) installs cleanly, its helper binds its
-# OWN port 47896 (the 3ad5cd4 fix), and the app boots without bricking the UI
-# behind the loading bar (the e374d08 "clean Windows, stuck dashboard" bug).
-# Headless CI cannot SEE the UI, so UI-health is asserted from the app log's
-# [loadingRun] breadcrumbs + process liveness, not a screenshot.
-
 on:
   workflow_dispatch: {}
   push:
     branches: [dev]
     paths:
       - '.github/workflows/windows-clean-install.yaml'
+      - '.github/scripts/windows_obkatka.ps1'
       - '.github/scripts/win_conflict_inspect.ps1'
       - 'windows/packaging/exe/inno_setup.iss'
       - 'windows/**'
+      - 'lib/main.dart'
+      - 'lib/application.dart'
+      - 'lib/controller.dart'
+      - 'lib/state.dart'
+      - 'lib/clash/**'
+      - 'lib/services/**'
+      - 'lib/manager/**'
       - 'lib/common/windows.dart'
       - 'lib/common/windows_conflict.dart'
+      - 'core/**'
+      - 'plugins/**'
       - 'services/helper/**'
       - 'setup.dart'
       - 'pubspec.yaml'
@@ -27,12 +30,9 @@ permissions:
   contents: read
 
 jobs:
-  # Build the amd64 Windows installer FROM THE CHECKED-OUT COMMIT so the runtime
-  # job tests THIS branch's installer (EnsureHelperService, AfterInstall hook,
-  # ownership gating) — never a stale published release.
   build-installer:
     name: Build Windows amd64 installer from source
-    runs-on: windows-latest
+    runs-on: windows-2025
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,16 +56,19 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
 
-      - name: Build (Go core + Rust helper + Flutter + Inno installer)
+      - name: Build candidate installer
         run: dart setup.dart windows --arch amd64
 
       - name: Verify installer artifact
         shell: pwsh
         run: |
-          $exe = Get-ChildItem dist -Filter '*setup*.exe' -Recurse -EA SilentlyContinue | Select-Object -First 1
-          if (-not $exe) { $exe = Get-ChildItem dist -Filter '*amd64*.exe' -Recurse -EA SilentlyContinue | Select-Object -First 1 }
-          if (-not $exe) { Write-Host "::error::setup.dart produced no installer .exe in dist/"; Get-ChildItem dist -Recurse -EA SilentlyContinue | ForEach-Object { Write-Host $_.FullName }; exit 1 }
-          Write-Host "installer: $($exe.FullName)"
+          $installers = @(Get-ChildItem dist -Filter '*.exe' -Recurse | Where-Object { $_.Name -match 'setup|amd64' })
+          if ($installers.Count -ne 1) {
+            Write-Host "::error::expected exactly one installer, found $($installers.Count)"
+            Get-ChildItem dist -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_.FullName }
+            exit 1
+          }
+          Write-Host "installer: $($installers[0].FullName)"
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
@@ -76,139 +79,270 @@ jobs:
           overwrite: true
 
   clean-install:
-    name: Clean install (no FlClashX) — install + helper:47896 + app boot
-    runs-on: windows-latest
+    name: Strict untouched clean-first-start gate
+    runs-on: windows-2025
     needs: build-installer
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Download dropweb installer (built from this commit)
+      - name: Download candidate installer
         uses: actions/download-artifact@v4
         with:
           name: dropweb-windows-installer
           path: dl/dropweb
 
-      - name: Show downloaded installer
+      - name: Run strict clean-first-start scenario
+        id: scenario
         shell: pwsh
         run: |
-          if (-not (Get-ChildItem dl\dropweb -Filter *.exe -EA SilentlyContinue)) { Write-Host "::error::no installer .exe downloaded from build-installer"; exit 1 }
-          Get-ChildItem -Recurse dl | ForEach-Object { Write-Host $_.FullName }
+          $ErrorActionPreference = 'Stop'
+          . ./.github/scripts/windows_obkatka.ps1
+          Initialize-ObkatkaEvidence -Reset | Out-Null
+          $checks = [System.Collections.Generic.List[object]]::new()
+          $clock = [System.Diagnostics.Stopwatch]::StartNew()
+          $installSeconds = 0
+          $settleSeconds = 0
+          $result = 'FAIL'
+          $firstFailure = $null
 
-      - name: 0 - baseline (clean runner, no FlClashX)
-        shell: pwsh
-        run: '& ./.github/scripts/win_conflict_inspect.ps1 -Label "0. clean runner"'
+          function Add-GateCheck {
+            param([string]$Name, [bool]$Passed, [string]$Detail)
+            $status = if ($Passed) { 'PASS' } else { 'FAIL' }
+            $checks.Add((New-ObkatkaCheck -Name $Name -Status $status -Detail $Detail))
+            if (-not $Passed) { throw "$Name`: $Detail" }
+          }
 
-      - name: 1 - install dropweb (silent)
-        shell: pwsh
-        run: |
-          $dw = Get-ChildItem dl\dropweb -Filter *.exe -Recurse | Select-Object -First 1
-          Write-Host "Installing $($dw.FullName)"
-          $p = Start-Process -FilePath $dw.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NORESTARTAPPLICATIONS','/NOICONS','/NOCANCEL' -Wait -PassThru
-          Write-Host "dropweb installer exit=$($p.ExitCode)"
-          if ($p.ExitCode -ne 0) { Write-Host "::error::installer returned $($p.ExitCode)"; exit 1 }
-          & ./.github/scripts/win_conflict_inspect.ps1 -Label "1. after dropweb install"
+          try {
+            Export-ObkatkaSnapshot -Label 'clean baseline'
+            & ./.github/scripts/win_conflict_inspect.ps1 -Label 'clean baseline' *>&1 |
+              Tee-Object -FilePath (Join-Path (Get-ObkatkaEvidenceRoot) 'inspector.txt')
 
-      - name: 2 - verify install footprint
-        shell: pwsh
-        run: |
-          $keys = @(
-            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
-            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall',
-            'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'
-          )
-          $dw = $null
-          foreach ($k in $keys) {
-            Get-ChildItem $k -ErrorAction SilentlyContinue | ForEach-Object {
-              $pr = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
-              if ($pr.DisplayName -match 'dropweb') { $dw = $pr }
+            $existingData = @(
+              Get-ChildItem $env:APPDATA -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match 'dropweb' }
+            )
+            Add-GateCheck 'baseline-app-data-absent' ($existingData.Count -eq 0) (($existingData.FullName) -join ', ')
+            Add-GateCheck 'baseline-service-absent' (-not (Get-Service DropwebHelperService -ErrorAction SilentlyContinue)) 'DropwebHelperService must not pre-exist'
+            Add-GateCheck 'baseline-process-absent' (-not (Get-Process dropweb -ErrorAction SilentlyContinue)) 'dropweb.exe must not pre-exist'
+            Add-GateCheck 'baseline-port-47896-free' ((Get-ObkatkaListenerPids -Port 47896).Count -eq 0) 'port 47896 must not have a listener'
+            Add-GateCheck 'baseline-install-entry-absent' (-not (Get-ObkatkaUninstallEntry -NamePattern '(?i)^dropweb')) 'dropweb uninstall entry must not pre-exist'
+            Add-GateCheck 'baseline-flclashx-absent' (-not (Get-ObkatkaUninstallEntry -NamePattern '(?i)FlClashX')) 'clean scenario excludes FlClashX'
+
+            $installers = @(Get-ChildItem dl/dropweb -Filter '*.exe' -Recurse)
+            Add-GateCheck 'candidate-installer-count' ($installers.Count -eq 1) "count=$($installers.Count)"
+            $installer = $installers[0]
+            $installerHash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            @("path=$($installer.FullName)", "sha256=$installerHash") |
+              Set-Content (Join-Path (Get-ObkatkaEvidenceRoot) 'installer.txt') -Encoding utf8
+            $checks.Add((New-ObkatkaCheck -Name 'candidate-installer-sha256' -Status 'PASS' -Detail $installerHash))
+            $checks.Add((New-ObkatkaCheck -Name 'runner-image' -Status 'PASS' -Detail "$env:ImageOS/$env:ImageVersion; $([Environment]::OSVersion.VersionString)"))
+
+            $installClock = [System.Diagnostics.Stopwatch]::StartNew()
+            $installerProcess = Start-Process -FilePath $installer.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NORESTARTAPPLICATIONS','/NOICONS','/NOCANCEL' -Wait -PassThru
+            $installClock.Stop()
+            $installSeconds = [math]::Round($installClock.Elapsed.TotalSeconds, 1)
+            Add-GateCheck 'installer-exit' ($installerProcess.ExitCode -eq 0) "exit=$($installerProcess.ExitCode)"
+
+            $entry = Get-ObkatkaUninstallEntry -NamePattern '(?i)^dropweb'
+            Add-GateCheck 'install-entry' ($null -ne $entry) 'dropweb uninstall entry exists'
+            $installLocation = [string]$entry.InstallLocation
+            if (-not $installLocation) { $installLocation = 'C:\Program Files\dropweb' }
+            $installLocation = $installLocation.TrimEnd('\')
+            Add-GateCheck 'install-folder-decoupled' ($installLocation -notmatch '(?i)FlClashX') $installLocation
+
+            $installedFiles = [ordered]@{
+              app = Join-Path $installLocation 'dropweb.exe'
+              core = Join-Path $installLocation 'DropwebCore.exe'
+              helper = Join-Path $installLocation 'DropwebHelperService.exe'
             }
+            foreach ($item in $installedFiles.GetEnumerator()) {
+              Add-GateCheck "installed-$($item.Key)" (Test-Path $item.Value) $item.Value
+              $hash = (Get-FileHash $item.Value -Algorithm SHA256).Hash.ToLowerInvariant()
+              $checks.Add((New-ObkatkaCheck -Name "$($item.Key)-sha256" -Status 'PASS' -Detail $hash))
+            }
+
+            $service = Get-Service DropwebHelperService -ErrorAction SilentlyContinue
+            if ($service) {
+              for ($attempt = 0; $attempt -lt 6 -and $service.Status -ne 'Running'; $attempt++) {
+                Start-Sleep -Seconds 2
+                $service.Refresh()
+              }
+            }
+            $serviceStatus = if ($service) { $service.Status } else { 'ABSENT' }
+            Add-GateCheck 'helper-service-running' ($service -and $service.Status -eq 'Running') "status=$serviceStatus"
+
+            $identity = Test-ObkatkaHelperIdentity -CorePath $installedFiles.core -ServiceName 'DropwebHelperService' -Port 47896
+            $serviceExe = Get-ObkatkaServiceExecutablePath $identity.service.PathName
+            Add-GateCheck 'helper-service-path' ([string]::Equals($serviceExe, $installedFiles.helper, [StringComparison]::OrdinalIgnoreCase)) $serviceExe
+            Add-GateCheck 'helper-ping-core-token' $identity.pingMatches "ping=$($identity.pingBody) core=$($identity.coreHash)"
+            Add-GateCheck 'helper-service-pid-owns-47896' $identity.pidOwnsPort "servicePid=$($identity.servicePid) listenerPids=$($identity.listenerPids -join ',')"
+
+            Start-Process -FilePath $installedFiles.app | Out-Null
+            $settleClock = [System.Diagnostics.Stopwatch]::StartNew()
+            Start-Sleep -Seconds 25
+            $settleClock.Stop()
+            $settleSeconds = [math]::Round($settleClock.Elapsed.TotalSeconds, 1)
+            Save-ObkatkaScreenshot -Name 'clean-first-start-after-25s' | Out-Null
+
+            $running = @(Get-Process dropweb -ErrorAction SilentlyContinue)
+            Add-GateCheck 'app-alive-after-25s' ($running.Count -gt 0) "pids=$($running.Id -join ',')"
+            $log = Find-ObkatkaAppLog
+            $logPath = if ($log) { $log.FullName } else { 'ABSENT' }
+            Add-GateCheck 'app-log-produced' ($null -ne $log) "path=$logPath"
+            Get-Content $log.FullName -Tail 150 | ForEach-Object { Write-Host $_ }
+
+            foreach ($bootCheck in @(Test-ObkatkaBootLog -LogPath $log.FullName -RequireHelperSpawn)) {
+              $checks.Add($bootCheck)
+            }
+            $failedBoot = @($checks | Where-Object { $_.status -eq 'FAIL' })
+            if ($failedBoot.Count -gt 0) { throw "$($failedBoot[0].name): $($failedBoot[0].detail)" }
+
+            $dropwebProtocol = Get-ObkatkaProtocolHandler -Scheme 'dropweb'
+            $dropwebProtocolCommand = if ($dropwebProtocol) { $dropwebProtocol.command } else { 'ABSENT' }
+            Add-GateCheck 'dropweb-protocol-owned' ($dropwebProtocol -and $dropwebProtocol.command -match [regex]::Escape($installedFiles.app)) "command=$dropwebProtocolCommand"
+            $result = 'PASS'
+          } catch {
+            Write-Host "::error::$($_.Exception.Message)"
+            if (@($checks | Where-Object { $_.status -eq 'FAIL' }).Count -eq 0) {
+              $checks.Add((New-ObkatkaCheck -Name 'scenario-exception' -Status 'FAIL' -Detail $_.Exception.Message))
+            }
+          } finally {
+            try { Export-ObkatkaSnapshot -Label 'clean final' } catch { Write-Host "::warning::final snapshot failed: $_" }
+            if (-not (Test-Path (Join-Path (Get-ObkatkaEvidenceRoot) 'clean-first-start-after-25s.png'))) {
+              Save-ObkatkaScreenshot -Name 'clean-first-start-final' | Out-Null
+            }
+            $clock.Stop()
+            $first = @($checks | Where-Object { $_.status -eq 'FAIL' } | Select-Object -First 1)
+            if ($first.Count -gt 0) { $firstFailure = $first[0].name; $result = 'FAIL' }
+            $durations = [pscustomobject][ordered]@{
+              installSeconds = $installSeconds
+              settleSeconds = $settleSeconds
+              totalSeconds = [math]::Round($clock.Elapsed.TotalSeconds, 1)
+            }
+            Write-ObkatkaVerdict -Scenario 'clean-first-start' -Result $result -Checks @($checks) -FirstFailure $firstFailure -Durations $durations
           }
-          if (-not $dw) { Write-Host "::error::no dropweb uninstall entry - install failed"; exit 1 }
-          $loc = $dw.InstallLocation
-          if (-not $loc) { $loc = 'C:\Program Files\dropweb' }
-          Write-Host "dropweb v$($dw.DisplayVersion) @ $loc"
-          foreach ($f in @('dropweb.exe','DropwebCore.exe','DropwebHelperService.exe')) {
-            if (-not (Test-Path (Join-Path $loc $f))) { Write-Host "::error::missing $f under $loc"; exit 1 }
-            Write-Host "  OK  $f"
-          }
 
-      - name: 3 - installer ALREADY created + started the helper on 47896
-        shell: pwsh
-        run: |
-          # The installer's [Files] AfterInstall hook (EnsureHelperService) is
-          # the sole owner of the service lifecycle: it creates
-          # DropwebHelperService with binPath "{app}\DropwebHelperService.exe",
-          # start=auto, starts it and waits for RUNNING. NO manual New-Service
-          # here — the installer under test is built from THIS commit (the
-          # build-installer job), so an absent/stopped service is a real
-          # EnsureHelperService regression and must fail.
-          $svc = Get-Service DropwebHelperService -EA SilentlyContinue
-          if (-not $svc) { Write-Host "::error::installer did NOT create DropwebHelperService (EnsureHelperService regression)"; exit 1 }
-          # Give SCM a brief settle window in case the boot start is still racing.
-          for ($i = 0; $i -lt 6 -and $svc.Status -ne 'Running'; $i++) { Start-Sleep -Seconds 2; $svc.Refresh() }
-          Write-Host "DropwebHelperService = $($svc.Status)"
-          if ($svc.Status -ne 'Running') { Write-Host "::error::installer created the helper but it is not Running ($($svc.Status))"; exit 1 }
-          # binPath must point INTO our install dir (proves ownership + quoting).
-          $qc = (& sc.exe qc DropwebHelperService) -join "`n"
-          Write-Host $qc
-          if ($qc -notmatch [regex]::Escape('\dropweb\DropwebHelperService.exe')) { Write-Host "::error::helper binPath does not point into the dropweb install dir"; exit 1 }
-          $bound = netstat -ano | Select-String ':47896' | Select-String 'LISTENING'
-          if (-not $bound) { Write-Host "::error::helper is Running but not LISTENING on 47896"; (netstat -ano | Select-String ':47896') | ForEach-Object { Write-Host "  $_" }; exit 1 }
-          Write-Host "OK - installer-owned helper LISTENING on 47896:"; $bound | ForEach-Object { Write-Host "  $_" }
+          if ($result -ne 'PASS') { exit 1 }
 
-      - name: 4 - launch app, assess UI-health from boot log
-        shell: pwsh
-        run: |
-          $exe = 'C:\Program Files\dropweb\dropweb.exe'
-          Start-Process -FilePath $exe -ErrorAction SilentlyContinue | Out-Null
-          Start-Sleep -Seconds 25
-          $running = Get-Process -Name dropweb -EA SilentlyContinue
-          if ($running) { Write-Host "dropweb.exe alive 25s after launch (pids: $($running.Id -join ','))" }
-          else { Write-Host "::warning::dropweb.exe not running 25s after launch (headless CI may block window creation)" }
-
-          $logRoot = Join-Path $env:APPDATA 'app.dropweb\logs'
-          if (-not (Test-Path $logRoot)) {
-            $alt = Get-ChildItem $env:APPDATA -Directory -EA SilentlyContinue | Where-Object { $_.Name -match 'dropweb' } | Select-Object -First 1
-            if ($alt) { $logRoot = Join-Path $alt.FullName 'logs' }
-          }
-          Write-Host "log root: $logRoot"
-
-          # Copy logs to a fixed workspace path FIRST so the upload step can grab
-          # them even if the assertions below fail the job.
-          $dest = Join-Path $env:GITHUB_WORKSPACE 'ci-logs'
-          New-Item -ItemType Directory -Force $dest | Out-Null
-          if (Test-Path $logRoot) { Copy-Item (Join-Path $logRoot '*') $dest -Recurse -EA SilentlyContinue }
-
-          $log = Get-ChildItem $logRoot -Filter 'dropweb_*.log' -EA SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          if (-not $log) { Write-Host "::warning::no app log produced - app did not initialize far enough in CI to assess UI health"; exit 0 }
-
-          Write-Host "=== tail $($log.FullName) ==="
-          Get-Content $log.FullName -Tail 150 | ForEach-Object { Write-Host $_ }
-          $c = Get-Content $log.FullName -Raw
-
-          # e374d08 class #1: a bounded core op blew past the 5-min catastrophic
-          # backstop. With every async path bounded at the source this must never
-          # happen on a healthy build.
-          if ($c -match '\[loadingRun\] error/timeout') {
-            Write-Host "::error::loadingRun hit the catastrophic backstop - a bounded op is hanging; see the named op above"
-            exit 1
-          }
-          # e374d08 class #2: a loadingRun started but never completed = the stuck
-          # progress bar with the screen unusable.
-          $starts = ([regex]::Matches($c, '\[loadingRun\] start')).Count
-          $ends   = ([regex]::Matches($c, '\[loadingRun\] done')).Count
-          Write-Host "loadingRun: start=$starts done=$ends"
-          if ($starts -gt $ends) {
-            Write-Host "::error::a loadingRun started but never completed - UI stuck behind the loading bar (e374d08 regression)"
-            exit 1
-          }
-          Write-Host "OK - no stuck loadingRun in the clean-install boot log"
-
-      - name: 5 - upload boot logs (diagnostic)
+      - name: Upload verdict, evidence, and app logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: clean-install-logs
-          path: ci-logs
-          if-no-files-found: ignore
+          name: clean-first-start-evidence
+          path: ci-evidence/
+          if-no-files-found: error
           overwrite: true
+          retention-days: 7
+
+  wintun-qualify:
+    name: Informational Wintun 0.14.1 capability spike
+    runs-on: windows-2025
+    continue-on-error: true
+    steps:
+      - name: Checkout harness
+        uses: actions/checkout@v4
+
+      - name: Create and clean up a Wintun adapter
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          . ./.github/scripts/windows_obkatka.ps1
+          Initialize-ObkatkaEvidence -Reset | Out-Null
+          $checks = [System.Collections.Generic.List[object]]::new()
+          $clock = [System.Diagnostics.Stopwatch]::StartNew()
+          $result = 'FAIL'
+          $handle = [IntPtr]::Zero
+
+          function Add-QualifyCheck {
+            param([string]$Name, [bool]$Passed, [string]$Detail)
+            $status = if ($Passed) { 'PASS' } else { 'FAIL' }
+            $checks.Add((New-ObkatkaCheck -Name $Name -Status $status -Detail $Detail))
+            if (-not $Passed) { throw "$Name`: $Detail" }
+          }
+
+          try {
+            Export-ObkatkaSnapshot -Label 'wintun baseline'
+            $checks.Add((New-ObkatkaCheck -Name 'runner-image' -Status 'PASS' -Detail "$env:ImageOS/$env:ImageVersion; $([Environment]::OSVersion.VersionString)"))
+            Get-NetAdapter | Select-Object Name, InterfaceDescription, Status, ifIndex, MacAddress |
+              ConvertTo-Json -Depth 4 | Set-Content (Join-Path (Get-ObkatkaEvidenceRoot) 'network-before.json') -Encoding utf8
+            $zip = Join-Path $env:RUNNER_TEMP 'wintun-0.14.1.zip'
+            $extract = Join-Path $env:RUNNER_TEMP 'wintun-0.14.1'
+            Invoke-WebRequest -Uri 'https://www.wintun.net/builds/wintun-0.14.1.zip' -OutFile $zip
+            $actualHash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+            $expectedHash = '07c256185d6ee3652e09fa55c0b673e2624b565e02c4b9091c79ca7d2f24ef51'
+            Add-QualifyCheck 'wintun-zip-sha256' ($actualHash -ceq $expectedHash) "actual=$actualHash expected=$expectedHash"
+
+            Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force
+            $dll = Join-Path $extract 'wintun/bin/amd64/wintun.dll'
+            Add-QualifyCheck 'wintun-archive-amd64-dll' (Test-Path $dll) $dll
+            Copy-Item -LiteralPath $dll -Destination (Join-Path $env:WINDIR 'System32/wintun.dll') -Force
+
+            Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+
+          public static class WintunNative {
+              [DllImport("wintun.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+              public static extern IntPtr WintunCreateAdapter(
+                  [MarshalAs(UnmanagedType.LPWStr)] string name,
+                  [MarshalAs(UnmanagedType.LPWStr)] string tunnelType,
+                  IntPtr requestedGuid);
+
+              [DllImport("wintun.dll")]
+              public static extern void WintunCloseAdapter(IntPtr adapter);
+          }
+          '@
+            $handle = [WintunNative]::WintunCreateAdapter('dropweb-ci', 'ci-probe', [IntPtr]::Zero)
+            if ($handle -eq [IntPtr]::Zero) {
+              $nativeError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+              throw "WintunCreateAdapter returned NULL; win32=$nativeError"
+            }
+
+            $adapter = $null
+            for ($attempt = 0; $attempt -lt 10 -and -not $adapter; $attempt++) {
+              Start-Sleep -Seconds 1
+              $adapter = Get-NetAdapter -Name 'dropweb-ci' -ErrorAction SilentlyContinue
+            }
+            $adapterDetail = if ($adapter) { "adapter=$($adapter.Name) status=$($adapter.Status) ifIndex=$($adapter.ifIndex)" } else { 'adapter not visible in Get-NetAdapter' }
+            Add-QualifyCheck 'tun_capability' ($null -ne $adapter) $adapterDetail
+            Get-NetAdapter | Select-Object Name, InterfaceDescription, Status, ifIndex, MacAddress |
+              ConvertTo-Json -Depth 4 | Set-Content (Join-Path (Get-ObkatkaEvidenceRoot) 'network-up.json') -Encoding utf8
+            Export-ObkatkaSnapshot -Label 'wintun adapter up'
+          } catch {
+            Write-Host "::error::$($_.Exception.Message)"
+            if (@($checks | Where-Object { $_.status -eq 'FAIL' }).Count -eq 0) {
+              $checks.Add((New-ObkatkaCheck -Name 'tun_capability' -Status 'FAIL' -Detail $_.Exception.Message))
+            }
+          } finally {
+            if ($handle -ne [IntPtr]::Zero) {
+              [WintunNative]::WintunCloseAdapter($handle)
+              $handle = [IntPtr]::Zero
+            }
+            Start-Sleep -Seconds 3
+            $remaining = Get-NetAdapter -Name 'dropweb-ci' -ErrorAction SilentlyContinue
+            $cleanupPassed = $null -eq $remaining
+            $checks.Add((New-ObkatkaCheck -Name 'wintun-adapter-cleanup' -Status $(if ($cleanupPassed) { 'PASS' } else { 'FAIL' }) -Detail $(if ($cleanupPassed) { 'adapter removed' } else { "adapter remains: $($remaining.Status)" })))
+            Get-NetAdapter | Select-Object Name, InterfaceDescription, Status, ifIndex, MacAddress |
+              ConvertTo-Json -Depth 4 | Set-Content (Join-Path (Get-ObkatkaEvidenceRoot) 'network-after.json') -Encoding utf8
+            try { Export-ObkatkaSnapshot -Label 'wintun final' } catch { Write-Host "::warning::final snapshot failed: $_" }
+            Save-ObkatkaScreenshot -Name 'wintun-qualification' | Out-Null
+            $clock.Stop()
+            $failed = @($checks | Where-Object { $_.status -eq 'FAIL' })
+            if ($failed.Count -eq 0) { $result = 'PASS' }
+            $firstFailure = if ($failed.Count -gt 0) { $failed[0].name } else { $null }
+            $durations = [pscustomobject][ordered]@{ totalSeconds = [math]::Round($clock.Elapsed.TotalSeconds, 1) }
+            Write-ObkatkaVerdict -Scenario 'wintun-qualify' -Result $result -Checks @($checks) -FirstFailure $firstFailure -Durations $durations
+          }
+
+          if ($result -ne 'PASS') { exit 1 }
+
+      - name: Upload Wintun qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wintun-qualification-evidence
+          path: ci-evidence/
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
