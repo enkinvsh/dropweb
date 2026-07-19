@@ -12,6 +12,7 @@ import 'package:dropweb/plugins/vpn.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/widgets.dart';
 
 import '../common/common.dart';
 
@@ -184,7 +185,22 @@ class ConnectService {
     _lastCoreDeathRecovery = now;
     // One bounded self-heal: restartCore() clears _lastSetupHash and re-runs
     // handleStart if the UI still shows started.
-    await restartCore();
+    try {
+      await restartCore();
+    } on CoreBootException catch (error, stackTrace) {
+      commonPrint.log(
+        '[core-bridge] automatic recovery exhausted: $error\n$stackTrace',
+      );
+      await updateStatus(false);
+      final message =
+          ErrorMapper.mapError(error.toString()) ?? error.toString();
+      unawaited(
+        globalState.showErrorMessage(
+          message: TextSpan(text: message),
+          diagnosticPhase: error.diagnosticPhase,
+        ),
+      );
+    }
   }
 
   /// Confirm window before treating a `null` runtime as a real external stop.

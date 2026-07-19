@@ -213,6 +213,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Copying environment variables",
     ),
     "copyLink": MessageLookupByLibrary.simpleMessage("Copy link"),
+    "copyLogs": MessageLookupByLibrary.simpleMessage("Copy logs"),
     "copySuccess": MessageLookupByLibrary.simpleMessage("Copy success"),
     "core": MessageLookupByLibrary.simpleMessage("Core"),
     "coreInfo": MessageLookupByLibrary.simpleMessage("Core info"),
@@ -441,6 +442,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Disabling will hide the log entry",
     ),
     "logs": MessageLookupByLibrary.simpleMessage("Logs"),
+    "logsCopied": MessageLookupByLibrary.simpleMessage("Logs copied"),
     "logsDesc": MessageLookupByLibrary.simpleMessage("Log capture records"),
     "logsTest": MessageLookupByLibrary.simpleMessage("Logs test"),
     "loopback": MessageLookupByLibrary.simpleMessage("Loopback unlock tool"),
@@ -762,6 +764,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "standard": MessageLookupByLibrary.simpleMessage("Standard"),
     "start": MessageLookupByLibrary.simpleMessage("Start"),
     "startVpn": MessageLookupByLibrary.simpleMessage("Starting VPN..."),
+    "startingVpnCore": MessageLookupByLibrary.simpleMessage(
+      "Starting VPN core…",
+    ),
     "status": MessageLookupByLibrary.simpleMessage("Status"),
     "statusDesc": MessageLookupByLibrary.simpleMessage(
       "System DNS will be used when turned off",

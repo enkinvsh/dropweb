@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dropweb/common/log_redaction.dart';
 import 'package:dropweb/common/path.dart';
+import 'package:dropweb/common/support_bundle.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart';
 
@@ -12,7 +13,12 @@ class FileLogger {
     return _instance!;
   }
 
-  FileLogger._internal();
+  FileLogger._internal() : _logsDirectoryOverride = null;
+
+  @visibleForTesting
+  FileLogger.testing({required String logsDirectory})
+      : _logsDirectoryOverride = logsDirectory;
+
   static FileLogger? _instance;
 
   static const int maxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
@@ -22,6 +28,8 @@ class FileLogger {
   String? _currentLogFilePath;
   String? _currentDate;
   final _writeQueue = <String>[];
+  final String? _logsDirectoryOverride;
+  Future<void> _operationTail = Future.value();
   bool _isWriting = false;
   bool _isBindingInitialized = false;
 
@@ -40,6 +48,13 @@ class FileLogger {
   }
 
   Future<String> _getLogsDir() async {
+    if (_logsDirectoryOverride case final logsDirectory?) {
+      final dir = Directory(logsDirectory);
+      if (!dir.existsSync()) {
+        dir.createSync(recursive: true);
+      }
+      return logsDirectory;
+    }
     final homeDir = await appPath.homeDirPath;
     final logsDir = join(homeDir, 'logs');
     final dir = Directory(logsDir);
@@ -177,7 +192,7 @@ class FileLogger {
     }
   }
 
-  Future<void> _processQueue() async {
+  Future<void> _drainQueue() async {
     if (_isWriting || _writeQueue.isEmpty) {
       return;
     }
@@ -217,6 +232,14 @@ class FileLogger {
     }
   }
 
+  Future<T> _serialize<T>(Future<T> Function() operation) {
+    final result = _operationTail.then((_) => operation());
+    _operationTail = result.then<void>((_) {}).catchError((Object _) {});
+    return result;
+  }
+
+  Future<void> _processQueue() => _serialize(_drainQueue);
+
   void log(String message) {
     // SECURITY: second central chokepoint. Callers that bypass
     // `commonPrint.log` (e.g. `lib/manager/clash_manager.dart` forwarding
@@ -236,9 +259,30 @@ class FileLogger {
     }
   }
 
+  Future<String> buildSupportBundle({
+    required String appVersion,
+    required List<String> inAppLines,
+    String? phase,
+    String? operatingSystem,
+  }) =>
+      _serialize(() async {
+        await _drainQueue();
+        await _currentSink?.flush();
+        return SupportBundleBuilder(
+          logsDirectory: Directory(await _getLogsDir()),
+        ).build(
+          appVersion: appVersion,
+          inAppLines: inAppLines,
+          phase: phase,
+          operatingSystem: operatingSystem,
+        );
+      });
+
   Future<void> dispose() async {
-    await _closeSink();
-    _writeQueue.clear();
+    await _serialize(() async {
+      await _closeSink();
+      _writeQueue.clear();
+    });
   }
 }
 

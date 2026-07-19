@@ -2,38 +2,77 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dropweb/clash/core_readiness.dart';
 import 'package:dropweb/clash/interface.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/core.dart';
-import 'package:dropweb/state.dart';
 
 class ClashService extends ClashHandlerInterface {
-
   factory ClashService() {
     _instance ??= ClashService._internal();
     return _instance!;
   }
 
   ClashService._internal() {
+    _readiness = CoreReadinessMachine(
+      bind: _bindGeneration,
+      spawn: _spawnAttempt,
+      initialize: _initializeAttempt,
+      teardown: _teardownAttempt,
+      connectBackTimeout: const Duration(seconds: 18),
+      retryBackoffs: const [
+        Duration(seconds: 1),
+        Duration(seconds: 2),
+        Duration(seconds: 4),
+      ],
+      onConnectBackTimeout: (attempt) {
+        commonPrint.log(
+          '[boot] connect-back timeout gen=${attempt.generation} '
+          'attempt=${attempt.attempt}',
+        );
+      },
+      onPhaseChanged: (phase, attempt) {
+        if (phase == CoreBootPhase.ready && attempt != null) {
+          commonPrint.log(
+            '[boot] core-ready gen=${attempt.generation} '
+            'attempt=${attempt.attempt}',
+          );
+        }
+      },
+      onFailed: (error) => commonPrint.log('[boot] core-failed $error'),
+    );
     unawaited(_initServer());
-    reStart();
   }
   static ClashService? _instance;
+
+  late final CoreReadinessMachine _readiness;
+  Future<bool> Function()? _strictInitialize;
+  bool _started = false;
+
+  void configureStrictInitializer(Future<bool> Function() initializer) {
+    _strictInitialize = initializer;
+  }
+
+  void start() {
+    if (_started) return;
+    _started = true;
+    unawaited(
+      reStart().catchError((Object _) => null),
+    );
+  }
 
   Completer<ServerSocket> serverCompleter = Completer();
 
   Completer<Socket> socketCompleter = Completer();
 
-  /// In-flight reStart operation. Concurrent callers AWAIT it instead of
-  /// no-op'ing: the realign self-heal in AppController._requestAdmin assumes
-  /// a completed restartCore() actually restarted the core — the old
-  /// `isStarting` bool guard silently dropped the second call (boot race with
-  /// the constructor's unawaited reStart()), burning realign attempts with
-  /// zero effect.
-  Future<void>? _restartInFlight;
-
   Process? process;
+  CoreBootAttempt? _processAttempt;
+  CoreBootAttempt? _helperAttempt;
+  CoreBootAttempt? _socketAttempt;
+  CoreBootAttempt? _deathNotifiedAttempt;
+  Socket? _activeSocket;
+  bool _forceDirectSpawnForGeneration = false;
 
   /// Whether the CURRENT core process was spawned via the privileged Windows
   /// helper service (SYSTEM) rather than directly by this (non-elevated)
@@ -75,88 +114,112 @@ class ClashService extends ClashHandlerInterface {
         shared: true,
       );
       commonPrint.log(
-          "[core-bridge] server bound at ${server.address.address}:${server.port}");
+          "[boot] bridge-bind [core-bridge] server bound at ${server.address.address}:${server.port}");
       serverCompleter.complete(server);
       await for (final socket in server) {
-        commonPrint.log("[core-bridge] core connected back to bridge");
+        final attempt = _readiness.currentAttempt;
+        if (attempt == null || !_readiness.canAcceptConnection(attempt)) {
+          commonPrint.log(
+            '[core-bridge] stale/unexpected connect-back ignored '
+            'gen=${attempt?.generation ?? 0}',
+          );
+          await socket.close();
+          continue;
+        }
         await _destroySocket();
+        _socketAttempt = attempt;
         socketCompleter.complete(socket);
-        // The bridge socket dropping is the ONLY death signal we have for a
-        // helper-spawned core (no local Process handle — the SYSTEM helper owns
-        // the child). It also covers a direct-spawned core crash. `done`
-        // completes on both graceful close and error; `_onCoreDeath` filters
-        // out our own teardown.
-        unawaited(socket.done.then(
-          (_) => _onCoreDeath('bridge socket closed'),
-          onError: (Object _) => _onCoreDeath('bridge socket error'),
-        ));
-        socket
-            .transform(uint8ListToListIntConverter)
-            .transform(utf8.decoder)
-            .transform(const LineSplitter())
-            .listen(
-          (data) {
-            handleResult(
-              ActionResult.fromJson(
-                json.decode(data.trim()),
-              ),
-            );
-          },
+        _activeSocket = socket;
+        _listenToSocket(socket, attempt);
+        if (!_readiness.acceptConnection(attempt)) {
+          await _destroySocket();
+          continue;
+        }
+        commonPrint.log(
+          '[boot] connect-back ok [core-bridge] core connected back '
+          'gen=${attempt.generation} attempt=${attempt.attempt}',
         );
       }
     }, (error, stack) {
       commonPrint.log(error.toString());
-      if (error is SocketException) {
-        globalState.showNotifier(error.toString());
-        // globalState.appController.restartCore();
+      if (!serverCompleter.isCompleted) {
+        serverCompleter.completeError(error, stack);
       }
+    });
+  }
+
+  void _listenToSocket(Socket socket, CoreBootAttempt attempt) {
+    unawaited(socket.done.then(
+      (_) => _onCoreDeath(
+        attempt,
+        'bridge socket closed',
+        sourceSocket: socket,
+      ),
+      onError: (Object _) => _onCoreDeath(
+        attempt,
+        'bridge socket error',
+        sourceSocket: socket,
+      ),
+    ));
+    socket
+        .transform(uint8ListToListIntConverter)
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((data) {
+      handleResult(
+        ActionResult.fromJson(
+          json.decode(data.trim()),
+        ),
+      );
     });
   }
 
   @override
-  Future<void> reStart() {
-    final inFlight = _restartInFlight;
-    if (inFlight != null) {
-      return inFlight;
-    }
-    final op = _reStart().whenComplete(() {
-      _restartInFlight = null;
-    });
-    _restartInFlight = op;
-    return op;
+  Future<void> reStart() => _readiness.restart();
+
+  Future<void> _bindGeneration(int generation) async {
+    final serverSocket = await serverCompleter.future;
+    commonPrint.log(
+      '[core-bridge] generation=$generation bridge=${serverSocket.port}',
+    );
   }
 
-  Future<void> _reStart() async {
-    // Tear down the PREVIOUS core unconditionally, BEFORE resetting the
-    // socket completer (so _destroySocket can actually close a connected
-    // socket instead of leaking it). The old `if (process != null)` guard
-    // only covered direct-spawned cores: a helper-spawned core (process ==
-    // null, the SYSTEM helper owns the child) was silently orphaned, and a
-    // subsequent direct spawn then produced two cores fighting over the
-    // proxy/controller ports. shutdown() is null-safe on both paths and
-    // stopCoreByHelper() fails fast (connection refused) when no helper is
-    // listening.
-    await shutdown();
-    socketCompleter = Completer();
+  Future<void> _spawnAttempt(CoreBootAttempt attempt) async {
+    _expectedTeardown = false;
+    _deathNotifiedAttempt = null;
+    _socketAttempt = attempt;
     final serverSocket = await serverCompleter.future;
     final arg = Platform.isWindows
         ? "${serverSocket.port}"
         : serverSocket.address.address;
-    final helperReady = Platform.isWindows && await _helperReadyWithGrace();
-    commonPrint.log("[core-bridge] reStart: arg=$arg helperReady=$helperReady");
+    final helperReady = Platform.isWindows &&
+        !_forceDirectSpawnForGeneration &&
+        await _helperReadyWithGrace();
+    commonPrint.log(
+      '[core-bridge] spawn gen=${attempt.generation} '
+      'attempt=${attempt.attempt} arg=$arg helperReady=$helperReady',
+    );
     if (helperReady) {
       final isSuccess = await request.startCoreByHelper(arg);
       commonPrint.log("[core-bridge] startCoreByHelper -> $isSuccess");
       if (isSuccess) {
+        commonPrint.log(
+          '[boot] helper-start-accepted gen=${attempt.generation} '
+          'attempt=${attempt.attempt}',
+        );
         _coreStartedByHelper = true;
-        // Spawn complete: any teardown from here on is unexpected. The
-        // helper-spawned core has no Process handle here, so its death is
-        // observed solely via the bridge socket `done` (see _initServer).
-        _expectedTeardown = false;
+        _helperAttempt = attempt;
         return;
       }
+      throw CoreBootException(
+        phase: CoreBootPhase.spawning,
+        generation: attempt.generation,
+        attempt: attempt.attempt,
+        cause: StateError('verified helper rejected core spawn'),
+      );
     }
     _coreStartedByHelper = false;
+    _helperAttempt = null;
 
     final homeDirPath = await appPath.homeDirPath;
     final environment = Map<String, String>.from(Platform.environment);
@@ -164,6 +227,10 @@ class ClashService extends ClashHandlerInterface {
     // This ensures the core can access provider files before SetHomeDir is called
     environment['SAFE_PATHS'] = homeDirPath;
 
+    commonPrint.log(
+      '[boot] direct-spawn gen=${attempt.generation} '
+      'attempt=${attempt.attempt}',
+    );
     process = await Process.start(
       appPath.corePath,
       [
@@ -171,16 +238,18 @@ class ClashService extends ClashHandlerInterface {
       ],
       environment: environment,
     );
+    _processAttempt = attempt;
     commonPrint.log("[core-bridge] core process spawned pid=${process?.pid}");
     // Watch THIS specific process's exit. Capture the instance so a late exit
     // from a previously-killed core (rapid restart) can't be misread as the
     // LIVE core dying — the identity guard inside the callback discards it.
     final spawnedProcess = process!;
     unawaited(spawnedProcess.exitCode.then((code) {
-      if (!identical(spawnedProcess, process)) {
-        return;
-      }
-      _onCoreDeath('process exit code=$code');
+      _onCoreDeath(
+        attempt,
+        'process exit code=$code',
+        sourceProcess: spawnedProcess,
+      );
     }));
     process?.stdout.listen((_) {});
     process?.stderr.listen((e) {
@@ -189,8 +258,22 @@ class ClashService extends ClashHandlerInterface {
         commonPrint.log(error);
       }
     });
-    // Spawn complete: any teardown from here on is unexpected.
-    _expectedTeardown = false;
+  }
+
+  Future<void> _initializeAttempt(CoreBootAttempt attempt) async {
+    final strictInitialize = _strictInitialize;
+    if (strictInitialize == null) {
+      throw StateError('strict core initializer is not configured');
+    }
+    final initialized = await strictInitialize();
+    if (!initialized) {
+      throw CoreBootException(
+        phase: CoreBootPhase.initializing,
+        generation: attempt.generation,
+        attempt: attempt.attempt,
+        cause: StateError('strict init/health roundtrip returned false'),
+      );
+    }
   }
 
   /// Decide whether to route the core spawn through the privileged helper.
@@ -202,6 +285,7 @@ class ClashService extends ClashHandlerInterface {
   /// core. waitHelperReady aborts immediately on a token mismatch, so a stale
   /// helper left over from a previous app version costs one ping, not 5s.
   Future<bool> _helperReadyWithGrace() async {
+    commonPrint.log('[boot] helper-check');
     final status = await windows?.checkService();
     if (status == WindowsHelperServiceStatus.running) {
       return true;
@@ -241,33 +325,113 @@ class ClashService extends ClashHandlerInterface {
       await lastSocket.close();
       socketCompleter = Completer();
     }
+    _activeSocket = null;
+    _socketAttempt = null;
+  }
+
+  Future<void> _teardownAttempt(CoreBootAttempt attempt) async {
+    _expectedTeardown = true;
+
+    if (Platform.isWindows && identical(_helperAttempt, attempt)) {
+      final result = await windows?.runOwnedHelperDestructiveOperation(
+        operationName: 'helper-core-stop',
+        operation: request.stopCoreByHelper,
+      );
+      if (result != null && !result.isAllowed) {
+        _forceDirectSpawnForGeneration = true;
+      } else if (result?.value != true) {
+        throw StateError('owned helper child did not stop');
+      }
+      _helperAttempt = null;
+      _coreStartedByHelper = false;
+    }
+
+    final directProcess = process;
+    if (directProcess != null && identical(_processAttempt, attempt)) {
+      directProcess.kill();
+      try {
+        await directProcess.exitCode.timeout(const Duration(seconds: 3));
+      } on TimeoutException {
+        throw StateError(
+          'direct core did not exit after kill '
+          'gen=${attempt.generation} attempt=${attempt.attempt}',
+        );
+      }
+      if (identical(process, directProcess)) {
+        process = null;
+        _processAttempt = null;
+      }
+    }
+
+    if (identical(_socketAttempt, attempt)) {
+      await _destroySocket();
+      if (!socketCompleter.isCompleted) {
+        socketCompleter = Completer();
+      }
+    }
   }
 
   @override
   Future<bool> shutdown() async {
-    // Mark this teardown as ours: the process-exit and bridge-socket-close
-    // signals about to fire must NOT be treated as a crash by _onCoreDeath.
-    // Reset to false only once a fresh core has been (re)spawned in _reStart.
-    _expectedTeardown = true;
-    if (Platform.isWindows) {
-      await request.stopCoreByHelper();
+    final attempt = _readiness.currentAttempt;
+    if (attempt != null) {
+      await _teardownAttempt(attempt);
+    } else {
+      _expectedTeardown = true;
+      await _destroySocket();
     }
-    await _destroySocket();
-    process?.kill();
-    process = null;
     return true;
   }
 
   /// Invoked when the desktop core process exits or the bridge socket drops.
-  /// Filters our OWN teardown (shutdown/reStart) from a genuine crash: only an
-  /// unexpected death resets the socket and notifies the controller so the UI
-  /// can self-heal instead of lying "connected" while every invoke times out.
-  void _onCoreDeath(String reason) {
-    if (_expectedTeardown || _restartInFlight != null) {
+  /// During binding/spawn/connect/init, death belongs to the generation machine
+  /// and consumes only that attempt's retry budget. Only a death after `ready`
+  /// reaches ConnectService's existing one-restart-per-five-minutes self-heal.
+  /// This split prevents the watchdog and observed-death recovery from launching
+  /// competing respawn loops; stale generation callbacks fail both identity
+  /// checks and cannot touch the current core.
+  void _onCoreDeath(
+    CoreBootAttempt attempt,
+    String reason, {
+    Process? sourceProcess,
+    Socket? sourceSocket,
+  }) {
+    if (sourceProcess != null &&
+        (!identical(sourceProcess, process) ||
+            !identical(_processAttempt, attempt))) {
+      return;
+    }
+    if (sourceSocket != null &&
+        (!identical(sourceSocket, _activeSocket) ||
+            !identical(_socketAttempt, attempt))) {
+      return;
+    }
+    if (attempt.generation != _readiness.generation ||
+        !identical(attempt, _readiness.currentAttempt)) {
+      commonPrint.log(
+        '[core-bridge] stale death ignored gen=${attempt.generation} '
+        'attempt=${attempt.attempt}: $reason',
+      );
+      return;
+    }
+    if (_expectedTeardown) {
       commonPrint
           .log('[core-bridge] core teardown ($reason) — expected, ignoring');
       return;
     }
+
+    if (_readiness.phase != CoreBootPhase.ready) {
+      commonPrint.log(
+        '[core-bridge] boot attempt died gen=${attempt.generation} '
+        'attempt=${attempt.attempt}: $reason',
+      );
+      _readiness.reportAttemptFailure(attempt, StateError(reason));
+      return;
+    }
+
+    if (identical(_deathNotifiedAttempt, attempt)) return;
+    _deathNotifiedAttempt = attempt;
+
     commonPrint.log('[core-bridge] core died unexpectedly: $reason');
     // Replace the completed-but-dead completer so no invoke writes into the
     // corpse (a completed completer with a closed socket would hang every
@@ -276,9 +440,16 @@ class ClashService extends ClashHandlerInterface {
     if (socketCompleter.isCompleted) {
       socketCompleter = Completer();
     }
+    _activeSocket = null;
     // Notify the Dart side ONCE; the controller owns the bounded self-heal.
     onUnexpectedCoreDeath?.call(reason);
   }
+
+  @override
+  Future<void> ensureCoreReady({
+    Duration timeout = const Duration(seconds: 90),
+  }) =>
+      _readiness.ensureReady(timeout: timeout);
 
   @override
   Future<bool> preload() async {
@@ -289,6 +460,12 @@ class ClashService extends ClashHandlerInterface {
       commonPrint.log(
         '[bridge] desktop server preload timed out after 15s — '
         'booting UI without a live core bridge',
+      );
+      return false;
+    } catch (error) {
+      commonPrint.log(
+        '[bridge] desktop server preload failed — '
+        'booting UI without a live core bridge: $error',
       );
       return false;
     }

@@ -1,6 +1,5 @@
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/providers/providers.dart';
-import 'package:dropweb/state.dart';
 import 'package:dropweb/views/profiles/add_profile.dart';
 import 'package:dropweb/views/profiles/profiles.dart' show ProfileItem;
 import 'package:dropweb/views/subscription/modes_content.dart';
@@ -74,7 +73,8 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
             child: Column(
               children: [
                 SizedBox(
-                    height: MediaQuery.of(context).padding.top + kToolbarHeight),
+                    height:
+                        MediaQuery.of(context).padding.top + kToolbarHeight),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: _GlassTabBar(
@@ -218,8 +218,7 @@ class SharedProfilesBody extends ConsumerWidget {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
-          child:
-              AddProfileCard(onTap: () => _openAdd(context), isDark: isDark),
+          child: AddProfileCard(onTap: () => _openAdd(context), isDark: isDark),
         ),
       );
     }
@@ -243,7 +242,6 @@ class SharedProfilesBody extends ConsumerWidget {
                     groupValue: state.currentProfileId,
                     onChanged: (id) {
                       ref.read(currentProfileIdProvider.notifier).value = id;
-                      globalState.appController.handleChangeProfile();
                     },
                   ),
                 ),

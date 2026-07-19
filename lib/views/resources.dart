@@ -256,8 +256,9 @@ class _GeoDataListItemState extends State<GeoDataListItem> {
 
       if (result.isNotEmpty) {
         if (mounted) {
-          globalState.showMessage(
+          globalState.showErrorMessage(
             title: appLocalizations.errorTitle,
+            diagnosticPhase: 'geo-update',
             message: TextSpan(text: result),
           );
         }
@@ -269,9 +270,9 @@ class _GeoDataListItemState extends State<GeoDataListItem> {
     } catch (e) {
       commonPrint.log("$e");
       if (mounted) {
-        globalState.showMessage(
+        globalState.showErrorMessage(
           title: appLocalizations.errorTitle,
-          cancelable: false,
+          diagnosticPhase: 'geo-update',
           message: TextSpan(
             text: ErrorMapper.mapError("$e") ??
                 appLocalizations.genericErrorMessage,

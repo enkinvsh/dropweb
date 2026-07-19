@@ -3464,6 +3464,16 @@ class AppLocalizations {
     return Intl.message('Add Profile', name: 'addProfile', desc: '', args: []);
   }
 
+  /// `Starting VPN core…`
+  String get startingVpnCore {
+    return Intl.message(
+      'Starting VPN core…',
+      name: 'startingVpnCore',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Traffic`
   String get traffic {
     return Intl.message('Traffic', name: 'traffic', desc: '', args: []);
@@ -3557,6 +3567,16 @@ class AppLocalizations {
   /// `Error`
   String get errorTitle {
     return Intl.message('Error', name: 'errorTitle', desc: '', args: []);
+  }
+
+  /// `Copy logs`
+  String get copyLogs {
+    return Intl.message('Copy logs', name: 'copyLogs', desc: '', args: []);
+  }
+
+  /// `Logs copied`
+  String get logsCopied {
+    return Intl.message('Logs copied', name: 'logsCopied', desc: '', args: []);
   }
 
   /// `Invalid QR code`

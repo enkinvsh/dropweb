@@ -191,9 +191,8 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
       commonPrint.log('[loadingRun] error/timeout: $label -> $e');
       final message = ErrorMapper.mapError(e.toString()) ??
           appLocalizations.genericErrorMessage;
-      globalState.showMessage(
+      globalState.showErrorMessage(
         title: title ?? appLocalizations.errorTitle,
-        cancelable: false,
         message: TextSpan(
           text: message,
         ),

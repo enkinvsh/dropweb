@@ -46,9 +46,9 @@ Future<void> refreshProfiles(BuildContext context, [Profile? current]) async {
       if (context.mounted) {
         final message =
             ErrorMapper.mapError("$e") ?? appLocalizations.genericErrorMessage;
-        globalState.showMessage(
+        globalState.showErrorMessage(
           title: appLocalizations.errorTitle,
-          cancelable: false,
+          diagnosticPhase: 'profile-update',
           message: TextSpan(
             text: "${current.label ?? current.id}: $message",
             style: Theme.of(context).textTheme.titleMedium,
@@ -80,9 +80,9 @@ Future<void> refreshProfiles(BuildContext context, [Profile? current]) async {
     eagerError: false,
   );
   if (messages.isNotEmpty && context.mounted) {
-    globalState.showMessage(
+    globalState.showErrorMessage(
       title: appLocalizations.errorTitle,
-      cancelable: false,
+      diagnosticPhase: 'profile-update',
       message: TextSpan(
         children: [
           for (final msg in messages)
@@ -142,7 +142,6 @@ class _ProfilesContentState extends ConsumerState<ProfilesContent>
                     groupValue: state.currentProfileId,
                     onChanged: (id) {
                       ref.read(currentProfileIdProvider.notifier).value = id;
-                      globalState.appController.handleChangeProfile();
                     },
                   ),
                 ),

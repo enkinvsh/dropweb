@@ -95,6 +95,11 @@ ChangeProxyParams _minimalChangeProxyParams() => const ChangeProxyParams(
       proxyName: "DIRECT",
     );
 
+InitParams _minimalInitParams() => const InitParams(
+      homeDir: '/tmp/dropweb-test',
+      version: 1,
+    );
+
 void main() {
   group('invoke timeout contract', () {
     test('String invoke WITHOUT onTimeout returns empty default on timeout '
@@ -121,6 +126,28 @@ void main() {
   });
 
   group('mutating calls fail-closed on timeout (the bug fix)', () {
+    test('strict init throws instead of returning fail-open false on timeout',
+        () async {
+      final handler = _CapturingHandler();
+
+      await expectLater(
+        handler.initStrict(_minimalInitParams()),
+        throwsA(isA<TimeoutException>()),
+      );
+      expect(handler.capturedMethod, ActionMethod.initClash);
+    });
+
+    test('strict health throws instead of returning fail-open false on timeout',
+        () async {
+      final handler = _CapturingHandler();
+
+      await expectLater(
+        handler.isInitStrict(),
+        throwsA(isA<TimeoutException>()),
+      );
+      expect(handler.capturedMethod, ActionMethod.getIsInit);
+    });
+
     test('setupConfig passes a non-null onTimeout returning an error sentinel',
         () async {
       final handler = _CapturingHandler();

@@ -9,6 +9,12 @@ class ErrorMapper {
   ErrorMapper._();
 
   static final _patterns = <_ErrorPattern>[
+    // Our fail-closed desktop core timeout errors
+    _ErrorPattern(
+      RegExp(r'core did not answer|core call timed out', caseSensitive: false),
+      ru: 'VPN-ядро не отвечает. Перезапустите приложение.',
+      en: 'VPN core is not responding. Restart the app.',
+    ),
     // Network unreachable / no internet
     _ErrorPattern(
       RegExp(r'network is unreachable|no route to host', caseSensitive: false),

@@ -25,8 +25,8 @@ import '../common/common.dart';
 /// No [BuildContext] is stored here — the moved code reaches the rest of the
 /// app exclusively via `_ref`, `globalState`, and the public [AppController]
 /// facade (`globalState.appController.*`) for the few controller methods that
-/// stay (`applyProfileDebounce`, `clearEffect`, `updateStatus`,
-/// `savePreferencesDebounce`, `updateProfile`). Methods that stay in the
+/// stay (`clearEffect`, `updateStatus`, `savePreferencesDebounce`,
+/// `updateProfile`). Methods that stay in the
 /// controller because they depend on its private work-mode revalidation /
 /// config state, or build raw dialogs against the stored context
 /// (`updateProfile`, `setProfileWithRevalidationAndAutoApply`,
@@ -37,17 +37,19 @@ class ProfileService {
 
   final WidgetRef _ref;
 
-  Future<void> addProfile(Profile profile) async {
-    commonPrint.log('[profile] addProfile ${profile.id}');
-    _ref.read(profilesProvider.notifier).setProfile(profile);
-    // Always select the freshly added profile so importing a config switches
-    // to it (previously it only auto-selected when no profile existed yet).
-    _ref.read(currentProfileIdProvider.notifier).value = profile.id;
-    commonPrint.log(
-      '[profile] addProfile done: current=${_ref.read(currentProfileIdProvider)} '
-      'mirror=${globalState.config.currentProfileId}',
-    );
-    globalState.appController.applyProfileDebounce(silence: true);
+  Future<void> addProfile(Profile profile) {
+    commonPrint
+        .log('[import] profile-commit [profile] addProfile ${profile.id}');
+    globalState.profileCommitInProgress = true;
+    try {
+      _ref.read(profilesProvider.notifier).setProfile(profile);
+      // Always select the freshly added profile so importing a config switches
+      // to it (previously it only auto-selected when no profile existed yet).
+      _ref.read(currentProfileIdProvider.notifier).value = profile.id;
+    } finally {
+      globalState.profileCommitInProgress = false;
+    }
+    return Future<void>.value();
   }
 
   Future<void> deleteProfile(String id) async {
@@ -112,7 +114,13 @@ class ProfileService {
 
     _applyProviderSettings(headers);
     _applyThemeColor(headers);
-    _applyCustomViewSettings(profile);
+    try {
+      _applyCustomViewSettings(profile);
+    } catch (error, stackTrace) {
+      commonPrint.log(
+        '[import] header-custom-view failed: $error\n$stackTrace',
+      );
+    }
   }
 
   void applyActiveProfileHeaders() {
@@ -151,8 +159,8 @@ class ProfileService {
     try {
       final applyTheme = _ref.read(appSettingProvider).applySubscriptionTheme;
       if (!applyTheme) {
-        commonPrint.log(
-            "Apply subscription theme disabled - ignoring operator theme");
+        commonPrint
+            .log("Apply subscription theme disabled - ignoring operator theme");
         return;
       }
       final themeHeader = headers['dropweb-theme'];
@@ -425,13 +433,6 @@ class ProfileService {
 
   void setProfile(Profile profile) {
     _ref.read(profilesProvider.notifier).setProfile(profile);
-  }
-
-  void setProfileAndAutoApply(Profile profile) {
-    _ref.read(profilesProvider.notifier).setProfile(profile);
-    if (profile.id == _ref.read(currentProfileIdProvider)) {
-      globalState.appController.applyProfileDebounce(silence: true);
-    }
   }
 
   void setProfiles(List<Profile> profiles) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dropweb/clash/clash.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/error_mapper.dart';
@@ -31,9 +33,8 @@ class _ClashContainerState extends ConsumerState<ClashManager>
     super.initState();
     clashMessage.addListener(this);
     ref.listenManual(needSetupProvider, (prev, next) {
-      if (prev != next) {
-        globalState.appController.handleChangeProfile();
-      }
+      if (prev == next || globalState.profileCommitInProgress) return;
+      unawaited(_handleChangeProfile());
     });
     ref.listenManual(coreStateProvider, (prev, next) async {
       if (prev != next) {
@@ -56,6 +57,16 @@ class _ClashContainerState extends ConsumerState<ClashManager>
         }
       },
     );
+  }
+
+  Future<void> _handleChangeProfile() async {
+    try {
+      await globalState.appController.handleChangeProfile();
+    } catch (error, stackTrace) {
+      commonPrint.log(
+        '[profile] listener apply failed: $error\n$stackTrace',
+      );
+    }
   }
 
   @override

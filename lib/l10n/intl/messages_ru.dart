@@ -218,6 +218,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Копирование переменных окружения",
     ),
     "copyLink": MessageLookupByLibrary.simpleMessage("Копировать ссылку"),
+    "copyLogs": MessageLookupByLibrary.simpleMessage("Скопировать логи"),
     "copySuccess": MessageLookupByLibrary.simpleMessage("Копирование успешно"),
     "core": MessageLookupByLibrary.simpleMessage("Ядро"),
     "coreInfo": MessageLookupByLibrary.simpleMessage("Информация о ядре"),
@@ -456,6 +457,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Вести журнал событий приложения",
     ),
     "logs": MessageLookupByLibrary.simpleMessage("Логи"),
+    "logsCopied": MessageLookupByLibrary.simpleMessage("Логи скопированы"),
     "logsDesc": MessageLookupByLibrary.simpleMessage("Записи журнала событий"),
     "logsTest": MessageLookupByLibrary.simpleMessage("Тест журналов"),
     "loopback": MessageLookupByLibrary.simpleMessage("Разблокировка Loopback"),
@@ -789,6 +791,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "standard": MessageLookupByLibrary.simpleMessage("Стандартный"),
     "start": MessageLookupByLibrary.simpleMessage("Старт"),
     "startVpn": MessageLookupByLibrary.simpleMessage("Запуск VPN..."),
+    "startingVpnCore": MessageLookupByLibrary.simpleMessage(
+      "Запускаем VPN-ядро…",
+    ),
     "status": MessageLookupByLibrary.simpleMessage("Статус"),
     "statusDesc": MessageLookupByLibrary.simpleMessage(
       "При выключении будет использоваться системный DNS",

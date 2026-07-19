@@ -13,9 +13,11 @@ import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/services/app_update_service.dart';
 import 'package:dropweb/services/connect_service.dart';
+import 'package:dropweb/services/profile_import_transaction.dart';
 import 'package:dropweb/services/profile_service.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/dialog.dart';
+import 'package:dropweb/widgets/scaffold.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -194,8 +196,29 @@ class AppController {
   void applyProfileDebounce({
     bool silence = false,
   }) {
-    debouncer.call(FunctionTag.applyProfile, (silence) {
-      applyProfile(silence: silence);
+    debouncer.call(FunctionTag.applyProfile, (silence) async {
+      try {
+        await applyProfile(silence: silence);
+      } catch (error, stackTrace) {
+        commonPrint.log(
+          '[profile] debounced apply failed: $error\n$stackTrace',
+        );
+        final message = ErrorMapper.mapError(error.toString()) ??
+            appLocalizations.genericErrorMessage;
+        try {
+          await globalState.showErrorMessage(
+            message: TextSpan(text: message),
+            diagnosticPhase: error is CoreBootException
+                ? error.diagnosticPhase
+                : 'profile-apply',
+          );
+        } catch (dialogError, dialogStackTrace) {
+          commonPrint.log(
+            '[profile] debounced apply error dialog failed: '
+            '$dialogError\n$dialogStackTrace',
+          );
+        }
+      }
     }, args: [silence]);
   }
 
@@ -245,7 +268,8 @@ class AppController {
   Future<void> updateTraffic() => _connectService.updateTraffic();
 
   /// Delegates to [ProfileService.addProfile].
-  Future<void> addProfile(Profile profile) => _profileService.addProfile(profile);
+  Future<void> addProfile(Profile profile) =>
+      _profileService.addProfile(profile);
 
   /// Delegates to [ProfileService.deleteProfile].
   Future<void> deleteProfile(String id) => _profileService.deleteProfile(id);
@@ -354,30 +378,36 @@ class AppController {
   /// Routes a subscription fetch's HWID verdict into the recovery episode.
   /// Called from every path that parses provider headers (update + import).
   void _handleHwidHeaders(Profile profile) {
-    final headers = profile.providerHeaders;
-    final limited = headers['x-hwid-limit']?.toLowerCase() == 'true';
-    if (!limited) {
-      if (_hwidRecovery.onRecovered(profile.id)) {
-        // The device slot freed up and this fetch registered us — celebrate
-        // instead of leaving the user guessing whether their cabinet dance
-        // worked.
-        globalState.showNotifier(appLocalizations.hwidRecovered);
-        unawaited(App().performHapticFeedback(DropwebHapticCue.confirm));
+    try {
+      final headers = profile.providerHeaders;
+      final limited = headers['x-hwid-limit']?.toLowerCase() == 'true';
+      if (!limited) {
+        if (_hwidRecovery.onRecovered(profile.id)) {
+          // The device slot freed up and this fetch registered us — celebrate
+          // instead of leaving the user guessing whether their cabinet dance
+          // worked.
+          globalState.showNotifier(appLocalizations.hwidRecovered);
+          unawaited(App().performHapticFeedback(DropwebHapticCue.confirm));
+        }
+        return;
       }
-      return;
-    }
-    final isNewEpisode = _hwidRecovery.onHwidLimit(profile.id);
-    final announceText = headers['announce'];
-    // Dialog ONCE per episode; while the poll keeps hitting the limit the
-    // retries stay silent (no dialog stacking).
-    if (isNewEpisode && announceText != null && announceText.isNotEmpty) {
-      _showHwidLimitNotice(
-        announceText,
-        supportUrl: headers['support-url'],
-        // Panel-supplied deep link straight to the device-management page
-        // (e.g. the cabinet's /devices). Provider-neutral: whatever URL the
-        // panel advertises, nothing is baked into the app.
-        deviceRemoveUrl: headers['dropweb-device-remove'],
+      final isNewEpisode = _hwidRecovery.onHwidLimit(profile.id);
+      final announceText = headers['announce'];
+      // Dialog ONCE per episode; while the poll keeps hitting the limit the
+      // retries stay silent (no dialog stacking).
+      if (isNewEpisode && announceText != null && announceText.isNotEmpty) {
+        _showHwidLimitNotice(
+          announceText,
+          supportUrl: headers['support-url'],
+          // Panel-supplied deep link straight to the device-management page
+          // (e.g. the cabinet's /devices). Provider-neutral: whatever URL the
+          // panel advertises, nothing is baked into the app.
+          deviceRemoveUrl: headers['dropweb-device-remove'],
+        );
+      }
+    } catch (error, stackTrace) {
+      commonPrint.log(
+        '[import] hwid failed: $error\n$stackTrace',
       );
     }
   }
@@ -477,14 +507,19 @@ class AppController {
   /// facade kept so the staying callers ([updateProfile], [handleChangeProfile])
   /// stay unchanged.
   Future<void> _updateGeoFilesAfterProfileUpdate({bool forceUpdate = false}) =>
-      _profileService.updateGeoFilesAfterProfileUpdate(forceUpdate: forceUpdate);
+      _profileService.updateGeoFilesAfterProfileUpdate(
+          forceUpdate: forceUpdate);
 
   /// Delegates to [ProfileService.setProfile].
   void setProfile(Profile profile) => _profileService.setProfile(profile);
 
   /// Delegates to [ProfileService.setProfileAndAutoApply].
-  void setProfileAndAutoApply(Profile profile) =>
-      _profileService.setProfileAndAutoApply(profile);
+  void setProfileAndAutoApply(Profile profile) {
+    _profileService.setProfile(profile);
+    if (profile.id == _ref.read(currentProfileIdProvider)) {
+      applyProfileDebounce(silence: true);
+    }
+  }
 
   /// Like [setProfileAndAutoApply] but first re-validates the profile's work
   /// mode against the FRESH on-disk config. Use this on the LOCAL profile-edit
@@ -757,7 +792,8 @@ class AppController {
       bindingGroups: bindingGroups,
     );
     if (available) {
-      commonPrint.log('country-mode: rule (${bindingGroups.length} bound groups)');
+      commonPrint
+          .log('country-mode: rule (${bindingGroups.length} bound groups)');
       return Mode.rule;
     }
     commonPrint.log('country-mode: FALLBACK global '
@@ -877,7 +913,12 @@ class AppController {
     // download+write (see [withGeoFileLock]).
     await withGeoFileLock(() async {
       clashCore.requestGc();
-      await setupClashConfig();
+      globalState.suppressVpnTip = true;
+      try {
+        await _setupClashConfig();
+      } finally {
+        globalState.suppressVpnTip = false;
+      }
       await updateGroups();
       await updateProviders();
     });
@@ -896,7 +937,7 @@ class AppController {
     addCheckIpNumDebounce();
   }
 
-  void handleChangeProfile() {
+  Future<void> handleChangeProfile() async {
     // Fresh user action — new core-restart budget for _requestAdmin.
     _connectService.resetCoreRealignBudget();
     // Switching profiles changes the effective config independently of any
@@ -935,13 +976,13 @@ class AppController {
     // cache prime for the next connect.
     _connectService.initForegroundCache();
 
-    applyProfile();
+    await applyProfile();
     _ref.read(logsProvider.notifier).value = FixedList(500);
     _ref.read(requestsProvider.notifier).value = FixedList(500);
     globalState.cacheHeightMap = {};
     globalState.cacheScrollPosition = {};
 
-      if (currentProfileId != null) {
+    if (currentProfileId != null) {
       _updateGeoFilesAfterProfileUpdate(forceUpdate: true).catchError((e) {
         commonPrint.log("Error updating geo files on profile change: $e");
       });
@@ -1235,14 +1276,22 @@ class AppController {
   }
 
   Future<void> _initCore() async {
-    final isInit = await clashCore.isInit;
-    if (!isInit) {
-      await clashCore.init();
+    if (system.isDesktop) {
+      await clashCore.ensureCoreReady();
       await clashCore.setState(
         globalState.getCoreState(),
       );
+    } else {
+      final isInit = await clashCore.isInit;
+      if (!isInit) {
+        await clashCore.init();
+        await clashCore.setState(
+          globalState.getCoreState(),
+        );
+      }
     }
-    await applyProfile();
+    commonPrint.log('[boot] core-init');
+    await applyProfile(silence: system.isDesktop);
   }
 
   Future<void> init() async {
@@ -1274,6 +1323,18 @@ class AppController {
     }
     try {
       await _initCore();
+    } on CoreBootException catch (error, stackTrace) {
+      commonPrint.log(
+        'init: core readiness failed (UI stays usable): $error\n$stackTrace',
+      );
+      final message =
+          ErrorMapper.mapError(error.toString()) ?? error.toString();
+      unawaited(
+        globalState.showErrorMessage(
+          message: TextSpan(text: message),
+          diagnosticPhase: error.diagnosticPhase,
+        ),
+      );
     } catch (e) {
       commonPrint.log('init: _initCore failed (UI stays usable): $e');
     }
@@ -1284,7 +1345,8 @@ class AppController {
     try {
       await _initStatus().timeout(const Duration(seconds: 25));
     } catch (e) {
-      commonPrint.log('init: _initStatus failed/timed out (UI stays usable): $e');
+      commonPrint
+          .log('init: _initStatus failed/timed out (UI stays usable): $e');
     }
     // Sync the operator theme to the current profile on launch so a previous
     // provider's colors don't linger until the user switches/updates a profile.
@@ -1443,6 +1505,44 @@ class AppController {
     return;
   }
 
+  Future<CommonScaffoldState> _waitForImportScaffold() async {
+    const timeout = Duration(seconds: 5);
+    const pollInterval = Duration(milliseconds: 25);
+    final stopwatch = Stopwatch()..start();
+    while (stopwatch.elapsed < timeout) {
+      final state = globalState.homeScaffoldKey.currentState;
+      if (state?.mounted == true) return state!;
+      await Future<void>.delayed(pollInterval);
+    }
+    final state = globalState.homeScaffoldKey.currentState;
+    if (state?.mounted == true) return state!;
+    throw const UiNotReadyException();
+  }
+
+  void _importProfileSideEffects({required bool resetTheme}) {
+    _connectService.resetCoreRealignBudget();
+    if (resetTheme && _ref.read(appSettingProvider).applySubscriptionTheme) {
+      _resetSubscriptionTheme();
+    }
+    _lastSetupHash = null;
+    _ref.read(delayDataSourceProvider.notifier).value = {};
+    _connectService.initForegroundCache();
+  }
+
+  void _importSuccessCleanup() {
+    _ref.read(logsProvider.notifier).value = FixedList(500);
+    _ref.read(requestsProvider.notifier).value = FixedList(500);
+    globalState.cacheHeightMap = {};
+    globalState.cacheScrollPosition = {};
+    unawaited(
+      _updateGeoFilesAfterProfileUpdate(forceUpdate: true).catchError(
+        (error) => commonPrint.log(
+          'Error updating geo files after profile import: $error',
+        ),
+      ),
+    );
+  }
+
   Future<void> addProfileFormURL(String url) async {
     // SECURITY: restrict schemes — no file://, data:, javascript: reaching HTTP/YAML parser.
     final trimmed = url.trim();
@@ -1470,11 +1570,25 @@ class AppController {
       globalState.navigatorKey.currentState?.popUntil((route) => route.isFirst);
     }
     toPage(PageLabel.dashboard);
-    final commonScaffoldState = globalState.homeScaffoldKey.currentState;
-    if (commonScaffoldState?.mounted != true) return;
-
-    try {
-      final profile = await commonScaffoldState?.loadingRun<Profile>(
+    CommonScaffoldState? commonScaffoldState;
+    final transaction = ProfileImportTransaction<Profile>(
+      ensureUiReady: () async {
+        commonScaffoldState = await _waitForImportScaffold();
+      },
+      ensureCoreReady: () async {
+        final ready = await commonScaffoldState!.loadingRun<bool>(
+          () async {
+            if (clashCore.hasCoreReadinessFailure) {
+              await restartCore();
+            }
+            await clashCore.ensureCoreReady();
+            return true;
+          },
+          title: appLocalizations.startingVpnCore,
+        );
+        return ready == true;
+      },
+      downloadAndValidate: () => commonScaffoldState!.loadingRun<Profile>(
         () async {
           final prefs = await SharedPreferences.getInstance();
           final shouldSend = prefs.getBool('sendDeviceHeaders') ?? true;
@@ -1490,14 +1604,19 @@ class AppController {
               .update(shouldSendHeaders: shouldSend);
         },
         title: appLocalizations.addProfile,
-      );
-
-      if (profile != null) {
+      ),
+      commitProfile: addProfile,
+      applyHeaderSettings: (profile) async {
+        _importProfileSideEffects(resetTheme: true);
         _applyAllHeaderSettings(profile, isNewProfile: true);
-
-        _handleHwidHeaders(profile);
-
-        await addProfile(profile);
+      },
+      handleHwidHeaders: (profile) async => _handleHwidHeaders(profile),
+      applyProfile: (profile) async {
+        await _applyProfile();
+        addCheckIpNumDebounce();
+      },
+      reportSuccess: (profile) {
+        _importSuccessCleanup();
         unawaited(App().playUiSound(DropwebSoundCue.importSuccess));
         // Onboarding Moment 3: first-ever profile imported → invite the user
         // to connect (haptic + transient notifier). No auto-connect — the VPN
@@ -1510,14 +1629,21 @@ class AppController {
           );
           globalState.showNotifier(appLocalizations.onboardingImported);
         }
-      }
-    } catch (err) {
-      unawaited(App().playUiSound(DropwebSoundCue.importError));
-      commonPrint.log('Add Profile Failed: $err');
-      final message = ErrorMapper.mapError(err.toString()) ??
-          appLocalizations.genericErrorMessage;
-      unawaited(globalState.showMessage(message: TextSpan(text: message)));
-    }
+        return Future<void>.value();
+      },
+      reportFailure: (error, stackTrace) async {
+        unawaited(App().playUiSound(DropwebSoundCue.importError));
+        commonPrint.log('Add Profile Failed: $error\n$stackTrace');
+        final message = ErrorMapper.mapError(error.toString()) ??
+            appLocalizations.genericErrorMessage;
+        await globalState.showErrorMessage(
+          message: TextSpan(text: message),
+          diagnosticPhase: 'import',
+        );
+      },
+      log: commonPrint.log,
+    );
+    await transaction.run();
   }
 
   Future<Null> addProfileFormFile() async {
@@ -1526,21 +1652,59 @@ class AppController {
     if (bytes == null) {
       return null;
     }
-    if (!context.mounted) return;
     globalState.navigatorKey.currentState?.popUntil((route) => route.isFirst);
     toPage(PageLabel.dashboard);
-    final commonScaffoldState = globalState.homeScaffoldKey.currentState;
-    if (commonScaffoldState?.mounted != true) return;
-    final profile = await commonScaffoldState?.loadingRun<Profile?>(
-      () async {
-        await Future.delayed(const Duration(milliseconds: 300));
-        return Profile.normal(label: platformFile?.name).saveFile(bytes);
+    CommonScaffoldState? commonScaffoldState;
+    final transaction = ProfileImportTransaction<Profile>(
+      ensureUiReady: () async {
+        commonScaffoldState = await _waitForImportScaffold();
       },
-      title: appLocalizations.addProfile,
+      ensureCoreReady: () async {
+        final ready = await commonScaffoldState!.loadingRun<bool>(
+          () async {
+            if (clashCore.hasCoreReadinessFailure) {
+              await restartCore();
+            }
+            await clashCore.ensureCoreReady();
+            return true;
+          },
+          title: appLocalizations.startingVpnCore,
+        );
+        return ready == true;
+      },
+      downloadAndValidate: () => commonScaffoldState!.loadingRun<Profile?>(
+        () async {
+          await Future.delayed(const Duration(milliseconds: 300));
+          return Profile.normal(label: platformFile?.name).saveFile(bytes);
+        },
+        title: appLocalizations.addProfile,
+      ),
+      commitProfile: addProfile,
+      applyHeaderSettings: (profile) async {
+        _importProfileSideEffects(resetTheme: true);
+      },
+      handleHwidHeaders: (profile) => Future<void>.value(),
+      applyProfile: (profile) async {
+        await _applyProfile();
+        addCheckIpNumDebounce();
+      },
+      reportSuccess: (profile) {
+        _importSuccessCleanup();
+        return Future<void>.value();
+      },
+      reportFailure: (error, stackTrace) async {
+        commonPrint.log('Add File Profile Failed: $error\n$stackTrace');
+        final message = ErrorMapper.mapError(error.toString()) ??
+            appLocalizations.genericErrorMessage;
+        await globalState.showErrorMessage(
+          message: TextSpan(text: message),
+          diagnosticPhase: 'import',
+        );
+      },
+      log: commonPrint.log,
     );
-    if (profile != null) {
-      await addProfile(profile);
-    }
+    await transaction.run();
+    return null;
   }
 
   Future<void> addProfileFormQrCode() async {
@@ -1974,5 +2138,4 @@ class AppController {
       trayState: _ref.read(trayStateProvider),
     );
   }
-
 }

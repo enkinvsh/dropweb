@@ -22,13 +22,43 @@ class ClashCore {
     if (Platform.isAndroid) {
       clashInterface = clashLib!;
     } else {
-      clashInterface = clashService!;
+      final service = clashService!;
+      clashInterface = service;
+      service.configureStrictInitializer(_strictDesktopInitialize);
+      service.start();
     }
   }
   static ClashCore? _instance;
   late ClashHandlerInterface clashInterface;
+  final Completer<void> _desktopInitializationGate = Completer<void>();
+  CoreBootException? _lastReadinessFailure;
+
+  bool get hasCoreReadinessFailure => _lastReadinessFailure != null;
 
   Future<bool> preload() => clashInterface.preload();
+
+  Future<void> ensureCoreReady({
+    Duration timeout = const Duration(seconds: 90),
+  }) async {
+    if (!Platform.isAndroid && !_desktopInitializationGate.isCompleted) {
+      _desktopInitializationGate.complete();
+    }
+    try {
+      await clashInterface.ensureCoreReady(timeout: timeout);
+      _lastReadinessFailure = null;
+    } on CoreBootException catch (error) {
+      _lastReadinessFailure = error;
+      rethrow;
+    }
+  }
+
+  Future<bool> _strictDesktopInitialize() async {
+    await _desktopInitializationGate.future;
+    final params = await _prepareInitParams();
+    final initialized = await clashInterface.initStrict(params);
+    if (!initialized) return false;
+    return clashInterface.isInitStrict();
+  }
 
   static Future<void> initGeo() async {
     final homePath = await appPath.homeDirPath;
@@ -84,7 +114,7 @@ class ClashCore {
     }
   }
 
-  Future<bool> init() async {
+  Future<InitParams> _prepareInitParams() async {
     // Lazy geo bootstrap: copy the bundled geo assets only when the active
     // profile actually consumes geodata (same condition as the tile path). A
     // profile that enables geodata later is covered by the safety net in
@@ -106,13 +136,13 @@ class ClashCore {
       clashCore.stopLog();
     }
     final homeDirPath = await appPath.homeDirPath;
-    return clashInterface.init(
-      InitParams(
-        homeDir: homeDirPath,
-        version: globalState.appState.version,
-      ),
+    return InitParams(
+      homeDir: homeDirPath,
+      version: globalState.appState.version,
     );
   }
+
+  Future<bool> init() async => clashInterface.init(await _prepareInitParams());
 
   Future<bool> setState(CoreState state) => clashInterface.setState(state);
 

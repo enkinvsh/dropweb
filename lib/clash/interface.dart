@@ -89,6 +89,12 @@ mixin AndroidClashInterface {
 abstract class ClashHandlerInterface with ClashInterface {
   Map<String, Completer> callbackCompleterMap = {};
 
+  /// Desktop handlers await their current boot generation. The Android FFI
+  /// handler inherits this completed no-op so callers can share one API.
+  Future<void> ensureCoreReady({
+    Duration timeout = const Duration(seconds: 90),
+  }) async {}
+
   Future<void> handleResult(ActionResult result) async {
     final completer = callbackCompleterMap[result.id];
     try {
@@ -183,6 +189,20 @@ abstract class ClashHandlerInterface with ClashInterface {
       timeout: const Duration(seconds: 15),
     );
 
+  Future<bool> initStrict(
+    InitParams params, {
+    Duration timeout = const Duration(seconds: 15),
+  }) =>
+      invoke<bool>(
+        method: ActionMethod.initClash,
+        data: json.encode(params),
+        timeout: timeout,
+        onTimeout: () => throw TimeoutException(
+          'strict core init timed out',
+          timeout,
+        ),
+      );
+
   @override
   Future<bool> setState(CoreState state) => invoke<bool>(
       method: ActionMethod.setState,
@@ -203,6 +223,18 @@ abstract class ClashHandlerInterface with ClashInterface {
         // boot path. A timed-out probe returns false, so _initCore() proceeds
         // to init() instead of blocking forever on a stalled handshake.
         timeout: const Duration(seconds: 8),
+      );
+
+  Future<bool> isInitStrict({
+    Duration timeout = const Duration(seconds: 8),
+  }) =>
+      invoke<bool>(
+        method: ActionMethod.getIsInit,
+        timeout: timeout,
+        onTimeout: () => throw TimeoutException(
+          'strict core health check timed out',
+          timeout,
+        ),
       );
 
   @override

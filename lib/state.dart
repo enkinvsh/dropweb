@@ -15,11 +15,14 @@ import 'package:dropweb/common/work_mode_patch.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/plugins/service.dart';
+import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/widgets/dialog.dart';
 import 'package:dropweb/widgets/scaffold.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_js/extensions/fetch.dart';
 import 'package:flutter_js/flutter_js.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_color_utilities/palettes/core_palette.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -125,6 +128,8 @@ class GlobalState {
   /// tun.stack sync on a profile switch does not fire a spurious "restart VPN"
   /// tip — the egress switch itself applies live.
   bool suppressVpnTip = false;
+
+  bool profileCommitInProgress = false;
 
   AppController? _appController;
   GlobalKey<CommonScaffoldState> homeScaffoldKey = GlobalKey();
@@ -437,6 +442,68 @@ class GlobalState {
         ),
       );
 
+  Future<void> showErrorMessage({
+    String? title,
+    required InlineSpan message,
+    String? diagnosticPhase,
+  }) async {
+    await showCommonDialog<void>(
+      child: Builder(
+        builder: (context) => CommonDialog(
+          title: title ?? appLocalizations.errorTitle,
+          actions: [
+            TextButton(
+              onPressed: () async {
+                try {
+                  final inAppLines = ProviderScope.containerOf(context)
+                      .read(logsProvider)
+                      .list
+                      .map((log) => log.toString())
+                      .toList();
+                  final bundle = await fileLogger.buildSupportBundle(
+                    appVersion: packageInfo.version,
+                    inAppLines: inAppLines,
+                    phase: diagnosticPhase,
+                    operatingSystem: Platform.operatingSystem,
+                  );
+                  await Clipboard.setData(ClipboardData(text: bundle));
+                  showNotifier(appLocalizations.logsCopied);
+                } catch (error, stackTrace) {
+                  commonPrint.log(
+                    '[diagnostics] copy failed: $error\n$stackTrace',
+                  );
+                  showNotifier(appLocalizations.genericErrorMessage);
+                }
+              },
+              child: Text(appLocalizations.copyLogs),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text(appLocalizations.ok),
+            ),
+          ],
+          child: Container(
+            width: 300,
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: SingleChildScrollView(
+              child: SelectableText.rich(
+                TextSpan(
+                  style: Theme.of(context).textTheme.labelLarge,
+                  children: [message],
+                ),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      overflow: TextOverflow.visible,
+                    ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<T?> showCommonDialog<T>({
     required Widget child,
     bool dismissible = true,
@@ -466,9 +533,8 @@ class GlobalState {
       if (silence) {
         showNotifier(message);
       } else {
-        showMessage(
+        showErrorMessage(
           title: title ?? appLocalizations.errorTitle,
-          cancelable: false,
           message: TextSpan(
             text: message,
           ),
