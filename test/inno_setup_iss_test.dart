@@ -200,6 +200,16 @@ void main() {
   });
 
   group('verified helper ping readiness wait (Wave 3)', () {
+    test('imports GetTickCount from kernel32 for bounded polling', () {
+      expect(
+        iss,
+        contains(
+          "function GetTickCount: DWORD; external 'GetTickCount@kernel32.dll stdcall';",
+        ),
+        reason: 'GetTickCount is a WinAPI function, not an Inno Pascal built-in',
+      );
+    });
+
     test('verifies /ping against the installed core SHA-256', () {
       final probe = bodyOf('function HelperPingMatchesToken');
       final wait = bodyOf('procedure WaitForVerifiedHelperPing');

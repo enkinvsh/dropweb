@@ -44,6 +44,7 @@ var
   PreviousVersion: String;
 
 procedure SHChangeNotify(wEventId: Integer; uFlags: Integer; dwItem1: Integer; dwItem2: Integer); external 'SHChangeNotify@shell32.dll stdcall';
+function GetTickCount: DWORD; external 'GetTickCount@kernel32.dll stdcall';
 
 // NOTE: process shutdown is deliberately NOT done by image name. Terminating a
 // process by name (dropweb.exe / DropwebCore.exe / DropwebHelperService.exe)
