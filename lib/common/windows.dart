@@ -281,7 +281,11 @@ class Windows {
     final serviceBinPath =
         WindowsConflict.serviceBinPath(qc.stdout.toString());
     int? servicePid;
-    if (WindowsConflict.exePathIsOurs(serviceBinPath, ourHelperPath)) {
+    final serviceOwnership = WindowsConflict.helperServiceOwnership(
+      scQcOutput: qc.stdout.toString(),
+      ourHelperPath: ourHelperPath,
+    );
+    if (serviceOwnership == HelperServiceOwnership.owned) {
       final qex = await Process.run('sc', ['queryex', appHelperService]);
       servicePid =
           WindowsConflict.serviceQueryexPid(qex.stdout.toString());
@@ -383,6 +387,38 @@ class Windows {
     return WindowsHelperServiceStatus.presence;
   }
 
+  Future<HelperServiceOwnership> checkHelperServiceOwnership() async {
+    try {
+      final result = await Process.run('sc', ['qc', appHelperService]);
+      if (result.exitCode != 0) return HelperServiceOwnership.unknown;
+      return WindowsConflict.helperServiceOwnership(
+        scQcOutput: result.stdout.toString(),
+        ourHelperPath: appPath.helperPath,
+      );
+    } catch (_) {
+      return HelperServiceOwnership.unknown;
+    }
+  }
+
+  Future<HelperDestructiveOperationResult<T>>
+      runOwnedHelperDestructiveOperation<T>({
+    required String operationName,
+    required Future<T> Function() operation,
+  }) async {
+    final ownership = await checkHelperServiceOwnership();
+    final result = await WindowsConflict.runOwnedHelperDestructiveOperation(
+      ownership: ownership,
+      operation: operation,
+    );
+    final conflict = result.conflict;
+    if (conflict != null) {
+      commonPrint.log(
+        '[boot] helper-check conflict operation=$operationName: $conflict',
+      );
+    }
+    return result;
+  }
+
   /// Install the helper service (requires UAC elevation).
   /// This should only be called when the service is not installed.
   /// After installation, sets security descriptor to allow non-admin users
@@ -445,18 +481,29 @@ class Windows {
       appHelperService,
     ].join(" ");
 
-    final res = runas("cmd.exe", command);
-    if (!res) {
-      // UAC denied or ShellExecute failed — no point polling.
-      return false;
+    Future<bool> executeInstall() async {
+      final res = runas("cmd.exe", command);
+      if (!res) {
+        // UAC denied or ShellExecute failed — no point polling.
+        return false;
+      }
+      // runas() returns as soon as the elevated cmd is LAUNCHED — sc create,
+      // sc start, the SCM state transition and the helper's HTTP bind all
+      // happen after it. The old fixed 300ms sleep lost that race on nearly
+      // every first launch, so the follow-up restartCore() spawned an
+      // unprivileged core and TUN silently died until an app restart. Poll for
+      // verified readiness instead; 15s bounds slow disks/AV scanning.
+      return waitHelperReady(const Duration(seconds: 15), tolerateMismatch: true);
     }
-    // runas() returns as soon as the elevated cmd is LAUNCHED — sc create,
-    // sc start, the SCM state transition and the helper's HTTP bind all
-    // happen after it. The old fixed 300ms sleep lost that race on nearly
-    // every first launch, so the follow-up restartCore() spawned an
-    // unprivileged core and TUN silently died until an app restart. Poll for
-    // verified readiness instead; 15s bounds slow disks/AV scanning.
-    return waitHelperReady(const Duration(seconds: 15), tolerateMismatch: true);
+
+    if (status != WindowsHelperServiceStatus.presence) {
+      return executeInstall();
+    }
+    final guarded = await runOwnedHelperDestructiveOperation(
+      operationName: 'service-reinstall',
+      operation: executeInstall,
+    );
+    return guarded.value ?? false;
   }
 
   /// Try to start an existing service without UAC.
@@ -526,14 +573,16 @@ class Windows {
       return true;
     }
 
-    final result = await Process.run('sc', ['stop', appHelperService]);
-
-    if (result.exitCode == 0) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      return true;
-    }
-
-    return false;
+    final guarded = await runOwnedHelperDestructiveOperation(
+      operationName: 'service-stop',
+      operation: () async {
+        final result = await Process.run('sc', ['stop', appHelperService]);
+        if (result.exitCode != 0) return false;
+        await Future.delayed(const Duration(milliseconds: 500));
+        return true;
+      },
+    );
+    return guarded.value ?? false;
   }
 
   Future<bool> registerTask(String appName) async {

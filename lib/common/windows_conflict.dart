@@ -33,6 +33,29 @@ enum HelperPortConflictResult {
   foreignHeld,
 }
 
+enum HelperServiceOwnership { owned, foreign, unknown }
+
+final class HelperServiceConflictException implements Exception {
+  const HelperServiceConflictException(this.ownership);
+
+  final HelperServiceOwnership ownership;
+
+  @override
+  String toString() =>
+      'helper service conflict: service ownership is ${ownership.name}';
+}
+
+final class HelperDestructiveOperationResult<T> {
+  const HelperDestructiveOperationResult.allowed(this.value) : conflict = null;
+
+  const HelperDestructiveOperationResult.blocked(this.conflict) : value = null;
+
+  final T? value;
+  final HelperServiceConflictException? conflict;
+
+  bool get isAllowed => conflict == null;
+}
+
 class WindowsConflict {
   const WindowsConflict._();
 
@@ -65,13 +88,39 @@ class WindowsConflict {
   static String? serviceBinPath(String scQcOutput) {
     for (final raw in scQcOutput.split('\n')) {
       final line = raw.trim();
-      if (!line.toUpperCase().startsWith('BINARY_PATH_NAME')) continue;
-      final colon = line.indexOf(':');
-      if (colon < 0) continue;
-      final value = line.substring(colon + 1).trim();
+      final field = RegExp(
+        r'^BINARY_PATH_NAME\s*:',
+        caseSensitive: false,
+      ).firstMatch(line);
+      if (field == null) continue;
+      final value = line.substring(field.end).trim();
       return value.isEmpty ? null : value;
     }
     return null;
+  }
+
+  static HelperServiceOwnership helperServiceOwnership({
+    required String scQcOutput,
+    required String ourHelperPath,
+  }) {
+    final servicePath = serviceBinPath(scQcOutput);
+    if (servicePath == null) return HelperServiceOwnership.unknown;
+    return exePathIsOurs(servicePath, ourHelperPath)
+        ? HelperServiceOwnership.owned
+        : HelperServiceOwnership.foreign;
+  }
+
+  static Future<HelperDestructiveOperationResult<T>>
+      runOwnedHelperDestructiveOperation<T>({
+    required HelperServiceOwnership ownership,
+    required Future<T> Function() operation,
+  }) async {
+    if (ownership != HelperServiceOwnership.owned) {
+      return HelperDestructiveOperationResult.blocked(
+        HelperServiceConflictException(ownership),
+      );
+    }
+    return HelperDestructiveOperationResult.allowed(await operation());
   }
 
   /// Parse the `PID` value out of `sc queryex <service>` output.
