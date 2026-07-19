@@ -315,7 +315,7 @@ function Test-ObkatkaOrderedMarkers {
     if ($null -eq $bestMatch) {
       return [pscustomobject]@{
         passed   = $false
-        detail   = "missing ordered marker after offset $cursor: $($patterns -join ' OR ')"
+        detail   = "missing ordered marker after offset ${cursor}: $($patterns -join ' OR ')"
         selected = @($selected)
       }
     }
