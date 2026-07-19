@@ -130,11 +130,7 @@ class ClashCore {
         commonPrint.log("ClashCore.init: initGeo failed, continuing boot: $e");
       }
     }
-    if (globalState.config.appSetting.openLogs) {
-      clashCore.startLog();
-    } else {
-      clashCore.stopLog();
-    }
+    clashCore.startLog();
     final homeDirPath = await appPath.homeDirPath;
     return InitParams(
       homeDir: homeDirPath,

@@ -12,6 +12,11 @@ import 'package:dropweb/state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+bool shouldWriteCoreLog(LogLevel level, {required bool openLogs}) =>
+    openLogs || level == LogLevel.error;
+
+bool shouldFeedCoreLogProvider({required bool openLogs}) => openLogs;
+
 class ClashManager extends ConsumerStatefulWidget {
   const ClashManager({
     super.key,
@@ -46,17 +51,6 @@ class _ClashContainerState extends ConsumerState<ClashManager>
         globalState.appController.updateClashConfigDebounce();
       }
     });
-
-    ref.listenManual(
-      appSettingProvider.select((state) => state.openLogs),
-      (prev, next) {
-        if (next) {
-          clashCore.startLog();
-        } else {
-          clashCore.stopLog();
-        }
-      },
-    );
   }
 
   Future<void> _handleChangeProfile() async {
@@ -91,19 +85,32 @@ class _ClashContainerState extends ConsumerState<ClashManager>
 
   @override
   void onLog(Log log) {
+    final openLogs = ref.read(appSettingProvider).openLogs;
+    final writeToFile = shouldWriteCoreLog(
+      log.logLevel,
+      openLogs: openLogs,
+    );
+    final feedProvider = shouldFeedCoreLogProvider(openLogs: openLogs);
+    if (!writeToFile && !feedProvider) {
+      return;
+    }
+
     // SECURITY: mihomo core log payloads can include outbound URLs from
     // proxy/provider activity. Redact at the boundary so the in-app log
     // viewer (`logsProvider`), the on-disk log file (`fileLogger`), and
     // the user-facing error notifier never receive raw tokens.
     final redactedPayload = redactUrls(log.payload);
-    final redactedLog = log.copyWith(payload: redactedPayload);
+    if (feedProvider) {
+      ref.read(logsProvider.notifier).addLog(
+            log.copyWith(payload: redactedPayload),
+          );
+    }
 
-    ref.read(logsProvider.notifier).addLog(redactedLog);
-
-    // Write core logs to file
-    fileLogger.log(
-      "[${log.logLevel.name.toUpperCase()}] $redactedPayload",
-    );
+    if (writeToFile) {
+      fileLogger.log(
+        "[${log.logLevel.name.toUpperCase()}] $redactedPayload",
+      );
+    }
 
     if (log.logLevel == LogLevel.error) {
       // Run pattern matching against the original payload so existing
