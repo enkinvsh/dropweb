@@ -564,6 +564,7 @@ function Test-ObkatkaBootLog {
     '\[tun\] listener failed to start after updateConfig',
     '\[loadingRun\] error/timeout',
     'helper-check conflict',
+    'ownership parse failed',
     'realign budget exhausted',
     'degrading to TUN-off',
     'PlatformDispatcher',
@@ -571,7 +572,7 @@ function Test-ObkatkaBootLog {
   )
   $loading = Test-ObkatkaLoadingRunBalance -Content $content
   $coreErrorLines = @($logLines | Where-Object {
-      $_ -match 'CoreBootException|tun listener failed to start|helper-check conflict|realign budget exhausted|degrading to TUN-off|PlatformDispatcher|Unhandled exception'
+      $_ -match 'CoreBootException|tun listener failed to start|helper-check conflict|ownership parse failed|realign budget exhausted|degrading to TUN-off|PlatformDispatcher|Unhandled exception'
     })
   Write-ObkatkaAtomicText -Path (Join-Path (Initialize-ObkatkaEvidence) 'core-errors.txt') -Content (($coreErrorLines -join "`n") + "`n")
 
