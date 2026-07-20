@@ -283,9 +283,11 @@ function Invoke-ImportConnect {
     Add-E2ECheck -Name 'tun-dns-resolution' -Passed ($dns.Count -gt 0) -Detail "answers=$($dns.Count)"
     $dns | Format-Table -AutoSize | Out-String -Width 4096 | Set-Content (Join-Path (Get-ObkatkaEvidenceRoot) 'dns-up.txt') -Encoding utf8
 
+    $mixedPort = [int]$checkpoint.ports.mixed
     $socksPort = [int]$checkpoint.ports.socks
-    Add-E2ECheck -Name 'proxy-socks-listening' -Passed ($checkpoint.socksListening -eq $true -and $socksPort -gt 0) -Detail "port=$socksPort listening=$($checkpoint.socksListening)"
-    $proxyIp = (& curl.exe -sS --max-time 20 --proxy "socks5h://127.0.0.1:$socksPort" 'https://api.ipify.org').Trim()
+    $proxyPort = if ($checkpoint.mixedListening -eq $true -and $mixedPort -gt 0) { $mixedPort } elseif ($checkpoint.socksListening -eq $true -and $socksPort -gt 0) { $socksPort } else { 0 }
+    Add-E2ECheck -Name 'proxy-socks-listening' -Passed ($proxyPort -gt 0) -Detail "mixedPort=$mixedPort mixedListening=$($checkpoint.mixedListening) socksPort=$socksPort socksListening=$($checkpoint.socksListening) selected=$proxyPort"
+    $proxyIp = (& curl.exe -sS --max-time 20 --proxy "socks5h://127.0.0.1:$proxyPort" 'https://api.ipify.org').Trim()
     $curlExit = $LASTEXITCODE
     Write-ObkatkaAtomicText -Path (Join-Path (Get-ObkatkaEvidenceRoot) 'egress-proxy.txt') -Content "$proxyIp`n"
     Add-E2ECheck -Name 'proxy-probe-succeeds' -Passed ($curlExit -eq 0 -and -not [string]::IsNullOrWhiteSpace($proxyIp)) -Detail "curlExit=$curlExit ip=$(ConvertTo-ObkatkaMaskedIp $proxyIp)"
