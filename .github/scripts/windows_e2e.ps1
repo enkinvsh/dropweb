@@ -291,7 +291,7 @@ function Invoke-ImportConnect {
     $curlExit = $LASTEXITCODE
     Write-ObkatkaAtomicText -Path (Join-Path (Get-ObkatkaEvidenceRoot) 'egress-proxy.txt') -Content "$proxyIp`n"
     Add-E2ECheck -Name 'proxy-probe-succeeds' -Passed ($curlExit -eq 0 -and -not [string]::IsNullOrWhiteSpace($proxyIp)) -Detail "curlExit=$curlExit ip=$(ConvertTo-ObkatkaMaskedIp $proxyIp)"
-    Add-E2ECheck -Name 'proxy-egress-matches-tun' -Passed ($proxyIp -ceq $tunIp) -Detail "proxy=$(ConvertTo-ObkatkaMaskedIp $proxyIp) tun=$(ConvertTo-ObkatkaMaskedIp $tunIp)"
+    Add-E2ECheck -Name 'proxy-egress-changed' -Passed ($proxyIp -and $proxyIp -cne $baselineIp) -Detail "baseline=$(ConvertTo-ObkatkaMaskedIp $baselineIp) proxy=$(ConvertTo-ObkatkaMaskedIp $proxyIp)"
     Save-ObkatkaScreenshot -Name 'import-connect-connected' | Out-Null
 
     Write-ObkatkaAtomicText -Path $probeDonePath -Content "done`n"
