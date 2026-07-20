@@ -529,6 +529,9 @@ function Invoke-UpgradePreviousStable {
     Stop-ObkatkaAppProcesses
     Add-E2ECheck -Name 'stable-stop-graceful-or-fallback' -Passed (-not (Get-Process dropweb, DropwebCore -ErrorAction SilentlyContinue)) -Detail "graceful=$graceful"
 
+    $preCandidateLog = Find-ObkatkaAppLog
+    $preCandidateLineCount = if ($preCandidateLog) { @(Get-Content -LiteralPath $preCandidateLog.FullName).Count } else { 0 }
+
     $candidateInstaller = Get-CandidateInstaller
     $candidateInstall = Install-ObkatkaInstaller -InstallerPath $candidateInstaller.FullName
     Add-E2ECheck -Name 'candidate-overinstall-exit' -Passed ($candidateInstall.ExitCode -eq 0) -Detail "exit=$($candidateInstall.ExitCode)"
@@ -549,9 +552,18 @@ function Invoke-UpgradePreviousStable {
     $candidateApp = Start-Process -FilePath $candidatePaths.app -PassThru
     Start-Sleep -Seconds 25
     Add-E2ECheck -Name 'candidate-bare-launch-alive' -Passed (-not $candidateApp.HasExited) -Detail "pid=$($candidateApp.Id)"
-    Add-BootChecks
-    $logContent = Get-AllDropwebLogContent
-    Add-E2ECheck -Name 'candidate-loadingRun-health' -Passed ($logContent -notmatch '\[loadingRun\] error/timeout|PlatformDispatcher|Unhandled exception') -Detail 'no loadingRun or unhandled fatal marker'
+    $candidateLog = Find-ObkatkaAppLog
+    Add-E2ECheck -Name 'candidate-app-log-produced' -Passed ($null -ne $candidateLog) -Detail $(if ($candidateLog) { $candidateLog.FullName } else { 'ABSENT' })
+    $candidateLines = @(Get-Content -LiteralPath $candidateLog.FullName | Select-Object -Skip $preCandidateLineCount)
+    $candidateLogPath = Join-Path (Get-ObkatkaEvidenceRoot) 'candidate-app.log'
+    Write-ObkatkaAtomicText -Path $candidateLogPath -Content (($candidateLines -join "`n") + "`n")
+    foreach ($check in @(Test-ObkatkaBootLog -LogPath $candidateLogPath -RequireHelperSpawn -RequireCoreInit)) {
+      $script:Checks.Add($check)
+    }
+    $failedBoot = @($script:Checks | Where-Object { $_.status -eq 'FAIL' })
+    if ($failedBoot.Count -gt 0) { throw "$($failedBoot[0].name): $($failedBoot[0].detail)" }
+    $candidateContent = $candidateLines -join "`n"
+    Add-E2ECheck -Name 'candidate-loadingRun-health' -Passed ($candidateContent -notmatch '\[loadingRun\] error/timeout|PlatformDispatcher|Unhandled exception') -Detail 'no candidate loadingRun or unhandled fatal marker'
     Stop-ObkatkaAppProcesses
     $script:Phases.boot = 'PASS'
     $script:Metadata.oldCoreSha256 = $oldCoreHash
