@@ -62,7 +62,9 @@ function Write-ObkatkaVerdict {
     [Parameter(Mandatory)][object[]]$Checks,
     [AllowNull()][string]$FirstFailure,
     [Parameter(Mandatory)][object]$Durations,
-    [string]$Sha = $env:GITHUB_SHA
+    [string]$Sha = $env:GITHUB_SHA,
+    [hashtable]$Phases = @{},
+    [hashtable]$Metadata = @{}
   )
 
   $evidenceRoot = Initialize-ObkatkaEvidence
@@ -80,6 +82,12 @@ function Write-ObkatkaVerdict {
     checks       = @($Checks)
     firstFailure = $FirstFailure
     durations    = $Durations
+  }
+  foreach ($phase in $Phases.GetEnumerator()) {
+    $verdict[$phase.Key] = $phase.Value
+  }
+  foreach ($entry in $Metadata.GetEnumerator()) {
+    $verdict[$entry.Key] = $entry.Value
   }
   $json = $verdict | ConvertTo-Json -Depth 10
   Write-ObkatkaAtomicText -Path (Join-Path $evidenceRoot 'verdict.json') -Content ($json + "`n")
@@ -108,6 +116,163 @@ function Write-ObkatkaVerdict {
 
   if ($env:GITHUB_STEP_SUMMARY) {
     Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value $summary -Encoding utf8
+  }
+}
+
+function Wait-ObkatkaPath {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][int]$TimeoutSeconds,
+    [int]$PollMilliseconds = 250
+  )
+
+  $clock = [System.Diagnostics.Stopwatch]::StartNew()
+  while ($clock.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+    if (Test-Path -LiteralPath $Path) { return $true }
+    Start-Sleep -Milliseconds $PollMilliseconds
+  }
+  return (Test-Path -LiteralPath $Path)
+}
+
+function Read-ObkatkaJsonWhenReady {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][int]$TimeoutSeconds
+  )
+
+  if (-not (Wait-ObkatkaPath -Path $Path -TimeoutSeconds $TimeoutSeconds)) {
+    throw "timed out waiting for JSON result: $Path"
+  }
+  return (Get-Content -LiteralPath $Path -Raw -ErrorAction Stop | ConvertFrom-Json -Depth 20)
+}
+
+function Wait-ObkatkaProcessExit {
+  param(
+    [Parameter(Mandatory)][System.Diagnostics.Process]$Process,
+    [Parameter(Mandatory)][int]$TimeoutSeconds
+  )
+
+  try {
+    return $Process.WaitForExit($TimeoutSeconds * 1000)
+  } catch {
+    return $false
+  }
+}
+
+function Write-ObkatkaPlan {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][System.Collections.IDictionary]$Plan
+  )
+
+  Write-ObkatkaAtomicText -Path $Path -Content (($Plan | ConvertTo-Json -Depth 20 -Compress) + "`n")
+}
+
+function Start-ObkatkaCiPlan {
+  param(
+    [Parameter(Mandatory)][string]$AppPath,
+    [Parameter(Mandatory)][string]$PlanPath
+  )
+
+  $previous = $env:DROPWEB_CI_E2E
+  $env:DROPWEB_CI_E2E = '1'
+  try {
+    return Start-Process -FilePath $AppPath -ArgumentList ('--ci-e2e-plan="{0}"' -f $PlanPath) -PassThru
+  } finally {
+    if ($null -eq $previous) {
+      Remove-Item Env:DROPWEB_CI_E2E -ErrorAction SilentlyContinue
+    } else {
+      $env:DROPWEB_CI_E2E = $previous
+    }
+  }
+}
+
+function Install-ObkatkaInstaller {
+  param([Parameter(Mandatory)][string]$InstallerPath)
+
+  return Start-Process -FilePath $InstallerPath -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NORESTARTAPPLICATIONS','/NOICONS','/NOCANCEL' -Wait -PassThru
+}
+
+function Get-ObkatkaInstalledPaths {
+  $entry = Get-ObkatkaUninstallEntry -NamePattern '(?i)^dropweb'
+  if (-not $entry) { throw 'dropweb uninstall entry is absent' }
+  $root = [string]$entry.InstallLocation
+  if (-not $root) { $root = 'C:\Program Files\dropweb' }
+  $root = $root.TrimEnd('\')
+  return [pscustomobject][ordered]@{
+    entry  = $entry
+    root   = $root
+    app    = Join-Path $root 'dropweb.exe'
+    core   = Join-Path $root 'DropwebCore.exe'
+    helper = Join-Path $root 'DropwebHelperService.exe'
+  }
+}
+
+function Get-ObkatkaNormalizedRoutes {
+  return @(
+    Get-NetRoute -ErrorAction Stop |
+      Where-Object { $_.State -eq 'Alive' } |
+      ForEach-Object {
+        '{0}|{1}|{2}|{3}|{4}' -f $_.AddressFamily, $_.DestinationPrefix, $_.NextHop, $_.InterfaceIndex, $_.RouteMetric
+      } |
+      Sort-Object -Unique
+  )
+}
+
+function Get-ObkatkaAdapterState {
+  return @(
+    Get-NetAdapter -IncludeHidden -ErrorAction Stop |
+      Select-Object Name, InterfaceDescription, Status, ifIndex, InterfaceGuid, MacAddress, LinkSpeed |
+      Sort-Object ifIndex
+  )
+}
+
+function Write-ObkatkaNetworkSnapshot {
+  param(
+    [Parameter(Mandatory)][string]$FileName,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  $snapshot = [ordered]@{
+    label      = $Label
+    capturedAt = [DateTime]::UtcNow.ToString('o')
+    adapters   = @(Get-ObkatkaAdapterState)
+    routes     = @(Get-NetRoute -ErrorAction Stop | Select-Object AddressFamily, DestinationPrefix, NextHop, InterfaceIndex, RouteMetric, State, PolicyStore | Sort-Object InterfaceIndex, DestinationPrefix)
+  }
+  Write-ObkatkaAtomicText -Path (Join-Path (Initialize-ObkatkaEvidence) $FileName) -Content (($snapshot | ConvertTo-Json -Depth 8) + "`n")
+  return $snapshot
+}
+
+function Get-ObkatkaEgressIp {
+  param([int]$TimeoutSeconds = 20)
+
+  $response = Invoke-WebRequest -Uri 'https://api.ipify.org' -NoProxy -TimeoutSec $TimeoutSeconds -ErrorAction Stop
+  return ([string]$response.Content).Trim()
+}
+
+function ConvertTo-ObkatkaMaskedIp {
+  param([Parameter(Mandatory)][string]$Address)
+
+  if ($Address -match '^(\d+)\.(\d+)\.(\d+)\.(\d+)$') {
+    return "$($Matches[1]).$($Matches[2]).x.x"
+  }
+  if ($Address.Contains(':')) {
+    $parts = @($Address.Split(':') | Where-Object { $_ })
+    return (($parts | Select-Object -First 3) -join ':') + ':x:x'
+  }
+  return '[masked]'
+}
+
+function Stop-ObkatkaAppProcesses {
+  param([int]$GraceSeconds = 10)
+
+  & taskkill.exe /IM dropweb.exe 2>$null | Out-Null
+  $clock = [System.Diagnostics.Stopwatch]::StartNew()
+  while ($clock.Elapsed.TotalSeconds -lt $GraceSeconds -and (Get-Process dropweb -ErrorAction SilentlyContinue)) {
+    Start-Sleep -Milliseconds 250
+  }
+  foreach ($name in @('dropweb', 'DropwebCore')) {
+    Get-Process $name -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
   }
 }
 
@@ -368,20 +533,23 @@ function Test-ObkatkaLoadingRunBalance {
 function Test-ObkatkaBootLog {
   param(
     [Parameter(Mandatory)][string]$LogPath,
-    [switch]$RequireHelperSpawn
+    [switch]$RequireHelperSpawn,
+    [switch]$RequireCoreInit
   )
 
   $content = Get-Content -LiteralPath $LogPath -Raw -ErrorAction Stop
   $logLines = @(Get-Content -LiteralPath $LogPath -ErrorAction Stop)
   $bootLines = @($logLines | Where-Object { $_ -match '\[boot\]|\[loadingRun\]' })
   Write-ObkatkaAtomicText -Path (Join-Path (Initialize-ObkatkaEvidence) 'boot.txt') -Content (($bootLines -join "`n") + "`n")
-  $ordered = Test-ObkatkaOrderedMarkers -Content $content -Groups @(
+  $groups = @(
     '\[boot\] bridge-bind',
     '\[boot\] helper-check',
     @('\[boot\] helper-start-accepted', '\[boot\] direct-spawn'),
     '\[boot\] connect-back ok',
     '\[boot\] core-ready'
   )
+  if ($RequireCoreInit) { $groups += '\[boot\] core-init' }
+  $ordered = Test-ObkatkaOrderedMarkers -Content $content -Groups $groups
   # core-ready is the authoritative final marker. With no profile, core-init may
   # legitimately no-op and is intentionally not required on untouched first boot.
   $spawnBranch = if ($ordered.selected -contains '\[boot\] direct-spawn') { 'direct-spawn' } elseif ($ordered.selected -contains '\[boot\] helper-start-accepted') { 'helper-start-accepted' } else { 'unknown' }
