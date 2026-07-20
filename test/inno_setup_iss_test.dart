@@ -199,6 +199,68 @@ void main() {
     });
   });
 
+  group('helper stop waits for SCM completion', () {
+    test('queries service state through locale-independent advapi32 APIs', () {
+      final status = bodyOf('function ServiceIsStoppedOrAbsent');
+
+      expect(iss, contains("external 'OpenSCManagerW@advapi32.dll stdcall'"));
+      expect(iss, contains("external 'OpenServiceW@advapi32.dll stdcall'"));
+      expect(iss, contains("external 'QueryServiceStatus@advapi32.dll stdcall'"));
+      expect(iss, contains('SERVICE_STOPPED = 1'));
+      expect(iss, contains('ERROR_SERVICE_DOES_NOT_EXIST = 1060'));
+      expect(status, contains('QueryServiceStatus'));
+      expect(status, contains('DLLGetLastError'));
+      expect(status, contains('CloseServiceHandle'));
+      expect(status.contains('sc query'), isFalse);
+      expect(status.contains('Exec('), isFalse);
+      expect(status.contains('TmpFile'), isFalse);
+      expect(status.contains('LoadStringFromFile'), isFalse);
+    });
+
+    test('polls STOPPED or absence for at most 10 seconds and fails closed', () {
+      final wait = bodyOf('procedure WaitForServiceStoppedOrAbsent');
+
+      expect(iss, contains('SERVICE_STOP_TIMEOUT_MS = 10000'));
+      expect(iss, contains('SERVICE_STOP_POLL_MS = 250'));
+      expect(wait, contains('ServiceIsStoppedOrAbsent(ServiceName)'));
+      expect(wait, contains('GetTickCount'));
+      expect(wait, contains('Sleep(SERVICE_STOP_POLL_MS)'));
+      expect(wait, contains('RaiseException'));
+    });
+
+    test('both upgrade and pre-install stops wait before continuing', () {
+      final ensure = bodyOf('procedure EnsureHelperService');
+      final ensureStop = ensure.indexOf("'stop \"' + ServiceName");
+      final ensureWait = ensure.indexOf(
+        'WaitForServiceStoppedOrAbsent(ServiceName)',
+      );
+      final ensureConfig = ensure.indexOf("'config \"'");
+      expect(ensureStop, lessThan(ensureWait));
+      expect(ensureWait, lessThan(ensureConfig));
+
+      final install = bodyOf('procedure CurStepChanged');
+      final installStop = install.indexOf('stop "DropwebHelperService"');
+      final installWait = install.indexOf(
+        "WaitForServiceStoppedOrAbsent('DropwebHelperService')",
+      );
+      final cleanup = install.indexOf('CleanLineageLeftovers');
+      expect(installStop, lessThan(installWait));
+      expect(installWait, lessThan(cleanup));
+      expect(
+        RegExp(r'WaitForServiceStoppedOrAbsent\(ServiceName\);')
+            .allMatches(code)
+            .length,
+        1,
+      );
+      expect(
+        RegExp(
+          r"WaitForServiceStoppedOrAbsent\('DropwebHelperService'\);",
+        ).allMatches(code).length,
+        1,
+      );
+    });
+  });
+
   group('verified helper ping readiness wait (Wave 3)', () {
     test('imports GetTickCount from kernel32 for bounded polling', () {
       expect(

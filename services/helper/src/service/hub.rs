@@ -2,16 +2,26 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::VecDeque;
+use std::convert::Infallible;
 use std::fs::File;
+use std::future;
 use std::io::{BufRead, Error, Read};
+#[cfg(not(all(feature = "windows-service", target_os = "windows")))]
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
-use std::{io, thread};
+use std::thread;
+#[cfg(all(feature = "windows-service", target_os = "windows"))]
+use std::time::Duration;
 use warp::{Filter, Reply};
 
-// Unique to dropweb (FlClashX's helper uses 47890 — must NOT collide).
-// Keep in sync with `helperPort` in lib/common/constant.dart.
+#[cfg(all(feature = "windows-service", target_os = "windows"))]
+use crate::service::windows_lifecycle::{LifecycleError, LifecycleOwner, SpawnRequest};
+#[cfg(all(feature = "windows-service", target_os = "windows"))]
+use std::sync::atomic::{AtomicBool, Ordering};
+
 const LISTEN_PORT: u16 = 47896;
+#[cfg(all(feature = "windows-service", target_os = "windows"))]
+pub const STOP_BUDGET: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct StartParams {
@@ -38,67 +48,140 @@ fn sha256_file(path: &str) -> Result<String, Error> {
 
 static LOGS: Lazy<Arc<Mutex<VecDeque<String>>>> =
     Lazy::new(|| Arc::new(Mutex::new(VecDeque::with_capacity(100))));
+#[cfg(not(all(feature = "windows-service", target_os = "windows")))]
 static PROCESS: Lazy<Arc<Mutex<Option<std::process::Child>>>> =
     Lazy::new(|| Arc::new(Mutex::new(None)));
+#[cfg(all(feature = "windows-service", target_os = "windows"))]
+static PROCESS: Lazy<Arc<Mutex<LifecycleOwner>>> =
+    Lazy::new(|| Arc::new(Mutex::new(LifecycleOwner::stopped())));
+#[cfg(all(feature = "windows-service", target_os = "windows"))]
+static SERVICE_STOPPING: AtomicBool = AtomicBool::new(false);
 
-fn start(start_params: StartParams) -> impl Reply {
-    let sha256 = sha256_file(start_params.path.as_str()).unwrap_or("".to_string());
-    if sha256 != env!("TOKEN") {
-        return format!("The SHA256 hash of the program requesting execution is: {}. The helper program only allows execution of applications with the SHA256 hash: {}.", sha256,  env!("TOKEN"),);
+async fn start(start_params: StartParams) -> Result<impl Reply, Infallible> {
+    let response = match tokio::task::spawn_blocking(move || start_blocking(start_params)).await {
+        Ok(response) => response,
+        Err(error) => error.to_string(),
+    };
+    Ok(response)
+}
+
+fn start_blocking(start_params: StartParams) -> String {
+    let sha256 = sha256_file(start_params.path.as_str()).unwrap_or_default();
+    let expected_sha256 = env!("TOKEN");
+    if expected_sha256.is_empty() || sha256 != expected_sha256 {
+        return format!("The SHA256 hash of the program requesting execution is: {}. The helper program only allows execution of applications with the SHA256 hash: {}.", sha256, env!("TOKEN"));
     }
-    stop();
-    let mut process = PROCESS.lock().unwrap();
+
+    match restart_core(&start_params) {
+        Ok(stderr) => {
+            thread::spawn(move || {
+                for line in std::io::BufReader::new(stderr).lines() {
+                    match line {
+                        Ok(output) => log_message(output),
+                        Err(_) => break,
+                    }
+                }
+            });
+            String::new()
+        }
+        Err(error) => {
+            log_message(error.to_string());
+            error.to_string()
+        }
+    }
+}
+
+#[cfg(not(all(feature = "windows-service", target_os = "windows")))]
+fn restart_core(start_params: &StartParams) -> anyhow::Result<Box<dyn Read + Send>> {
+    let mut process = PROCESS
+        .lock()
+        .map_err(|_| anyhow::anyhow!("core lifecycle lock poisoned"))?;
+    if let Some(mut child) = process.take() {
+        if child.try_wait()?.is_none() {
+            child.kill()?;
+        }
+        child.wait()?;
+    }
     let mut command = Command::new(&start_params.path);
     command.stderr(Stdio::piped()).arg(&start_params.arg);
-    
-    // Set SAFE_PATHS to prevent "path is not subpath of home directory" errors
-    // This ensures the core can access provider files before SetHomeDir is called
-    if let Some(home_dir) = start_params.home_dir {
+    if let Some(home_dir) = &start_params.home_dir {
         command.env("SAFE_PATHS", home_dir);
     }
-    
-    match command.spawn() {
-        Ok(child) => {
-            *process = Some(child);
-            if let Some(ref mut child) = *process {
-                let stderr = child.stderr.take().unwrap();
-                let reader = io::BufReader::new(stderr);
-                thread::spawn(move || {
-                    for line in reader.lines() {
-                        match line {
-                            Ok(output) => {
-                                log_message(output);
-                            }
-                            Err(_) => {
-                                break;
-                            }
-                        }
-                    }
-                });
-            }
-            "".to_string()
-        }
-        Err(e) => {
-            log_message(e.to_string());
-            e.to_string()
-        }
-    }
+
+    let mut child = command.spawn()?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| anyhow::anyhow!("spawned core stderr pipe is absent"))?;
+    *process = Some(child);
+    Ok(Box::new(stderr))
 }
 
-fn stop() -> impl Reply {
-    let mut process = PROCESS.lock().unwrap();
+#[cfg(all(feature = "windows-service", target_os = "windows"))]
+fn restart_core(start_params: &StartParams) -> anyhow::Result<Box<dyn Read + Send>> {
+    let mut owner = PROCESS
+        .lock()
+        .map_err(|_| anyhow::anyhow!("core lifecycle lock poisoned"))?;
+    if SERVICE_STOPPING.load(Ordering::Acquire) {
+        return Err(anyhow::anyhow!("helper service is stopping"));
+    }
+    owner.stop_and_wait(STOP_BUDGET)?;
+    let stderr = owner
+        .spawn(SpawnRequest {
+            path: std::path::Path::new(&start_params.path),
+            argument: &start_params.arg,
+            home_dir: start_params.home_dir.as_deref().map(std::ffi::OsStr::new),
+        })
+        .map_err(|error: LifecycleError| anyhow::Error::new(error))?;
+    if let Some(identity) = owner.child_identity() {
+        log_message(format!(
+            "core lifecycle started: pid={} creationTime100ns={} path={}",
+            identity.pid,
+            identity.creation_time_100ns,
+            identity.canonical_path.display()
+        ));
+    }
+    Ok(Box::new(stderr))
+}
+
+async fn stop() -> Result<impl Reply, Infallible> {
+    let response = match tokio::task::spawn_blocking(stop_core).await {
+        Ok(Ok(())) => String::new(),
+        Ok(Err(error)) => {
+            log_message(error.to_string());
+            error.to_string()
+        }
+        Err(error) => error.to_string(),
+    };
+    Ok(response)
+}
+
+#[cfg(all(feature = "windows-service", target_os = "windows"))]
+pub fn begin_service_shutdown() {
+    SERVICE_STOPPING.store(true, Ordering::Release);
+}
+
+#[cfg(not(all(feature = "windows-service", target_os = "windows")))]
+pub fn stop_core() -> anyhow::Result<()> {
+    let mut process = PROCESS
+        .lock()
+        .map_err(|_| anyhow::anyhow!("core lifecycle lock poisoned"))?;
     if let Some(mut child) = process.take() {
-        let _ = child.kill();
-        let _ = child.wait();
+        if child.try_wait()?.is_none() {
+            child.kill()?;
+        }
+        child.wait()?;
     }
-    *process = None;
-    "".to_string()
+    Ok(())
 }
 
-fn shutdown_service() -> impl Reply {
-    // Do not allow shutting down the Windows service via HTTP in production
-    log_message("Received shutdown request - ignored".to_string());
-    "Shutdown endpoint is disabled".to_string()
+#[cfg(all(feature = "windows-service", target_os = "windows"))]
+pub fn stop_core() -> anyhow::Result<()> {
+    PROCESS
+        .lock()
+        .map_err(|_| anyhow::anyhow!("core lifecycle lock poisoned"))?
+        .stop_and_wait(STOP_BUDGET)?;
+    Ok(())
 }
 
 fn log_message(message: String) {
@@ -119,22 +202,29 @@ fn get_logs() -> impl Reply {
     warp::reply::with_header(value, "Content-Type", "text/plain")
 }
 
-pub async fn run_service() -> anyhow::Result<()> {
+fn routes() -> impl Filter<Extract = (impl Reply,), Error = warp::Rejection> + Clone {
     let api_ping = warp::get().and(warp::path("ping")).map(|| env!("TOKEN"));
-
     let api_start = warp::post()
         .and(warp::path("start"))
         .and(warp::body::json())
-        .map(|start_params: StartParams| start(start_params));
+        .and_then(start);
+    let api_stop = warp::post().and(warp::path("stop")).and_then(stop);
+    let api_logs = warp::get().and(warp::path("logs")).map(get_logs);
 
-    let api_stop = warp::post().and(warp::path("stop")).map(|| stop());
+    api_ping.or(api_start).or(api_stop).or(api_logs)
+}
 
-    let api_logs = warp::get().and(warp::path("logs")).map(|| get_logs());
+#[cfg(not(all(feature = "windows-service", target_os = "windows")))]
+pub async fn run_service() -> anyhow::Result<()> {
+    run_service_until(future::pending()).await
+}
 
-
-    warp::serve(api_ping.or(api_start).or(api_stop).or(api_logs))
-        .run(([127, 0, 0, 1], LISTEN_PORT))
-        .await;
-
+pub async fn run_service_until<F>(shutdown: F) -> anyhow::Result<()>
+where
+    F: future::Future<Output = ()> + Send + 'static,
+{
+    let (_, server) =
+        warp::serve(routes()).bind_with_graceful_shutdown(([127, 0, 0, 1], LISTEN_PORT), shutdown);
+    server.await;
     Ok(())
 }

@@ -111,6 +111,21 @@ function Write-ObkatkaVerdict {
     $detail = ConvertTo-ObkatkaTableCell $check.detail
     $lines.Add("| $name | $status | $detail |")
   }
+  $lifecycleFields = @(
+    'scm-stop-core-count-after-10s',
+    'helper-kill-core-count-after-10s',
+    'upgrade-old-identity-survivors',
+    'forced-cleanup-required'
+  )
+  $lifecycleEntries = @($lifecycleFields | Where-Object { $Metadata.ContainsKey($_) })
+  if ($lifecycleEntries.Count -gt 0) {
+    $lines.Add('')
+    $lines.Add('## Lifecycle evidence')
+    foreach ($field in $lifecycleEntries) {
+      $value = ConvertTo-ObkatkaTableCell $Metadata[$field]
+      $lines.Add("- ``$field``: $value")
+    }
+  }
   $summary = ($lines -join "`n") + "`n"
   Write-ObkatkaAtomicText -Path (Join-Path $evidenceRoot 'summary.md') -Content $summary
 
@@ -330,6 +345,105 @@ function Get-ObkatkaServiceExecutablePath {
   return $PathName.Trim().Trim('"')
 }
 
+function Get-ObkatkaCanonicalPath {
+  param([AllowNull()][string]$Path)
+
+  if ([string]::IsNullOrWhiteSpace($Path)) { return '' }
+  return [IO.Path]::GetFullPath($Path).TrimEnd('\')
+}
+
+function ConvertTo-ObkatkaCreationTime100ns {
+  param([AllowNull()][object]$CreationDate)
+
+  if ($null -eq $CreationDate) { return $null }
+  $created = if ($CreationDate -is [datetime]) {
+    [datetime]$CreationDate
+  } else {
+    [Management.ManagementDateTimeConverter]::ToDateTime([string]$CreationDate)
+  }
+  return [uint64]$created.ToUniversalTime().ToFileTimeUtc()
+}
+
+function Get-ObkatkaExactPathProcessIdentities {
+  param([Parameter(Mandatory)][string]$ExecutablePath)
+
+  $expectedPath = Get-ObkatkaCanonicalPath $ExecutablePath
+  foreach ($process in @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
+    $actualPath = Get-ObkatkaCanonicalPath ([string]$process.ExecutablePath)
+    if ($actualPath -and [string]::Equals($actualPath, $expectedPath, [StringComparison]::OrdinalIgnoreCase)) {
+      [pscustomobject][ordered]@{
+        pid                 = [int]$process.ProcessId
+        creationTime100ns   = ConvertTo-ObkatkaCreationTime100ns $process.CreationDate
+        executablePath      = $actualPath
+      }
+    }
+  }
+}
+
+function Get-ObkatkaProcessIdentityByPid {
+  param([Parameter(Mandatory)][int]$ProcessId)
+
+  $process = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction SilentlyContinue
+  if (-not $process) { return $null }
+  return [pscustomobject][ordered]@{
+    pid               = [int]$process.ProcessId
+    creationTime100ns = ConvertTo-ObkatkaCreationTime100ns $process.CreationDate
+    executablePath    = Get-ObkatkaCanonicalPath ([string]$process.ExecutablePath)
+  }
+}
+
+function Test-ObkatkaProcessIdentityAlive {
+  param([Parameter(Mandatory)][object]$Identity)
+
+  $current = Get-ObkatkaProcessIdentityByPid -ProcessId ([int]$Identity.pid)
+  if (-not $current) { return $false }
+  return ([uint64]$current.creationTime100ns -eq [uint64]$Identity.creationTime100ns) -and
+    [string]::Equals([string]$current.executablePath, [string]$Identity.executablePath, [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Wait-ObkatkaExactPathProcessCount {
+  param(
+    [Parameter(Mandatory)][string]$ExecutablePath,
+    [Parameter(Mandatory)][int]$ExpectedCount,
+    [Parameter(Mandatory)][int]$TimeoutSeconds,
+    [int]$PollMilliseconds = 250
+  )
+
+  $clock = [Diagnostics.Stopwatch]::StartNew()
+  while ($clock.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+    $count = @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $ExecutablePath).Count
+    if ($count -eq $ExpectedCount) { return $count }
+    Start-Sleep -Milliseconds $PollMilliseconds
+  }
+  return @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $ExecutablePath).Count
+}
+
+function Write-ObkatkaInstallIdentitySnapshot {
+  param(
+    [Parameter(Mandatory)][object]$Paths,
+    [Parameter(Mandatory)][string]$Label,
+    [Parameter(Mandatory)][string]$FileName
+  )
+
+  $service = Get-CimInstance Win32_Service -Filter "Name='DropwebHelperService'" -ErrorAction SilentlyContinue
+  $servicePid = if ($service) { [int]$service.ProcessId } else { 0 }
+  $snapshot = [ordered]@{
+    label = $Label
+    capturedAt = [DateTime]::UtcNow.ToString('o')
+    core = @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $Paths.core)
+    helperService = if ($service) {
+      [ordered]@{
+        name = [string]$service.Name
+        state = [string]$service.State
+        servicePath = Get-ObkatkaServiceExecutablePath ([string]$service.PathName)
+        process = if ($servicePid -gt 0) { Get-ObkatkaProcessIdentityByPid -ProcessId $servicePid } else { $null }
+      }
+    } else { $null }
+  }
+  Write-ObkatkaAtomicText -Path (Join-Path (Initialize-ObkatkaEvidence) $FileName) -Content (($snapshot | ConvertTo-Json -Depth 8) + "`n")
+  return [pscustomobject]$snapshot
+}
+
 function Export-ObkatkaSnapshot {
   param([Parameter(Mandatory)][string]$Label)
 
@@ -403,6 +517,11 @@ function Test-ObkatkaHelperIdentity {
   }
   $listenerPids = Get-ObkatkaListenerPids -Port $Port
   $servicePid = if ($service) { [int]$service.ProcessId } else { 0 }
+  $serviceProcessIdentity = if ($servicePid -gt 0) {
+    Get-ObkatkaProcessIdentityByPid -ProcessId $servicePid
+  } else {
+    $null
+  }
   $pingMatches = $coreHash -and ($pingBody -ceq $coreHash)
   $pidOwnsPort = $servicePid -gt 0 -and $listenerPids -contains $servicePid
 
@@ -422,6 +541,7 @@ function Test-ObkatkaHelperIdentity {
   return [pscustomobject]@{
     service       = $service
     servicePid    = $servicePid
+    serviceProcessIdentity = $serviceProcessIdentity
     listenerPids  = $listenerPids
     coreHash      = $coreHash
     pingBody      = $pingBody

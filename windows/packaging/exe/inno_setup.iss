@@ -32,12 +32,29 @@ UsePreviousGroup=yes
 UsePreviousTasks=yes
 
 [Code]
+type
+  TServiceStatus = record
+    dwServiceType: Cardinal;
+    dwCurrentState: Cardinal;
+    dwControlsAccepted: Cardinal;
+    dwWin32ExitCode: Cardinal;
+    dwServiceSpecificExitCode: Cardinal;
+    dwCheckPoint: Cardinal;
+    dwWaitHint: Cardinal;
+  end;
+
 const
   SHCNE_ASSOCCHANGED = $08000000;
   SHCNF_IDLIST = $0000;
   HELPER_PING_TIMEOUT_MS = 15000;
   HELPER_PING_POLL_MS = 300;
   HELPER_HTTP_TIMEOUT_MS = 250;
+  SERVICE_STOP_TIMEOUT_MS = 10000;
+  SERVICE_STOP_POLL_MS = 250;
+  SC_MANAGER_CONNECT = $0001;
+  SERVICE_QUERY_STATUS = $0004;
+  SERVICE_STOPPED = 1;
+  ERROR_SERVICE_DOES_NOT_EXIST = 1060;
 
 var
   IsUpgrade: Boolean;
@@ -45,6 +62,10 @@ var
 
 procedure SHChangeNotify(wEventId: Integer; uFlags: Integer; dwItem1: Integer; dwItem2: Integer); external 'SHChangeNotify@shell32.dll stdcall';
 function GetTickCount: DWORD; external 'GetTickCount@kernel32.dll stdcall';
+function OpenSCManagerW(lpMachineName, lpDatabaseName: String; dwDesiredAccess: Cardinal): THandle; external 'OpenSCManagerW@advapi32.dll stdcall';
+function OpenServiceW(hSCManager: THandle; lpServiceName: String; dwDesiredAccess: Cardinal): THandle; external 'OpenServiceW@advapi32.dll stdcall';
+function QueryServiceStatus(hService: THandle; var ServiceStatus: TServiceStatus): Boolean; external 'QueryServiceStatus@advapi32.dll stdcall';
+function CloseServiceHandle(hSCObject: THandle): Boolean; external 'CloseServiceHandle@advapi32.dll stdcall';
 
 // NOTE: process shutdown is deliberately NOT done by image name. Terminating a
 // process by name (dropweb.exe / DropwebCore.exe / DropwebHelperService.exe)
@@ -133,6 +154,53 @@ begin
     if LoadStringFromFile(TmpFile, Output) then
       Result := Pos('RUNNING', Uppercase(String(Output))) > 0;
   end;
+end;
+
+function ServiceIsStoppedOrAbsent(ServiceName: String): Boolean;
+var
+  ServiceManager: THandle;
+  Service: THandle;
+  Status: TServiceStatus;
+begin
+  Result := False;
+  ServiceManager := OpenSCManagerW('', '', SC_MANAGER_CONNECT);
+  if ServiceManager = 0 then
+    Exit;
+
+  try
+    Service := OpenServiceW(ServiceManager, ServiceName, SERVICE_QUERY_STATUS);
+    if Service = 0 then
+    begin
+      Result := DLLGetLastError = ERROR_SERVICE_DOES_NOT_EXIST;
+      Exit;
+    end;
+
+    try
+      if QueryServiceStatus(Service, Status) then
+        Result := Status.dwCurrentState = SERVICE_STOPPED;
+    finally
+      CloseServiceHandle(Service);
+    end;
+  finally
+    CloseServiceHandle(ServiceManager);
+  end;
+end;
+
+procedure WaitForServiceStoppedOrAbsent(ServiceName: String);
+var
+  StartedAt: Cardinal;
+begin
+  StartedAt := GetTickCount;
+  while (GetTickCount - StartedAt) < SERVICE_STOP_TIMEOUT_MS do
+  begin
+    if ServiceIsStoppedOrAbsent(ServiceName) then
+      Exit;
+    Sleep(SERVICE_STOP_POLL_MS);
+  end;
+
+  if not ServiceIsStoppedOrAbsent(ServiceName) then
+    RaiseException('Служба помощника "' + ServiceName +
+      '" не остановилась за 10 секунд. Установка прервана, чтобы не заменять файлы работающего процесса.');
 end;
 
 function HelperPingMatchesToken(ExpectedToken: String): Boolean;
@@ -241,7 +309,7 @@ begin
       // OURS (upgrade / repair): stop so the config takes cleanly, fix the
       // binPath (in case {app} moved) and force auto-start.
       Exec('sc.exe', 'stop "' + ServiceName + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-      Sleep(700);
+      WaitForServiceStoppedOrAbsent(ServiceName);
       if not Exec('sc.exe', 'config "' + ServiceName + '" ' + BinPathArg + ' start= auto', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
         RaiseException('Не удалось перенастроить службу помощника "' + ServiceName +
           '" (код ' + IntToStr(ResultCode) + '). Установка прервана.');
@@ -442,7 +510,7 @@ begin
     if ServiceBelongsToApp('DropwebHelperService') then
     begin
       Exec('sc.exe', 'stop "DropwebHelperService"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-      Sleep(500);
+      WaitForServiceStoppedOrAbsent('DropwebHelperService');
     end;
     // Drop stale services / autostart from older or pre-rebrand builds that
     // live inside our install dir (a separate FlClashX elsewhere is untouched).
