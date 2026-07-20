@@ -8,6 +8,7 @@ import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/manager/manager.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
+import 'package:dropweb/services/ci_e2e_plan_runner.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -19,7 +20,10 @@ import 'pages/pages.dart';
 class Application extends ConsumerStatefulWidget {
   const Application({
     super.key,
+    this.ciE2ePlanPath,
   });
+
+  final String? ciE2ePlanPath;
 
   @override
   ConsumerState<Application> createState() => ApplicationState();
@@ -71,6 +75,10 @@ class ApplicationState extends ConsumerState<Application> {
       await globalState.appController.init();
       globalState.appController.initLink();
       app?.initShortcuts();
+      final ciE2ePlanPath = widget.ciE2ePlanPath;
+      if (ciE2ePlanPath != null) {
+        await runCiE2ePlan(ciE2ePlanPath, ref);
+      }
     });
   }
 

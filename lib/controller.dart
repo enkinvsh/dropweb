@@ -1505,7 +1505,7 @@ class AppController {
     return;
   }
 
-  Future<CommonScaffoldState> _waitForImportScaffold() async {
+  Future<CommonScaffoldState> waitForImportScaffold() async {
     const timeout = Duration(seconds: 5);
     const pollInterval = Duration(milliseconds: 25);
     final stopwatch = Stopwatch()..start();
@@ -1573,7 +1573,7 @@ class AppController {
     CommonScaffoldState? commonScaffoldState;
     final transaction = ProfileImportTransaction<Profile>(
       ensureUiReady: () async {
-        commonScaffoldState = await _waitForImportScaffold();
+        commonScaffoldState = await waitForImportScaffold();
       },
       ensureCoreReady: () async {
         final ready = await commonScaffoldState!.loadingRun<bool>(
@@ -1657,7 +1657,7 @@ class AppController {
     CommonScaffoldState? commonScaffoldState;
     final transaction = ProfileImportTransaction<Profile>(
       ensureUiReady: () async {
-        commonScaffoldState = await _waitForImportScaffold();
+        commonScaffoldState = await waitForImportScaffold();
       },
       ensureCoreReady: () async {
         final ready = await commonScaffoldState!.loadingRun<bool>(

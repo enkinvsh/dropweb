@@ -9,6 +9,7 @@ import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/plugins/tile.dart';
 import 'package:dropweb/plugins/vpn.dart';
+import 'package:dropweb/services/ci_e2e_plan.dart';
 import 'package:dropweb/services/deep_link_handler.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter/foundation.dart';
@@ -50,7 +51,12 @@ void _installGlobalErrorHandlers() {
   };
 }
 
-Future<void> main() async {
+Future<void> main(List<String> arguments) async {
+  final ciE2ePlanPath = resolveCiE2ePlanPath(
+    arguments: arguments,
+    environment: Platform.environment,
+    isDesktop: Platform.isWindows || Platform.isLinux || Platform.isMacOS,
+  );
   globalState.isService = false;
   WidgetsFlutterBinding.ensureInitialized();
   _installGlobalErrorHandlers();
@@ -80,6 +86,18 @@ Future<void> main() async {
     );
   }
   await globalState.initApp(version);
+  if (ciE2ePlanPath != null &&
+      !globalState.config.appSetting.disclaimerAccepted) {
+    // The CI journey is deliberately not a first-start disclaimer test. It
+    // suppresses only this persisted UI precondition so normal bootstrap can
+    // finish without a robot; import, core, helper, listeners, and TUN remain
+    // the unchanged production paths below the hook.
+    globalState.config = globalState.config.copyWith(
+      appSetting: globalState.config.appSetting.copyWith(
+        disclaimerAccepted: true,
+      ),
+    );
+  }
   await android?.init();
   await window?.init(version);
 
@@ -87,8 +105,8 @@ Future<void> main() async {
     vpn;
   }
   HttpOverrides.global = DropwebHttpOverrides();
-  runApp(const ProviderScope(
-    child: Application(),
+  runApp(ProviderScope(
+    child: Application(ciE2ePlanPath: ciE2ePlanPath),
   ));
 
   if (Platform.isAndroid) {
