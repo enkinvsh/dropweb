@@ -60,6 +60,59 @@ SERVICE_NAME: DropwebHelperService
       expect(WindowsConflict.serviceBinPath('[SC] OpenService FAILED 1060'),
           isNull);
     });
+
+    test('parses sc qc output with Windows CRLF line endings', () {
+      const qc = '[SC] QueryServiceConfig SUCCESS\r\n'
+          'SERVICE_NAME: DropwebHelperService\r\n'
+          '        BINARY_PATH_NAME   : '
+          '"C:\\Program Files\\dropweb\\DropwebHelperService.exe"\r\n';
+
+      expect(
+        WindowsConflict.serviceBinPath(qc),
+        r'"C:\Program Files\dropweb\DropwebHelperService.exe"',
+      );
+    });
+  });
+
+  group('serviceImagePathFromRegQuery', () {
+    test('parses the exact field reg query head with CRLF line endings', () {
+      const reg = '\r\n'
+          'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\'
+          'DropwebHelperService\r\n'
+          '    ImagePath    REG_EXPAND_SZ    '
+          'C:\\Program Files\\dropweb\\DropwebHelperService.exe\r\n';
+
+      expect(WindowsConflict.serviceImagePathFromRegQuery(reg), ourHelper);
+      expect(
+        WindowsConflict.helperServiceOwnership(
+          regQueryOutput: reg,
+          scQcOutput: '',
+          ourHelperPath: ourHelper,
+        ),
+        HelperServiceOwnership.owned,
+      );
+    });
+
+    test('parses a quoted ImagePath with arguments and CRLF line endings', () {
+      const reg = 'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\'
+          'DropwebHelperService\r\n'
+          '    ImagePath    REG_SZ    '
+          '"C:\\Program Files\\dropweb\\DropwebHelperService.exe" '
+          '--run-service\r\n';
+
+      expect(
+        WindowsConflict.serviceImagePathFromRegQuery(reg),
+        r'"C:\Program Files\dropweb\DropwebHelperService.exe" --run-service',
+      );
+      expect(
+        WindowsConflict.helperServiceOwnership(
+          regQueryOutput: reg,
+          scQcOutput: '',
+          ourHelperPath: ourHelper,
+        ),
+        HelperServiceOwnership.owned,
+      );
+    });
   });
 
   group('serviceQueryexPid', () {
@@ -129,7 +182,8 @@ SERVICE_NAME: DropwebHelperService
       );
     });
 
-    test('an UNQUOTED binPath with args does NOT match ours '
+    test(
+        'an UNQUOTED binPath with args does NOT match ours '
         '(conservative — never widen kill ownership)', () {
       // Without wrapping quotes we cannot safely split exe from args, so the
       // trailing args stay in the normalized value and it will NOT equal our
@@ -191,7 +245,7 @@ SERVICE_NAME: DropwebHelperService
               r'"C:\Program Files\FlClashX\FlClashHelperService.exe"',
           servicePid: 4242,
           holderPid: 4242,
-          ),
+        ),
         isFalse,
       );
     });

@@ -108,7 +108,8 @@ class WindowsConflict {
       caseSensitive: false,
     );
     for (final raw in regQueryOutput.split('\n')) {
-      final match = field.firstMatch(raw);
+      final line = raw.trimRight();
+      final match = field.firstMatch(line);
       if (match == null) continue;
       final value = match.group(1)!.trim();
       return value.isEmpty ? null : value;
