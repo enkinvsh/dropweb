@@ -270,7 +270,7 @@ func updateConfig(params *UpdateParams) {
 	// a mid-session tun toggle failure is surfaced in the core log only; the hard
 	// error on the connect path is covered by setupConfig.
 	if params.Tun != nil && !features.Android && general.Tun.Enable && !listener.GetTunConf().Enable {
-		log.Errorln("[tun] listener failed to start after updateConfig (see above)")
+		log.Errorln("[tun] listener failed to start after updateConfig: %s", listener.GetTunLastError())
 	}
 }
 
@@ -301,7 +301,7 @@ func setupConfig(params *SetupParams) error {
 	// so setupConfig would otherwise report success with no tunnel. When tun was
 	// requested on desktop, confirm the listener actually came up.
 	if !features.Android && currentConfig.General.Tun.Enable && !listener.GetTunConf().Enable {
-		return errors.New("tun listener failed to start (see core log)")
+		return fmt.Errorf("tun listener failed to start: %s", listener.GetTunLastError())
 	}
 	return nil
 }
