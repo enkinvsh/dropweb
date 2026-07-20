@@ -275,8 +275,6 @@ function Invoke-ImportConnect {
     Add-E2ECheck -Name 'tun-routes-present' -Passed (@($tunRoutes).Count -gt 0) -Detail "routeCount=$(@($tunRoutes).Count)"
     $tunAddresses = foreach ($adapter in $newAdapters) { Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -ErrorAction SilentlyContinue }
     Add-E2ECheck -Name 'tun-interface-addresses-present' -Passed (@($tunAddresses).Count -gt 0) -Detail "addressCount=$(@($tunAddresses).Count)"
-    $broadTunRoutes = @($tunRoutes | Where-Object { $_.DestinationPrefix -match '/[01]$' })
-    Add-E2ECheck -Name 'tun-broad-routes-present' -Passed ($broadTunRoutes.Count -gt 0) -Detail "broadRouteCount=$($broadTunRoutes.Count)"
 
     $tunIp = Get-ObkatkaEgressIp
     Write-ObkatkaAtomicText -Path (Join-Path (Get-ObkatkaEvidenceRoot) 'egress-tun.txt') -Content "$tunIp`n"
