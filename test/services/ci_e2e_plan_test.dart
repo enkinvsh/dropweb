@@ -78,6 +78,30 @@ void main() {
       expect(plan.steps[2].outPath, r'C:\ci\support-bundle.txt');
     });
 
+    test('parses additive connect checkpoint and waitFile steps', () {
+      final raw = jsonDecode(_validPlanJson()) as Map<String, dynamic>
+        ..['steps'] = [
+          {
+            'op': 'connect',
+            'expectTun': true,
+            'checkpointPath': r'C:\ci\connected.json',
+          },
+          {
+            'op': 'waitFile',
+            'path': r'C:\ci\probe-done.flag',
+            'timeoutSeconds': 120,
+          },
+        ];
+
+      final plan = CiE2ePlan.parse(jsonEncode(raw));
+
+      expect(plan.schema, 1);
+      expect(plan.steps[0].checkpointPath, r'C:\ci\connected.json');
+      expect(plan.steps[1].operation, CiE2eOperation.waitFile);
+      expect(plan.steps[1].path, r'C:\ci\probe-done.flag');
+      expect(plan.steps[1].timeout, const Duration(seconds: 120));
+    });
+
     test('rejects an unknown top-level field', () {
       expect(
         () => CiE2ePlan.parse(_validPlanJson(extraTopLevel: {'future': true})),
@@ -101,6 +125,29 @@ void main() {
             (error) => error.detail,
             'detail',
             contains('unknown importUrl field'),
+          ),
+        ),
+      );
+    });
+
+    test('new step shapes remain strict about unknown fields', () {
+      final raw = jsonDecode(_validPlanJson()) as Map<String, dynamic>
+        ..['steps'] = [
+          {
+            'op': 'connect',
+            'expectTun': true,
+            'checkpointPath': r'C:\ci\connected.json',
+            'future': true,
+          },
+        ];
+
+      expect(
+        () => CiE2ePlan.parse(jsonEncode(raw)),
+        throwsA(
+          isA<CiE2ePlanException>().having(
+            (error) => error.detail,
+            'detail',
+            contains('unknown connect field'),
           ),
         ),
       );
@@ -273,6 +320,103 @@ void main() {
       expect(serialized, isNot(contains('token=secret')));
       expect(result.firstFailure, 'importUrl:exception');
     });
+
+    test('atomically writes a connect checkpoint after the step completes',
+        () async {
+      final directory =
+          Directory.systemTemp.createTempSync('dropweb_checkpoint');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final checkpointPath = p.join(directory.path, 'connected.json');
+      final raw = jsonDecode(_validPlanJson()) as Map<String, dynamic>
+        ..['steps'] = [
+          {
+            'op': 'connect',
+            'expectTun': true,
+            'checkpointPath': checkpointPath,
+          },
+        ];
+      final executor = CiE2ePlanExecutor(
+        appVersion: 'test',
+        stepFunctions: {
+          CiE2eOperation.connect: (_) async => CiE2eStepOutcome.pass(
+                checks: const {
+                  'tunRequested': true,
+                  'tunEffective': true,
+                  'tunListenerFailed': false,
+                  'startCompleted': true,
+                  'mixedListening': true,
+                  'socksListening': true,
+                },
+                ports: const {'mixed': 7890, 'socks': 7891},
+              ),
+        },
+      );
+
+      final result = await executor.execute(CiE2ePlan.parse(jsonEncode(raw)));
+
+      expect(result.result, CiE2eResultStatus.pass);
+      expect(
+        directory
+            .listSync()
+            .whereType<File>()
+            .map((file) => p.basename(file.path)),
+        ['connected.json'],
+      );
+      expect(
+        jsonDecode(await File(checkpointPath).readAsString()),
+        {
+          'status': 'PASS',
+          'ports': {'mixed': 7890, 'socks': 7891},
+          'requestedTun': true,
+          'effectiveTunObserved': true,
+          'tunListenerFailed': false,
+          'startCompleted': true,
+          'mixedListening': true,
+          'socksListening': true,
+        },
+      );
+    });
+  });
+
+  group('waitFile', () {
+    test('passes when the file appears before its timeout', () async {
+      final directory =
+          Directory.systemTemp.createTempSync('dropweb_wait_file');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final signalPath = p.join(directory.path, 'probe-done.flag');
+      final step = CiE2ePlan.parse(_waitFilePlanJson(signalPath)).steps.single;
+      unawaited(
+        Future<void>.delayed(
+          const Duration(milliseconds: 30),
+          () => File(signalPath).writeAsString('done'),
+        ),
+      );
+
+      final outcome = await runCiE2eWaitFile(
+        step,
+        pollInterval: const Duration(milliseconds: 10),
+      );
+
+      expect(outcome.status, CiE2eStepStatus.pass);
+      expect(outcome.checks, {'fileAppeared': true});
+    });
+
+    test('fails when the bounded wait expires', () async {
+      final directory =
+          Directory.systemTemp.createTempSync('dropweb_wait_timeout');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final signalPath = p.join(directory.path, 'never-created.flag');
+      final step = CiE2ePlan.parse(_waitFilePlanJson(signalPath)).steps.single;
+
+      final outcome = await runCiE2eWaitFile(
+        step,
+        pollInterval: const Duration(milliseconds: 10),
+      );
+
+      expect(outcome.status, CiE2eStepStatus.fail);
+      expect(outcome.failedCheck, 'file-timeout');
+      expect(outcome.checks, {'fileAppeared': false});
+    });
   });
 
   group('evaluateCiE2eImportJournal', () {
@@ -383,4 +527,14 @@ String _validPlanJson({
         {'op': 'disconnect'},
       ],
       ...extraTopLevel,
+    });
+
+String _waitFilePlanJson(String path) => jsonEncode({
+      'schema': 1,
+      'resultPath': p.join(Directory.systemTemp.path, 'result.json'),
+      'exitAfter': true,
+      'stepTimeoutSeconds': 3,
+      'steps': [
+        {'op': 'waitFile', 'path': path, 'timeoutSeconds': 1},
+      ],
     });

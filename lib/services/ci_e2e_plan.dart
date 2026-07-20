@@ -33,12 +33,19 @@ String? resolveCiE2ePlanPath({
 bool _isAbsolutePath(String value) =>
     p.posix.isAbsolute(value) || p.windows.isAbsolute(value);
 
-enum CiE2eOperation { importUrl, connect, buildSupportBundle, disconnect }
+enum CiE2eOperation {
+  importUrl,
+  connect,
+  waitFile,
+  buildSupportBundle,
+  disconnect,
+}
 
 extension CiE2eOperationName on CiE2eOperation {
   String get value => switch (this) {
         CiE2eOperation.importUrl => 'importUrl',
         CiE2eOperation.connect => 'connect',
+        CiE2eOperation.waitFile => 'waitFile',
         CiE2eOperation.buildSupportBundle => 'buildSupportBundle',
         CiE2eOperation.disconnect => 'disconnect',
       };
@@ -50,6 +57,9 @@ final class CiE2ePlanStep {
     this.urlFile,
     this.expectHost,
     this.expectTun,
+    this.checkpointPath,
+    this.path,
+    this.timeout,
     this.outPath,
   });
 
@@ -57,6 +67,9 @@ final class CiE2ePlanStep {
   final String? urlFile;
   final String? expectHost;
   final bool? expectTun;
+  final String? checkpointPath;
+  final String? path;
+  final Duration? timeout;
   final String? outPath;
 
   String get opName => operation.value;
@@ -147,13 +160,15 @@ CiE2ePlanStep _parseStep(
   final op = switch (raw['op']) {
     'importUrl' => CiE2eOperation.importUrl,
     'connect' => CiE2eOperation.connect,
+    'waitFile' => CiE2eOperation.waitFile,
     'buildSupportBundle' => CiE2eOperation.buildSupportBundle,
     'disconnect' => CiE2eOperation.disconnect,
     _ => invalid('step $index has unknown op'),
   };
   final allowed = switch (op) {
     CiE2eOperation.importUrl => const {'op', 'urlFile', 'expectHost'},
-    CiE2eOperation.connect => const {'op', 'expectTun'},
+    CiE2eOperation.connect => const {'op', 'expectTun', 'checkpointPath'},
+    CiE2eOperation.waitFile => const {'op', 'path', 'timeoutSeconds'},
     CiE2eOperation.buildSupportBundle => const {'op', 'outPath'},
     CiE2eOperation.disconnect => const {'op'},
   };
@@ -181,6 +196,19 @@ CiE2ePlanStep _parseStep(
         expectTun: switch (raw['expectTun']) {
           final bool value => value,
           _ => invalid('connect.expectTun must be a boolean'),
+        },
+        checkpointPath: switch (raw['checkpointPath']) {
+          null => null,
+          String() => requiredAbsolutePath('checkpointPath'),
+          _ => invalid('connect.checkpointPath must be an absolute path'),
+        },
+      ),
+    CiE2eOperation.waitFile => CiE2ePlanStep(
+        operation: op,
+        path: requiredAbsolutePath('path'),
+        timeout: switch (raw['timeoutSeconds']) {
+          final int seconds when seconds > 0 => Duration(seconds: seconds),
+          _ => invalid('waitFile.timeoutSeconds must be a positive integer'),
         },
       ),
     CiE2eOperation.buildSupportBundle => CiE2ePlanStep(
@@ -345,6 +373,22 @@ final class CiE2ePlanExecutor {
           );
         } else {
           outcome = await stepFunction(step).timeout(plan.stepTimeout);
+          if (step.operation == CiE2eOperation.connect &&
+              step.checkpointPath != null) {
+            try {
+              await writeCiE2eJsonAtomically(
+                step.checkpointPath!,
+                _connectCheckpoint(outcome),
+              );
+            } catch (_) {
+              outcome = CiE2eStepOutcome.fail(
+                failedCheck: 'checkpoint-write',
+                checks: {...outcome.checks, 'checkpointWritten': false},
+                ports: outcome.ports,
+                detail: 'connect checkpoint could not be written',
+              );
+            }
+          }
         }
       } on TimeoutException {
         outcome = CiE2eStepOutcome.fail(
@@ -387,6 +431,39 @@ final class CiE2ePlanExecutor {
     );
   }
 }
+
+Future<CiE2eStepOutcome> runCiE2eWaitFile(
+  CiE2ePlanStep step, {
+  Duration pollInterval = const Duration(milliseconds: 200),
+}) async {
+  final file = File(step.path!);
+  final stopwatch = Stopwatch()..start();
+  while (stopwatch.elapsed < step.timeout!) {
+    if (await file.exists()) {
+      return CiE2eStepOutcome.pass(checks: const {'fileAppeared': true});
+    }
+    await Future<void>.delayed(pollInterval);
+  }
+  if (await file.exists()) {
+    return CiE2eStepOutcome.pass(checks: const {'fileAppeared': true});
+  }
+  return CiE2eStepOutcome.fail(
+    failedCheck: 'file-timeout',
+    checks: const {'fileAppeared': false},
+    detail: 'waitFile timed out',
+  );
+}
+
+Map<String, Object?> _connectCheckpoint(CiE2eStepOutcome outcome) => {
+      'status': outcome.status == CiE2eStepStatus.pass ? 'PASS' : 'FAIL',
+      'ports': outcome.ports,
+      'requestedTun': outcome.checks['tunRequested'],
+      'effectiveTunObserved': outcome.checks['tunEffective'],
+      'tunListenerFailed': outcome.checks['tunListenerFailed'],
+      'startCompleted': outcome.checks['startCompleted'],
+      'mixedListening': outcome.checks['mixedListening'],
+      'socksListening': outcome.checks['socksListening'],
+    };
 
 Map<String, Object?> evaluateCiE2eImportJournal(
   String journal,

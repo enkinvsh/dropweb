@@ -20,6 +20,7 @@ Future<void> runCiE2ePlan(String planPath, WidgetRef ref) async {
           stepFunctions: {
             CiE2eOperation.importUrl: (step) => _importUrl(step, ref),
             CiE2eOperation.connect: (step) => _connect(step, ref),
+            CiE2eOperation.waitFile: runCiE2eWaitFile,
             CiE2eOperation.buildSupportBundle: (step) =>
                 _buildSupportBundle(step, ref),
             CiE2eOperation.disconnect: (_) => _disconnect(ref),
