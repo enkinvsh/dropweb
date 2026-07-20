@@ -359,6 +359,7 @@ class ConnectService {
       // have been flipped on by an optimistic UI) and surface the error.
       if (started == false) {
         await StatusBarManager.updateIcon(isConnected: false);
+        commonPrint.log('[connect] start failed: handleStart returned false');
         globalState.showNotifier(ErrorMapper.vpnStartFailed);
         return;
       }
