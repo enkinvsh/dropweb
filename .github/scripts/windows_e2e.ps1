@@ -249,7 +249,17 @@ function Invoke-ImportConnect {
 
     $journeyClock = [System.Diagnostics.Stopwatch]::StartNew()
     $appProcess = Start-ObkatkaCiPlan -AppPath $paths.app -PlanPath $planPath
-    $checkpoint = Read-ObkatkaJsonWhenReady -Path $checkpointPath -TimeoutSeconds 120
+    if (-not (Wait-ObkatkaPath -Path $checkpointPath -TimeoutSeconds 120)) {
+      $failureDetail = 'checkpoint absent'
+      if (Test-Path -LiteralPath $resultPath) {
+        $earlyResult = Get-Content -LiteralPath $resultPath -Raw | ConvertFrom-Json -Depth 20
+        Copy-Item -LiteralPath $resultPath -Destination (Join-Path (Get-ObkatkaEvidenceRoot) 'plan-result.json') -Force
+        $failureDetail = "planResult=$($earlyResult.result) firstFailure=$($earlyResult.firstFailure)"
+      }
+      [void](Find-ObkatkaAppLog)
+      throw "connect checkpoint did not appear: $failureDetail"
+    }
+    $checkpoint = Get-Content -LiteralPath $checkpointPath -Raw | ConvertFrom-Json -Depth 20
     Add-E2ECheck -Name 'connect-checkpoint-status' -Passed ($checkpoint.status -ceq 'PASS') -Detail "status=$($checkpoint.status)"
     Add-E2ECheck -Name 'tun-requested' -Passed ($checkpoint.requestedTun -eq $true) -Detail "requested=$($checkpoint.requestedTun)"
     Add-E2ECheck -Name 'tun-effective-observed' -Passed ($checkpoint.effectiveTunObserved -eq $true) -Detail "effective=$($checkpoint.effectiveTunObserved)"
@@ -286,6 +296,7 @@ function Invoke-ImportConnect {
 
     Write-ObkatkaAtomicText -Path $probeDonePath -Content "done`n"
     $planResult = Read-ObkatkaJsonWhenReady -Path $resultPath -TimeoutSeconds 180
+    Copy-Item -LiteralPath $resultPath -Destination (Join-Path (Get-ObkatkaEvidenceRoot) 'plan-result.json') -Force
     $journeyClock.Stop()
     $script:PhaseDurations.journeySeconds = [math]::Round($journeyClock.Elapsed.TotalSeconds, 1)
     Add-E2ECheck -Name 'plan-result-pass' -Passed ($planResult.result -ceq 'PASS' -and $null -eq $planResult.firstFailure) -Detail "result=$($planResult.result) firstFailure=$($planResult.firstFailure)"
@@ -374,8 +385,9 @@ function Invoke-InvalidSubscription {
         $payload = [Text.Encoding]::UTF8.GetBytes('not: a: valid: clash config')
         $context.Response.StatusCode = 200
         $context.Response.ContentType = 'text/plain'
+        $context.Response.ContentLength64 = $payload.Length
         $context.Response.OutputStream.Write($payload, 0, $payload.Length)
-        $context.Response.Close()
+        $context.Response.OutputStream.Close()
       } finally {
         $listener.Stop()
       }
@@ -396,6 +408,7 @@ function Invoke-InvalidSubscription {
       })
     $app = Start-ObkatkaCiPlan -AppPath $paths.app -PlanPath $planPath
     $planResult = Read-ObkatkaJsonWhenReady -Path $resultPath -TimeoutSeconds 150
+    Copy-Item -LiteralPath $resultPath -Destination (Join-Path (Get-ObkatkaEvidenceRoot) 'plan-result.json') -Force
     [void](Wait-ObkatkaProcessExit -Process $app -TimeoutSeconds 30)
     Add-E2ECheck -Name 'invalid-plan-result-fail' -Passed ($planResult.result -ceq 'FAIL') -Detail "result=$($planResult.result)"
     Add-E2ECheck -Name 'invalid-first-failure-import' -Passed ([string]$planResult.firstFailure -match '^importUrl:') -Detail "firstFailure=$($planResult.firstFailure)"
@@ -449,14 +462,16 @@ function Invoke-BrokenCore {
       })
     $app = Start-ObkatkaCiPlan -AppPath $paths.app -PlanPath $planPath
     $planResult = Read-ObkatkaJsonWhenReady -Path $resultPath -TimeoutSeconds 120
+    Copy-Item -LiteralPath $resultPath -Destination (Join-Path (Get-ObkatkaEvidenceRoot) 'plan-result.json') -Force
     $exited = Wait-ObkatkaProcessExit -Process $app -TimeoutSeconds 30
     if (-not $exited) { Stop-ObkatkaAppProcesses }
     Add-E2ECheck -Name 'broken-core-plan-result-fail' -Passed ($planResult.result -ceq 'FAIL') -Detail "result=$($planResult.result)"
     Add-E2ECheck -Name 'broken-core-import-blocked-by-bootstrap' -Passed ([string]$planResult.firstFailure -eq 'importUrl:bootstrap') -Detail "firstFailure=$($planResult.firstFailure)"
     $logContent = Get-AllDropwebLogContent
-    $timeoutCount = ([regex]::Matches($logContent, '\[boot\] connect-back timeout', [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Count
-    Add-E2ECheck -Name 'broken-core-spawn-attempt-logged' -Passed ($logContent -match '\[boot\] (helper-start-accepted|direct-spawn)') -Detail 'spawn branch marker present'
-    Add-E2ECheck -Name 'broken-core-retries-logged' -Passed ($timeoutCount -ge 2) -Detail "connectBackTimeouts=$timeoutCount"
+    $spawnCount = ([regex]::Matches($logContent, '\[core-bridge\] spawn gen=', [Text.RegularExpressions.RegexOptions]::IgnoreCase)).Count
+    Add-E2ECheck -Name 'broken-core-spawn-attempt-logged' -Passed ($spawnCount -ge 1) -Detail "spawnAttempts=$spawnCount"
+    Add-E2ECheck -Name 'broken-core-retries-logged' -Passed ($spawnCount -ge 4) -Detail "spawnAttempts=$spawnCount"
+    Add-E2ECheck -Name 'broken-core-terminal-spawn-phase' -Passed ($logContent -match '\[boot\] core-failed .* during spawn') -Detail 'terminal boot journal identifies spawn phase'
     Add-E2ECheck -Name 'broken-core-typed-exception' -Passed ($logContent -match 'CoreBootException') -Detail 'typed CoreBootException present'
     Add-E2ECheck -Name 'broken-core-no-platform-dispatcher' -Passed ($logContent -notmatch 'PlatformDispatcher') -Detail 'no detached unhandled error'
 
@@ -511,7 +526,7 @@ function Invoke-UpgradePreviousStable {
     Start-Sleep -Seconds 10
     $graceful = -not (Get-Process dropweb -ErrorAction SilentlyContinue)
     if (-not $graceful) { & taskkill.exe /F /IM dropweb.exe 2>$null | Out-Null }
-    Get-Process DropwebCore -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Stop-ObkatkaAppProcesses
     Add-E2ECheck -Name 'stable-stop-graceful-or-fallback' -Passed (-not (Get-Process dropweb, DropwebCore -ErrorAction SilentlyContinue)) -Detail "graceful=$graceful"
 
     $candidateInstaller = Get-CandidateInstaller

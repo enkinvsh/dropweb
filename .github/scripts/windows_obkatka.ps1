@@ -274,6 +274,10 @@ function Stop-ObkatkaAppProcesses {
   foreach ($name in @('dropweb', 'DropwebCore')) {
     Get-Process $name -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
   }
+  $forceClock = [System.Diagnostics.Stopwatch]::StartNew()
+  while ($forceClock.Elapsed.TotalSeconds -lt 5 -and (Get-Process dropweb, DropwebCore -ErrorAction SilentlyContinue)) {
+    Start-Sleep -Milliseconds 250
+  }
 }
 
 function Add-ObkatkaSnapshotSection {
