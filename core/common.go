@@ -151,6 +151,10 @@ func stopListeners() {
 	listener.StopListener()
 }
 
+func shouldFailMissingTunListener(running, requested, effective bool) bool {
+	return running && requested && !effective
+}
+
 // proxiesWithProviders merges tunnel proxies with provider proxies.
 // Replaces tunnel.ProxiesWithProviders() removed from the mihomo core.
 func proxiesWithProviders() map[string]constant.Proxy {
@@ -269,7 +273,7 @@ func updateConfig(params *UpdateParams) {
 	// the start-transition ack and could complete an unrelated in-flight start, so
 	// a mid-session tun toggle failure is surfaced in the core log only; the hard
 	// error on the connect path is covered by setupConfig.
-	if params.Tun != nil && !features.Android && general.Tun.Enable && !listener.GetTunConf().Enable {
+	if params.Tun != nil && !features.Android && shouldFailMissingTunListener(isRunning, general.Tun.Enable, listener.GetTunConf().Enable) {
 		log.Errorln("[tun] listener failed to start after updateConfig: %s", listener.GetTunLastError())
 	}
 }
@@ -300,7 +304,7 @@ func setupConfig(params *SetupParams) error {
 	// ReCreateTun swallows a tun start failure (logs it, then flips Enable=false)
 	// so setupConfig would otherwise report success with no tunnel. When tun was
 	// requested on desktop, confirm the listener actually came up.
-	if !features.Android && currentConfig.General.Tun.Enable && !listener.GetTunConf().Enable {
+	if !features.Android && shouldFailMissingTunListener(isRunning, currentConfig.General.Tun.Enable, listener.GetTunConf().Enable) {
 		return fmt.Errorf("tun listener failed to start: %s", listener.GetTunLastError())
 	}
 	return nil
