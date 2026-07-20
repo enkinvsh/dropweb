@@ -126,6 +126,17 @@ void main() {
   });
 
   group('mutating calls fail-closed on timeout (the bug fix)', () {
+    test('startListener has its own 30-second deadline', () async {
+      final handler = _CapturingHandler();
+
+      final result = await handler.startListener();
+
+      expect(result, isFalse);
+      expect(handler.capturedMethod, ActionMethod.startListener);
+      expect(handler.capturedTimeout, const Duration(seconds: 30));
+      expect(handler.capturedOnTimeoutWasNull, isTrue);
+    });
+
     test('strict init throws instead of returning fail-open false on timeout',
         () async {
       final handler = _CapturingHandler();
