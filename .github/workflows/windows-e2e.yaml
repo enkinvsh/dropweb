@@ -1,0 +1,206 @@
+name: windows-e2e
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [dev]
+    tags: ['v*']
+    paths:
+      - '.github/workflows/windows-e2e.yaml'
+      - '.github/scripts/**'
+      - 'lib/**'
+      - 'core/**'
+      - 'windows/**'
+      - 'services/helper/**'
+      - 'setup.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+
+permissions:
+  contents: read
+
+env:
+  STABLE_TAG: v0.8.5
+  STABLE_ASSET: dropweb-0.8.5-windows-amd64-setup.exe
+  STABLE_SHA256: e3ea07156cda68b2f2cb384dda48a8144f291ec350a39e4ee2984a73ff8f4e01
+
+jobs:
+  build-installer:
+    name: Build Windows amd64 installer from source
+    runs-on: windows-2025
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.0'
+          cache-dependency-path: core/go.sum
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+          flutter-version: 3.41.6
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
+      - name: Build candidate installer
+        run: dart setup.dart windows --arch amd64
+
+      - name: Verify installer artifact
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem dist -Filter '*.exe' -Recurse | Where-Object { $_.Name -match 'setup|amd64' })
+          if ($installers.Count -ne 1) {
+            Write-Host "::error::expected exactly one installer, found $($installers.Count)"
+            exit 1
+          }
+          Write-Host "candidate installer found"
+
+      - name: Upload candidate installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: dropweb-windows-e2e-installer
+          path: dist/*.exe
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 1
+
+  import-connect:
+    name: Real subscription, Wintun, and traffic journey
+    runs-on: windows-2025
+    needs: build-installer
+    timeout-minutes: 15
+    steps:
+      - name: Checkout harness
+        uses: actions/checkout@v4
+
+      - name: Download candidate installer
+        uses: actions/download-artifact@v4
+        with:
+          name: dropweb-windows-e2e-installer
+          path: dl/candidate
+
+      - name: Parse-check PowerShell harness
+        shell: pwsh
+        run: |
+          foreach ($path in @('.github/scripts/windows_obkatka.ps1', '.github/scripts/windows_e2e.ps1')) {
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors)
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Host "::error::$_" }
+              exit 1
+            }
+          }
+
+      - name: Run import-connect Branch-A scenario
+        shell: pwsh
+        env:
+          CI_TEST_SUBSCRIPTION_URL: ${{ secrets.CI_TEST_SUBSCRIPTION_URL }}
+        run: |
+          & ./.github/scripts/windows_e2e.ps1 `
+            -Scenario import-connect `
+            -CandidateDirectory (Resolve-Path dl/candidate)
+
+      - name: Upload import-connect verdict and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-e2e-import-connect-evidence
+          path: ci-evidence/
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  diagnostics-negative:
+    name: Diagnostics negative (${{ matrix.case }})
+    runs-on: windows-2025
+    needs: build-installer
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [invalid-subscription, broken-core]
+    steps:
+      - name: Checkout harness
+        uses: actions/checkout@v4
+
+      - name: Download candidate installer
+        uses: actions/download-artifact@v4
+        with:
+          name: dropweb-windows-e2e-installer
+          path: dl/candidate
+
+      - name: Run negative diagnostics scenario
+        shell: pwsh
+        run: |
+          & ./.github/scripts/windows_e2e.ps1 `
+            -Scenario '${{ matrix.case }}' `
+            -CandidateDirectory (Resolve-Path dl/candidate)
+
+      - name: Upload negative diagnostics verdict and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-e2e-diagnostics-${{ matrix.case }}-evidence
+          path: ci-evidence/
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  upgrade-previous-stable:
+    name: Upgrade pinned v0.8.5 to candidate
+    runs-on: windows-2025
+    needs: build-installer
+    timeout-minutes: 15
+    steps:
+      - name: Checkout harness
+        uses: actions/checkout@v4
+
+      - name: Download candidate installer
+        uses: actions/download-artifact@v4
+        with:
+          name: dropweb-windows-e2e-installer
+          path: dl/candidate
+
+      - name: Download pinned previous stable installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force dl/stable | Out-Null
+          $url = "https://github.com/enkinvsh/dropweb/releases/download/$env:STABLE_TAG/$env:STABLE_ASSET"
+          $path = Join-Path (Resolve-Path dl/stable) $env:STABLE_ASSET
+          Invoke-WebRequest -Uri $url -OutFile $path
+          $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -cne $env:STABLE_SHA256) {
+            Write-Host "::error::stable installer hash mismatch"
+            exit 1
+          }
+          Write-Host "pinned stable installer verified: $env:STABLE_TAG sha256=$actual"
+
+      - name: Run upgrade-over-stable scenario
+        shell: pwsh
+        run: |
+          & ./.github/scripts/windows_e2e.ps1 `
+            -Scenario upgrade-previous-stable `
+            -CandidateDirectory (Resolve-Path dl/candidate) `
+            -StableDirectory (Resolve-Path dl/stable) `
+            -StableTag $env:STABLE_TAG `
+            -StableSha256 $env:STABLE_SHA256
+
+      - name: Upload upgrade verdict and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-e2e-upgrade-previous-stable-evidence
+          path: ci-evidence/
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
