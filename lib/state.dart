@@ -306,15 +306,16 @@ class GlobalState {
       final listenerStarted = await clashCore.startListener();
       ConnectTrace.mark('startListener.done');
       // Desktop only: the core is a separate process behind the socket
-      // bridge, and startListener carries a 10s invoke timeout that returns
-      // false when the core is wedged/dead (first-launch AV scans, a failed
-      // spawn). Ignoring it reported a successful connect with no core
-      // listening. Android keeps its existing semantics — the FFI call and
-      // the TUN-ack path below already own failure handling there.
+      // bridge, and startListener carries a dedicated 30s invoke timeout.
+      // Ignoring a false reply reported a successful connect with no core
+      // listening. A timeout throws separately so the caller can distinguish
+      // a slow Wintun/NDIS bring-up from a real listener failure. Android keeps
+      // its existing semantics — the FFI call and the TUN-ack path below
+      // already own failure handling there.
       if (system.isDesktop && !listenerStarted) {
         startTime = null;
         // Best-effort rollback for a listener the core may still bring up
-        // late (after our 10s timeout). Fire-and-forget on purpose:
+        // late after a failed reply. Fire-and-forget on purpose:
         // stopListener has no invoke timeout and sendMessage blocks on the
         // bridge socket — awaiting it here would hang handleStart on exactly
         // the wedged core this branch exists to escape.

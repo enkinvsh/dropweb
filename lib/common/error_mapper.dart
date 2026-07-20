@@ -9,6 +9,11 @@ class ErrorMapper {
   ErrorMapper._();
 
   static final _patterns = <_ErrorPattern>[
+    _ErrorPattern(
+      RegExp(r'TUN listener start timed out', caseSensitive: false),
+      ru: 'VPN-интерфейс поднимается дольше обычного. Подождите и попробуйте ещё раз.',
+      en: 'The VPN interface is taking longer than usual. Wait a moment and try again.',
+    ),
     // Our fail-closed desktop core timeout errors
     _ErrorPattern(
       RegExp(r'core did not answer|core call timed out', caseSensitive: false),

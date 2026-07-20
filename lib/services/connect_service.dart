@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dropweb/clash/clash.dart';
+import 'package:dropweb/clash/interface.dart';
 import 'package:dropweb/common/connect_trace.dart';
 import 'package:dropweb/common/error_mapper.dart';
 import 'package:dropweb/controller.dart';
@@ -346,10 +347,25 @@ class ConnectService {
       globalState.regenerateProxyCredentials();
       // Initialize foreground notification cache before starting
       initForegroundCache();
-      final started = await globalState.handleStart([
-        updateRunTime,
-        updateTraffic,
-      ]);
+      final startStopwatch = Stopwatch()..start();
+      bool? started;
+      try {
+        started = await globalState.handleStart([
+          updateRunTime,
+          updateTraffic,
+        ]);
+      } on StartListenerTimeoutException catch (error) {
+        startStopwatch.stop();
+        await StatusBarManager.updateIcon(isConnected: false);
+        commonPrint.log(
+          '[connect] start failed after ${startStopwatch.elapsedMilliseconds}ms: $error',
+        );
+        globalState.showNotifier(
+          ErrorMapper.mapError(error.toString()) ?? ErrorMapper.vpnStartFailed,
+        );
+        return;
+      }
+      startStopwatch.stop();
       // null => a start/stop transition is already in flight (double-tap).
       // Do nothing: no toast, and leave the status icon untouched.
       if (started == null) {
@@ -359,11 +375,15 @@ class ConnectService {
       // have been flipped on by an optimistic UI) and surface the error.
       if (started == false) {
         await StatusBarManager.updateIcon(isConnected: false);
-        commonPrint.log('[connect] start failed: handleStart returned false');
+        commonPrint.log(
+          '[connect] start failed after ${startStopwatch.elapsedMilliseconds}ms: handleStart returned false',
+        );
         globalState.showNotifier(ErrorMapper.vpnStartFailed);
         return;
       }
       // true => connected. Only now is it honest to show the connected icon.
+      commonPrint
+          .log('[connect] tun up in ${startStopwatch.elapsedMilliseconds}ms');
       await StatusBarManager.updateIcon(isConnected: true);
       if (Platform.isAndroid) {
         // FlClashX parity: the long-lived mihomo executor (DNS resolver, fake-ip

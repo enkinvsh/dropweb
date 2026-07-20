@@ -7,6 +7,11 @@ import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 
+class StartListenerTimeoutException extends TimeoutException {
+  StartListenerTimeoutException(Duration duration)
+      : super('TUN listener start timed out', duration);
+}
+
 mixin ClashInterface {
   Future<bool> init(InitParams params);
 
@@ -395,10 +400,14 @@ abstract class ClashHandlerInterface with ClashInterface {
   }
 
   @override
-  Future<bool> startListener() => invoke<bool>(
+  Future<bool> startListener() {
+    const timeout = Duration(seconds: 30);
+    return invoke<bool>(
       method: ActionMethod.startListener,
-      timeout: const Duration(seconds: 30),
+      timeout: timeout,
+      onTimeout: () => throw StartListenerTimeoutException(timeout),
     );
+  }
 
   @override
   Future<bool> stopListener() => invoke<bool>(

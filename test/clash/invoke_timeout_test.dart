@@ -129,12 +129,19 @@ void main() {
     test('startListener has its own 30-second deadline', () async {
       final handler = _CapturingHandler();
 
-      final result = await handler.startListener();
-
-      expect(result, isFalse);
+      await expectLater(
+        handler.startListener(),
+        throwsA(
+          isA<TimeoutException>().having(
+            (error) => error.message,
+            'message',
+            'TUN listener start timed out',
+          ),
+        ),
+      );
       expect(handler.capturedMethod, ActionMethod.startListener);
       expect(handler.capturedTimeout, const Duration(seconds: 30));
-      expect(handler.capturedOnTimeoutWasNull, isTrue);
+      expect(handler.capturedOnTimeoutWasNull, isFalse);
     });
 
     test('strict init throws instead of returning fail-open false on timeout',
