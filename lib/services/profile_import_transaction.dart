@@ -43,7 +43,10 @@ final class ProfileImportTransaction<ProfileT> {
 
       log('[import] validate');
       final profile = await downloadAndValidate();
-      if (profile == null) return;
+      if (profile == null) {
+        log('Add Profile Failed: validation returned no profile');
+        return;
+      }
 
       await commitProfile(profile);
       await _runBestEffort(

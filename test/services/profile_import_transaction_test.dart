@@ -252,6 +252,32 @@ void main() {
     expect(events.where((event) => event.startsWith('commit:')), isEmpty);
   });
 
+  test('null validation result is journaled as an import failure', () async {
+    final events = <String>[];
+    final transaction = buildTransaction(
+      events: events,
+      downloadAndValidate: () async => null,
+    );
+
+    await transaction.run();
+
+    expect(events, contains('[import] validate'));
+    expect(
+        events, contains('Add Profile Failed: validation returned no profile'));
+    expect(events.where((event) => event.startsWith('commit:')), isEmpty);
+    expect(events.where((event) => event.startsWith('apply:')), isEmpty);
+    expect(events.where((event) => event.startsWith('success:')), isEmpty);
+  });
+
+  test('desktop readiness failure journal names the typed exception', () {
+    final source = File('lib/controller.dart').readAsStringSync();
+
+    expect(
+      source,
+      contains('init: CoreBootException core readiness failed'),
+    );
+  });
+
   test('URL and file imports share switch side effects and success cleanup',
       () {
     final source = File('lib/controller.dart').readAsStringSync();

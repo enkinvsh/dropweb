@@ -1325,7 +1325,8 @@ class AppController {
       await _initCore();
     } on CoreBootException catch (error, stackTrace) {
       commonPrint.log(
-        'init: core readiness failed (UI stays usable): $error\n$stackTrace',
+        'init: CoreBootException core readiness failed '
+        '(UI stays usable): $error\n$stackTrace',
       );
       final message =
           ErrorMapper.mapError(error.toString()) ?? error.toString();
