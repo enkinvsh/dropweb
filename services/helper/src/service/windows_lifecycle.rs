@@ -30,6 +30,10 @@ const fn leased_process_identity_action(identity_matches: bool) -> LeasedProcess
     }
 }
 
+fn child_termination_event(reason: &str, pid: u32, creation_time_100ns: u64) -> String {
+    format!("[lifecycle] child-decision reason={reason} pid={pid} creation={creation_time_100ns}")
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LifecycleState {
     Running,
@@ -288,6 +292,7 @@ mod windows_process {
         owner: &mut LifecycleOwner,
         request: &StartCoreRequest,
         budget: Duration,
+        log: &mut dyn FnMut(String),
     ) -> Result<(File, StartCoreResponse), LifecycleError> {
         let scope = InstallScope::current()?;
         let _guard = scope.acquire()?;
@@ -303,11 +308,18 @@ mod windows_process {
             if retained_app != &app_identity {
                 return Err(LifecycleError::ActiveInAnotherSession);
             }
+            if let Some(identity) = owner.child_identity() {
+                log(super::child_termination_event(
+                    "start-replace",
+                    identity.pid,
+                    identity.creation_time_100ns,
+                ));
+            }
             owner.stop_and_wait(budget)?;
             remove_lease_if_present(&scope.lease_path)?;
         }
 
-        reconcile_lease_and_candidates(&scope, &app_identity, budget)?;
+        reconcile_lease_and_candidates(&scope, &app_identity, budget, log)?;
         let stderr = owner.spawn(SpawnRequest {
             path: &scope.core_path,
             bridge_port: request.bridge_port,
@@ -330,7 +342,19 @@ mod windows_process {
                 run_token: request.run_token.clone(),
             },
         };
+        log(format!(
+            "[lifecycle] spawn-success pid={} creation={} bridgePort={}",
+            lease.core.pid, lease.core.creation_time_100ns, request.bridge_port
+        ));
         if let Err(error) = write_lease_atomic(&scope.lease_path, &lease) {
+            log(format!(
+                "{} error={error}",
+                super::child_termination_event(
+                    "lease-write-failed",
+                    lease.core.pid,
+                    lease.core.creation_time_100ns,
+                )
+            ));
             let _cleanup_result = owner.stop_and_wait(budget);
             return Err(error);
         }
@@ -348,6 +372,7 @@ mod windows_process {
         owner: &mut LifecycleOwner,
         request: &StopCoreRequest,
         budget: Duration,
+        log: &mut dyn FnMut(String),
     ) -> Result<(), LifecycleError> {
         let scope = InstallScope::current()?;
         let _guard = scope.acquire()?;
@@ -388,6 +413,11 @@ mod windows_process {
                 "stop request does not match retained child",
             ));
         }
+        log(super::child_termination_event(
+            "stop-request",
+            identity.pid,
+            identity.creation_time_100ns,
+        ));
         owner.stop_and_wait(budget)?;
         remove_lease_if_present(&scope.lease_path)
     }
@@ -395,12 +425,20 @@ mod windows_process {
     pub fn stop_for_service(
         owner: &mut LifecycleOwner,
         budget: Duration,
+        log: &mut dyn FnMut(String),
     ) -> Result<(), LifecycleError> {
         let scope = InstallScope::current()?;
         let _guard = scope.acquire()?;
-        let retained_child = owner.child_identity().is_some();
+        let retained_identity = owner.child_identity().cloned();
+        if let Some(identity) = retained_identity.as_ref() {
+            log(super::child_termination_event(
+                "scm-stop",
+                identity.pid,
+                identity.creation_time_100ns,
+            ));
+        }
         owner.stop_and_wait(budget)?;
-        if retained_child {
+        if retained_identity.is_some() {
             remove_lease_if_present(&scope.lease_path)?;
         }
         Ok(())
@@ -525,6 +563,7 @@ mod windows_process {
         scope: &InstallScope,
         requesting_app: &AppIdentity,
         budget: Duration,
+        log: &mut dyn FnMut(String),
     ) -> Result<(), LifecycleError> {
         let lease = load_lease(&scope.lease_path)?;
         if let Some(record) = lease.as_ref() {
@@ -546,6 +585,11 @@ mod windows_process {
                     });
                     match decision {
                         CandidateDecision::Terminate => {
+                            log(super::child_termination_event(
+                                "lease-reconcile",
+                                record.core.pid,
+                                record.core.creation_time_100ns,
+                            ));
                             terminate_revalidated(&record.core, budget)?;
                             remove_lease_if_present(&scope.lease_path)?;
                         }
@@ -556,11 +600,23 @@ mod windows_process {
                         }
                     }
                 }
-                Ok(_) => remove_lease_if_present(&scope.lease_path)?,
+                Ok(_) => {
+                    log(super::child_termination_event(
+                        "lease-stale-removed",
+                        record.core.pid,
+                        record.core.creation_time_100ns,
+                    ));
+                    remove_lease_if_present(&scope.lease_path)?;
+                }
                 Err(LifecycleError::Windows { .. }) => {
                     if process_id_exists(record.core.pid)? {
                         return Err(LifecycleError::ActiveInAnotherSession);
                     }
+                    log(super::child_termination_event(
+                        "lease-stale-removed",
+                        record.core.pid,
+                        record.core.creation_time_100ns,
+                    ));
                     remove_lease_if_present(&scope.lease_path)?;
                 }
                 Err(error) => return Err(error),
@@ -589,6 +645,11 @@ mod windows_process {
                         )
                         .map_err(|_| LifecycleError::InvalidInput("internal legacy token"))?,
                     };
+                    log(super::child_termination_event(
+                        "legacy-reconcile",
+                        legacy.pid,
+                        legacy.creation_time_100ns,
+                    ));
                     terminate_revalidated(&legacy, budget)?;
                 }
                 CandidateDecision::Ignore => {}
@@ -1558,8 +1619,8 @@ mod windows_process {
 #[cfg(test)]
 mod tests {
     use super::{
-        leased_process_identity_action, ChildIdentity, LeasedProcessIdentityAction, LifecycleOwner,
-        LifecycleState, LIFECYCLE_SECURITY_SDDL,
+        child_termination_event, leased_process_identity_action, ChildIdentity,
+        LeasedProcessIdentityAction, LifecycleOwner, LifecycleState, LIFECYCLE_SECURITY_SDDL,
     };
     use std::path::PathBuf;
 
@@ -1609,6 +1670,14 @@ mod tests {
         assert_eq!(
             LIFECYCLE_SECURITY_SDDL,
             "O:SYD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)"
+        );
+    }
+
+    #[test]
+    fn child_termination_event_contains_reason_and_exact_identity() {
+        assert_eq!(
+            child_termination_event("start-replace", 42, 1337),
+            "[lifecycle] child-decision reason=start-replace pid=42 creation=1337"
         );
     }
 }

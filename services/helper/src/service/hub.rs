@@ -134,7 +134,8 @@ fn start_blocking(request: StartCoreRequest) -> warp::reply::Response {
         .lock()
         .map_err(|_| anyhow::anyhow!("core lifecycle lock poisoned"))
         .and_then(|mut owner| {
-            start_transaction(&mut owner, &request, STOP_BUDGET).map_err(anyhow::Error::new)
+            start_transaction(&mut owner, &request, STOP_BUDGET, &mut log_message)
+                .map_err(anyhow::Error::new)
         });
     match result {
         Ok((stderr, response)) => {
@@ -256,7 +257,7 @@ fn stop_core_request(request: &StopCoreRequest) -> anyhow::Result<()> {
     let mut owner = PROCESS
         .lock()
         .map_err(|_| anyhow::anyhow!("core lifecycle lock poisoned"))?;
-    stop_transaction(&mut owner, request, STOP_BUDGET)?;
+    stop_transaction(&mut owner, request, STOP_BUDGET, &mut log_message)?;
     Ok(())
 }
 
@@ -284,7 +285,7 @@ pub fn stop_core() -> anyhow::Result<()> {
     let mut owner = PROCESS
         .lock()
         .map_err(|_| anyhow::anyhow!("core lifecycle lock poisoned"))?;
-    stop_for_service(&mut owner, STOP_BUDGET)?;
+    stop_for_service(&mut owner, STOP_BUDGET, &mut log_message)?;
     Ok(())
 }
 

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 )
 
@@ -77,16 +78,21 @@ func startServer(config serverConfig) error {
 		conn, err = net.Dial("tcp", fmt.Sprintf("127.0.0.1:%s", config.bridge))
 	}
 	if err != nil {
-		return fmt.Errorf("failed to connect to server: %w", err)
+		wrapped := fmt.Errorf("failed to connect to server: %w", err)
+		fmt.Fprintf(os.Stderr, "[core-bridge] startServer failed: %v\n", wrapped)
+		return wrapped
 	}
 	defer func(conn net.Conn) {
 		_ = conn.Close()
 	}(conn)
 	identity, err := currentCoreProcessIdentity()
 	if err != nil {
-		return fmt.Errorf("read core process identity: %w", err)
+		wrapped := fmt.Errorf("read core process identity: %w", err)
+		fmt.Fprintf(os.Stderr, "[core-bridge] startServer failed: %v\n", wrapped)
+		return wrapped
 	}
 	serveCoreBridge(conn, config, identity)
+	fmt.Fprintln(os.Stderr, "[core-bridge] server loop finished")
 	return nil
 }
 
@@ -112,6 +118,7 @@ func serveCoreBridge(connection net.Conn, config serverConfig, identity coreProc
 	for {
 		data, err := reader.ReadString('\n')
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "[core-bridge] action loop ended: read: %v\n", err)
 			return
 		}
 		var action = &Action{}
@@ -119,6 +126,7 @@ func serveCoreBridge(connection net.Conn, config serverConfig, identity coreProc
 		err = json.Unmarshal([]byte(data), action)
 
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "[core-bridge] action loop ended: unmarshal: %v\n", err)
 			return
 		}
 

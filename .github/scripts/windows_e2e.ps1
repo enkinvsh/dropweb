@@ -61,6 +61,24 @@ function Get-E2EPlanCheckValue {
   return (Get-E2EObjectPropertyValue -Object $checks -Name $Name)
 }
 
+function Save-E2EHelperLogs {
+  param([Parameter(Mandatory)][string]$Name)
+
+  $content = $null
+  try {
+    $response = Invoke-WebRequest -Uri 'http://127.0.0.1:47896/logs' -Method Get -TimeoutSec 5 -ErrorAction Stop
+    $content = [string]$response.Content
+  } catch {
+    $content = "WARNING: helper /logs unavailable: $($_.Exception.Message)`n"
+  }
+  if ([string]::IsNullOrEmpty($content)) { $content = "helper /logs returned no content`n" }
+  try {
+    Write-ObkatkaAtomicText -Path (Join-Path (Get-ObkatkaEvidenceRoot) $Name) -Content $content
+  } catch {
+    Write-Host "::warning::could not save helper logs $Name`: $($_.Exception.Message)"
+  }
+}
+
 function Get-CandidateInstaller {
   $installers = @(Get-ChildItem -LiteralPath $CandidateDirectory -Filter '*.exe' -Recurse)
   Add-E2ECheck -Name 'candidate-installer-count' -Passed ($installers.Count -eq 1) -Detail "count=$($installers.Count)"
@@ -225,6 +243,10 @@ function Start-E2EHelperCoreFixture {
     }
     $coreCount = Wait-ObkatkaExactPathProcessCount -ExecutablePath $Paths.core -ExpectedCount 1 -TimeoutSeconds 10
     if ($coreCount -ne 1) {
+      # Diagnostic-only name scan: this never selects, stops, or gates a process.
+      $matchingProcesses = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { [string]$_.Name -match 'Dropweb' } | Select-Object Name, ProcessId, ExecutablePath, CreationDate)
+      $diagnostic = if ($matchingProcesses.Count -gt 0) { $matchingProcesses | ConvertTo-Json -Depth 4 } else { 'no Win32_Process names matched Dropweb' }
+      Write-ObkatkaAtomicText -Path (Join-Path (Get-ObkatkaEvidenceRoot) 'fixture-count-diagnostic.txt') -Content "$diagnostic`n"
       $client.Dispose()
       throw "expected one helper-spawned exact-path core; found $coreCount"
     }
@@ -252,6 +274,7 @@ function Start-E2EHelperCoreFixture {
       runTokenFingerprint = Get-E2ETokenFingerprint -Token $runToken
     }
   } catch {
+    Save-E2EHelperLogs -Name 'helper-logs-fixture-failure.txt'
     $listener.Stop()
     throw
   }
@@ -420,6 +443,7 @@ function Invoke-HelperLifecycleProbes {
   $script:Metadata.helperServiceRecoveryMode = $recoveryMode
   $script:Metadata.helperServiceAfterKill = ConvertTo-E2EHelperEvidence -Identity $afterKill -Paths $Paths
   [void](Write-ObkatkaInstallIdentitySnapshot -Paths $Paths -Label 'after helper kill recovery' -FileName 'identity-after-helper-kill.json')
+  Save-E2EHelperLogs -Name 'helper-logs-after-probes.txt'
 }
 
 function Protect-ObkatkaSecretFile {
@@ -704,6 +728,7 @@ function Invoke-ImportConnect {
       $script:Checks.Add((New-ObkatkaCheck -Name 'scenario-exception' -Status 'FAIL' -Detail $_.Exception.Message))
     }
   } finally {
+    Save-E2EHelperLogs -Name 'helper-logs-final.txt'
     Remove-Item -LiteralPath (Join-Path $workRoot 'subscription-url.txt') -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath (Join-Path $workRoot 'support-bundle.txt') -Force -ErrorAction SilentlyContinue
     $ownedCoreCount = if ($paths) { @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $paths.core).Count } else { 0 }
