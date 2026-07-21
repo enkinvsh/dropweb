@@ -167,8 +167,8 @@ class _ModesContentState extends ConsumerState<ModesContent>
 
 /// A single work-mode card following the «case + deep» pattern. Composes
 /// [CommonCard] (flagship radius + selected glow) with a leading [HugeIcon],
-/// title/description, an optional [badge] (e.g. «скоро»), and — when the mode
-/// has a deep screen — a trailing chevron affordance ([onChevronTap]) styled
+/// title/description, and — when the mode has a deep screen — a trailing
+/// chevron affordance ([onChevronTap]) styled
 /// like the [ListItem] chevron. Tapping the card fires [onTap] (select mode);
 /// tapping the chevron fires [onChevronTap] (open deep).
 class _ModeCard extends StatelessWidget {
@@ -178,7 +178,6 @@ class _ModeCard extends StatelessWidget {
     required this.description,
     required this.isSelected,
     required this.onTap,
-    this.badge,
     this.onChevronTap,
     this.chevronDisabled = false,
   });
@@ -188,7 +187,6 @@ class _ModeCard extends StatelessWidget {
   final String description;
   final bool isSelected;
   final VoidCallback onTap;
-  final Widget? badge;
   final VoidCallback? onChevronTap;
 
   /// When true, the chevron is rendered but greyed and non-tappable (the deep
@@ -230,10 +228,6 @@ class _ModeCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (badge != null) ...[
-                        const SizedBox(width: 8),
-                        badge!,
-                      ],
                     ],
                   ),
                   const SizedBox(height: 2),

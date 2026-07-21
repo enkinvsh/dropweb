@@ -1,5 +1,4 @@
 import 'package:dropweb/common/update_resolver.dart';
-import 'package:dropweb/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> manifest(

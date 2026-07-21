@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dropweb/clash/clash.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/l10n/l10n.dart';
