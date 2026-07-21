@@ -182,6 +182,16 @@ function Get-E2ECurrentAppIdentity {
   }
 }
 
+function Get-E2EExactProcessCreationTime100ns {
+  param([Parameter(Mandatory)][int]$ProcessId)
+
+  try {
+    return [uint64]([Diagnostics.Process]::GetProcessById($ProcessId).StartTime.ToUniversalTime().ToFileTimeUtc())
+  } catch {
+    return $null
+  }
+}
+
 function Wait-E2EHelperRunning {
   param([Parameter(Mandatory)][int]$TimeoutSeconds)
 
@@ -256,7 +266,15 @@ function Start-E2EHelperCoreFixture {
       $client.Dispose()
       throw 'helper-spawned core identity has no creationTime100ns'
     }
-    if ([uint32]$coreIdentity.pid -ne [uint32]$startIdentity.corePid -or [uint64]$coreIdentity.creationTime100ns -ne [uint64]$startIdentity.coreCreationTime100ns) {
+    $exactCoreCreationTime100ns = Get-E2EExactProcessCreationTime100ns -ProcessId ([int]$coreIdentity.pid)
+    if ($null -eq $exactCoreCreationTime100ns) {
+      $reader.Dispose()
+      $client.Dispose()
+      throw "failed to read exact helper-spawned core creation time for pid $($coreIdentity.pid)"
+    }
+    $corePidMatches = [uint32]$coreIdentity.pid -eq [uint32]$startIdentity.corePid
+    $coreCreationTimeMatches = [uint64]$exactCoreCreationTime100ns -eq [uint64]$startIdentity.coreCreationTime100ns
+    if (-not $corePidMatches -or -not $coreCreationTimeMatches) {
       $reader.Dispose()
       $client.Dispose()
       throw 'helper start response does not match observed exact-path core identity'
