@@ -285,10 +285,15 @@ class ClashService extends ClashHandlerInterface {
         _helperAttempt = attempt;
         return;
       } catch (error, stackTrace) {
-        if (!launch.helperAuthority.isCompleted) {
-          launch.helperAuthority.completeError(error, stackTrace);
+        if (!shouldFallBackToDirectSpawn(error)) {
+          if (!launch.helperAuthority.isCompleted) {
+            launch.helperAuthority.completeError(error, stackTrace);
+          }
+          rethrow;
         }
-        rethrow;
+        commonPrint.log(
+          '[helper] start failed, falling back to direct spawn: $error',
+        );
       }
     }
     _coreStartedByHelper = false;
@@ -315,12 +320,16 @@ class ClashService extends ClashHandlerInterface {
         environment: environment,
       );
     } catch (error, stackTrace) {
-      launch.helperAuthority.completeError(error, stackTrace);
+      if (!launch.helperAuthority.isCompleted) {
+        launch.helperAuthority.completeError(error, stackTrace);
+      }
       rethrow;
     }
     _processAttempt = attempt;
     launch.directPid = process!.pid;
-    launch.helperAuthority.complete(null);
+    if (!launch.helperAuthority.isCompleted) {
+      launch.helperAuthority.complete(null);
+    }
     commonPrint.log("[core-bridge] core process spawned pid=${process?.pid}");
     // Watch THIS specific process's exit. Capture the instance so a late exit
     // from a previously-killed core (rapid restart) can't be misread as the

@@ -7,6 +7,8 @@ use lease::{AppIdentity, RunToken};
 
 // allow: SIZE_OK - the approved plan requires one isolated Win32 lifecycle/FFI boundary.
 
+const LIFECYCLE_SECURITY_SDDL: &str = "O:SYD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)";
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ChildIdentity {
     pub pid: u32,
@@ -145,9 +147,10 @@ mod windows_process {
         GetSecurityInfo, SetNamedSecurityInfoW, SE_FILE_OBJECT, SE_KERNEL_OBJECT,
     };
     use windows::Win32::Security::{
-        CreateWellKnownSid, EqualSid, GetSecurityDescriptorDacl, WinLocalSystemSid, ACL,
-        DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
-        PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES, SECURITY_MAX_SID_SIZE,
+        CreateWellKnownSid, EqualSid, GetSecurityDescriptorDacl, GetSecurityDescriptorOwner,
+        WinLocalSystemSid, ACL, DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION,
+        PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES,
+        SECURITY_MAX_SID_SIZE,
     };
     use windows::Win32::Storage::FileSystem::{
         CreateFileW, GetFileAttributesW, GetFinalPathNameByHandleW, MoveFileExW,
@@ -181,7 +184,6 @@ mod windows_process {
     const MIB_TCP_STATE_LISTEN: u32 = 2;
     const MIB_TCP_STATE_ESTABLISHED: u32 = 5;
     const TCP_ROW_SIZE: usize = 24;
-    const LEASE_ACL_SDDL: &str = "D:P(A;;FA;;;SY)(A;;FA;;;BA)";
 
     #[derive(Clone, Copy, Debug)]
     pub struct SpawnRequest<'a> {
@@ -603,12 +605,13 @@ mod windows_process {
             operation: "create lifecycle directory",
             source,
         })?;
-        ensure_system_owned_path(path)?;
-        apply_restricted_acl(path)
+        ensure_not_reparse_point(path)?;
+        apply_restricted_security(path)?;
+        ensure_system_owned_path(path)
     }
 
     fn restricted_security_descriptor() -> Result<LocalSecurityDescriptor, LifecycleError> {
-        let sddl = wide_nul(OsStr::new(LEASE_ACL_SDDL))?;
+        let sddl = wide_nul(OsStr::new(super::LIFECYCLE_SECURITY_SDDL))?;
         let mut descriptor = PSECURITY_DESCRIPTOR::default();
         // SAFETY: Category 8 (FFI boundary). sddl is a live NUL-terminated UTF-16
         // string and descriptor points to writable initialized storage.
@@ -627,8 +630,22 @@ mod windows_process {
         Ok(LocalSecurityDescriptor(descriptor))
     }
 
-    fn apply_restricted_acl(path: &Path) -> Result<(), LifecycleError> {
+    fn apply_restricted_security(path: &Path) -> Result<(), LifecycleError> {
         let descriptor_guard = restricted_security_descriptor()?;
+        let mut owner = PSID::default();
+        let mut owner_defaulted = BOOL::default();
+        // SAFETY: Category 8 (FFI boundary). descriptor_guard owns a valid
+        // self-relative descriptor and both outputs point to writable storage.
+        unsafe { GetSecurityDescriptorOwner(descriptor_guard.0, &mut owner, &mut owner_defaulted) }
+            .map_err(|source| LifecycleError::Windows {
+                operation: "GetSecurityDescriptorOwner",
+                source,
+            })?;
+        if owner.is_invalid() {
+            return Err(LifecycleError::InvalidInput(
+                "restricted lifecycle owner is absent",
+            ));
+        }
         let mut present = BOOL::default();
         let mut defaulted = BOOL::default();
         let mut dacl = ptr::null_mut::<ACL>();
@@ -647,14 +664,16 @@ mod windows_process {
             ));
         }
         let path_wide = wide_nul(path.as_os_str())?;
-        // SAFETY: Category 8 (FFI boundary). path_wide is NUL-terminated and dacl
-        // remains owned by descriptor_guard for the duration of this call.
+        // SAFETY: Category 8 (FFI boundary). path_wide is NUL-terminated, while
+        // owner and dacl remain owned by descriptor_guard for this complete call.
         let status = unsafe {
             SetNamedSecurityInfoW(
                 PWSTR(path_wide.as_ptr().cast_mut()),
                 SE_FILE_OBJECT,
-                DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
-                PSID::default(),
+                OWNER_SECURITY_INFORMATION
+                    | DACL_SECURITY_INFORMATION
+                    | PROTECTED_DACL_SECURITY_INFORMATION,
+                owner,
                 PSID::default(),
                 Some(dacl),
                 None,
@@ -670,13 +689,8 @@ mod windows_process {
     }
 
     fn ensure_system_owned_path(path: &Path) -> Result<(), LifecycleError> {
+        ensure_not_reparse_point(path)?;
         let path_wide = wide_nul(path.as_os_str())?;
-        // SAFETY: Category 8 (FFI boundary). path_wide is a live NUL-terminated
-        // path and GetFileAttributesW only reads it.
-        let attributes = unsafe { GetFileAttributesW(PCWSTR(path_wide.as_ptr())) };
-        if attributes == u32::MAX || attributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
-            return Err(LifecycleError::UnknownLease);
-        }
         let mut owner = PSID::default();
         let mut descriptor = PSECURITY_DESCRIPTOR::default();
         // SAFETY: Category 8 (FFI boundary). path_wide is NUL-terminated and the
@@ -701,6 +715,17 @@ mod windows_process {
         }
         let _descriptor_guard = LocalSecurityDescriptor(descriptor);
         if !sid_is_local_system(owner)? {
+            return Err(LifecycleError::UnknownLease);
+        }
+        Ok(())
+    }
+
+    fn ensure_not_reparse_point(path: &Path) -> Result<(), LifecycleError> {
+        let path_wide = wide_nul(path.as_os_str())?;
+        // SAFETY: Category 8 (FFI boundary). path_wide is a live NUL-terminated
+        // path and GetFileAttributesW only reads it.
+        let attributes = unsafe { GetFileAttributesW(PCWSTR(path_wide.as_ptr())) };
+        if attributes == u32::MAX || attributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
             return Err(LifecycleError::UnknownLease);
         }
         Ok(())
@@ -776,7 +801,7 @@ mod windows_process {
             return Ok(None);
         }
         ensure_system_owned_path(path)?;
-        apply_restricted_acl(path)?;
+        apply_restricted_security(path)?;
         let mut file = match File::open(path) {
             Ok(file) => file,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -819,8 +844,8 @@ mod windows_process {
             source,
         })?;
         drop(temp);
+        apply_restricted_security(&temp_path)?;
         ensure_system_owned_path(&temp_path)?;
-        apply_restricted_acl(&temp_path)?;
         let temp_wide = wide_nul(temp_path.as_os_str())?;
         let path_wide = wide_nul(path.as_os_str())?;
         // SAFETY: Category 8 (FFI boundary). Both paths are live NUL-terminated
@@ -1534,7 +1559,7 @@ mod windows_process {
 mod tests {
     use super::{
         leased_process_identity_action, ChildIdentity, LeasedProcessIdentityAction, LifecycleOwner,
-        LifecycleState,
+        LifecycleState, LIFECYCLE_SECURITY_SDDL,
     };
     use std::path::PathBuf;
 
@@ -1577,5 +1602,13 @@ mod tests {
         let action = leased_process_identity_action(false);
 
         assert_eq!(action, LeasedProcessIdentityAction::RemoveStaleLease);
+    }
+
+    #[test]
+    fn lifecycle_security_descriptor_pins_system_owner_and_inheritance() {
+        assert_eq!(
+            LIFECYCLE_SECURITY_SDDL,
+            "O:SYD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)"
+        );
     }
 }

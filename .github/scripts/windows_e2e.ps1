@@ -39,6 +39,28 @@ function Add-E2ECheck {
   if (-not $Passed -and -not $NonFatal) { throw "$Name`: $Detail" }
 }
 
+function Get-E2EObjectPropertyValue {
+  param(
+    [AllowNull()][object]$Object,
+    [Parameter(Mandatory)][string]$Name
+  )
+
+  if ($null -eq $Object) { return $null }
+  $property = $Object.PSObject.Properties[$Name]
+  if ($null -eq $property) { return $null }
+  return $property.Value
+}
+
+function Get-E2EPlanCheckValue {
+  param(
+    [AllowNull()][object]$Object,
+    [Parameter(Mandatory)][string]$Name
+  )
+
+  $checks = Get-E2EObjectPropertyValue -Object $Object -Name 'checks'
+  return (Get-E2EObjectPropertyValue -Object $checks -Name $Name)
+}
+
 function Get-CandidateInstaller {
   $installers = @(Get-ChildItem -LiteralPath $CandidateDirectory -Filter '*.exe' -Recurse)
   Add-E2ECheck -Name 'candidate-installer-count' -Passed ($installers.Count -eq 1) -Detail "count=$($installers.Count)"
@@ -745,12 +767,23 @@ function Invoke-InvalidSubscription {
     $planResult = Read-ObkatkaJsonWhenReady -Path $resultPath -TimeoutSeconds 150
     Copy-Item -LiteralPath $resultPath -Destination (Join-Path (Get-ObkatkaEvidenceRoot) 'plan-result.json') -Force
     [void](Wait-ObkatkaProcessExit -Process $app -TimeoutSeconds 30)
-    Add-E2ECheck -Name 'invalid-plan-result-fail' -Passed ($planResult.result -ceq 'FAIL') -Detail "result=$($planResult.result)"
-    Add-E2ECheck -Name 'invalid-first-failure-import' -Passed ([string]$planResult.firstFailure -match '^importUrl:') -Detail "firstFailure=$($planResult.firstFailure)"
-    $importStep = @($planResult.steps | Where-Object { $_.op -eq 'importUrl' })[0]
-    Add-E2ECheck -Name 'invalid-import-validate-present' -Passed ($importStep.checks.validateOnce -eq $true) -Detail "validateOnce=$($importStep.checks.validateOnce)"
-    Add-E2ECheck -Name 'invalid-import-no-profile-commit' -Passed ($importStep.checks.profileCommitOnce -eq $false) -Detail "profileCommitOnce=$($importStep.checks.profileCommitOnce)"
-    Add-E2ECheck -Name 'invalid-import-no-profile-apply' -Passed ($importStep.checks.profileApplyOnce -eq $false) -Detail "profileApplyOnce=$($importStep.checks.profileApplyOnce)"
+    $planStatus = Get-E2EObjectPropertyValue -Object $planResult -Name 'result'
+    $planStatusDetail = if ($null -eq $planStatus) { 'absent' } else { "result=$planStatus" }
+    Add-E2ECheck -Name 'invalid-plan-result-fail' -Passed ($planStatus -ceq 'FAIL') -Detail $planStatusDetail
+    $firstFailure = Get-E2EObjectPropertyValue -Object $planResult -Name 'firstFailure'
+    $firstFailureDetail = if ($null -eq $firstFailure) { 'absent' } else { "firstFailure=$firstFailure" }
+    Add-E2ECheck -Name 'invalid-first-failure-import' -Passed ([string]$firstFailure -match '^importUrl:') -Detail $firstFailureDetail
+    $planSteps = Get-E2EObjectPropertyValue -Object $planResult -Name 'steps'
+    $importStep = @($planSteps | Where-Object { (Get-E2EObjectPropertyValue -Object $_ -Name 'op') -eq 'importUrl' })[0]
+    $validateOnce = Get-E2EPlanCheckValue -Object $importStep -Name 'validateOnce'
+    $validateOnceDetail = if ($null -eq $validateOnce) { 'absent' } else { "validateOnce=$validateOnce" }
+    Add-E2ECheck -Name 'invalid-import-validate-present' -Passed ($validateOnce -eq $true) -Detail $validateOnceDetail
+    $profileCommitOnce = Get-E2EPlanCheckValue -Object $importStep -Name 'profileCommitOnce'
+    $profileCommitOnceDetail = if ($null -eq $profileCommitOnce) { 'absent' } else { "profileCommitOnce=$profileCommitOnce" }
+    Add-E2ECheck -Name 'invalid-import-no-profile-commit' -Passed ($profileCommitOnce -eq $false) -Detail $profileCommitOnceDetail
+    $profileApplyOnce = Get-E2EPlanCheckValue -Object $importStep -Name 'profileApplyOnce'
+    $profileApplyOnceDetail = if ($null -eq $profileApplyOnce) { 'absent' } else { "profileApplyOnce=$profileApplyOnce" }
+    Add-E2ECheck -Name 'invalid-import-no-profile-apply' -Passed ($profileApplyOnce -eq $false) -Detail $profileApplyOnceDetail
     $logContent = Get-AllDropwebLogContent
     Add-E2ECheck -Name 'invalid-add-profile-failed-logged' -Passed ($logContent -match 'Add Profile Failed') -Detail 'expected import error marker present'
     Add-E2ECheck -Name 'invalid-no-platform-dispatcher' -Passed ($logContent -notmatch 'PlatformDispatcher') -Detail 'no detached unhandled error'

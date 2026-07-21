@@ -131,6 +131,9 @@ final class HelperLifecycleProtocolException implements Exception {
   String toString() => 'helper lifecycle protocol error: $message';
 }
 
+bool shouldFallBackToDirectSpawn(Object error) =>
+    error is! HelperLifecycleConflictException;
+
 HelperCoreIdentity decodeHelperStartResponse({
   required int? statusCode,
   required String body,
@@ -144,7 +147,24 @@ HelperCoreIdentity decodeHelperStartResponse({
     throw const HelperLifecycleProtocolException('unknown conflict response');
   }
   if (statusCode != HttpStatus.ok) {
-    throw HelperLifecycleProtocolException('unexpected status $statusCode');
+    var detail = '';
+    try {
+      final value = jsonDecode(body);
+      if (value is Map) {
+        final code = value['code'];
+        final message = value['message'];
+        final fields = [
+          if (code is String && code.isNotEmpty) 'code=$code',
+          if (message is String && message.isNotEmpty) 'message=$message',
+        ];
+        if (fields.isNotEmpty) detail = ' ${fields.join(' ')}';
+      }
+    } on FormatException {
+      // A non-JSON helper error still retains its HTTP status below.
+    }
+    throw HelperLifecycleProtocolException(
+      'unexpected status $statusCode$detail',
+    );
   }
   final value = jsonDecode(body);
   if (value is! Map<String, dynamic>) {
@@ -532,7 +552,7 @@ class Request {
           }),
           options: Options(
             responseType: ResponseType.plain,
-            validateStatus: (status) => status != null && status < 500,
+            validateStatus: (status) => status != null && status < 600,
           ),
         )
         .timeout(helperStartTimeout);

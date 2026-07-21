@@ -57,6 +57,38 @@ void main() {
     );
   });
 
+  test('helper 500 response preserves structured code and message', () {
+    expect(
+      () => decodeHelperStartResponse(
+        statusCode: 500,
+        body: jsonEncode({
+          'code': 'unknownLease',
+          'message': 'lifecycle directory owner mismatch',
+        }),
+        expectedRunToken: '0123456789abcdef0123456789abcdef',
+      ),
+      throwsA(
+        isA<HelperLifecycleProtocolException>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('unknownLease'), contains('owner mismatch')),
+        ),
+      ),
+    );
+  });
+
+  test('only typed helper conflict disables direct spawn fallback', () {
+    final cases = <(Object, bool)>[
+      (const HelperLifecycleConflictException(), false),
+      (const HelperLifecycleProtocolException('HTTP 500'), true),
+      (StateError('transport failed'), true),
+    ];
+
+    for (final (error, expectedFallback) in cases) {
+      expect(shouldFallBackToDirectSpawn(error), expectedFallback);
+    }
+  });
+
   test('stop request always serializes the exact core identity', () {
     final body = encodeHelperStopRequest(const HelperCoreIdentity(
       corePid: 42,
