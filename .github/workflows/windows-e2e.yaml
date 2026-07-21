@@ -7,7 +7,8 @@ on:
     tags: ['v*']
     paths:
       - '.github/workflows/windows-e2e.yaml'
-      - '.github/scripts/**'
+      - '.github/scripts/windows_e2e.ps1'
+      - '.github/scripts/windows_obkatka.ps1'
       - 'lib/**'
       - 'core/**'
       - 'windows/**'
