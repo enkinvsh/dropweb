@@ -1,3 +1,333 @@
+## v0.8.5-pre.9
+
+- fix(macos): arch-honest dmgs, core self-heal, SIGPIPE hardening
+
+- Field incident (Intel MacBook, Monterey): the app died within a second
+- of launch — tray icon flashed once, exit 141, no crash report. Chain:
+- flutter always emits UNIVERSAL main/framework binaries while the
+- DropwebCore helper is single-arch, so the Apple-Silicon dmg LAUNCHES on
+- an Intel Mac and copies an arm64-only core into Application Support
+- (root+setuid); the old mtime-based shouldUpdateCore then kept that
+- poisoned core through every later correct install; the helper died
+- `bad CPU type in executable` and the app's write to the dead helper
+- socket raised SIGPIPE, whose default disposition kills the process.
+
+- Three fixes: (1) setup.dart thins the main executable (fail-loud) and
+- every bundled framework (warn-and-continue) to the dmg's target arch —
+- a wrong-arch dmg now refuses to open with a clear system message
+- instead of silently poisoning the machine, and images shrink; (2)
+- shouldUpdateCore → coreContentDiffers: SHA-256 content identity with a
+- size fast-path replaces the mtime heuristic, so a poisoned or stale
+- core self-heals on the next launch; (3) signal(SIGPIPE, SIG_IGN) at the
+- earliest entry so helper-socket death surfaces as EPIPE instead of
+- killing the app silently.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.5-pre.8
+
+- chore: bump build number to 2026074504 (leapfrog mistyped device builds)
+
+- Field devices carry hand-built APKs with fat-fingered build numbers
+- (2026072501, 2026074502 — month «45»); date-correct codes read as
+- downgrades there and refuse to install. Leapfrog once more; the
+- date-based scheme overtakes this value naturally from 2027-01-01.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(proxies): honest delay badges across network changes
+
+- After an underlying network flap (WiFi<->cell) the core dropped stale
+- connections but the UI kept showing delay numbers measured on the OLD
+- network next to fresh failures on the new one (owner repro: parents
+- 131ms from the WiFi era while the current selection honestly read n/a
+- on LTE). Two-part fix: the networkChanged handler now also wipes
+- delayDataSource — badges flip to «не замерено» instead of stale greens;
+- and the servers-and-groups sheet pings each group's SELECTED member
+- under that group's own testUrl on open — the exact (proxyName, testUrl)
+- key the badge reads — so rows repopulate consistently instead of
+- depending on whichever URL silo happened to have data.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.5-pre.7
+
+- fix(android): notification follows profile switches while connected
+
+- Switching profiles with the VPN up hot-swapped the core config but the
+- foreground notification kept the PREVIOUS profile's title until a
+- reconnect or app restart. Two causes, both fixed: the app-side plugin
+- cache (initForegroundCache) was primed only on connect — now also on
+- profile switch and on an active-profile subscription update; and in
+- service mode the title is composed by the SERVICE isolate from its own
+- config snapshot, which no IPC refreshed on a switch — a new
+- 'updateCurrentProfile' message (mirroring 'updateForegroundServer')
+- replaces the profile in the service-side list and repoints
+- currentProfileId, so the title chain resolves the new profile
+- immediately.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.5-pre.6
+
+- fix(release): versioned asset links in the TG post and updater fallback
+
+- The pre.5 asset renaming left two consumers pointing at the old
+- unversioned names: the Telegram post's download table (404 for every
+- button) and the in-app updater's GitHub fallback — the path that exists
+- precisely for when the YC bucket is throttled. Both now build
+- dropweb-<version>-<platform>-<arch> names; the YC primary URLs keep
+- their historical fixed names (updater contract). TG post macOS row also
+- gains the Intel dmg.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(country): the picker never lies about why countries are missing
+
+- When the core hadn't loaded the profile's nodes (VPN off, mid-reload) or
+- the liveness probe couldn't run, the picker filtered everything out and
+- claimed «Страны не определены. Обновите подписку» — wrong advice; probe
+- errors even showed «no profile». The probe now reports whether it
+- actually MEASURED (and self-heals by watching the core groups state, so
+- results upgrade the moment the core loads); the picker resolves a pure,
+- tested honesty matrix: skeleton / mapped load error / truly-no-countries
+- / unmeasured (full list + quiet notice) / all-unreachable (full list +
+- connectivity hint) / measured filtered list. Countries stay appliable in
+- every non-error state — apply never depended on the probe.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(errors): human messages on every error surface, «Ошибка» titled
+
+- Subscription update failures showed raw Dio dumps («sub.dropweb.org:
+- DioException [connection timeout]: … try raising the
+- RequestOptions.connectTimeout») under a «Подсказка» title with a useless
+- Cancel button. Every user-facing error dialog now routes through
+- ErrorMapper (with the generic fallback), uses the error title, and shows
+- a single OK button; raw errors still go to logs in full. ErrorMapper
+- learns our own raw throws (subscription-too-large, redirect-without-
+- location).
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.5-pre.5
+
+- feat(macos): light DMG background with a hugeicons-style arrow
+
+- Finder hardcodes BLACK icon labels whenever a custom DMG background
+- (image or solid color) is set — there is no text-color key in the
+- .DS_Store icon-view options, so dark artwork means unreadable labels.
+- Final direction after on-device experiments: a flat near-white field
+- (#F7F9F7) with a black stroke chevron arrow matching the hugeicons set;
+- labels are black and native-crisp for free.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(release): hugeicons on the release page, uniform android badges
+
+- Platform rows and the "Что нового" header now carry the same hugeicons
+- set the README uses (five new stroke icons in docs/icons/, referenced by
+- absolute raw URL so they resolve on release pages). armeabi-v7a/x86_64
+- badges switched to for-the-badge so all four android badges render at
+- one height. notify_telegram.py strips HTML tags before matching section
+- headers, so the decorated header keeps feeding the TG post.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.5-pre.4
+
+- feat(icons): rounded corners (r=26@128) on macOS, Windows and Linux
+
+- All desktop icons regenerated from the master with an anti-aliased
+- rounded-rect mask, radius scaled as size*26/128 (1024 -> 208). Android
+- adaptive icons are untouched — the launcher applies its own mask.
+- Regeneration script: scripts/round_icons.py.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(macos): branded drag-to-install DMG
+
+- setup.dart builds the image with create-dmg when available (brew formula,
+- installed on CI): dark green Lumina background with a white
+- drag-to-Applications arrow, 660x400 window, app icon at 165,200 and
+- Applications drop-link at 495,200, volume icon from the app bundle.
+- Success is judged by the output file (create-dmg may exit non-zero
+- without a codesign identity). Without create-dmg the plain hdiutil path
+- with a manual Applications symlink still works for local builds.
+- Background is generated deterministically by scripts/gen_dmg_background.py.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(release): versioned asset names + rich release page
+
+- GitHub release assets now carry the version
+- (dropweb-<version>-<platform>-<arch>.<ext>); the YC update bucket keeps
+- its historical fixed names — the in-app updater contract is untouched.
+- Release templates rebuilt as a centered platform matrix (logo header,
+- for-the-badge shields, macOS Intel + full Linux rows; stable adds the
+- AUR badge and a sha256 footnote). macOS runners install create-dmg for
+- the styled installer; publish-aur sha reads the raw artifact name.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.5-pre.3
+
+- ci(release): macOS Intel dmg + AUR dropweb-bin publishing
+
+- Matrix gains {macos, macos-latest, amd64} — setup.dart cross-builds the
+- Intel dmg on the arm64 runner (upstream-proven). Stable YC manifest adds
+- a macos-amd64 platform entry; the existing macos (arm64) key is
+- unchanged. New stable-only publish-aur job repacks the release .deb into
+- an AUR dropweb-bin package; it is a guarded no-op until AUR secrets
+- (AUR_SSH_PRIVATE_KEY/AUR_USERNAME/AUR_EMAIL) are configured — see
+- docs/aur-publishing.md for the one-time setup.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.5-pre.2
+
+- chore: bump build number to 2026072502 (leapfrog inflated versionCode in the field)
+
+- Devices that installed the mistyped 2026072501 build (date typo 25.07 vs 05.07) refused date-correct codes as downgrades; 2026072502 leapfrogs it. Numbering self-heals after 2026-07-25.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(theme): logoStyle — 6th dropweb-theme field switches card logo layout
+
+- `dropweb-theme: <filter>,<accent>,<orb1>,<orb2>,<blur>[,<logoStyle>]`.
+- `watermark` (default) keeps the accent-keyed corner-bleed mark on the
+- dashboard subscription card; `inline` renders the provider's dropweb-logo
+- raw at 32px left of the service name, letting panels pick the layout per
+- brand. Parsed leniently from the raw header at render time
+- (missing/unknown -> watermark, old 5-field panels unaffected); gated by
+- the existing user logo toggle; profiles list keeps the watermark.
+- Contract documented in docs/subscription-headers.md.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.5-pre.1
+
+- chore: bump to 0.8.5 for smoothness-pack pre-release
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- chore(nav): drop dead edge-shadow decoration in CommonPageTransition
+
+- _primaryShadowAnimation was computed every transition but never rendered
+- (build() returns two SlideTransitions only).
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- perf(nav): defer heavy pushed-page bodies past the route transition
+
+- Cold pushes built the whole destination subtree in the transition's first
+- frame (measured UI 12.7ms + raster 30.4ms on Подписка, 18.8ms on
+- Настройки). DeferredPageBody shows a light placeholder during the 250ms
+- slide and fades the real body in (150ms) after the route settles. Wired
+- into showExtend page-mode (AdaptiveSheetScaffold) and SubscriptionPage.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- perf(mesh): 12.5Hz wall-clock breathe + freeze under modals/transitions
+
+- MeshBackground repainted 3 fullscreen radial gradients every vsync forever
+- (AnimationController..repeat + AnimatedBuilder): 5-6ms of raster per frame
+- at idle on Pixel 10 (@120Hz budget 8.3ms), doubled during route transitions
+- (two scaffolds = two meshes), and it kept every modal BackdropFilter
+- re-filtering at full rate because the backdrop never stopped changing.
+- The 14s ±18% alpha breathe is now sampled from the wall clock at 12.5Hz
+- via ValueNotifier, and freezes entirely while the route is covered,
+- mid-transition, backgrounded, or under OS reduce-motion.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(android): never vote for a different panel resolution via preferredDisplayModeId
+
+- The FlClash-inherited max-refresh mode picker ignored resolution. An app
+- preferredDisplayModeId vote includes the mode SIZE (APP_REQUEST_SIZE=7),
+- which outranks the user's resolution setting (=4) in DisplayModeDirector,
+- so on multi-resolution panels (Pixel 7 Pro @ Full 1440p) opening dropweb
+- force-switched the panel resolution; the flip-back on app->home hit the
+- known Pixel Launcher resolution-switch bug and wiped the bottom icon row.
+- Now we only pick among same-resolution modes and abstain when the active
+- mode is already best. Supersedes the orientation-based candidate 21b72b3.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(telegram): warn when a stable release ships without hand-written notes
+
+- Stable tag with no .github/release_notes/<tag>.md gets a workflow warning
+- annotation; the post falls back to the raw commit list.
+
+- feat(telegram): hand-written release notes for the post body
+
+- .github/release_notes/<tag>.md (committed before pushing the tag) becomes
+- the post body: optional intro paragraph + '## emoji Заголовок' sections in
+- brand Russian prose, pack emoji animated. Commits collapse into a 'Полный
+- список' details block. No file -> auto commit list as before. TEMPLATE.md
+- documents the format.
+
+- fix(telegram): plain-emoji buttons for channels
+
+- Channels silently strip icon_custom_emoji_id from inline buttons for bots
+- without a Fragment username, leaving buttons with no emoji at all. Probe
+- chat type via getChat and give channels the unicode-emoji keyboard from
+- the start; groups keep animated pack icons.
+
+- ci(telegram): brand rich-message release posts
+
+- Rewrite notify_telegram.py (stale FlClashX sendMessage copy) around Bot API
+- 10.1 sendRichMessage: custom emoji from dropwebpackv1 in heading/sections/
+- table, README hero banner (tag-pinned raw URL, main fallback), changelog
+- collapsed into <details>, bordered download table with platform icons,
+- branded buttons (icon_custom_emoji_id + success style), footer. Parses both
+- the curated '## Что нового' release.md section and legacy raw subjects;
+- 3-step degradation rich+icons -> rich+plain -> legacy HTML post with
+- expandable quote. Stable posts go to TELEGRAM_CHAT_IDS (YC links),
+- pre-releases to TELEGRAM_PRERELEASE_CHAT_IDS (GitHub links); forum topics
+- via 'chat_id:thread_id'. Add tg-post.yaml manual tester mirroring the
+- release pipeline.
+
 ## v0.8.5
 
 - docs: update README screenshots (hub, menu, select)
