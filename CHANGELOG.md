@@ -1,3 +1,632 @@
+## v0.8.6
+
+- Merge origin/main changelog into dev for v0.8.6
+
+- chore(release): prepare v0.8.6 stable
+
+- fix(release): reject non-pack Telegram section emoji
+
+- fix(core): track JLS custom fingerprint support
+
+- chore(core): sync mihomo 1.19.29 dependencies
+
+- Refresh the parent core module graph for the new JLS packages, ShadowTLS rewrite, and tailscale revision required by the rebased submodule.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- chore(core): update mihomo to 1.19.29
+
+- Track dropweb-core-1.19.29 and pin the locally verified rebased core at 0e621041.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(helper): treat app inspection failures as unknown, not dead
+
+- The liveness probe collapsed every Win32 inspection failure into
+
+- "dead", and a dead app with an exact core and a silent bridge
+
+- authorizes termination - an inspection error is not proof of death.
+
+- App observation is now tri-state: Dead only after a successful
+
+- snapshot shows the PID absent or the creation FILETIME proves the
+
+- PID was recycled; Live only after PID, creation time and session all
+
+- match; any snapshot, open or query failure stays Unknown and answers
+
+- 409 without touching the process or the lease. Reconcile logs now
+
+- carry the liveness classification.
+
+- fix(helper): reconcile stale retained owner instead of permanent 409
+
+- An unclean app exit left the helper's in-memory retained identity
+- bound to the dead process, so every /start from a restarted app hit
+- the unconditional mismatch conflict before any reconciliation and
+- the user could not reconnect until the service restarted. A retained
+- owner mismatch now first observes the child handle (already-exited
+- children clear the owner and only a matching lease), and a live child
+- goes through the same pure lease policy as on-disk state: provably
+- dead app with a silent bridge is stopped by exact identity and start
+- continues; live or ambiguous ownership still answers 409. New e2e
+- app-crash-reconcile probe force-kills the fixture app without /stop
+- and requires the very next /start to return 200 with the same helper
+- service process.
+
+- fix(windows): show existing pending state while connecting
+
+- Wave 4 of helper/core lifecycle hardening (pre-stable):
+- - the existing isConnecting notifier now also covers the desktop
+-   listener start: set before startListener, held across the entire
+-   logical connect loop including the single poisoned-generation
+-   recovery, released only by the owning finally - the dashboard shows
+-   the already-shipped dimmed/disabled affordance instead of looking
+-   idle or falsely connected
+- - desktop startTime is set only after the typed listener success, so
+-   the pending UI never coexists with a running connected timer;
+-   Android ack semantics unchanged; zero visual diff to StartButton
+- - CI-only allowlisted holdConnecting plan operation (absolute
+-   ready/release paths, strict schema) lets the runner render the
+-   affordance deterministically; windows-e2e captures
+-   dashboard-connecting.png before the real import/connect journey and
+-   fails the pending-rendered check when the file is missing - no
+-   pixel-golden analysis
+
+- fix(core): type tun start outcome and poison timeouts
+
+- Wave 3 of helper/core lifecycle hardening (pre-stable):
+- - startListener returns a typed object {ok, tunError} instead of a
+-   bare bool; the real core cause survives verbatim, an empty cause
+-   gets a deterministic fallback; ResetConnection only on success
+- - the app parses the result into a sealed outcome; malformed payloads
+-   fail closed as protocol errors, never a silent false
+- - a real tunError clears startTime, does one bounded rollback, logs the
+-   exact cause and surfaces it typed; it is never auto-restarted
+- - the 30s RPC timeout no longer queues a fire-and-forget stopListener
+-   behind the held runLock; it poisons the exact generation and allows
+-   exactly one exact-identity helper replacement plus one retry, on a
+-   policy separate from the boot retry backoffs and realign budget;
+-   a second timeout keeps the honest pre.8 message verbatim
+- - late replies into a poisoned generation cannot complete a new
+-   logical start; recovery fails closed when the exact helper identity
+-   is gone; Android FFI semantics unchanged
+
+- ci(windows): compare exact FILETIME, not CIM, against helper identity
+
+- Win32_Process.CreationDate loses sub-millisecond precision, so the
+- fixture's equality check against the helper's exact GetProcessTimes
+- FILETIME could never pass. The fixture keeps taking the PID from the
+- exact-path CIM enumeration but reads the creation time for the
+- response comparison via .NET Process.StartTime, which round-trips
+-  the exact FILETIME. CIM-vs-CIM comparisons stay unchanged.
+
+- fix(helper): strip extended-length prefix from canonical paths
+
+- InstallScope canonicalized the core path with GetFinalPathNameByHandleW
+- but kept the \\?\ prefix, so CreateProcessW spawned the child with an
+- extended-length application path and Win32_Process.ExecutablePath
+- reported \\?\C:\... - invisible to every plain exact-path comparison
+- (the e2e counter saw zero cores while the core was alive; its earlier
+- "death" was the post-throw fixture EOF). One shared strip handles
+- \\?\ and \\?\UNC\ across canonicalize_path, process-path queries and
+- path_eq, with pure unit tests. The plan's risk list called this exact
+- trap: the \\?\ prefix must be removed uniformly.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- ci(windows): capture helper logs and name child-ending reasons
+
+- The import-connect fixture sees the freshly spawned core die right
+
+- after a valid hello, and no artifact explains why. Helper now logs
+
+- every child-ending decision with a reason and identity (never the
+
+- token); the core logs why its action loop or server loop ended to
+
+- stderr, which lands in helper /logs; e2e saves /logs on fixture
+
+- failure, after the lifecycle probes and in the scenario finally,
+
+- plus a diagnostic-only process dump on fixture count mismatch.
+
+- fix(helper): own lifecycle dir as SYSTEM and restore direct fallback
+
+- LocalSystem's default object owner is BUILTIN\Administrators, so the
+- strict SYSTEM-owner verification rejected the helper's own freshly
+- created lifecycle directory and every /start answered 500. The
+- directory (and temp lease) now get an explicit O:SY owner plus a
+- protected inheritable SYSTEM/Administrators DACL before the strict
+- check runs. App side: only a typed 409 conflict refuses to fall back;
+- any other helper failure logs its decoded cause and degrades to
+- direct spawn as before. Helper 5xx bodies are decoded for diagnostics.
+- E2E plan-result property reads are StrictMode-safe when the app died
+- before writing them.
+
+- chore(analyze): drop unused imports and parameter
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(helper): bind core lifecycle to run token lease
+
+- Wave 2 of helper/core lifecycle hardening (pre-stable):
+- - one cross-process runToken (128-bit, 32-hex, per spawn attempt,
+-   generated by the app, echoed by helper, carried in core argv)
+- - install-scoped Global mutex serializes /start, /stop and SCM stop;
+-   lease at %ProgramData%\dropweb\lifecycle\<install-id>.json with
+-   SYSTEM/Administrators-only ACL, atomic replace, recovery semantics
+- - helper /start re-derives app identity (pid, creation FILETIME,
+-   session), reconciles lease and exact-path legacy candidates with
+-   revalidate-before-terminate; a live foreign session gets HTTP 409
+-   activeInAnotherSession instead of any kill
+- - /stop is a typed StopCoreRequest matching the exact retained
+-   {pid, creationTime, path, runToken}; empty body no longer succeeds
+- - core sends a newline-framed dropweb-core-hello before the action
+-   loop; the app gates socket/readiness on exact token and identity
+-   match, direct spawn included; strict --run-token argv parsing
+- - windows-e2e: fixture validates start response + hello identity,
+-   two-app-identity probe asserts typed conflict and untouched first
+-   lease; token evidence is fingerprint-only
+
+- ci(windows): fix strictmode count crash in upgrade finally
+
+- PowerShell if-expression output is pipeline-enumerated: with zero
+
+- matches $x = if (c) { @(...) } else { @() } assigns $null and
+
+- .Count throws under Set-StrictMode Latest, killing the upgrade
+
+- finally on the CLEAN path and skipping the verdict write. Assign
+
+- an empty array first, then branch. Top-level dispatch now prints
+
+- position and script stack trace for any unhandled scenario failure.
+
+- ci(windows): close stable app by exact pid before overinstall
+
+- Silent CI (/SUPPRESSMSGBOXES) auto-aborts the in-use prompt with exit 5
+- when Restart Manager cannot close the tray app. Close the pinned stable
+- app deterministically (graceful, then exact-PID force) after capturing
+- live old-core identity; the survivors-by-identity assertion after the
+- candidate install is unchanged. Scenario finally-cleanup now stops
+- exact-path identities by PID instead of process names.
+
+- fix(helper): contain core in kill-on-close job
+
+- Wave 1 of helper/core lifecycle hardening (pre-stable):
+- - spawn DropwebCore via CreateProcessW suspended -> assign to
+-   JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE Job -> resume; RAII handles,
+-   typed errors, no window where the child runs outside the Job
+- - SCM Stop is truthful: handler only signals; service task reports
+-   StopPending with checkpoints, drains HTTP, stops/waits the child
+-   (10s budget, TerminateJobObject fallback), then reports Stopped
+- - /start|/stop serialized through one lifecycle owner; start refused
+-   during service shutdown
+- - Inno: fixed sleeps after `sc stop` replaced by bounded polling of
+-   real SCM state via advapi32 QueryServiceStatus (locale-independent);
+-   poll timeout is a fatal upgrade error
+- - windows-e2e: new scm-stop and helper-kill probes assert zero
+-   exact-path cores within 10s BEFORE any cleanup; upgrade scenario
+-   captures old core identity {pid,creationTime,path} and asserts zero
+-   survivors; forced-cleanup-required now fails the verdict
+
+- Update changelog
+
+## v0.8.6-pre.8
+
+- chore: bump build number to 2050000008 for v0.8.6-pre.8
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- docs(release): notes for v0.8.6-pre.8
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(tun): honest timeout message + bring-up telemetry
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(tun): give TUN listener start its own 30s deadline
+
+- Field successes at +8661/+8659/+9257ms and failures at +10001/+10004ms show the same Wintun operation racing the fixed 10s deadline. Reboots were placebo; the owner's slower driver/NDIS stack needs operation-specific headroom.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- ci(windows): never cancel tag-gating e2e runs
+
+- The v0.8.6-pre.7 tag run 29743725754 was cancelled by a concurrency collision with dev-push run 29743708523 at the same commit.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.6-pre.7
+
+- chore: bump build number to 2050000007 for v0.8.6-pre.7
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- docs(release): notes for v0.8.6-pre.7
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- ci(windows): treat ownership parse/conflict lines as fatal in healthy scenarios
+
+- Fail boot-health assertions on both ownership parse failures and helper-check conflicts, and retain either marker in the uploaded core-errors evidence.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(diagnostics): log raw connect failure before mapping
+
+- Record the start-path failure at the updateStatus boundary before the localized fallback notifier replaces its detail.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(windows): parse CRLF reg/sc output in helper ownership
+
+- Field evidence: [helper] ownership parse failed head=\r\nHKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\DropwebHelperService\r\n    ImagePath    REG_EXPAND_SZ    C:\Program Files\dropweb\DropwebHelperService.exe
+
+- reg query uses CRLF, so split('\n') left a trailing \r. Dart dot does not consume that line terminator and the per-line dollar anchor could not match the otherwise valid ImagePath.
+
+- That parse miss made ownership unknown, blocked helper-core-stop, leaked the privileged core, and left TUN held across subsequent boots until reboot.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.6-pre.6
+
+- chore: bump build number to 2050000006 for v0.8.6-pre.6
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- docs(release): notes for v0.8.6-pre.6
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ci): validate proxy egress independently
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ci): probe SOCKS through active proxy listener
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ci): align TUN route probe with obkatka contract
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ci): isolate candidate boot log during upgrade
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(tun): defer listener assertion until core start
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(tun): propagate Windows listener startup cause
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ci): repair Phase 2 Windows negative and upgrade probes
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(diagnostics): journal null imports and typed core boot failures
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- ci(windows): run Phase 2 obkatka matrix
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- ci(windows): add Phase 2 obkatka scenario harness
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(ci): connect checkpoint + waitFile sync ops for e2e plan
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(ci): versioned --ci-e2e-plan hook driving production import/connect/bundle
+
+- Bind schema-1 steps to AppController.addProfileFormURL, AppController.updateStatus, FileLogger.buildSupportBundle, and the tray-equivalent AppController.handleExit cleanup path after normal controller bootstrap.
+
+- Normal-launch inertness proof: main performs one resolveCiE2ePlanPath gate; non-desktop or DROPWEB_CI_E2E!=1 returns before argv scanning, and a missing absolute flag leaves ciE2ePlanPath null. The disclaimer mutation and Application runner branch are therefore skipped, so no CI file I/O, provider mutation, core wait, step execution, or result write occurs.
+
+- Activated runs suppress only appSetting.disclaimerAccepted before ProviderScope pumps. Import/core/helper/listener/TUN paths remain production-owned; connect records requested/effective TUN and live mixed/SOCKS observations for the CI-side judge.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(ci): add versioned CI E2E plan contract
+
+- Freeze schema 1 parsing, strict unknown-field rejection, ordered step execution, bounded per-step timeouts, secret-safe result serialization, import journal verification, and temp-plus-rename result writes.
+
+- T0 covers both activation forms, inert gating, schema rejection, ordering, first-failure stop, timeout, URL non-leakage, bounded import windows, and complete atomic JSON replacement.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.6-pre.5
+
+- chore: bump build number to 2050000005 for v0.8.6-pre.5
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- docs(release): notes for v0.8.6-pre.5
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(windows): guard AutoLaunch registry access against missing Run key
+
+- Strict windows-conflict-test run 29705477256 caught 0x80070002 when launch_at_startup opened a missing pristine-user HKCU Run key. That exception escaped through PlatformDispatcher, a fatal class in the harness.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(windows): create missing auto-launch registry keys
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ci): ignore sparse Windows uninstall keys
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ci): preserve empty listener PID arrays
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ci): make empty evidence observations strict-safe
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ci): isolate evidence-only Windows inspector
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ci): delimit ordered-marker offset in PowerShell
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- ci(windows): pin and strengthen conflict scenario
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- ci(windows): harden clean install and qualify Wintun
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- ci(windows): add strict obkatka evidence harness
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(diagnostics): include build number in support bundle header
+
+- The same field bundle that exposed the openLogs zero-core-line gap also made pre.3 and pre.4 indistinguishable as bare 0.8.6. Pass version+buildNumber through the existing bundle API so each artifact is identifiable.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(diagnostics): always write core error lines to file log
+
+- The field bundle had zero mihomo lines because the openLogs gate stopped the core subscription entirely. Keep the shared desktop/Android stream active, retain redacted errors in the file and notifier when the viewer is closed, and drop all other levels before allocation.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.6-pre.4
+
+- chore: bump build number to 2050000004 for v0.8.6-pre.4
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- docs(release): notes for v0.8.6-pre.4
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(windows): locale-independent helper ownership via registry ImagePath
+
+- sc.exe localizes BINARY_PATH_NAME (ru: ИМЯ_ДВОИЧНОГО_ФАЙЛА) so ownership read unknown on non-English Windows and the safety gate blocked our own helper stop/reinstall; query the registry ImagePath value (locale-stable) first, keep sc qc as fallback. Field evidence: pre.3 owner bundle 23:08:55/23:09:33.
+
+## v0.8.6-pre.3
+
+- chore: bump build number to 2050000003 for v0.8.6-pre.3
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- docs(release): notes for v0.8.6-pre.3
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(installer): import GetTickCount from kernel32 for Inno Pascal
+
+- Inno Setup Pascal Script has no built-in GetTickCount. The Wave 3 ping
+- wait used it bare, so ISCC aborted in the push-triggered
+- windows-clean-install and windows-conflict-test workflows.
+
+- Declare the kernel32 import next to the existing SHChangeNotify
+- precedent.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.6-pre.2
+
+- chore: bump build number to 2050000002 for v0.8.6-pre.2
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- docs(release): notes for v0.8.6-pre.2
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(desktop): first-start stabilization — boot journal, copy-logs dialog, core readiness watchdog, transactional import
+
+- R1: provider writes could re-enter profile listeners while an import was
+- only partially committed, leaving a visible profile whose headers or core
+- configuration had failed. Make URL and file imports transactional, await
+- profile application, share post-import side effects, and preserve useful
+- failure stacks.
+
+- R2: helper spawn acceptance was not core readiness, so a process that never
+- connected back could leave desktop calls pending until the app restarted.
+- Add a generation-scoped readiness machine, strict init/health probes, bounded
+- connect watchdogs, and 1/2/4-second retry teardown.
+
+- R3: scaffold gates and fire-and-forget debounce paths could silently leave an
+- import stored but unapplied. Surface actionable core errors, reset recovery
+- budgets for fresh imports, and report failure instead of a quiet no-op.
+
+- W0 adds phase-tagged journals, support bundles, and copy-logs error dialogs.
+- W1B adds desktop readiness while Android keeps its no-op FFI path. W2
+- serializes profile commit, provider side effects, and awaited apply. The
+- service-side W1A ownership call is kept with the readiness implementation.
+
+- Implementation plan and acceptance record:
+- docs/plans/2026-07-19-first-start-stabilization.md
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(installer): wait for token-verified helper ping before app launch
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(windows): gate destructive helper-service ops behind sc-qc ownership
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.6-pre.1
+
+- chore: bump build number to 2050000001 for v0.8.6-pre.1
+
+- fix(network): track one active bearer instead of the all-network set
+
+- Network identity was the sorted set of all INTERNET+NOT_VPN networks, so an
+- LTE->WiFi return reset the core twice (WiFi joining at T+2s, Android's 30s
+- cellular linger teardown at T+33s killed fresh downloads), while gradual WiFi
+- death changed nothing in the set and stale flows hung for minutes.
+
+- VpnPlugin now serializes all connectivity events through one HandlerThread
+- actor over a pure BearerTracker reducer (identity = networkHandle, baseline
+- suppression per session, loss never notifies — the reset happens when the
+- replacement commits). Registration ladder: 31+ best-matching / 28-30
+- requestNetwork (new CHANGE_NETWORK_STATE permission) / 24-27 default callback
+- with capability-based VPN rejection; never VALIDATED-gated so captive RU/KZ
+- networks stay eligible. Candidates commit only after both capabilities and
+- LinkProperties arrive (sing-box-style 10x100ms fallback), active loss gets a
+- 300ms grace, setUnderlyingNetworks receives exactly one network or null.
+
+- DNS now comes solely from the active bearer's LinkProperties (no more
+- WiFi+cell union), an empty payload travels as a meaningful clear command
+- (parseDNSPayload fixes the ""->[""] garbage slice), handleUpdateDns is
+- synchronous, and Dart awaits resetConnections before closeConnections before
+- delay invalidation. Android never closes connections from connectivity_plus
+- anymore (desktop keeps that path). Also fixes resetConnections being a silent
+- no-op: the Go dispatch constant never matched the Dart method string.
+
+- On-device (Pixel 10, API 36): WiFi-off x3 and WiFi-on-with-linger x3 produce
+- exactly one BEARER_CHANGE each, downloads survive the linger window, airplane
+- toggle = 1 total, screen off/on = 0.
+
 ## v0.8.5-pre.9
 
 - fix(macos): arch-honest dmgs, core self-heal, SIGPIPE hardening
