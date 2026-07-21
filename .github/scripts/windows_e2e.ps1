@@ -775,8 +775,11 @@ function Invoke-UpgradePreviousStable {
   } finally {
     $ownedAppPath = if ($candidatePaths) { $candidatePaths.app } elseif ($stablePaths) { $stablePaths.app } else { $null }
     $ownedCorePath = if ($candidatePaths) { $candidatePaths.core } elseif ($stablePaths) { $stablePaths.core } else { $null }
-    $ownedAppIdentities = if ($ownedAppPath) { @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $ownedAppPath) } else { @() }
-    $ownedCoreIdentities = if ($ownedCorePath) { @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $ownedCorePath) } else { @() }
+    # if-expression output is pipeline-enumerated to $null/scalar; never take .Count from it under StrictMode.
+    $ownedAppIdentities = @()
+    if ($ownedAppPath) { $ownedAppIdentities = @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $ownedAppPath) }
+    $ownedCoreIdentities = @()
+    if ($ownedCorePath) { $ownedCoreIdentities = @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $ownedCorePath) }
     $ownedAppCount = $ownedAppIdentities.Count
     $ownedCoreCount = $ownedCoreIdentities.Count
     if ($ownedAppCount -gt 0 -or $ownedCoreCount -gt 0) {
@@ -790,11 +793,19 @@ function Invoke-UpgradePreviousStable {
   return (Complete-E2EScenario -ScenarioName 'upgrade-previous-stable')
 }
 
-$passed = switch ($Scenario) {
-  'import-connect' { Invoke-ImportConnect }
-  'invalid-subscription' { Invoke-InvalidSubscription }
-  'broken-core' { Invoke-BrokenCore }
-  'upgrade-previous-stable' { Invoke-UpgradePreviousStable }
+$passed = $false
+try {
+  $passed = switch ($Scenario) {
+    'import-connect' { Invoke-ImportConnect }
+    'invalid-subscription' { Invoke-InvalidSubscription }
+    'broken-core' { Invoke-BrokenCore }
+    'upgrade-previous-stable' { Invoke-UpgradePreviousStable }
+  }
+} catch {
+  Write-Host "::error::unhandled scenario failure: $($_.Exception.Message)"
+  Write-Host $_.InvocationInfo.PositionMessage
+  Write-Host $_.ScriptStackTrace
+  $passed = $false
 }
 
 if (-not $passed) { exit 1 }
