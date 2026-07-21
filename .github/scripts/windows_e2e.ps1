@@ -710,14 +710,23 @@ function Invoke-UpgradePreviousStable {
     $script:Metadata.upgradeOldCoreIdentities = $oldCoreIdentities
     [void](Write-ObkatkaInstallIdentitySnapshot -Paths $stablePaths -Label 'stable live before candidate overinstall' -FileName 'identity-before-upgrade.json')
 
+    # Silent CI uses /SUPPRESSMSGBOXES, so an in-use prompt auto-aborts with exit 5
+    # when the tray app resists Restart Manager. Interactive upgrades keep Inno's
+    # normal close-applications prompt; live-GUI overinstall remains a manual field scenario.
+    $gracefulClose = $stableApp.CloseMainWindow()
+    $stableAppExited = Wait-ObkatkaProcessExit -Process $stableApp -TimeoutSeconds 5
+    if (-not $stableAppExited) {
+      Stop-Process -Id $stableApp.Id -Force -ErrorAction SilentlyContinue
+      $stableAppExited = Wait-ObkatkaProcessExit -Process $stableApp -TimeoutSeconds 10
+    }
+    Add-E2ECheck -Name 'stable-app-closed-before-upgrade' -Passed $stableAppExited -Detail "graceful=$gracefulClose pid=$($stableApp.Id)"
+
     $preCandidateLog = Find-ObkatkaAppLog
     $preCandidateLineCount = if ($preCandidateLog) { @(Get-Content -LiteralPath $preCandidateLog.FullName).Count } else { 0 }
 
     $candidateInstaller = Get-CandidateInstaller
     $candidateInstall = Install-ObkatkaInstaller -InstallerPath $candidateInstaller.FullName
     Add-E2ECheck -Name 'candidate-overinstall-exit' -Passed ($candidateInstall.ExitCode -eq 0) -Detail "exit=$($candidateInstall.ExitCode)"
-    $stableApp.Refresh()
-    Add-E2ECheck -Name 'upgrade-closed-stable-app' -Passed $stableApp.HasExited -Detail "oldAppPid=$($stableApp.Id)"
     $candidatePaths = Get-ObkatkaInstalledPaths
     [void](Write-ObkatkaInstallIdentitySnapshot -Paths $candidatePaths -Label 'candidate after overinstall' -FileName 'identity-after-upgrade.json')
     $versionLine = (Select-String -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'pubspec.yaml') -Pattern '^version:\s*(\S+)' | Select-Object -First 1).Matches[0].Groups[1].Value
@@ -766,11 +775,15 @@ function Invoke-UpgradePreviousStable {
   } finally {
     $ownedAppPath = if ($candidatePaths) { $candidatePaths.app } elseif ($stablePaths) { $stablePaths.app } else { $null }
     $ownedCorePath = if ($candidatePaths) { $candidatePaths.core } elseif ($stablePaths) { $stablePaths.core } else { $null }
-    $ownedAppCount = if ($ownedAppPath) { @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $ownedAppPath).Count } else { 0 }
-    $ownedCoreCount = if ($ownedCorePath) { @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $ownedCorePath).Count } else { 0 }
+    $ownedAppIdentities = if ($ownedAppPath) { @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $ownedAppPath) } else { @() }
+    $ownedCoreIdentities = if ($ownedCorePath) { @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $ownedCorePath) } else { @() }
+    $ownedAppCount = $ownedAppIdentities.Count
+    $ownedCoreCount = $ownedCoreIdentities.Count
     if ($ownedAppCount -gt 0 -or $ownedCoreCount -gt 0) {
       $script:Metadata['forced-cleanup-required'] = $true
-      Stop-ObkatkaAppProcesses
+      foreach ($ownedIdentity in @($ownedAppIdentities + $ownedCoreIdentities)) {
+        Stop-Process -Id $ownedIdentity.pid -Force -ErrorAction SilentlyContinue
+      }
     }
   }
   $script:Checks.Add((New-ObkatkaCheck -Name 'forced-cleanup-required' -Status $(if ($script:Metadata['forced-cleanup-required']) { 'FAIL' } else { 'PASS' }) -Detail "required=$($script:Metadata['forced-cleanup-required'])"))
