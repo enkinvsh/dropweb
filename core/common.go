@@ -155,6 +155,37 @@ func shouldFailMissingTunListener(running, requested, effective bool) bool {
 	return running && requested && !effective
 }
 
+// tunStartFallbackError is the deterministic, non-empty cause reported when the
+// TUN listener failed to come up but the core surfaced no native error string.
+// Dart maps a null/empty tunError to a false "ok" default, so an empty cause on
+// a genuine failure must never leak — the boundary needs a concrete cause.
+const tunStartFallbackError = "tun listener failed to start (no core error reported)"
+
+// StartListenerResult is the typed outcome of handleStartListener. It is always
+// serialized as a JSON object (never a bare bool) so the Dart boundary can tell
+// apart a proxy-only/effective success from a real synchronous TUN failure. A
+// 30s RPC timeout is a separate, Dart-side outcome and never produces this type.
+type StartListenerResult struct {
+	Ok       bool    `json:"ok"`
+	TunError *string `json:"tunError"`
+}
+
+// startListenerResult is the pure predicate behind handleStartListener: it maps
+// (tun requested, tun effective, native cause) onto the typed wire result.
+//   - not requested, or requested and effective -> ok, no error.
+//   - requested but not effective -> not ok; the exact native cause is preserved
+//     verbatim, or the deterministic fallback when the core reported none.
+func startListenerResult(requested, effective bool, tunError string) StartListenerResult {
+	if !requested || effective {
+		return StartListenerResult{Ok: true, TunError: nil}
+	}
+	cause := tunError
+	if cause == "" {
+		cause = tunStartFallbackError
+	}
+	return StartListenerResult{Ok: false, TunError: &cause}
+}
+
 // proxiesWithProviders merges tunnel proxies with provider proxies.
 // Replaces tunnel.ProxiesWithProviders() removed from the mihomo core.
 func proxiesWithProviders() map[string]constant.Proxy {

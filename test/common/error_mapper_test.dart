@@ -1,4 +1,4 @@
-import 'package:dropweb/clash/interface.dart';
+import 'package:dropweb/clash/start_listener_result.dart';
 import 'package:dropweb/common/error_mapper.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';

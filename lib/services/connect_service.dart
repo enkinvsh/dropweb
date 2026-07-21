@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dropweb/clash/clash.dart';
-import 'package:dropweb/clash/interface.dart';
 import 'package:dropweb/common/connect_trace.dart';
 import 'package:dropweb/common/error_mapper.dart';
 import 'package:dropweb/controller.dart';
@@ -11,6 +10,7 @@ import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/plugins/vpn.dart';
 import 'package:dropweb/providers/providers.dart';
+import 'package:dropweb/services/tun_start_recovery.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/widgets.dart';
@@ -143,7 +143,7 @@ class ConnectService {
     });
   }
 
-  Future<void> restartCore() async {
+  Future<void> restartCore({bool recoverPoisonedTunGeneration = false}) async {
     commonPrint.log("restart core");
     // A restarted core process starts UNCONFIGURED. The content-hash gate in
     // _setupClashConfig compares against the last SUCCESSFUL setup of the
@@ -151,7 +151,11 @@ class ConnectService {
     // the setup entirely, leaving the fresh core with no proxies/rules while
     // the UI claims connected. A new process must never hit the cache.
     globalState.appController.invalidateSetupHash();
-    await clashService?.reStart();
+    if (recoverPoisonedTunGeneration) {
+      await clashService?.recoverPoisonedTunGeneration();
+    } else {
+      await clashService?.reStart();
+    }
     await globalState.appController.initCore();
     if (_ref.read(runTimeProvider.notifier).isStart) {
       await globalState.handleStart();
@@ -350,11 +354,11 @@ class ConnectService {
       final startStopwatch = Stopwatch()..start();
       bool? started;
       try {
-        started = await globalState.handleStart([
-          updateRunTime,
-          updateTraffic,
-        ]);
+        started = await _startWithTunRecovery();
       } on StartListenerTimeoutException catch (error) {
+        // Terminal outcome: the initial start AND the one exact-generation
+        // recovery both timed out. Keep the shipped pre.8 honest wording (it is
+        // mapped from the timeout string) — never a zombie / other-VPN claim.
         startStopwatch.stop();
         await StatusBarManager.updateIcon(isConnected: false);
         commonPrint.log(
@@ -362,6 +366,30 @@ class ConnectService {
         );
         globalState.showNotifier(
           ErrorMapper.mapError(error.toString()) ?? ErrorMapper.vpnStartFailed,
+        );
+        return;
+      } on TunStartException catch (error) {
+        // Real synchronous core cause: final, never auto-restarted. Surface the
+        // exact cause verbatim (mapped where a pattern truly matches; otherwise
+        // shown raw). The file log already carries the cause from handleStart.
+        startStopwatch.stop();
+        await StatusBarManager.updateIcon(isConnected: false);
+        commonPrint.log(
+          '[connect] start failed after ${startStopwatch.elapsedMilliseconds}ms: $error',
+        );
+        globalState.showNotifier(
+          ErrorMapper.mapError(error.cause) ?? error.cause,
+        );
+        return;
+      } on CoreBootException catch (error) {
+        startStopwatch.stop();
+        await StatusBarManager.updateIcon(isConnected: false);
+        commonPrint.log(
+          '[connect] lifecycle recovery failed after '
+          '${startStopwatch.elapsedMilliseconds}ms: $error',
+        );
+        globalState.showNotifier(
+          ErrorMapper.mapError(error.toString()) ?? error.toString(),
         );
         return;
       }
@@ -425,6 +453,32 @@ class ConnectService {
       _ref.read(runTimeProvider.notifier).value = null;
       globalState.appController.addCheckIpNumDebounce();
     }
+  }
+
+  /// Desktop TUN start with the plan's exact two-element recovery policy,
+  /// kept separate from [requestAdmin]'s [_coreRealignAttempts] budget and from
+  /// the readiness machine's connect-back [retryBackoffs]. One first
+  /// [StartListenerTimeoutException] buys exactly one poison + exact-identity
+  /// helper restart + strict init, then one retry; a second timeout is terminal
+  /// and re-thrown so the caller shows the shipped honest wording. A real
+  /// [TunStartException] never triggers recovery and propagates verbatim.
+  Future<bool?> _startWithTunRecovery() async {
+    bool? started;
+    final recoveryOutcome = await runTunStartRecovery(
+      start: () async {
+        started = await globalState.handleStart([
+          updateRunTime,
+          updateTraffic,
+        ]);
+      },
+      recover: () async {
+        await restartCore(recoverPoisonedTunGeneration: true);
+      },
+    );
+    if (recoveryOutcome == TunStartRecovery.timedOut) {
+      throw StartListenerTimeoutException(const Duration(seconds: 30));
+    }
+    return started;
   }
 
   void updateRunTime() {

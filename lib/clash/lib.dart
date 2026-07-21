@@ -14,6 +14,7 @@ import 'package:dropweb/state.dart';
 
 import 'generated/clash_ffi.dart';
 import 'interface.dart';
+import 'start_listener_result.dart';
 
 class ClashLib extends ClashHandlerInterface with AndroidClashInterface {
 
@@ -329,9 +330,9 @@ class ClashLibHandler {
     return Traffic.fromMap(json.decode(trafficString));
   }
 
-  Future<bool> startListener() async {
+  Future<StartListenerOutcome> startListener() async {
     clashFFI.startListener();
-    return true;
+    return const StartListenerOk();
   }
 
   Future<bool> stopListener() async {

@@ -303,24 +303,39 @@ class GlobalState {
       if (!needsTunAck) {
         startTime ??= DateTime.now();
       }
-      final listenerStarted = await clashCore.startListener();
-      ConnectTrace.mark('startListener.done');
-      // Desktop only: the core is a separate process behind the socket
-      // bridge, and startListener carries a dedicated 30s invoke timeout.
-      // Ignoring a false reply reported a successful connect with no core
-      // listening. A timeout throws separately so the caller can distinguish
-      // a slow Wintun/NDIS bring-up from a real listener failure. Android keeps
-      // its existing semantics — the FFI call and the TUN-ack path below
-      // already own failure handling there.
-      if (system.isDesktop && !listenerStarted) {
+      // The typed outcome distinguishes three cases the old bare bool could
+      // not: ok, a real synchronous tunError (final cause), and — thrown
+      // separately from interface.dart — the 30s RPC timeout. A timeout is NOT
+      // caught here: it propagates to ConnectService, which owns the single
+      // exact-generation poison/replace recovery. Issuing a fire-and-forget
+      // stopListener on timeout only queues another operation behind the same
+      // held runLock, so it is deliberately absent.
+      final StartListenerOutcome outcome;
+      try {
+        outcome = await clashCore.startListener();
+      } on StartListenerTimeoutException {
         startTime = null;
-        // Best-effort rollback for a listener the core may still bring up
-        // late after a failed reply. Fire-and-forget on purpose:
-        // stopListener has no invoke timeout and sendMessage blocks on the
-        // bridge socket — awaiting it here would hang handleStart on exactly
-        // the wedged core this branch exists to escape.
-        unawaited(clashCore.stopListener());
-        return false;
+        rethrow;
+      }
+      ConnectTrace.mark('startListener.done');
+      switch (outcome) {
+        case StartListenerTunError(:final cause):
+          startTime = null;
+          commonPrint.log('[connect] tun error: $cause');
+          try {
+            await clashCore.stopListener().timeout(const Duration(seconds: 5));
+          } on TimeoutException {
+            commonPrint.log(
+              '[connect] tun error rollback timed out: $cause',
+            );
+          } catch (error) {
+            commonPrint.log(
+              '[connect] tun error rollback failed: $error; cause=$cause',
+            );
+          }
+          throw TunStartException(cause);
+        case StartListenerOk():
+          break;
       }
       final started = await service?.startVpn();
       ConnectTrace.mark('startVpn.done');

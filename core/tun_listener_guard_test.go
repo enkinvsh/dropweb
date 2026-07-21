@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestShouldFailMissingTunListener(t *testing.T) {
 	tests := []struct {
@@ -23,4 +26,81 @@ func TestShouldFailMissingTunListener(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStartListenerResult(t *testing.T) {
+	tests := []struct {
+		name      string
+		requested bool
+		effective bool
+		tunError  string
+		wantOK    bool
+		wantError *string
+	}{
+		{
+			name:      "proxy only succeeds",
+			requested: false,
+			effective: false,
+			wantOK:    true,
+		},
+		{
+			name:      "requested effective tun succeeds",
+			requested: true,
+			effective: true,
+			wantOK:    true,
+		},
+		{
+			name:      "native tun failure preserves exact cause",
+			requested: true,
+			effective: false,
+			tunError:  "wintun: adapter is already in use",
+			wantOK:    false,
+			wantError: stringPointer("wintun: adapter is already in use"),
+		},
+		{
+			name:      "empty native cause uses deterministic fallback",
+			requested: true,
+			effective: false,
+			wantOK:    false,
+			wantError: stringPointer(tunStartFallbackError),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := startListenerResult(test.requested, test.effective, test.tunError)
+
+			if result.Ok != test.wantOK {
+				t.Fatalf("StartListenerResult.Ok = %v, want %v", result.Ok, test.wantOK)
+			}
+			if !equalOptionalString(result.TunError, test.wantError) {
+				t.Fatalf("StartListenerResult.TunError = %v, want %v", result.TunError, test.wantError)
+			}
+			payload, err := json.Marshal(result)
+			if err != nil {
+				t.Fatalf("json.Marshal(StartListenerResult): %v", err)
+			}
+			var object map[string]any
+			if err := json.Unmarshal(payload, &object); err != nil {
+				t.Fatalf("json.Unmarshal(StartListenerResult): %v", err)
+			}
+			if _, exists := object["ok"]; !exists {
+				t.Fatal("serialized StartListenerResult is missing ok")
+			}
+			if _, exists := object["tunError"]; !exists {
+				t.Fatal("serialized StartListenerResult is missing tunError")
+			}
+		})
+	}
+}
+
+func stringPointer(value string) *string {
+	return &value
+}
+
+func equalOptionalString(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }

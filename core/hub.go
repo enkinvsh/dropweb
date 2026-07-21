@@ -22,6 +22,7 @@ import (
 	"github.com/metacubex/mihomo/component/updater"
 	"github.com/metacubex/mihomo/config"
 	"github.com/metacubex/mihomo/constant"
+	"github.com/metacubex/mihomo/constant/features"
 	cp "github.com/metacubex/mihomo/constant/provider"
 	"github.com/metacubex/mihomo/hub/executor"
 	"github.com/metacubex/mihomo/listener"
@@ -30,11 +31,11 @@ import (
 )
 
 var (
-	isInit                = false
-	externalProviders     = map[string]cp.Provider{}
-	logSubscriber         observable.Subscription[log.Event]
-	logMux                sync.Mutex
-	proxyDescriptions     = map[string]string{} // Store serverDescription for each proxy
+	isInit            = false
+	externalProviders = map[string]cp.Provider{}
+	logSubscriber     observable.Subscription[log.Event]
+	logMux            sync.Mutex
+	proxyDescriptions = map[string]string{} // Store serverDescription for each proxy
 )
 
 func handleInitClash(paramsString string) bool {
@@ -59,13 +60,27 @@ func handleInitClash(paramsString string) bool {
 	return isInit
 }
 
-func handleStartListener() bool {
+func handleStartListener() StartListenerResult {
 	runLock.Lock()
 	defer runLock.Unlock()
 	isRunning = true
 	updateListeners()
+
+	requested := currentConfig != nil &&
+		!features.Android &&
+		currentConfig.General.Tun.Enable
+	if !requested {
+		resolver.ResetConnection()
+		return startListenerResult(false, false, "")
+	}
+
+	effective := listener.GetTunConf().Enable
+	if !effective {
+		return startListenerResult(true, false, listener.GetTunLastError())
+	}
+
 	resolver.ResetConnection()
-	return true
+	return startListenerResult(true, true, "")
 }
 
 func handleStopListener() bool {
@@ -110,10 +125,10 @@ func extractProxyDescriptionsFromRaw(rawConfig *config.RawConfig) {
 	if rawConfig == nil || rawConfig.Proxy == nil {
 		return
 	}
-	
+
 	// Clear previous descriptions
 	proxyDescriptions = make(map[string]string)
-	
+
 	// Extract serverDescription from each proxy
 	for _, proxyMap := range rawConfig.Proxy {
 		if name, ok := proxyMap["name"].(string); ok {
@@ -128,7 +143,7 @@ func handleGetProxies() interface{} {
 	runLock.Lock()
 	defer runLock.Unlock()
 	proxies := proxiesWithProviders()
-	
+
 	// Convert to map for JSON manipulation
 	result := make(map[string]interface{})
 	for name, proxy := range proxies {
@@ -138,7 +153,7 @@ func handleGetProxies() interface{} {
 			result[name] = proxy
 			continue
 		}
-		
+
 		// Unmarshal to map
 		var proxyMap map[string]interface{}
 		err = json.Unmarshal(proxyJSON, &proxyMap)
@@ -146,15 +161,15 @@ func handleGetProxies() interface{} {
 			result[name] = proxy
 			continue
 		}
-		
+
 		// Add serverDescription if exists
 		if desc, ok := proxyDescriptions[name]; ok {
 			proxyMap["serverDescription"] = desc
 		}
-		
+
 		result[name] = proxyMap
 	}
-	
+
 	return result
 }
 

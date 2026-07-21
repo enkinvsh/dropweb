@@ -173,7 +173,12 @@ func handleAction(action *Action, result ActionResult) {
 		result.success(true)
 		return
 	case startListenerMethod:
-		result.success(handleStartListener())
+		payload, err := json.Marshal(handleStartListener())
+		if err != nil {
+			result.error(err.Error())
+			return
+		}
+		result.success(string(payload))
 		return
 	case stopListenerMethod:
 		result.success(handleStopListener())

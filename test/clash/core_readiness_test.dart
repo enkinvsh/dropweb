@@ -215,6 +215,124 @@ void main() {
     });
   });
 
+  test('poisoned recovery tears down exact old attempt before one new spawn',
+      () {
+    fakeAsync((async) {
+      final initialized = <CoreBootAttempt>[];
+      final teardowns = <CoreBootAttempt>[];
+      late CoreReadinessMachine machine;
+      machine = CoreReadinessMachine(
+        bind: (_) async {},
+        spawn: (_) async {},
+        initialize: (attempt) async => initialized.add(attempt),
+        teardown: (attempt) async => teardowns.add(attempt),
+        connectBackTimeout: _connectTimeout,
+        retryBackoffs: _retryBackoffs,
+      );
+
+      machine.restart();
+      async.flushMicrotasks();
+      final live = machine.currentAttempt!;
+      expect(machine.acceptConnection(live), isTrue);
+      async.flushMicrotasks();
+      expect(machine.phase, CoreBootPhase.ready);
+
+      final poisonedGeneration = machine.generation;
+      machine.recoverPoisonedGeneration();
+
+      // The poisoned generation is retired: its attempt is no longer current,
+      // so no late bridge callback can accept a connection, report a failure,
+      // or flip the machine back to a live phase.
+      expect(machine.generation, greaterThan(poisonedGeneration));
+      expect(machine.currentAttempt, isNull);
+      expect(machine.acceptConnection(live), isFalse);
+      expect(
+        machine.reportAttemptFailure(live, StateError('late poisoned reply')),
+        isFalse,
+      );
+      expect(machine.canAcceptConnection(live), isFalse);
+
+      async.flushMicrotasks();
+      final recovered = machine.currentAttempt!;
+      expect(recovered.generation, greaterThan(poisonedGeneration));
+      expect(machine.acceptConnection(recovered), isTrue);
+      async.flushMicrotasks();
+      expect(machine.phase, CoreBootPhase.ready);
+      expect(initialized, [live, recovered]);
+      expect(teardowns, [live]);
+    });
+  });
+
+  test('poisoned recovery uses one spawn attempt without normal backoffs', () {
+    fakeAsync((async) {
+      var spawns = 0;
+      CoreBootException? failure;
+      late CoreReadinessMachine machine;
+      machine = CoreReadinessMachine(
+        bind: (_) async {},
+        spawn: (attempt) async {
+          spawns++;
+          if (attempt.generation > 1) {
+            throw StateError('replacement spawn failed');
+          }
+        },
+        initialize: (_) async {},
+        teardown: (_) async {},
+        connectBackTimeout: _connectTimeout,
+        retryBackoffs: _retryBackoffs,
+      );
+
+      machine.restart();
+      async.flushMicrotasks();
+      expect(machine.acceptConnection(machine.currentAttempt!), isTrue);
+      async.flushMicrotasks();
+      expect(machine.phase, CoreBootPhase.ready);
+
+      machine.recoverPoisonedGeneration().catchError((Object error) {
+        failure = error as CoreBootException;
+      });
+      async.flushMicrotasks();
+      async.elapse(const Duration(seconds: 30));
+      async.flushMicrotasks();
+
+      expect(spawns, 2);
+      expect(failure?.cause, isA<StateError>());
+      expect(machine.phase, CoreBootPhase.failed);
+    });
+  });
+
+  test('poisoned recovery fails before spawn when exact teardown fails', () {
+    fakeAsync((async) {
+      var spawns = 0;
+      CoreBootException? failure;
+      late CoreReadinessMachine machine;
+      machine = CoreReadinessMachine(
+        bind: (_) async {},
+        spawn: (attempt) async {
+          spawns++;
+        },
+        initialize: (_) async {},
+        teardown: (_) async => throw StateError('helper identity mismatch'),
+        connectBackTimeout: _connectTimeout,
+        retryBackoffs: _retryBackoffs,
+      );
+
+      machine.restart();
+      async.flushMicrotasks();
+      expect(machine.acceptConnection(machine.currentAttempt!), isTrue);
+      async.flushMicrotasks();
+
+      machine.recoverPoisonedGeneration().catchError((Object error) {
+        failure = error as CoreBootException;
+      });
+      async.flushMicrotasks();
+
+      expect(spawns, 1);
+      expect(failure?.cause, isA<StateError>());
+      expect(machine.phase, CoreBootPhase.failed);
+    });
+  });
+
   test('reentrant restart during binding shares the current generation', () {
     fakeAsync((async) {
       var bindCalls = 0;

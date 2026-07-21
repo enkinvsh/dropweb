@@ -196,7 +196,32 @@ final class CoreReadinessMachine {
       return _readinessCompleter!.future;
     }
 
+    return _startGeneration(_currentAttempt, _retryBackoffs);
+  }
+
+  Future<void> recoverPoisonedGeneration() {
     final previousAttempt = _currentAttempt;
+    if (previousAttempt == null) {
+      throw CoreBootException(
+        phase: _phase,
+        generation: _generation,
+        attempt: 0,
+        cause: StateError('poisoned core identity is absent'),
+      );
+    }
+    ++_generation;
+    _currentAttempt = null;
+    _connectionCompleter = null;
+    _attemptFailureCompleter = null;
+    _readinessCompleter = null;
+    _runInFlight = null;
+    return _startGeneration(previousAttempt, const []);
+  }
+
+  Future<void> _startGeneration(
+    CoreBootAttempt? previousAttempt,
+    List<Duration> retryBackoffs,
+  ) {
     final generation = ++_generation;
     final readinessCompleter = Completer<void>();
     _readinessCompleter = readinessCompleter;
@@ -204,7 +229,11 @@ final class CoreReadinessMachine {
 
     final trackedRun = readinessCompleter.future;
     _runInFlight = trackedRun;
-    final operation = _runGeneration(generation, previousAttempt);
+    final operation = _runGeneration(
+      generation,
+      previousAttempt,
+      retryBackoffs,
+    );
     unawaited(readinessCompleter.future.catchError((Object _) {}));
     unawaited(
       operation.then<void>(
@@ -274,6 +303,7 @@ final class CoreReadinessMachine {
   Future<void> _runGeneration(
     int generation,
     CoreBootAttempt? previousAttempt,
+    List<Duration> retryBackoffs,
   ) async {
     _setPhase(
       CoreBootPhase.binding,
@@ -295,7 +325,7 @@ final class CoreReadinessMachine {
       );
     }
 
-    final totalAttempts = _retryBackoffs.length + 1;
+    final totalAttempts = retryBackoffs.length + 1;
     for (var attemptNumber = 1;
         attemptNumber <= totalAttempts;
         attemptNumber++) {
@@ -355,7 +385,7 @@ final class CoreReadinessMachine {
         _fail(failure, attempt);
       }
 
-      await Future<void>.delayed(_retryBackoffs[attemptNumber - 1]);
+      await Future<void>.delayed(retryBackoffs[attemptNumber - 1]);
       _throwIfStale(attempt);
     }
   }

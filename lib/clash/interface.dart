@@ -3,14 +3,10 @@ import 'dart:convert';
 import 'dart:isolate';
 
 import 'package:dropweb/clash/message.dart';
+import 'package:dropweb/clash/start_listener_result.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
-
-class StartListenerTimeoutException extends TimeoutException {
-  StartListenerTimeoutException(Duration duration)
-      : super('TUN listener start timed out', duration);
-}
 
 mixin ClashInterface {
   Future<bool> init(InitParams params);
@@ -37,7 +33,7 @@ mixin ClashInterface {
 
   FutureOr<String> changeProxy(ChangeProxyParams changeProxyParams);
 
-  Future<bool> startListener();
+  Future<StartListenerOutcome> startListener();
 
   Future<bool> stopListener();
 
@@ -400,13 +396,14 @@ abstract class ClashHandlerInterface with ClashInterface {
   }
 
   @override
-  Future<bool> startListener() {
+  Future<StartListenerOutcome> startListener() async {
     const timeout = Duration(seconds: 30);
-    return invoke<bool>(
+    final payload = await invoke<String>(
       method: ActionMethod.startListener,
       timeout: timeout,
       onTimeout: () => throw StartListenerTimeoutException(timeout),
     );
+    return parseStartListenerResult(payload);
   }
 
   @override

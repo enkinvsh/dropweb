@@ -258,7 +258,7 @@ class ClashCore {
   }) async =>
       clashInterface.updateExternalProvider(providerName);
 
-  Future<bool> startListener() async {
+  Future<StartListenerOutcome> startListener() async {
     return await clashInterface.startListener();
   }
 

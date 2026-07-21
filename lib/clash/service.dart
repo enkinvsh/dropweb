@@ -242,6 +242,9 @@ class ClashService extends ClashHandlerInterface {
   @override
   Future<void> reStart() => _readiness.restart();
 
+  Future<void> recoverPoisonedTunGeneration() =>
+      _readiness.recoverPoisonedGeneration();
+
   Future<void> _bindGeneration(int generation) async {
     final serverSocket = await serverCompleter.future;
     commonPrint.log(
@@ -436,7 +439,7 @@ class ClashService extends ClashHandlerInterface {
         operation: () => request.stopCoreByHelper(helperIdentity),
       );
       if (result != null && !result.isAllowed) {
-        _forceDirectSpawnForGeneration = true;
+        throw StateError('helper ownership no longer matches exact child');
       } else if (result?.value != true) {
         throw StateError('owned helper child did not stop');
       }
