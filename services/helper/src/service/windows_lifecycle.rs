@@ -34,6 +34,23 @@ fn child_termination_event(reason: &str, pid: u32, creation_time_100ns: u64) -> 
     format!("[lifecycle] child-decision reason={reason} pid={pid} creation={creation_time_100ns}")
 }
 
+fn strip_extended_length_prefix(path: &[u16]) -> Vec<u16> {
+    const BACKSLASH: u16 = 0x005c;
+    const EXTENDED_PREFIX: [u16; 4] = [BACKSLASH, BACKSLASH, 0x003f, BACKSLASH];
+    const EXTENDED_UNC_PREFIX: [u16; 8] = [
+        BACKSLASH, BACKSLASH, 0x003f, BACKSLASH, 0x0055, 0x004e, 0x0043, BACKSLASH,
+    ];
+
+    if let Some(suffix) = path.strip_prefix(&EXTENDED_UNC_PREFIX) {
+        let mut normalized = Vec::with_capacity(suffix.len() + 2);
+        normalized.extend_from_slice(&[BACKSLASH, BACKSLASH]);
+        normalized.extend_from_slice(suffix);
+        normalized
+    } else {
+        path.strip_prefix(&EXTENDED_PREFIX).unwrap_or(path).to_vec()
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LifecycleState {
     Running,
@@ -122,8 +139,8 @@ mod windows_process {
         RunToken, StartCoreRequest, StartCoreResponse, StopCoreRequest,
     };
     use super::{
-        leased_process_identity_action, ChildIdentity, LeasedProcessIdentityAction, LifecycleOwner,
-        LifecycleState,
+        leased_process_identity_action, strip_extended_length_prefix, ChildIdentity,
+        LeasedProcessIdentityAction, LifecycleOwner, LifecycleState,
     };
     use sha2::{Digest, Sha256};
     use std::ffi::{c_void, OsStr, OsString};
@@ -1263,15 +1280,19 @@ mod windows_process {
     }
 
     fn canonicalize_path(path: &Path) -> Result<PathBuf, LifecycleError> {
-        fs::canonicalize(path).map_err(|source| LifecycleError::Io {
+        let canonical = fs::canonicalize(path).map_err(|source| LifecycleError::Io {
             operation: "canonicalize install path",
             source,
-        })
+        })?;
+        let wide: Vec<u16> = canonical.as_os_str().encode_wide().collect();
+        Ok(PathBuf::from(OsString::from_wide(
+            &strip_extended_length_prefix(&wide),
+        )))
     }
 
     fn normalize_path(path: &Path) -> String {
-        let value = path.to_string_lossy();
-        value.strip_prefix(r"\\?\").unwrap_or(&value).to_owned()
+        let wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+        String::from_utf16_lossy(&strip_extended_length_prefix(&wide))
     }
 
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1508,14 +1529,9 @@ mod windows_process {
             return Err(LifecycleError::InvalidInput("final path buffer too small"));
         }
         final_path.truncate(final_len);
-        let prefix = [
-            u16::from(b'\\'),
-            u16::from(b'\\'),
-            u16::from(b'?'),
-            u16::from(b'\\'),
-        ];
-        let normalized = final_path.strip_prefix(&prefix).unwrap_or(&final_path);
-        Ok(PathBuf::from(OsString::from_wide(normalized)))
+        Ok(PathBuf::from(OsString::from_wide(
+            &strip_extended_length_prefix(&final_path),
+        )))
     }
 
     fn terminate_process(child: &ContainedProcess) -> Result<(), LifecycleError> {
@@ -1619,8 +1635,9 @@ mod windows_process {
 #[cfg(test)]
 mod tests {
     use super::{
-        child_termination_event, leased_process_identity_action, ChildIdentity,
-        LeasedProcessIdentityAction, LifecycleOwner, LifecycleState, LIFECYCLE_SECURITY_SDDL,
+        child_termination_event, leased_process_identity_action, strip_extended_length_prefix,
+        ChildIdentity, LeasedProcessIdentityAction, LifecycleOwner, LifecycleState,
+        LIFECYCLE_SECURITY_SDDL,
     };
     use std::path::PathBuf;
 
@@ -1679,5 +1696,27 @@ mod tests {
             child_termination_event("start-replace", 42, 1337),
             "[lifecycle] child-decision reason=start-replace pid=42 creation=1337"
         );
+    }
+
+    #[test]
+    fn extended_drive_path_prefix_is_removed() {
+        let input: Vec<u16> = r"\\?\C:\Program Files\dropweb\DropwebCore.exe"
+            .encode_utf16()
+            .collect();
+        let expected: Vec<u16> = r"C:\Program Files\dropweb\DropwebCore.exe"
+            .encode_utf16()
+            .collect();
+
+        assert_eq!(strip_extended_length_prefix(&input), expected);
+    }
+
+    #[test]
+    fn extended_unc_path_prefix_is_normalized() {
+        let input: Vec<u16> = r"\\?\UNC\server\share\DropwebCore.exe"
+            .encode_utf16()
+            .collect();
+        let expected: Vec<u16> = r"\\server\share\DropwebCore.exe".encode_utf16().collect();
+
+        assert_eq!(strip_extended_length_prefix(&input), expected);
     }
 }
