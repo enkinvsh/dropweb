@@ -463,22 +463,33 @@ class ConnectService {
   /// and re-thrown so the caller shows the shipped honest wording. A real
   /// [TunStartException] never triggers recovery and propagates verbatim.
   Future<bool?> _startWithTunRecovery() async {
-    bool? started;
-    final recoveryOutcome = await runTunStartRecovery(
-      start: () async {
-        started = await globalState.handleStart([
-          updateRunTime,
-          updateTraffic,
-        ]);
-      },
-      recover: () async {
-        await restartCore(recoverPoisonedTunGeneration: true);
-      },
-    );
-    if (recoveryOutcome == TunStartRecovery.timedOut) {
-      throw StartListenerTimeoutException(const Duration(seconds: 30));
+    final ownsDesktopPending =
+        system.isDesktop && !globalState.isConnecting.value;
+    if (system.isDesktop) {
+      globalState.isConnecting.value = true;
     }
-    return started;
+    try {
+      bool? started;
+      final recoveryOutcome = await runTunStartRecovery(
+        start: () async {
+          started = await globalState.handleStart([
+            updateRunTime,
+            updateTraffic,
+          ]);
+        },
+        recover: () async {
+          await restartCore(recoverPoisonedTunGeneration: true);
+        },
+      );
+      if (recoveryOutcome == TunStartRecovery.timedOut) {
+        throw StartListenerTimeoutException(const Duration(seconds: 30));
+      }
+      return started;
+    } finally {
+      if (ownsDesktopPending) {
+        globalState.isConnecting.value = false;
+      }
+    }
   }
 
   void updateRunTime() {

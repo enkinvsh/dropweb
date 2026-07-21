@@ -622,6 +622,8 @@ function Invoke-ImportConnect {
 
     $planPath = Join-Path $workRoot 'plan.json'
     $resultPath = Join-Path $workRoot 'result.json'
+    $connectingReadyPath = Join-Path $workRoot 'connecting-ready.json'
+    $connectingReleasePath = Join-Path $workRoot 'connecting-release.flag'
     $checkpointPath = Join-Path $workRoot 'connected.json'
     $probeDonePath = Join-Path $workRoot 'probe-done.flag'
     $bundlePath = Join-Path $workRoot 'support-bundle.txt'
@@ -631,6 +633,7 @@ function Invoke-ImportConnect {
         exitAfter = $true
         stepTimeoutSeconds = 180
         steps = @(
+          [ordered]@{ op = 'holdConnecting'; readyPath = $connectingReadyPath; releasePath = $connectingReleasePath },
           [ordered]@{ op = 'importUrl'; urlFile = $urlFile; expectHost = 'sub.dropweb.org' },
           [ordered]@{ op = 'connect'; expectTun = $true; checkpointPath = $checkpointPath },
           [ordered]@{ op = 'waitFile'; path = $probeDonePath; timeoutSeconds = 120 },
@@ -641,6 +644,18 @@ function Invoke-ImportConnect {
 
     $journeyClock = [System.Diagnostics.Stopwatch]::StartNew()
     $appProcess = Start-ObkatkaCiPlan -AppPath $paths.app -PlanPath $planPath
+    $pendingReady = Wait-ObkatkaPath -Path $connectingReadyPath -TimeoutSeconds 120
+    if ($pendingReady) {
+      Save-ObkatkaScreenshot -Name 'dashboard-connecting' | Out-Null
+    }
+    $pendingScreenshotPath = Join-Path (Get-ObkatkaEvidenceRoot) 'dashboard-connecting.png'
+    $pendingRendered = $pendingReady -and (Test-Path -LiteralPath $pendingScreenshotPath -PathType Leaf)
+    $pendingDetail = if (-not $pendingReady) { 'ready file absent' } elseif ($pendingRendered) { $pendingScreenshotPath } else { 'dashboard-connecting.png absent' }
+    Add-E2ECheck -Name 'pending-rendered' -Passed $pendingRendered -Detail $pendingDetail
+    Write-ObkatkaAtomicText -Path $connectingReleasePath -Content "release`n"
+    if (-not $pendingRendered) {
+      throw "pending affordance evidence failed: $pendingDetail"
+    }
     if (-not (Wait-ObkatkaPath -Path $checkpointPath -TimeoutSeconds 120)) {
       $failureDetail = 'checkpoint absent'
       if (Test-Path -LiteralPath $resultPath) {

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dropweb/services/ci_e2e_plan.dart';
+import 'package:dropweb/services/ci_e2e_plan_runner.dart';
+import 'package:dropweb/state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -100,6 +102,85 @@ void main() {
       expect(plan.steps[1].operation, CiE2eOperation.waitFile);
       expect(plan.steps[1].path, r'C:\ci\probe-done.flag');
       expect(plan.steps[1].timeout, const Duration(seconds: 120));
+    });
+
+    test('parses holdConnecting with absolute ready and release paths', () {
+      final raw = jsonDecode(_validPlanJson()) as Map<String, dynamic>
+        ..['steps'] = [
+          {
+            'op': 'holdConnecting',
+            'readyPath': r'C:\ci\connecting-ready.json',
+            'releasePath': r'C:\ci\connecting-release.flag',
+          },
+        ];
+
+      final step = CiE2ePlan.parse(jsonEncode(raw)).steps.single;
+
+      expect(step.operation, CiE2eOperation.holdConnecting);
+      expect(step.readyPath, r'C:\ci\connecting-ready.json');
+      expect(step.releasePath, r'C:\ci\connecting-release.flag');
+    });
+
+    test('holdConnecting rejects relative or missing paths and unknown fields',
+        () {
+      Map<String, dynamic> planWith(Map<String, Object?> step) =>
+          jsonDecode(_validPlanJson()) as Map<String, dynamic>
+            ..['steps'] = [step];
+
+      expect(
+        () => CiE2ePlan.parse(
+          jsonEncode(
+            planWith({
+              'op': 'holdConnecting',
+              'readyPath': 'relative-ready.json',
+              'releasePath': r'C:\ci\release.flag',
+            }),
+          ),
+        ),
+        throwsA(
+          isA<CiE2ePlanException>().having(
+            (error) => error.detail,
+            'detail',
+            contains('holdConnecting.readyPath must be an absolute path'),
+          ),
+        ),
+      );
+      expect(
+        () => CiE2ePlan.parse(
+          jsonEncode(
+            planWith({
+              'op': 'holdConnecting',
+              'readyPath': r'C:\ci\ready.json',
+            }),
+          ),
+        ),
+        throwsA(
+          isA<CiE2ePlanException>().having(
+            (error) => error.detail,
+            'detail',
+            contains('holdConnecting.releasePath must be an absolute path'),
+          ),
+        ),
+      );
+      expect(
+        () => CiE2ePlan.parse(
+          jsonEncode(
+            planWith({
+              'op': 'holdConnecting',
+              'readyPath': r'C:\ci\ready.json',
+              'releasePath': r'C:\ci\release.flag',
+              'future': true,
+            }),
+          ),
+        ),
+        throwsA(
+          isA<CiE2ePlanException>().having(
+            (error) => error.detail,
+            'detail',
+            contains('unknown holdConnecting field'),
+          ),
+        ),
+      );
     });
 
     test('rejects an unknown top-level field', () {
@@ -419,6 +500,60 @@ void main() {
     });
   });
 
+  group('holdConnecting runner', () {
+    test('holds pending until release and clears it in finally', () async {
+      final directory =
+          Directory.systemTemp.createTempSync('dropweb_hold_connecting');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final readyPath = p.join(directory.path, 'ready.json');
+      final releasePath = p.join(directory.path, 'release.flag');
+      final step = CiE2ePlan.parse(
+        _holdConnectingPlanJson(readyPath, releasePath),
+      ).steps.single;
+      globalState.isConnecting.value = false;
+
+      final hold = runCiE2eHoldConnecting(
+        step,
+        timeout: const Duration(seconds: 1),
+        pollInterval: const Duration(milliseconds: 10),
+      );
+      while (!File(readyPath).existsSync()) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+
+      expect(globalState.isConnecting.value, isTrue);
+      await File(releasePath).writeAsString('release');
+      final outcome = await hold;
+
+      expect(outcome.status, CiE2eStepStatus.pass);
+      expect(outcome.checks, {'releaseObserved': true});
+      expect(globalState.isConnecting.value, isFalse);
+    });
+
+    test('bounded release timeout still clears pending in finally', () async {
+      final directory =
+          Directory.systemTemp.createTempSync('dropweb_hold_timeout');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final step = CiE2ePlan.parse(
+        _holdConnectingPlanJson(
+          p.join(directory.path, 'ready.json'),
+          p.join(directory.path, 'never-release.flag'),
+        ),
+      ).steps.single;
+      globalState.isConnecting.value = false;
+
+      final outcome = await runCiE2eHoldConnecting(
+        step,
+        timeout: const Duration(milliseconds: 30),
+        pollInterval: const Duration(milliseconds: 10),
+      );
+
+      expect(outcome.status, CiE2eStepStatus.fail);
+      expect(outcome.failedCheck, 'release-timeout');
+      expect(globalState.isConnecting.value, isFalse);
+    });
+  });
+
   group('evaluateCiE2eImportJournal', () {
     test('requires one ordered transaction and no failure after the marker',
         () {
@@ -536,5 +671,20 @@ String _waitFilePlanJson(String path) => jsonEncode({
       'stepTimeoutSeconds': 3,
       'steps': [
         {'op': 'waitFile', 'path': path, 'timeoutSeconds': 1},
+      ],
+    });
+
+String _holdConnectingPlanJson(String readyPath, String releasePath) =>
+    jsonEncode({
+      'schema': 1,
+      'resultPath': p.join(Directory.systemTemp.path, 'result.json'),
+      'exitAfter': true,
+      'stepTimeoutSeconds': 3,
+      'steps': [
+        {
+          'op': 'holdConnecting',
+          'readyPath': readyPath,
+          'releasePath': releasePath,
+        },
       ],
     });

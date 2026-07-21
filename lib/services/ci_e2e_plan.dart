@@ -39,10 +39,12 @@ enum CiE2eOperation {
   waitFile,
   buildSupportBundle,
   disconnect,
+  holdConnecting,
 }
 
 extension CiE2eOperationName on CiE2eOperation {
   String get value => switch (this) {
+        CiE2eOperation.holdConnecting => 'holdConnecting',
         CiE2eOperation.importUrl => 'importUrl',
         CiE2eOperation.connect => 'connect',
         CiE2eOperation.waitFile => 'waitFile',
@@ -61,6 +63,8 @@ final class CiE2ePlanStep {
     this.path,
     this.timeout,
     this.outPath,
+    this.readyPath,
+    this.releasePath,
   });
 
   final CiE2eOperation operation;
@@ -71,6 +75,8 @@ final class CiE2ePlanStep {
   final String? path;
   final Duration? timeout;
   final String? outPath;
+  final String? readyPath;
+  final String? releasePath;
 
   String get opName => operation.value;
 }
@@ -158,6 +164,7 @@ CiE2ePlanStep _parseStep(
     invalid('step $index must be an object');
   }
   final op = switch (raw['op']) {
+    'holdConnecting' => CiE2eOperation.holdConnecting,
     'importUrl' => CiE2eOperation.importUrl,
     'connect' => CiE2eOperation.connect,
     'waitFile' => CiE2eOperation.waitFile,
@@ -166,6 +173,11 @@ CiE2ePlanStep _parseStep(
     _ => invalid('step $index has unknown op'),
   };
   final allowed = switch (op) {
+    CiE2eOperation.holdConnecting => const {
+        'op',
+        'readyPath',
+        'releasePath',
+      },
     CiE2eOperation.importUrl => const {'op', 'urlFile', 'expectHost'},
     CiE2eOperation.connect => const {'op', 'expectTun', 'checkpointPath'},
     CiE2eOperation.waitFile => const {'op', 'path', 'timeoutSeconds'},
@@ -183,6 +195,11 @@ CiE2ePlanStep _parseStep(
   }
 
   return switch (op) {
+    CiE2eOperation.holdConnecting => CiE2ePlanStep(
+        operation: op,
+        readyPath: requiredAbsolutePath('readyPath'),
+        releasePath: requiredAbsolutePath('releasePath'),
+      ),
     CiE2eOperation.importUrl => CiE2ePlanStep(
         operation: op,
         urlFile: requiredAbsolutePath('urlFile'),

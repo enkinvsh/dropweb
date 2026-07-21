@@ -13,11 +13,18 @@ Future<void> runCiE2ePlan(String planPath, WidgetRef ref) async {
   try {
     plan = CiE2ePlan.parse(await File(planPath).readAsString());
     final bootstrapFailure = await _waitForBootstrap(plan);
+    final holdTimeout = plan.stepTimeout > const Duration(seconds: 1)
+        ? plan.stepTimeout - const Duration(seconds: 1)
+        : const Duration(milliseconds: 1);
     final result = bootstrapFailure ??
         await CiE2ePlanExecutor(
           appVersion:
               '${globalState.packageInfo.version}+${globalState.packageInfo.buildNumber}',
           stepFunctions: {
+            CiE2eOperation.holdConnecting: (step) => runCiE2eHoldConnecting(
+                  step,
+                  timeout: holdTimeout,
+                ),
             CiE2eOperation.importUrl: (step) => _importUrl(step, ref),
             CiE2eOperation.connect: (step) => _connect(step, ref),
             CiE2eOperation.waitFile: runCiE2eWaitFile,
@@ -39,6 +46,37 @@ Future<void> runCiE2ePlan(String planPath, WidgetRef ref) async {
     } else if (plan == null) {
       await _finishInvalidPlan(null);
     }
+  }
+}
+
+Future<CiE2eStepOutcome> runCiE2eHoldConnecting(
+  CiE2ePlanStep step, {
+  required Duration timeout,
+  Duration pollInterval = const Duration(milliseconds: 100),
+}) async {
+  globalState.isConnecting.value = true;
+  try {
+    await writeCiE2eJsonAtomically(
+      step.readyPath!,
+      const {'status': 'ready'},
+    );
+    final release = File(step.releasePath!);
+    final deadline = DateTime.now().add(timeout);
+    while (!release.existsSync()) {
+      if (!DateTime.now().isBefore(deadline)) {
+        return CiE2eStepOutcome.fail(
+          failedCheck: 'release-timeout',
+          checks: const {'releaseObserved': false},
+          detail: 'connecting hold release file did not appear',
+        );
+      }
+      await Future<void>.delayed(pollInterval);
+    }
+    return CiE2eStepOutcome.pass(
+      checks: const {'releaseObserved': true},
+    );
+  } finally {
+    globalState.isConnecting.value = false;
   }
 }
 

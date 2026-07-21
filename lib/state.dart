@@ -99,7 +99,8 @@ class GlobalState {
   /// Only created when [handleStart] needs to wait for the native TUN ack.
   Completer<String?>? _tunAck;
 
-  /// True while [handleStart] is waiting on the native TUN readiness ack.
+  /// True while [handleStart] is waiting on desktop listener startup or the
+  /// native Android TUN readiness ack.
   /// Drives the start button's connecting affordance. Plain [ValueNotifier]
   /// so [handleStart] (which has no Riverpod ref) can flip it directly and the
   /// dashboard listens via [ValueListenableBuilder].
@@ -281,6 +282,7 @@ class GlobalState {
     // would wrongly roll back a valid proxy-only start. Desktop and Android
     // proxy-only starts never block on the ack and behave exactly as before.
     final needsTunAck = Platform.isAndroid && config.vpnProps.enable;
+    final isDesktopPending = system.isDesktop;
     // Capture THIS attempt's ack completer. completeTunAck() always completes
     // whatever _tunAck is CURRENT, so during a rapid stop->start a late TUN
     // status could land on the wrong attempt. Awaiting our own captured `myAck`
@@ -295,12 +297,17 @@ class GlobalState {
       _tunAck = myAck;
       isConnecting.value = true;
     }
+    final ownsDesktopPending = isDesktopPending && !isConnecting.value;
+    if (isDesktopPending) {
+      isConnecting.value = true;
+      startTime = null;
+    }
     try {
       // For the non-ack path keep the original semantics: startTime is set
       // before startVpn so runTime/UI flips to connected immediately. For the
       // ack path startTime is deliberately deferred until the ack succeeds so
       // the UI never shows "connected" before the TUN listener is up.
-      if (!needsTunAck) {
+      if (!needsTunAck && !isDesktopPending) {
         startTime ??= DateTime.now();
       }
       // The typed outcome distinguishes three cases the old bare bool could
@@ -335,6 +342,9 @@ class GlobalState {
           }
           throw TunStartException(cause);
         case StartListenerOk():
+          if (isDesktopPending) {
+            startTime = DateTime.now();
+          }
           break;
       }
       final started = await service?.startVpn();
@@ -379,7 +389,9 @@ class GlobalState {
       if (identical(_tunAck, myAck)) {
         _tunAck = null;
       }
-      isConnecting.value = false;
+      if (!isDesktopPending || ownsDesktopPending) {
+        isConnecting.value = false;
+      }
       _vpnTransitionInFlight = false;
     }
   }
