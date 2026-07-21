@@ -1,4 +1,6 @@
 import importlib.util
+import os
+import subprocess
 import unicodedata
 import unittest
 from pathlib import Path
@@ -44,6 +46,33 @@ class RenderNotesSectionsTest(unittest.TestCase):
 
 
 class StableReleaseNotesTest(unittest.TestCase):
+    def test_manifest_notes_use_only_section_prose(self) -> None:
+        notes = notify_telegram.manifest_notes(
+            [
+                ("🔄 Первая секция", "Первая строка.\nВторая строка."),
+                ("🧼 Вторая секция", "Авторская формулировка."),
+            ]
+        )
+
+        self.assertEqual(
+            ["Первая строка.\nВторая строка.", "Авторская формулировка."],
+            notes,
+        )
+
+    def test_v086_manifest_notes_match_curated_wording(self) -> None:
+        _, sections = notify_telegram.load_release_notes("v0.8.6")
+
+        self.assertEqual(
+            ["Обновили встроенное VPN-ядро mihomo до версии 1.19.29."],
+            notify_telegram.manifest_notes(sections),
+        )
+
+    def test_manifest_notes_reject_section_heading_outside_pack(self) -> None:
+        with self.assertRaisesRegex(ValueError, "dropwebpackv1"):
+            notify_telegram.manifest_notes(
+                [("🚀 Заголовок вне пака", "Текст секции")]
+            )
+
     def test_every_section_heading_starts_with_pack_emoji(self) -> None:
         _, sections = notify_telegram.load_release_notes("v0.8.6")
 
@@ -71,6 +100,48 @@ class StableReleaseNotesTest(unittest.TestCase):
                 if unicodedata.category(char) == "So" and char not in allowed_symbols
             ],
         )
+
+
+class ManifestNotesCliTest(unittest.TestCase):
+    def test_prints_only_utf8_json_without_reading_release_md(self) -> None:
+        env = os.environ.copy()
+        env["VERSION"] = "v0.8.6"
+
+        result = subprocess.run(
+            [
+                "python3",
+                str(SCRIPT_PATH),
+                "--print-manifest-notes",
+                "--release-md",
+                "does-not-exist.md",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        self.assertEqual(0, result.returncode)
+        self.assertEqual(
+            '["Обновили встроенное VPN-ядро mihomo до версии 1.19.29."]\n',
+            result.stdout,
+        )
+        self.assertEqual("", result.stderr)
+
+    def test_requires_version(self) -> None:
+        env = os.environ.copy()
+        env.pop("VERSION", None)
+
+        result = subprocess.run(
+            ["python3", str(SCRIPT_PATH), "--print-manifest-notes"],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("VERSION env is required", result.stdout)
 
 
 if __name__ == "__main__":

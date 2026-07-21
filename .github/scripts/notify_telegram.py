@@ -20,8 +20,9 @@ Env:
 
 Usage:
   python3 notify_telegram.py --release-md release.md [--dry-run]
+  VERSION=v0.8.4 python3 notify_telegram.py --print-manifest-notes
 
-Commits are read from the "## Коммиты" section of release.md ("- subject" lines).
+Commits are read from the "## Что нового" or "## Коммиты" release.md section.
 """
 import argparse
 import html
@@ -205,6 +206,11 @@ def render_notes_sections(sections: list[tuple[str, str]], rich: bool) -> list[s
     return out
 
 
+def manifest_notes(sections: list[tuple[str, str]]) -> list[str]:
+    render_notes_sections(sections, rich=True)
+    return [prose for _, prose in sections]
+
+
 def resolve_banner(tag: str) -> str:
     """Attention banner: env override, else the README hero from the repo.
     Prefer the tag ref (immutable); fall back to main for tags that predate it."""
@@ -355,16 +361,23 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--release-md", default="release.md")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--print-manifest-notes", action="store_true")
     args = ap.parse_args()
 
     tag = os.environ.get("VERSION", "").strip()
     version = tag.lstrip("v")
-    is_stable = os.environ.get("IS_STABLE", "").lower() == "true"
-    release_url = os.environ.get("RELEASE_URL") or f"https://github.com/{REPO}/releases/tag/{tag}"
 
     if not version:
         print("::error::VERSION env is required (e.g. v0.8.4)")
         return 1
+
+    if args.print_manifest_notes:
+        _, sections = load_release_notes(tag)
+        print(json.dumps(manifest_notes(sections), ensure_ascii=False))
+        return 0
+
+    is_stable = os.environ.get("IS_STABLE", "").lower() == "true"
+    release_url = os.environ.get("RELEASE_URL") or f"https://github.com/{REPO}/releases/tag/{tag}"
 
     try:
         release_md = open(args.release_md, encoding="utf-8").read()
