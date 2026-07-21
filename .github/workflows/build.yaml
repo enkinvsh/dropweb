@@ -240,33 +240,34 @@ jobs:
             sed "s|VERSION|$version|g" ./.github/pre_release_template.md > release.md
           fi
 
-          # Find previous tag
-          if [ "${{ env.IS_STABLE }}" == "true" ]; then
-            preTag=$(curl --silent "https://api.github.com/repos/${{ github.repository }}/releases/latest" | grep -Po '"tag_name": "\K.*?(?=")' || echo "")
+          note_file=".github/release_notes/${{ github.ref_name }}.md"
+          if [ -f "$note_file" ]; then
+            printf '\n' >> release.md
+            cat "$note_file" >> release.md
+            printf '\n' >> release.md
           else
-            preTag=$(git tag --sort=-creatordate | grep -v "^${{ github.ref_name }}$" | head -1)
-          fi
+            if [ "${{ env.IS_STABLE }}" == "true" ]; then
+              preTag=$(curl --silent "https://api.github.com/repos/${{ github.repository }}/releases/latest" | grep -Po '"tag_name": "\K.*?(?=")' || echo "")
+            else
+              preTag=$(git tag --sort=-creatordate | grep -v "^${{ github.ref_name }}$" | head -1)
+            fi
 
-          # Append compact changelog — USER-FACING only. This same list feeds
-          # the in-app update sheet (manifest `notes`), so raw git subjects must
-          # never leak. Keep feat/fix/perf, strip conventional-commit
-          # "type(scope): " prefixes, drop internal noise (docs/chore/refactor/
-          # test/ci/build/style), dedupe, capitalize, cap at 15.
-          echo "" >> release.md
-          echo "## <img src=\"https://raw.githubusercontent.com/enkinvsh/dropweb/main/docs/icons/flash.svg\" width=\"22\" alt=\"\"> Что нового" >> release.md
-          echo "" >> release.md
-          if [ -n "$preTag" ]; then
-            changelog_range="$preTag..${{ github.ref_name }}"
-          else
-            changelog_range="${{ github.ref_name }}"
+            echo "" >> release.md
+            echo "## <img src=\"https://raw.githubusercontent.com/enkinvsh/dropweb/main/docs/icons/flash.svg\" width=\"22\" alt=\"\"> Что нового" >> release.md
+            echo "" >> release.md
+            if [ -n "$preTag" ]; then
+              changelog_range="$preTag..${{ github.ref_name }}"
+            else
+              changelog_range="${{ github.ref_name }}"
+            fi
+            git log --pretty=format:"%s" "$changelog_range" \
+              | grep -E '^(feat|fix|perf)(\([^)]+\))?!?:' \
+              | sed -E 's/^(feat|fix|perf)(\([^)]+\))?!?:[[:space:]]*//' \
+              | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
+              | awk 'NF && !seen[$0]++ { print "- " toupper(substr($0,1,1)) substr($0,2) }' \
+              | head -15 >> release.md
+            echo "" >> release.md
           fi
-          git log --pretty=format:"%s" "$changelog_range" \
-            | grep -E '^(feat|fix|perf)(\([^)]+\))?!?:' \
-            | sed -E 's/^(feat|fix|perf)(\([^)]+\))?!?:[[:space:]]*//' \
-            | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
-            | awk 'NF && !seen[$0]++ { print "- " toupper(substr($0,1,1)) substr($0,2) }' \
-            | head -15 >> release.md
-          echo "" >> release.md
 
       - name: Generate sha256
         if: env.IS_STABLE == 'true'
@@ -320,9 +321,12 @@ jobs:
             fi
           done
           base="https://storage.yandexcloud.net/dropweb-downloads/latest"
-          notes_raw=$(grep '^- ' release.md | head -3 | sed 's/^- //' || true)
-          [ -z "$notes_raw" ] && notes_raw="Релиз $version"
-          notes_json=$(printf '%s\n' "$notes_raw" | jq -R . | jq -s .)
+          notes_json=$(VERSION="$tag" python3 .github/scripts/notify_telegram.py --print-manifest-notes)
+          if [ "$(jq 'length' <<<"$notes_json")" -eq 0 ]; then
+            notes_raw=$(grep '^- ' release.md | head -3 | sed 's/^- //' || true)
+            [ -z "$notes_raw" ] && notes_raw="Релиз $version"
+            notes_json=$(printf '%s\n' "$notes_raw" | jq -R . | jq -s .)
+          fi
           # Per-platform sha256 for the in-app updater's CORRUPTION check (the
           # app's REAL integrity gate is the native signing-cert pin). Read from
           # the .sha256 files produced by the "Generate sha256" step; a missing
@@ -344,9 +348,8 @@ jobs:
 
       # Rich Message release post (Bot API 10.1). Stable tags post to
       # TELEGRAM_CHAT_IDS; pre-release tags post to TELEGRAM_PRERELEASE_CHAT_IDS
-      # (unset = pre posts are skipped). The script reads the curated
-      # "## Что нового" section of release.md generated above and falls back to a
-      # legacy sendMessage if the rich endpoint rejects the payload.
+      # (unset = pre posts are skipped). The script reads the curated note for
+      # VERSION and falls back to release.md changes when no note ships.
       - name: Post release to Telegram
         continue-on-error: true
         env:

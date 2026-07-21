@@ -1,0 +1,110 @@
+name: repair release metadata
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Published release tag to repair (e.g. v0.8.6)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release tooling
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Prepare curated metadata
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="$TAG"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "::error::invalid release tag: $tag"
+            exit 1
+          fi
+          git rev-parse --verify "refs/tags/${tag}^{commit}" >/dev/null
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null
+
+          note_file=".github/release_notes/$tag.md"
+          if [ ! -f "$note_file" ]; then
+            echo "::error::missing curated release note: $note_file"
+            exit 1
+          fi
+
+          version="${tag#v}"
+          if [[ "$tag" == *-* ]]; then
+            template=".github/pre_release_template.md"
+            stable=false
+          else
+            template=".github/release_template.md"
+            stable=true
+          fi
+          sed "s|VERSION|$version|g" "$template" > release.md
+          printf '\n' >> release.md
+          cat "$note_file" >> release.md
+          printf '\n' >> release.md
+
+          VERSION="$tag" python3 .github/scripts/notify_telegram.py \
+            --print-manifest-notes > manifest-notes.json
+          if ! jq -e 'type == "array" and length > 0 and all(.[]; type == "string" and length > 0)' \
+            manifest-notes.json >/dev/null; then
+            echo "::error::curated release note must contain valid non-empty sections"
+            exit 1
+          fi
+          echo "stable=$stable" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare stable manifest repair
+        if: steps.prepare.outputs.stable == 'true'
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          curl --fail --silent --show-error --location \
+            https://storage.yandexcloud.net/dropweb-downloads/update.json \
+            --output update.json
+          manifest_version=$(jq -er '.version | strings' update.json)
+          if [ "$manifest_version" != "$version" ]; then
+            echo "::error::public manifest version $manifest_version does not match $version"
+            exit 1
+          fi
+
+          jq --argjson notes "$(cat manifest-notes.json)" \
+            '.notes = $notes' update.json > update.repaired.json
+          jq -S 'del(.notes)' update.json > manifest-before.json
+          jq -S 'del(.notes)' update.repaired.json > manifest-after.json
+          if ! cmp --silent manifest-before.json manifest-after.json; then
+            echo "::error::manifest repair changed fields other than notes"
+            exit 1
+          fi
+
+      - name: Update GitHub release body
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file release.md
+
+      - name: Upload stable manifest repair
+        if: steps.prepare.outputs.stable == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_S3_SECRET }}
+          AWS_DEFAULT_REGION: ru-central1
+        run: |
+          set -euo pipefail
+          aws s3 cp update.repaired.json \
+            s3://dropweb-downloads/update.json \
+            --endpoint-url=https://storage.yandexcloud.net \
+            --content-type application/json \
+            --cache-control no-cache
