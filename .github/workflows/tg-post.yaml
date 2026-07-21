@@ -13,6 +13,10 @@ on:
         description: "Target chat id / @username. Empty = dry-run (print payload only)."
         required: false
         default: ""
+      notes_override:
+        description: "alternate release-notes file name under .github/release_notes, e.g. v0.8.6-digest.md"
+        required: false
+        default: ""
 
 jobs:
   post:
@@ -49,7 +53,31 @@ jobs:
           if [[ "$tag" == *-* ]]; then echo "stable=false" >> $GITHUB_OUTPUT; else echo "stable=true" >> $GITHUB_OUTPUT; fi
           cat release.md
 
+      - name: Apply release notes override
+        if: ${{ github.event.inputs.notes_override != '' }}
+        env:
+          NOTES_OVERRIDE: ${{ github.event.inputs.notes_override }}
+          TAG: ${{ steps.prep.outputs.tag }}
+        run: |
+          override_path=".github/release_notes/$NOTES_OVERRIDE"
+          if [ ! -f "$override_path" ]; then
+            echo "::error file=$override_path::Release notes override not found"
+            exit 1
+          fi
+          cp "$override_path" ".github/release_notes/$TAG.md"
+
+      - name: Post to stable target
+        if: ${{ github.event.inputs.chat_id == 'stable' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
+          TELEGRAM_PRERELEASE_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
+          VERSION: ${{ steps.prep.outputs.tag }}
+          IS_STABLE: ${{ steps.prep.outputs.stable }}
+        run: python3 .github/scripts/notify_telegram.py --release-md release.md
+
       - name: Post (or dry-run)
+        if: ${{ github.event.inputs.chat_id != 'stable' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_IDS: ${{ github.event.inputs.chat_id }}

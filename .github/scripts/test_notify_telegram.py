@@ -46,6 +46,15 @@ class RenderNotesSectionsTest(unittest.TestCase):
 
 
 class StableReleaseNotesTest(unittest.TestCase):
+    def test_v086_digest_has_nine_pack_sections(self) -> None:
+        _, sections = notify_telegram.load_release_notes("v0.8.6-digest")
+
+        self.assertEqual(9, len(sections))
+        self.assertEqual(
+            9,
+            len(notify_telegram.render_notes_sections(sections, rich=True)),
+        )
+
     def test_manifest_notes_use_only_section_prose(self) -> None:
         notes = notify_telegram.manifest_notes(
             [
