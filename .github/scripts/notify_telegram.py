@@ -164,7 +164,8 @@ def load_release_notes(tag: str) -> tuple[str, list[tuple[str, str]]]:
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "..", "release_notes", f"{tag}.md")
     try:
-        text = open(path, encoding="utf-8").read()
+        with open(path, encoding="utf-8") as release_notes:
+            text = release_notes.read()
     except OSError:
         return "", []
     intro, sections, header, buf = "", [], "", []
@@ -186,12 +187,17 @@ def load_release_notes(tag: str) -> tuple[str, list[tuple[str, str]]]:
 
 
 def render_notes_sections(sections: list[tuple[str, str]], rich: bool) -> list[str]:
-    """Section headers start with a pack emoji when possible: '⬇️ Заголовок'."""
+    """Render sections whose headers start with a dropwebpackv1 pack emoji."""
     out = []
     for header, prose in sections:
         emoji = next((c for c in PACK if header.startswith(c)), "")
-        title = header[len(emoji):].strip() if emoji else header
-        lead = f"{ce(emoji)} " if emoji else ""
+        if not emoji:
+            raise ValueError(
+                f"release-note section header {header!r} must start with an emoji from "
+                "https://t.me/addemoji/dropwebpackv1"
+            )
+        title = header[len(emoji):].strip()
+        lead = f"{ce(emoji)} "
         if rich:
             out.append(f"<h4>{lead}{esc(title)}</h4><p>{esc(prose)}</p>")
         else:
