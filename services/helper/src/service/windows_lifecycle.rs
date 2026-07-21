@@ -30,6 +30,31 @@ const fn leased_process_identity_action(identity_matches: bool) -> LeasedProcess
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum RetainedOwnerState {
+    Exited,
+    Running(lease::Candidate),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RetainedOwnerAction {
+    Continue,
+    Terminate,
+    Conflict,
+}
+
+fn retained_owner_action(state: &RetainedOwnerState) -> RetainedOwnerAction {
+    match state {
+        RetainedOwnerState::Exited => RetainedOwnerAction::Continue,
+        RetainedOwnerState::Running(candidate) => match lease::evaluate_candidate(candidate) {
+            lease::CandidateDecision::Terminate => RetainedOwnerAction::Terminate,
+            lease::CandidateDecision::Conflict
+            | lease::CandidateDecision::Refuse
+            | lease::CandidateDecision::Ignore => RetainedOwnerAction::Conflict,
+        },
+    }
+}
+
 fn child_termination_event(reason: &str, pid: u32, creation_time_100ns: u64) -> String {
     format!("[lifecycle] child-decision reason={reason} pid={pid} creation={creation_time_100ns}")
 }
@@ -268,6 +293,77 @@ mod windows_process {
             Ok(stderr)
         }
 
+        fn retained_core_identity(&self) -> Result<CoreIdentity, LifecycleError> {
+            let child = self
+                .child_identity()
+                .cloned()
+                .ok_or(LifecycleError::IdentityMismatch(
+                    "retained child identity is absent",
+                ))?;
+            let run_token = self
+                .run_token()
+                .cloned()
+                .ok_or(LifecycleError::IdentityMismatch(
+                    "retained run token is absent",
+                ))?;
+            Ok(CoreIdentity {
+                pid: child.pid,
+                creation_time_100ns: child.creation_time_100ns,
+                canonical_path: child.canonical_path,
+                run_token,
+            })
+        }
+
+        fn retained_wait_outcome(&self) -> Result<WaitOutcome, LifecycleError> {
+            let child = self.child.as_ref().ok_or(LifecycleError::IdentityMismatch(
+                "retained child handles are absent",
+            ))?;
+            wait_for_process(child, 0)
+        }
+
+        fn retained_owner_state(
+            &self,
+            retained_app: &AppIdentity,
+            requesting_app: &AppIdentity,
+            retained_core: &CoreIdentity,
+        ) -> Result<super::RetainedOwnerState, LifecycleError> {
+            let Some(observed) = self.observe_retained_child(retained_core)? else {
+                return Ok(super::RetainedOwnerState::Exited);
+            };
+            Ok(super::RetainedOwnerState::Running(Candidate::Leased {
+                requesting_app: requesting_app.clone(),
+                leased_app: retained_app.clone(),
+                app_is_live: app_identity_is_live(retained_app),
+                core_is_exact: core_matches_child(retained_core, &observed),
+                bridge: listener_state(retained_app),
+            }))
+        }
+
+        fn observe_retained_child(
+            &self,
+            retained_core: &CoreIdentity,
+        ) -> Result<Option<ChildIdentity>, LifecycleError> {
+            if self.retained_wait_outcome()? == WaitOutcome::Exited {
+                return Ok(None);
+            }
+            match query_process_identity(retained_core.pid, PROCESS_QUERY_LIMITED_INFORMATION) {
+                Ok(observed) => {
+                    if self.retained_wait_outcome()? == WaitOutcome::Exited {
+                        Ok(None)
+                    } else {
+                        Ok(Some(observed))
+                    }
+                }
+                Err(error) => {
+                    if self.retained_wait_outcome()? == WaitOutcome::Exited {
+                        Ok(None)
+                    } else {
+                        Err(error)
+                    }
+                }
+            }
+        }
+
         pub fn stop_and_wait(&mut self, budget: Duration) -> Result<(), LifecycleError> {
             if self.child.is_none() {
                 self.observe_exit();
@@ -321,19 +417,52 @@ mod windows_process {
         }
         let app_identity = validate_app_identity(&request.app_identity())?;
 
-        if let Some(retained_app) = owner.retained_app() {
-            if retained_app != &app_identity {
-                return Err(LifecycleError::ActiveInAnotherSession);
+        if let Some(retained_app) = owner.retained_app().cloned() {
+            if retained_app != app_identity {
+                let retained_core = owner.retained_core_identity()?;
+                let state =
+                    owner.retained_owner_state(&retained_app, &app_identity, &retained_core)?;
+                match super::retained_owner_action(&state) {
+                    super::RetainedOwnerAction::Continue => {
+                        log(super::child_termination_event(
+                            "retained-stale-reconciled",
+                            retained_core.pid,
+                            retained_core.creation_time_100ns,
+                        ));
+                        owner.observe_exit();
+                        remove_lease_if_matches(&scope.lease_path, &retained_core)?;
+                    }
+                    super::RetainedOwnerAction::Terminate => {
+                        if let Some(observed) = owner.observe_retained_child(&retained_core)? {
+                            if !core_matches_child(&retained_core, &observed) {
+                                return Err(LifecycleError::IdentityMismatch(
+                                    "retained child changed before termination",
+                                ));
+                            }
+                        }
+                        log(super::child_termination_event(
+                            "retained-stale-reconciled",
+                            retained_core.pid,
+                            retained_core.creation_time_100ns,
+                        ));
+                        owner.stop_and_wait(budget)?;
+                        remove_lease_if_matches(&scope.lease_path, &retained_core)?;
+                    }
+                    super::RetainedOwnerAction::Conflict => {
+                        return Err(LifecycleError::ActiveInAnotherSession);
+                    }
+                }
+            } else {
+                if let Some(identity) = owner.child_identity() {
+                    log(super::child_termination_event(
+                        "start-replace",
+                        identity.pid,
+                        identity.creation_time_100ns,
+                    ));
+                }
+                owner.stop_and_wait(budget)?;
+                remove_lease_if_present(&scope.lease_path)?;
             }
-            if let Some(identity) = owner.child_identity() {
-                log(super::child_termination_event(
-                    "start-replace",
-                    identity.pid,
-                    identity.creation_time_100ns,
-                ));
-            }
-            owner.stop_and_wait(budget)?;
-            remove_lease_if_present(&scope.lease_path)?;
         }
 
         reconcile_lease_and_candidates(&scope, &app_identity, budget, log)?;
@@ -953,6 +1082,22 @@ mod windows_process {
                 operation: "remove lifecycle lease",
                 source,
             }),
+        }
+    }
+
+    fn remove_lease_if_matches(path: &Path, expected: &CoreIdentity) -> Result<(), LifecycleError> {
+        let Some(record) = load_lease(path)? else {
+            return Ok(());
+        };
+        let candidate = Candidate::Retained {
+            expected: expected.clone(),
+            observed: record.core,
+        };
+        match super::lease::evaluate_candidate(&candidate) {
+            CandidateDecision::Terminate => remove_lease_if_present(path),
+            CandidateDecision::Conflict | CandidateDecision::Refuse | CandidateDecision::Ignore => {
+                Ok(())
+            }
         }
     }
 
@@ -1634,10 +1779,11 @@ mod windows_process {
 
 #[cfg(test)]
 mod tests {
+    use super::lease::{AppIdentity, BridgeState, Candidate, RunToken};
     use super::{
-        child_termination_event, leased_process_identity_action, strip_extended_length_prefix,
-        ChildIdentity, LeasedProcessIdentityAction, LifecycleOwner, LifecycleState,
-        LIFECYCLE_SECURITY_SDDL,
+        child_termination_event, leased_process_identity_action, retained_owner_action,
+        strip_extended_length_prefix, ChildIdentity, LeasedProcessIdentityAction, LifecycleOwner,
+        LifecycleState, RetainedOwnerAction, RetainedOwnerState, LIFECYCLE_SECURITY_SDDL,
     };
     use std::path::PathBuf;
 
@@ -1646,6 +1792,15 @@ mod tests {
             pid: 42,
             creation_time_100ns: 1337,
             canonical_path: PathBuf::from(r"C:\Program Files\dropweb\DropwebCore.exe"),
+        }
+    }
+
+    fn app_identity(pid: u32, creation_time_100ns: u64) -> AppIdentity {
+        AppIdentity {
+            pid,
+            creation_time_100ns,
+            session_id: 7,
+            bridge_port: 59_750,
         }
     }
 
@@ -1673,6 +1828,71 @@ mod tests {
 
         assert_eq!(owner.state, LifecycleState::StopPending);
         assert_eq!(owner.child_identity(), Some(&child_identity()));
+    }
+
+    #[test]
+    fn dead_retained_child_observation_restores_spawnable_owner() {
+        let mut owner = LifecycleOwner::running(child_identity());
+        owner.retained_app = Some(app_identity(100, 1_000));
+        owner.run_token =
+            Some(RunToken::parse("0123456789abcdef0123456789abcdef").expect("test token is valid"));
+
+        owner.observe_exit();
+
+        assert_eq!(owner.state, LifecycleState::Stopped);
+        assert_eq!(owner.child_identity(), None);
+        assert_eq!(owner.retained_app(), None);
+        assert_eq!(owner.run_token(), None);
+    }
+
+    #[test]
+    fn retained_owner_action_covers_dead_live_and_ambiguous_apps() {
+        let requesting_app = app_identity(200, 2_000);
+        let retained_app = app_identity(100, 1_000);
+        let cases = [
+            (
+                "exited retained child continues",
+                RetainedOwnerState::Exited,
+                RetainedOwnerAction::Continue,
+            ),
+            (
+                "live retained app conflicts",
+                RetainedOwnerState::Running(Candidate::Leased {
+                    requesting_app: requesting_app.clone(),
+                    leased_app: retained_app.clone(),
+                    app_is_live: true,
+                    core_is_exact: true,
+                    bridge: BridgeState::ListeningByApp,
+                }),
+                RetainedOwnerAction::Conflict,
+            ),
+            (
+                "dead retained app with idle bridge terminates",
+                RetainedOwnerState::Running(Candidate::Leased {
+                    requesting_app: requesting_app.clone(),
+                    leased_app: retained_app.clone(),
+                    app_is_live: false,
+                    core_is_exact: true,
+                    bridge: BridgeState::NotListening,
+                }),
+                RetainedOwnerAction::Terminate,
+            ),
+            (
+                "dead retained app with unknown bridge conflicts",
+                RetainedOwnerState::Running(Candidate::Leased {
+                    requesting_app,
+                    leased_app: retained_app,
+                    app_is_live: false,
+                    core_is_exact: true,
+                    bridge: BridgeState::Unknown,
+                }),
+                RetainedOwnerAction::Conflict,
+            ),
+        ];
+
+        for (name, state, expected) in cases {
+            assert_eq!(retained_owner_action(&state), expected, "{name}");
+        }
     }
 
     #[test]

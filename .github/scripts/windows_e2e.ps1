@@ -24,6 +24,7 @@ $script:Metadata['helper-kill-core-count-after-10s'] = $null
 $script:Metadata['upgrade-old-identity-survivors'] = $null
 $script:Metadata['forced-cleanup-required'] = $false
 $script:Metadata['run-token-fingerprint'] = $null
+$script:Metadata['app-crash-reconciled'] = $false
 $script:Metadata.runTokenStatus = 'pending-wave-2-fixture'
 
 function Add-E2ECheck {
@@ -328,8 +329,12 @@ function Invoke-TwoAppIdentityConflictProbe {
   $conflictResultPath = Join-Path $evidenceRoot 'two-app-conflict.json'
   $startResultPath = Join-Path $evidenceRoot 'two-app-start.json'
   $releasePath = Join-Path $evidenceRoot 'two-app-release'
+  $crashOwnerResultPath = Join-Path $evidenceRoot 'app-crash-owner-start.json'
+  $crashOwnerReadyPath = Join-Path $evidenceRoot 'app-crash-owner-ready'
+  $crashReplacementResultPath = Join-Path $evidenceRoot 'app-crash-replacement-start.json'
+  $crashReplacementReleasePath = Join-Path $evidenceRoot 'app-crash-replacement-release'
   @'
-param([string]$CorePath,[string]$HomeDir,[string]$ResultPath,[string]$ReleasePath,[ValidateSet('Conflict','KeepAlive')][string]$Mode)
+param([string]$CorePath,[string]$HomeDir,[string]$ResultPath,[string]$ReleasePath,[ValidateSet('Conflict','KeepAlive','Crash')][string]$Mode)
 $ErrorActionPreference='Stop'
 $listener=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0)
 $listener.Start()
@@ -346,20 +351,27 @@ $result=[ordered]@{statusCode=[int]$response.StatusCode;code=[string]$content.co
 $temp="$ResultPath.tmp"
 $result|ConvertTo-Json -Depth 5|Set-Content -LiteralPath $temp -Encoding utf8NoBOM
 Move-Item -LiteralPath $temp -Destination $ResultPath -Force
-if ($Mode -eq 'KeepAlive' -and [int]$response.StatusCode -eq 200) {
+if (@('KeepAlive','Crash') -contains $Mode -and [int]$response.StatusCode -eq 200) {
   if (-not $accept.Wait(10000)) { throw 'second app core did not connect' }
   $client=$accept.Result
-  $deadline=[DateTime]::UtcNow.AddSeconds(30)
-  while (-not (Test-Path -LiteralPath $ReleasePath) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
-  $stop=[ordered]@{corePid=[uint32]$content.corePid;coreCreationTime100ns=[uint64]$content.coreCreationTime100ns;runToken=$token}|ConvertTo-Json -Compress
-  [void](Invoke-WebRequest -Uri 'http://127.0.0.1:47896/stop' -Method Post -ContentType 'application/json' -Body $stop -TimeoutSec 10)
-  $client.Dispose()
+  if ($Mode -eq 'Crash') {
+    Set-Content -LiteralPath $ReleasePath -Value 'ready' -Encoding utf8NoBOM
+    while ($true) { Start-Sleep -Seconds 1 }
+  } else {
+    $deadline=[DateTime]::UtcNow.AddSeconds(30)
+    while (-not (Test-Path -LiteralPath $ReleasePath) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+    $stop=[ordered]@{corePid=[uint32]$content.corePid;coreCreationTime100ns=[uint64]$content.coreCreationTime100ns;runToken=$token}|ConvertTo-Json -Compress
+    [void](Invoke-WebRequest -Uri 'http://127.0.0.1:47896/stop' -Method Post -ContentType 'application/json' -Body $stop -TimeoutSec 10)
+    $client.Dispose()
+  }
 }
 $listener.Stop()
 '@ | Set-Content -LiteralPath $childScript -Encoding utf8NoBOM
 
   $first = $null
   $second = $null
+  $crashOwner = $null
+  $crashReplacement = $null
   try {
     $first = Start-E2EHelperCoreFixture -Paths $Paths
     $firstIdentityBefore = $first.coreIdentity | ConvertTo-Json -Compress
@@ -395,11 +407,66 @@ $listener.Stop()
     Write-ObkatkaAtomicText -Path $releasePath -Content 'release'
     if (-not $second.WaitForExit(15000)) { throw 'second app child did not stop its exact core' }
     Add-E2ECheck -Name 'two-app-second-honest-stop' -Passed ((Wait-ObkatkaExactPathProcessCount -ExecutablePath $Paths.core -ExpectedCount 0 -TimeoutSeconds 10) -eq 0) -Detail "childExit=$($second.ExitCode)"
+
+    $helperBeforeCrash = Test-ObkatkaHelperIdentity -CorePath $Paths.core -ServiceName 'DropwebHelperService' -Port 47896
+    $helperBeforeCrashPid = [int]$helperBeforeCrash.servicePid
+    $helperBeforeCrashCreation = Get-E2EExactProcessCreationTime100ns -ProcessId $helperBeforeCrashPid
+    if ($null -eq $helperBeforeCrashCreation) {
+      throw "failed to read helper identity before app crash for pid $helperBeforeCrashPid"
+    }
+
+    Remove-Item -LiteralPath $crashOwnerResultPath, $crashOwnerReadyPath -Force -ErrorAction SilentlyContinue
+    $crashOwnerArguments = @('-NoProfile', '-NonInteractive', '-File', "`"$childScript`"", '-CorePath', "`"$($Paths.core)`"", '-HomeDir', "`"$($Paths.root)`"", '-ResultPath', "`"$crashOwnerResultPath`"", '-ReleasePath', "`"$crashOwnerReadyPath`"", '-Mode', 'Crash')
+    $crashOwner = Start-Process -FilePath 'pwsh' -ArgumentList $crashOwnerArguments -PassThru
+    $deadline = [DateTime]::UtcNow.AddSeconds(15)
+    while (-not (Test-Path -LiteralPath $crashOwnerResultPath) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+    Add-E2ECheck -Name 'app-crash-owner-start-result' -Passed (Test-Path -LiteralPath $crashOwnerResultPath) -Detail $crashOwnerResultPath
+    $crashOwnerStart = Get-Content -LiteralPath $crashOwnerResultPath -Raw | ConvertFrom-Json
+    Add-E2ECheck -Name 'app-crash-owner-start-status' -Passed ([int]$crashOwnerStart.statusCode -eq 200) -Detail ($crashOwnerStart | ConvertTo-Json -Compress)
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    while (-not (Test-Path -LiteralPath $crashOwnerReadyPath) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+    Add-E2ECheck -Name 'app-crash-owner-bridge-ready' -Passed (Test-Path -LiteralPath $crashOwnerReadyPath) -Detail $crashOwnerReadyPath
+    Stop-Process -Id $crashOwner.Id -Force
+    if (-not $crashOwner.WaitForExit(10000)) { throw 'crashed app child did not exit after force stop' }
+
+    Remove-Item -LiteralPath $crashReplacementResultPath, $crashReplacementReleasePath -Force -ErrorAction SilentlyContinue
+    $crashReplacementArguments = @('-NoProfile', '-NonInteractive', '-File', "`"$childScript`"", '-CorePath', "`"$($Paths.core)`"", '-HomeDir', "`"$($Paths.root)`"", '-ResultPath', "`"$crashReplacementResultPath`"", '-ReleasePath', "`"$crashReplacementReleasePath`"", '-Mode', 'KeepAlive')
+    $crashReplacement = Start-Process -FilePath 'pwsh' -ArgumentList $crashReplacementArguments -PassThru
+    $deadline = [DateTime]::UtcNow.AddSeconds(15)
+    while (-not (Test-Path -LiteralPath $crashReplacementResultPath) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+    if (Test-Path -LiteralPath $crashReplacementResultPath) {
+      $crashReplacementStart = Get-Content -LiteralPath $crashReplacementResultPath -Raw | ConvertFrom-Json
+      $crashReplacementStatus = [int]$crashReplacementStart.statusCode
+      $crashReplacementDetail = $crashReplacementStart | ConvertTo-Json -Compress
+    } else {
+      $crashReplacementStatus = 0
+      $crashReplacementDetail = "result absent: $crashReplacementResultPath"
+    }
+    Add-E2ECheck -Name 'app-crash-first-start-status' -Passed ($crashReplacementStatus -eq 200) -Detail $crashReplacementDetail
+
+    $helperAfterCrash = Test-ObkatkaHelperIdentity -CorePath $Paths.core -ServiceName 'DropwebHelperService' -Port 47896
+    $helperAfterCrashPid = [int]$helperAfterCrash.servicePid
+    $helperAfterCrashCreation = Get-E2EExactProcessCreationTime100ns -ProcessId $helperAfterCrashPid
+    $helperIdentityAvailable = $null -ne $helperAfterCrashCreation
+    $helperIdentityUnchanged = $helperIdentityAvailable -and $helperAfterCrashPid -eq $helperBeforeCrashPid -and [uint64]$helperAfterCrashCreation -eq [uint64]$helperBeforeCrashCreation
+    Add-E2ECheck -Name 'app-crash-no-service-restart' -Passed $helperIdentityUnchanged -Detail "beforePid=$helperBeforeCrashPid beforeCreation=$helperBeforeCrashCreation afterPid=$helperAfterCrashPid afterCreation=$helperAfterCrashCreation"
+    $script:Metadata['app-crash-reconciled'] = $crashReplacementStatus -eq 200 -and $helperIdentityUnchanged
+
+    Write-ObkatkaAtomicText -Path $crashReplacementReleasePath -Content 'release'
+    if (-not $crashReplacement.WaitForExit(15000)) { throw 'replacement app child did not stop its exact core' }
   } finally {
     if ($first) { Close-E2EHelperCoreFixture -Fixture $first }
     if ($second -and -not $second.HasExited) {
       Write-ObkatkaAtomicText -Path $releasePath -Content 'release'
       [void]$second.WaitForExit(15000)
+    }
+    if ($crashOwner -and -not $crashOwner.HasExited) {
+      Stop-Process -Id $crashOwner.Id -Force -ErrorAction SilentlyContinue
+      [void]$crashOwner.WaitForExit(10000)
+    }
+    if ($crashReplacement -and -not $crashReplacement.HasExited) {
+      Write-ObkatkaAtomicText -Path $crashReplacementReleasePath -Content 'release'
+      [void]$crashReplacement.WaitForExit(15000)
     }
   }
 }

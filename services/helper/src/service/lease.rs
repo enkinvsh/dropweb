@@ -256,7 +256,7 @@ mod tests {
                 "foreign live lease conflicts",
                 Candidate::Leased {
                     requesting_app: owner.clone(),
-                    leased_app: foreign,
+                    leased_app: foreign.clone(),
                     app_is_live: true,
                     core_is_exact: true,
                     bridge: BridgeState::ListeningByApp,
@@ -267,12 +267,34 @@ mod tests {
                 "same app may replace its child",
                 Candidate::Leased {
                     requesting_app: owner.clone(),
-                    leased_app: owner,
+                    leased_app: owner.clone(),
                     app_is_live: true,
                     core_is_exact: true,
                     bridge: BridgeState::ListeningByApp,
                 },
                 CandidateDecision::Terminate,
+            ),
+            (
+                "foreign dead lease with idle bridge may terminate",
+                Candidate::Leased {
+                    requesting_app: owner.clone(),
+                    leased_app: foreign.clone(),
+                    app_is_live: false,
+                    core_is_exact: true,
+                    bridge: BridgeState::NotListening,
+                },
+                CandidateDecision::Terminate,
+            ),
+            (
+                "foreign dead lease with unknown bridge conflicts",
+                Candidate::Leased {
+                    requesting_app: owner.clone(),
+                    leased_app: foreign,
+                    app_is_live: false,
+                    core_is_exact: true,
+                    bridge: BridgeState::Unknown,
+                },
+                CandidateDecision::Conflict,
             ),
             (
                 "portable sibling is ignored",
