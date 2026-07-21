@@ -114,6 +114,13 @@ pub enum BridgeState {
     Unknown,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AppLiveness {
+    Live,
+    Dead,
+    Unknown,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Candidate {
     Retained {
@@ -123,7 +130,7 @@ pub enum Candidate {
     Leased {
         requesting_app: AppIdentity,
         leased_app: AppIdentity,
-        app_is_live: bool,
+        app_liveness: AppLiveness,
         core_is_exact: bool,
         bridge: BridgeState,
     },
@@ -154,17 +161,28 @@ pub fn evaluate_candidate(candidate: &Candidate) -> CandidateDecision {
         Candidate::Leased {
             requesting_app,
             leased_app,
-            app_is_live,
+            app_liveness,
             core_is_exact,
             bridge,
         } => {
             let owned_by_requester = requesting_app == leased_app && *core_is_exact;
-            let proven_stale =
-                !app_is_live && *core_is_exact && *bridge == BridgeState::NotListening;
-            if owned_by_requester || proven_stale {
-                CandidateDecision::Terminate
-            } else {
-                CandidateDecision::Conflict
+            match app_liveness {
+                AppLiveness::Live => {
+                    if owned_by_requester {
+                        CandidateDecision::Terminate
+                    } else {
+                        CandidateDecision::Conflict
+                    }
+                }
+                AppLiveness::Dead => {
+                    let proven_stale = *core_is_exact && *bridge == BridgeState::NotListening;
+                    if owned_by_requester || proven_stale {
+                        CandidateDecision::Terminate
+                    } else {
+                        CandidateDecision::Conflict
+                    }
+                }
+                AppLiveness::Unknown => CandidateDecision::Conflict,
             }
         }
         Candidate::Legacy {
@@ -197,7 +215,8 @@ fn path_eq(left: &std::path::Path, right: &std::path::Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        evaluate_candidate, AppIdentity, BridgeState, Candidate, CandidateDecision, CoreIdentity,
+        evaluate_candidate, AppIdentity, AppLiveness, BridgeState, Candidate, CandidateDecision,
+        CoreIdentity,
     };
     use std::path::PathBuf;
 
@@ -257,7 +276,7 @@ mod tests {
                 Candidate::Leased {
                     requesting_app: owner.clone(),
                     leased_app: foreign.clone(),
-                    app_is_live: true,
+                    app_liveness: AppLiveness::Live,
                     core_is_exact: true,
                     bridge: BridgeState::ListeningByApp,
                 },
@@ -268,7 +287,7 @@ mod tests {
                 Candidate::Leased {
                     requesting_app: owner.clone(),
                     leased_app: owner.clone(),
-                    app_is_live: true,
+                    app_liveness: AppLiveness::Live,
                     core_is_exact: true,
                     bridge: BridgeState::ListeningByApp,
                 },
@@ -279,7 +298,7 @@ mod tests {
                 Candidate::Leased {
                     requesting_app: owner.clone(),
                     leased_app: foreign.clone(),
-                    app_is_live: false,
+                    app_liveness: AppLiveness::Dead,
                     core_is_exact: true,
                     bridge: BridgeState::NotListening,
                 },
@@ -290,9 +309,42 @@ mod tests {
                 Candidate::Leased {
                     requesting_app: owner.clone(),
                     leased_app: foreign,
-                    app_is_live: false,
+                    app_liveness: AppLiveness::Dead,
                     core_is_exact: true,
                     bridge: BridgeState::Unknown,
+                },
+                CandidateDecision::Conflict,
+            ),
+            (
+                "unknown same-app liveness still conflicts",
+                Candidate::Leased {
+                    requesting_app: owner.clone(),
+                    leased_app: owner.clone(),
+                    app_liveness: AppLiveness::Unknown,
+                    core_is_exact: true,
+                    bridge: BridgeState::NotListening,
+                },
+                CandidateDecision::Conflict,
+            ),
+            (
+                "unknown app liveness with idle bridge conflicts",
+                Candidate::Leased {
+                    requesting_app: owner.clone(),
+                    leased_app: app(300, 3_000, 9),
+                    app_liveness: AppLiveness::Unknown,
+                    core_is_exact: true,
+                    bridge: BridgeState::NotListening,
+                },
+                CandidateDecision::Conflict,
+            ),
+            (
+                "unknown app liveness with listening bridge conflicts",
+                Candidate::Leased {
+                    requesting_app: owner.clone(),
+                    leased_app: app(300, 3_000, 9),
+                    app_liveness: AppLiveness::Unknown,
+                    core_is_exact: true,
+                    bridge: BridgeState::ListeningByApp,
                 },
                 CandidateDecision::Conflict,
             ),

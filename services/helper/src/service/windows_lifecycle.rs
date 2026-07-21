@@ -36,6 +36,17 @@ enum RetainedOwnerState {
     Running(lease::Candidate),
 }
 
+impl RetainedOwnerState {
+    const fn app_liveness(&self) -> Option<lease::AppLiveness> {
+        match self {
+            Self::Running(lease::Candidate::Leased { app_liveness, .. }) => Some(*app_liveness),
+            Self::Exited
+            | Self::Running(lease::Candidate::Retained { .. })
+            | Self::Running(lease::Candidate::Legacy { .. }) => None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum RetainedOwnerAction {
     Continue,
@@ -160,8 +171,8 @@ pub use windows_process::{start_transaction, stop_for_service, stop_transaction,
 #[cfg(target_os = "windows")]
 mod windows_process {
     use super::lease::{
-        AppIdentity, BridgeState, Candidate, CandidateDecision, CoreIdentity, LeaseRecord,
-        RunToken, StartCoreRequest, StartCoreResponse, StopCoreRequest,
+        AppIdentity, AppLiveness, BridgeState, Candidate, CandidateDecision, CoreIdentity,
+        LeaseRecord, RunToken, StartCoreRequest, StartCoreResponse, StopCoreRequest,
     };
     use super::{
         leased_process_identity_action, strip_extended_length_prefix, ChildIdentity,
@@ -333,7 +344,7 @@ mod windows_process {
             Ok(super::RetainedOwnerState::Running(Candidate::Leased {
                 requesting_app: requesting_app.clone(),
                 leased_app: retained_app.clone(),
-                app_is_live: app_identity_is_live(retained_app),
+                app_liveness: observe_app_liveness(retained_app),
                 core_is_exact: core_matches_child(retained_core, &observed),
                 bridge: listener_state(retained_app),
             }))
@@ -422,6 +433,12 @@ mod windows_process {
                 let retained_core = owner.retained_core_identity()?;
                 let state =
                     owner.retained_owner_state(&retained_app, &app_identity, &retained_core)?;
+                if let Some(app_liveness) = state.app_liveness() {
+                    log(format!(
+                        "[lifecycle] reconcile-observation reason=retained-owner pid={} creation={} appLiveness={app_liveness:?}",
+                        retained_core.pid, retained_core.creation_time_100ns
+                    ));
+                }
                 match super::retained_owner_action(&state) {
                     super::RetainedOwnerAction::Continue => {
                         log(super::child_termination_event(
@@ -720,12 +737,20 @@ mod windows_process {
                         &observed,
                     )) == LeasedProcessIdentityAction::ReconcileExact =>
                 {
-                    let app_is_live = app_identity_is_live(&record.app);
+                    let app_liveness = if requesting_app == &record.app {
+                        AppLiveness::Live
+                    } else {
+                        observe_app_liveness(&record.app)
+                    };
                     let bridge = listener_state(&record.app);
+                    log(format!(
+                        "[lifecycle] reconcile-observation reason=lease pid={} creation={} appLiveness={app_liveness:?}",
+                        record.core.pid, record.core.creation_time_100ns
+                    ));
                     let decision = super::lease::evaluate_candidate(&Candidate::Leased {
                         requesting_app: requesting_app.clone(),
                         leased_app: record.app.clone(),
-                        app_is_live,
+                        app_liveness,
                         core_is_exact: true,
                         bridge,
                     });
@@ -1101,20 +1126,32 @@ mod windows_process {
         }
     }
 
-    fn app_identity_is_live(expected: &AppIdentity) -> bool {
+    fn observe_app_liveness(expected: &AppIdentity) -> AppLiveness {
+        match process_id_exists(expected.pid) {
+            Ok(false) => return AppLiveness::Dead,
+            Ok(true) => {}
+            Err(_) => return AppLiveness::Unknown,
+        }
         let Ok(process) = open_process(expected.pid, PROCESS_QUERY_LIMITED_INFORMATION) else {
-            return false;
+            return AppLiveness::Unknown;
         };
         let Ok(observed) = query_identity_from_handle(&process, expected.pid) else {
-            return false;
+            return AppLiveness::Unknown;
         };
+        if observed.creation_time_100ns != expected.creation_time_100ns {
+            return AppLiveness::Dead;
+        }
         let mut session_id = 0_u32;
         // SAFETY: Category 8 (FFI boundary). session_id is writable and the
         // process identifier is the exact lease value being revalidated.
-        let session_result = unsafe { ProcessIdToSessionId(expected.pid, &mut session_id) };
-        session_result.is_ok()
-            && observed.creation_time_100ns == expected.creation_time_100ns
-            && session_id == expected.session_id
+        if unsafe { ProcessIdToSessionId(expected.pid, &mut session_id) }.is_err() {
+            return AppLiveness::Unknown;
+        }
+        if session_id == expected.session_id {
+            AppLiveness::Live
+        } else {
+            AppLiveness::Unknown
+        }
     }
 
     fn listener_state(app: &AppIdentity) -> BridgeState {
@@ -1779,7 +1816,7 @@ mod windows_process {
 
 #[cfg(test)]
 mod tests {
-    use super::lease::{AppIdentity, BridgeState, Candidate, RunToken};
+    use super::lease::{AppIdentity, AppLiveness, BridgeState, Candidate, RunToken};
     use super::{
         child_termination_event, leased_process_identity_action, retained_owner_action,
         strip_extended_length_prefix, ChildIdentity, LeasedProcessIdentityAction, LifecycleOwner,
@@ -1860,7 +1897,7 @@ mod tests {
                 RetainedOwnerState::Running(Candidate::Leased {
                     requesting_app: requesting_app.clone(),
                     leased_app: retained_app.clone(),
-                    app_is_live: true,
+                    app_liveness: AppLiveness::Live,
                     core_is_exact: true,
                     bridge: BridgeState::ListeningByApp,
                 }),
@@ -1871,7 +1908,7 @@ mod tests {
                 RetainedOwnerState::Running(Candidate::Leased {
                     requesting_app: requesting_app.clone(),
                     leased_app: retained_app.clone(),
-                    app_is_live: false,
+                    app_liveness: AppLiveness::Dead,
                     core_is_exact: true,
                     bridge: BridgeState::NotListening,
                 }),
@@ -1882,7 +1919,7 @@ mod tests {
                 RetainedOwnerState::Running(Candidate::Leased {
                     requesting_app,
                     leased_app: retained_app,
-                    app_is_live: false,
+                    app_liveness: AppLiveness::Unknown,
                     core_is_exact: true,
                     bridge: BridgeState::Unknown,
                 }),
