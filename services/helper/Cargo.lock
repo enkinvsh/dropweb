@@ -284,6 +284,7 @@ dependencies = [
  "anyhow",
  "once_cell",
  "serde",
+ "serde_json",
  "sha2",
  "thiserror 2.0.19",
  "tokio",

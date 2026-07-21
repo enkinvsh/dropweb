@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
@@ -8,8 +10,170 @@ import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/state.dart';
+import 'package:ffi/ffi.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:win32/win32.dart';
+
+const helperStartTimeout = Duration(seconds: 15);
+// The helper's STOP_BUDGET is 10 seconds; keep a two-second HTTP envelope.
+const helperStopTimeout = Duration(seconds: 12);
+
+String generateCoreRunToken([Random? random]) {
+  final generator = random ?? Random.secure();
+  return List.generate(
+    16,
+    (_) => generator.nextInt(256).toRadixString(16).padLeft(2, '0'),
+  ).join();
+}
+
+final class HelperCoreIdentity {
+  const HelperCoreIdentity({
+    required this.corePid,
+    required this.coreCreationTime100ns,
+    required this.runToken,
+  });
+
+  final int corePid;
+  final int coreCreationTime100ns;
+  final String runToken;
+}
+
+final class HelperAppIdentity {
+  const HelperAppIdentity({
+    required this.appPid,
+    required this.appCreationTime100ns,
+    required this.appSessionId,
+  });
+
+  final int appPid;
+  final int appCreationTime100ns;
+  final int appSessionId;
+}
+
+final class HelperAppIdentityCache {
+  HelperAppIdentityCache(this._load);
+
+  final Future<HelperAppIdentity> Function() _load;
+  Future<HelperAppIdentity>? _identity;
+
+  Future<HelperAppIdentity> current() {
+    final cached = _identity;
+    if (cached != null) return cached;
+
+    late final Future<HelperAppIdentity> loading;
+    loading = _load().onError((Object error, StackTrace stackTrace) {
+      if (identical(_identity, loading)) _identity = null;
+      Error.throwWithStackTrace(error, stackTrace);
+    });
+    _identity = loading;
+    return loading;
+  }
+}
+
+int composeWindowsFileTime(int high, int low) => (high << 32) | low;
+
+final _helperAppIdentityCache =
+    HelperAppIdentityCache(_readCurrentWindowsAppIdentity);
+
+Future<HelperAppIdentity> _readCurrentWindowsAppIdentity() async {
+  final creation = calloc<FILETIME>();
+  final exit = calloc<FILETIME>();
+  final kernel = calloc<FILETIME>();
+  final user = calloc<FILETIME>();
+  final session = calloc<Uint32>();
+  try {
+    final appPid = GetCurrentProcessId();
+    final processTimesResult = GetProcessTimes(
+      GetCurrentProcess(),
+      creation,
+      exit,
+      kernel,
+      user,
+    );
+    final sessionResult = ProcessIdToSessionId(appPid, session);
+    final creationTime = composeWindowsFileTime(
+      creation.ref.dwHighDateTime,
+      creation.ref.dwLowDateTime,
+    );
+    if (processTimesResult == 0 || sessionResult == 0 || creationTime <= 0) {
+      throw const HelperLifecycleProtocolException(
+        'cannot read current Windows app identity',
+      );
+    }
+    return HelperAppIdentity(
+      appPid: appPid,
+      appCreationTime100ns: creationTime,
+      appSessionId: session.value,
+    );
+  } finally {
+    calloc.free(creation);
+    calloc.free(exit);
+    calloc.free(kernel);
+    calloc.free(user);
+    calloc.free(session);
+  }
+}
+
+final class HelperLifecycleConflictException implements Exception {
+  const HelperLifecycleConflictException();
+
+  @override
+  String toString() => 'activeInAnotherSession';
+}
+
+final class HelperLifecycleProtocolException implements Exception {
+  const HelperLifecycleProtocolException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'helper lifecycle protocol error: $message';
+}
+
+HelperCoreIdentity decodeHelperStartResponse({
+  required int? statusCode,
+  required String body,
+  required String expectedRunToken,
+}) {
+  if (statusCode == HttpStatus.conflict) {
+    final value = jsonDecode(body);
+    if (value is Map && value['code'] == 'activeInAnotherSession') {
+      throw const HelperLifecycleConflictException();
+    }
+    throw const HelperLifecycleProtocolException('unknown conflict response');
+  }
+  if (statusCode != HttpStatus.ok) {
+    throw HelperLifecycleProtocolException('unexpected status $statusCode');
+  }
+  final value = jsonDecode(body);
+  if (value is! Map<String, dynamic>) {
+    throw const HelperLifecycleProtocolException(
+        'start response is not an object');
+  }
+  final corePid = value['corePid'];
+  final coreCreationTime100ns = value['coreCreationTime100ns'];
+  final runToken = value['runToken'];
+  if (corePid is! int ||
+      corePid <= 0 ||
+      coreCreationTime100ns is! int ||
+      coreCreationTime100ns <= 0 ||
+      runToken is! String ||
+      runToken != expectedRunToken) {
+    throw const HelperLifecycleProtocolException('invalid start identity');
+  }
+  return HelperCoreIdentity(
+    corePid: corePid,
+    coreCreationTime100ns: coreCreationTime100ns,
+    runToken: runToken,
+  );
+}
+
+String encodeHelperStopRequest(HelperCoreIdentity identity) => jsonEncode({
+      'corePid': identity.corePid,
+      'coreCreationTime100ns': identity.coreCreationTime100ns,
+      'runToken': identity.runToken,
+    });
 
 class Request {
   Request() {
@@ -334,64 +498,75 @@ class Request {
     }
   }
 
-  Future<bool> startCoreByHelper(String arg) async {
-    try {
-      // CONFLICT CHECK (by identity, not by a hardcoded process name): only
-      // hand our start request to the helper on the fixed port 47896 if it is
-      // verifiably OURS. pingHelper() compares the helper's reported core hash
-      // against our coreSHA256. If a foreign clash-lineage helper (e.g.
-      // FlClashX) or a stale instance squats the port, this returns false and
-      // we bail — the caller (ClashService.reStart) then spawns our own core
-      // directly. We never drive someone else's helper.
-      if (!await pingHelper()) {
-        commonPrint.log(
-            "[helper] $helperPort is not our verified helper — skipping helper, will spawn core directly");
-        return false;
-      }
-      final homeDirPath = await appPath.homeDirPath;
-      final response = await _dio
-          .post(
-            "http://$localhost:$helperPort/start",
-            data: json.encode({
-              "path": appPath.corePath,
-              "arg": arg,
-              "home_dir": homeDirPath,
-            }),
-            options: Options(
-              responseType: ResponseType.plain,
-            ),
-          )
-          .timeout(
-            const Duration(
-              milliseconds: 2000,
-            ),
-          );
-      if (response.statusCode != HttpStatus.ok) {
-        return false;
-      }
-      final data = response.data as String;
-      return data.isEmpty;
-    } catch (_) {
-      return false;
+  Future<HelperCoreIdentity> startCoreByHelper({
+    required int bridgePort,
+    required String runToken,
+  }) async {
+    // CONFLICT CHECK (by identity, not by a hardcoded process name): only
+    // hand our start request to the helper on the fixed port 47896 if it is
+    // verifiably OURS. pingHelper() compares the helper's reported core hash
+    // against our coreSHA256. If a foreign clash-lineage helper (e.g.
+    // FlClashX) or a stale instance squats the port, this returns false and
+    // we bail — the caller (ClashService.reStart) then spawns our own core
+    // directly. We never drive someone else's helper.
+    if (!await pingHelper()) {
+      commonPrint.log(
+          "[helper] $helperPort is not our verified helper — skipping helper, will spawn core directly");
+      throw const HelperLifecycleProtocolException(
+        'helper identity verification failed',
+      );
     }
+    final homeDirPath = await appPath.homeDirPath;
+    final appIdentity = await _currentWindowsAppIdentity();
+    final response = await _dio
+        .post(
+          "http://$localhost:$helperPort/start",
+          data: json.encode({
+            "path": appPath.corePath,
+            "bridgePort": bridgePort,
+            "homeDir": homeDirPath,
+            "runToken": runToken,
+            "appPid": appIdentity.appPid,
+            "appCreationTime100ns": appIdentity.appCreationTime100ns,
+            "appSessionId": appIdentity.appSessionId,
+          }),
+          options: Options(
+            responseType: ResponseType.plain,
+            validateStatus: (status) => status != null && status < 500,
+          ),
+        )
+        .timeout(helperStartTimeout);
+    final data = response.data as String;
+    return decodeHelperStartResponse(
+      statusCode: response.statusCode,
+      body: data,
+      expectedRunToken: runToken,
+    );
   }
 
-  Future<bool> stopCoreByHelper() async {
+  Future<bool> stopCoreByHelper(HelperCoreIdentity identity) async {
     try {
       final response = await _dio
           .post(
             "http://$localhost:$helperPort/stop",
-            options: Options(responseType: ResponseType.plain),
+            data: encodeHelperStopRequest(identity),
+            options: Options(
+              responseType: ResponseType.plain,
+              validateStatus: (status) => status != null && status < 500,
+            ),
           )
-          .timeout(const Duration(milliseconds: 2000));
+          .timeout(helperStopTimeout);
 
       if (response.statusCode != HttpStatus.ok) return false;
-      final data = response.data as String;
-      return data.isEmpty;
+      final data = jsonDecode(response.data as String);
+      return data is Map && data['stopped'] == true;
     } catch (_) {
       return false;
     }
   }
+
+  Future<HelperAppIdentity> _currentWindowsAppIdentity() =>
+      _helperAppIdentityCache.current();
 
   Future<Map<String, dynamic>?> getCoreVersion() async {
     try {

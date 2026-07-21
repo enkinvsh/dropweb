@@ -10,6 +10,11 @@ class ErrorMapper {
 
   static final _patterns = <_ErrorPattern>[
     _ErrorPattern(
+      RegExp(r'activeInAnotherSession', caseSensitive: false),
+      ru: 'Dropweb уже активен в другой сессии Windows.',
+      en: 'Dropweb is already active in another Windows session.',
+    ),
+    _ErrorPattern(
       RegExp(r'TUN listener start timed out', caseSensitive: false),
       ru: 'VPN-интерфейс поднимается дольше обычного. Подождите и попробуйте ещё раз.',
       en: 'The VPN interface is taking longer than usual. Wait a moment and try again.',

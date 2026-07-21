@@ -8,6 +8,17 @@ import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/core.dart';
 
+final class _AttemptLaunchIdentity {
+  _AttemptLaunchIdentity(this.runToken) {
+    unawaited(helperAuthority.future.catchError((Object _) => null));
+  }
+
+  final String runToken;
+  final Completer<HelperCoreIdentity?> helperAuthority = Completer();
+  HelperCoreIdentity? helperIdentity;
+  int? directPid;
+}
+
 class ClashService extends ClashHandlerInterface {
   factory ClashService() {
     _instance ??= ClashService._internal();
@@ -72,6 +83,8 @@ class ClashService extends ClashHandlerInterface {
   CoreBootAttempt? _socketAttempt;
   CoreBootAttempt? _deathNotifiedAttempt;
   Socket? _activeSocket;
+  StreamIterator<String>? _activeLines;
+  final Map<CoreBootAttempt, _AttemptLaunchIdentity> _launchIdentities = {};
   bool _forceDirectSpawnForGeneration = false;
 
   /// Whether the CURRENT core process was spawned via the privileged Windows
@@ -126,19 +139,7 @@ class ClashService extends ClashHandlerInterface {
           await socket.close();
           continue;
         }
-        await _destroySocket();
-        _socketAttempt = attempt;
-        socketCompleter.complete(socket);
-        _activeSocket = socket;
-        _listenToSocket(socket, attempt);
-        if (!_readiness.acceptConnection(attempt)) {
-          await _destroySocket();
-          continue;
-        }
-        commonPrint.log(
-          '[boot] connect-back ok [core-bridge] core connected back '
-          'gen=${attempt.generation} attempt=${attempt.attempt}',
-        );
+        await _acceptCandidateSocket(socket, attempt);
       }
     }, (error, stack) {
       commonPrint.log(error.toString());
@@ -148,30 +149,94 @@ class ClashService extends ClashHandlerInterface {
     });
   }
 
-  void _listenToSocket(Socket socket, CoreBootAttempt attempt) {
-    unawaited(socket.done.then(
-      (_) => _onCoreDeath(
+  Future<void> _acceptCandidateSocket(
+    Socket socket,
+    CoreBootAttempt attempt,
+  ) async {
+    final launch = _launchIdentities[attempt];
+    if (launch == null) {
+      await socket.close();
+      _readiness.reportAttemptFailure(
         attempt,
-        'bridge socket closed',
-        sourceSocket: socket,
-      ),
-      onError: (Object _) => _onCoreDeath(
-        attempt,
-        'bridge socket error',
-        sourceSocket: socket,
-      ),
-    ));
-    socket
-        .transform(uint8ListToListIntConverter)
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen((data) {
-      handleResult(
-        ActionResult.fromJson(
-          json.decode(data.trim()),
-        ),
+        const CoreBridgeHandshakeException('spawn identity is absent'),
       );
-    });
+      return;
+    }
+    final lines = StreamIterator(
+      socket
+          .transform(uint8ListToListIntConverter)
+          .transform(utf8.decoder)
+          .transform(const LineSplitter()),
+    );
+    try {
+      final hasHello =
+          await lines.moveNext().timeout(const Duration(seconds: 5));
+      if (!hasHello) {
+        throw const CoreBridgeHandshakeException('socket closed before hello');
+      }
+      final helperIdentity = await launch.helperAuthority.future
+          .timeout(const Duration(seconds: 5));
+      admitCoreBridgeHello(
+        line: lines.current,
+        expectation: CoreBridgeExpectation(
+          runToken: launch.runToken,
+          corePid: helperIdentity?.corePid ?? launch.directPid,
+          coreCreationTime100ns: helperIdentity?.coreCreationTime100ns,
+        ),
+        attempt: attempt,
+        currentAttempt: _readiness.currentAttempt,
+      );
+      if (!_readiness.canAcceptConnection(attempt)) {
+        throw const CoreBridgeHandshakeException(
+            'late hello for stale attempt');
+      }
+      await _destroySocket();
+      _socketAttempt = attempt;
+      _activeSocket = socket;
+      _activeLines = lines;
+      socketCompleter.complete(socket);
+      if (!_readiness.acceptConnection(attempt)) {
+        throw const CoreBridgeHandshakeException('readiness rejected hello');
+      }
+      _listenToSocket(socket, lines, attempt);
+      commonPrint.log(
+        '[boot] connect-back ok [core-bridge] core connected back '
+        'gen=${attempt.generation} attempt=${attempt.attempt}',
+      );
+    } catch (error) {
+      await lines.cancel();
+      await socket.close();
+      _readiness.reportAttemptFailure(attempt, error);
+    }
+  }
+
+  void _listenToSocket(
+    Socket socket,
+    StreamIterator<String> lines,
+    CoreBootAttempt attempt,
+  ) {
+    unawaited(() async {
+      try {
+        while (await lines.moveNext()) {
+          await handleResult(
+            ActionResult.fromJson(
+              json.decode(lines.current.trim()),
+            ),
+          );
+        }
+        _onCoreDeath(
+          attempt,
+          'bridge socket closed',
+          sourceSocket: socket,
+        );
+      } catch (_) {
+        _onCoreDeath(
+          attempt,
+          'bridge socket error',
+          sourceSocket: socket,
+        );
+      }
+    }());
   }
 
   @override
@@ -187,7 +252,8 @@ class ClashService extends ClashHandlerInterface {
   Future<void> _spawnAttempt(CoreBootAttempt attempt) async {
     _expectedTeardown = false;
     _deathNotifiedAttempt = null;
-    _socketAttempt = attempt;
+    final launch = _AttemptLaunchIdentity(generateCoreRunToken());
+    _launchIdentities[attempt] = launch;
     final serverSocket = await serverCompleter.future;
     final arg = Platform.isWindows
         ? "${serverSocket.port}"
@@ -200,9 +266,17 @@ class ClashService extends ClashHandlerInterface {
       'attempt=${attempt.attempt} arg=$arg helperReady=$helperReady',
     );
     if (helperReady) {
-      final isSuccess = await request.startCoreByHelper(arg);
-      commonPrint.log("[core-bridge] startCoreByHelper -> $isSuccess");
-      if (isSuccess) {
+      try {
+        final identity = await request.startCoreByHelper(
+          bridgePort: serverSocket.port,
+          runToken: launch.runToken,
+        );
+        launch.helperIdentity = identity;
+        launch.helperAuthority.complete(identity);
+        commonPrint.log(
+          '[core-bridge] helper identity pid=${identity.corePid} '
+          'creationTime100ns=${identity.coreCreationTime100ns}',
+        );
         commonPrint.log(
           '[boot] helper-start-accepted gen=${attempt.generation} '
           'attempt=${attempt.attempt}',
@@ -210,13 +284,12 @@ class ClashService extends ClashHandlerInterface {
         _coreStartedByHelper = true;
         _helperAttempt = attempt;
         return;
+      } catch (error, stackTrace) {
+        if (!launch.helperAuthority.isCompleted) {
+          launch.helperAuthority.completeError(error, stackTrace);
+        }
+        rethrow;
       }
-      throw CoreBootException(
-        phase: CoreBootPhase.spawning,
-        generation: attempt.generation,
-        attempt: attempt.attempt,
-        cause: StateError('verified helper rejected core spawn'),
-      );
     }
     _coreStartedByHelper = false;
     _helperAttempt = null;
@@ -231,14 +304,23 @@ class ClashService extends ClashHandlerInterface {
       '[boot] direct-spawn gen=${attempt.generation} '
       'attempt=${attempt.attempt}',
     );
-    process = await Process.start(
-      appPath.corePath,
-      [
-        arg,
-      ],
-      environment: environment,
-    );
+    try {
+      process = await Process.start(
+        appPath.corePath,
+        [
+          arg,
+          '--run-token',
+          launch.runToken,
+        ],
+        environment: environment,
+      );
+    } catch (error, stackTrace) {
+      launch.helperAuthority.completeError(error, stackTrace);
+      rethrow;
+    }
     _processAttempt = attempt;
+    launch.directPid = process!.pid;
+    launch.helperAuthority.complete(null);
     commonPrint.log("[core-bridge] core process spawned pid=${process?.pid}");
     // Watch THIS specific process's exit. Capture the instance so a late exit
     // from a previously-killed core (rapid restart) can't be misread as the
@@ -320,6 +402,9 @@ class ClashService extends ClashHandlerInterface {
   }
 
   Future<void> _destroySocket() async {
+    final lines = _activeLines;
+    _activeLines = null;
+    await lines?.cancel();
     if (socketCompleter.isCompleted) {
       final lastSocket = await socketCompleter.future;
       await lastSocket.close();
@@ -333,9 +418,13 @@ class ClashService extends ClashHandlerInterface {
     _expectedTeardown = true;
 
     if (Platform.isWindows && identical(_helperAttempt, attempt)) {
+      final helperIdentity = _launchIdentities[attempt]?.helperIdentity;
+      if (helperIdentity == null) {
+        throw StateError('helper child identity is absent');
+      }
       final result = await windows?.runOwnedHelperDestructiveOperation(
         operationName: 'helper-core-stop',
-        operation: request.stopCoreByHelper,
+        operation: () => request.stopCoreByHelper(helperIdentity),
       );
       if (result != null && !result.isAllowed) {
         _forceDirectSpawnForGeneration = true;
@@ -369,6 +458,7 @@ class ClashService extends ClashHandlerInterface {
         socketCompleter = Completer();
       }
     }
+    _launchIdentities.remove(attempt);
   }
 
   @override

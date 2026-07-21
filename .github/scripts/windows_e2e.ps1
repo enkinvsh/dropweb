@@ -24,7 +24,7 @@ $script:Metadata['helper-kill-core-count-after-10s'] = $null
 $script:Metadata['upgrade-old-identity-survivors'] = $null
 $script:Metadata['forced-cleanup-required'] = $false
 $script:Metadata['run-token-fingerprint'] = $null
-$script:Metadata.runTokenStatus = 'not-available-before-wave-2'
+$script:Metadata.runTokenStatus = 'pending-wave-2-fixture'
 
 function Add-E2ECheck {
   param(
@@ -98,8 +98,47 @@ function ConvertTo-E2EHelperEvidence {
     expectedPath = $Paths.helper
     process = $Identity.serviceProcessIdentity
     coreSha256 = $Identity.coreHash
-    pingToken = $Identity.pingBody
+    pingFingerprint = Get-E2ETokenFingerprint -Token ([string]$Identity.pingBody)
     pingMatches = [bool]$Identity.pingMatches
+  }
+}
+
+function New-E2ERunToken {
+  $bytes = [byte[]]::new(16)
+  [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+  return ([Convert]::ToHexString($bytes)).ToLowerInvariant()
+}
+
+function Get-E2ETokenFingerprint {
+  param([Parameter(Mandatory)][string]$Token)
+
+  $bytes = [Text.Encoding]::UTF8.GetBytes($Token)
+  $digest = [Security.Cryptography.SHA256]::HashData($bytes)
+  return ([Convert]::ToHexString($digest)).ToLowerInvariant().Substring(0, 8)
+}
+
+function Get-E2ELeaseEvidence {
+  param([Parameter(Mandatory)][object]$Paths)
+
+  $helperDirectory = (Get-Item -LiteralPath (Split-Path -Parent $Paths.helper)).FullName.TrimEnd('\').ToLowerInvariant()
+  $directoryHash = [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($helperDirectory))
+  $installId = ([Convert]::ToHexString([byte[]]$directoryHash[0..15])).ToLowerInvariant()
+  $leasePath = Join-Path $env:ProgramData "dropweb\lifecycle\$installId.json"
+  if (-not (Test-Path -LiteralPath $leasePath)) { throw "lifecycle lease absent: $leasePath" }
+  $lease = Get-Content -LiteralPath $leasePath -Raw | ConvertFrom-Json
+  return [pscustomobject]@{
+    corePid = [uint32]$lease.core.pid
+    coreCreationTime100ns = [uint64]$lease.core.creationTime100ns
+    runTokenFingerprint = Get-E2ETokenFingerprint -Token ([string]$lease.core.runToken)
+  }
+}
+
+function Get-E2ECurrentAppIdentity {
+  $current = [Diagnostics.Process]::GetCurrentProcess()
+  return [pscustomobject]@{
+    pid = [uint32]$current.Id
+    creationTime100ns = [uint64]$current.StartTime.ToUniversalTime().ToFileTimeUtc()
+    sessionId = [uint32]$current.SessionId
   }
 }
 
@@ -129,19 +168,39 @@ function Start-E2EHelperCoreFixture {
   $port = ([Net.IPEndPoint]$listener.LocalEndpoint).Port
   $acceptTask = $listener.AcceptTcpClientAsync()
   try {
+    $runToken = New-E2ERunToken
+    $appIdentity = Get-E2ECurrentAppIdentity
     $body = [ordered]@{
       path = $Paths.core
-      arg = [string]$port
-      home_dir = $Paths.root
+      bridgePort = $port
+      homeDir = $Paths.root
+      runToken = $runToken
+      appPid = $appIdentity.pid
+      appCreationTime100ns = $appIdentity.creationTime100ns
+      appSessionId = $appIdentity.sessionId
     } | ConvertTo-Json -Compress
     $response = Invoke-WebRequest -Uri 'http://127.0.0.1:47896/start' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 10 -ErrorAction Stop
-    if (-not [string]::IsNullOrEmpty([string]$response.Content)) {
-      throw "helper rejected lifecycle fixture: $($response.Content)"
+    $startIdentity = $response.Content | ConvertFrom-Json
+    if ([string]$startIdentity.runToken -cne $runToken) {
+      throw 'helper start response did not echo the exact run token'
     }
     if (-not $acceptTask.Wait(10000)) {
       throw 'helper-spawned core did not connect to lifecycle fixture'
     }
     $client = $acceptTask.Result
+    $reader = [IO.StreamReader]::new($client.GetStream(), [Text.Encoding]::UTF8, $false, 1024, $true)
+    $helloTask = $reader.ReadLineAsync()
+    if (-not $helloTask.Wait(5000)) {
+      $reader.Dispose()
+      $client.Dispose()
+      throw 'helper-spawned core did not send bounded first-frame hello'
+    }
+    $hello = $helloTask.Result | ConvertFrom-Json
+    if ([string]$hello.type -ne 'dropweb-core-hello' -or [int]$hello.protocol -ne 1 -or [string]$hello.runToken -cne $runToken -or [uint32]$hello.corePid -ne [uint32]$startIdentity.corePid -or [uint64]$hello.coreCreationTime100ns -ne [uint64]$startIdentity.coreCreationTime100ns) {
+      $reader.Dispose()
+      $client.Dispose()
+      throw 'helper-spawned core hello identity does not match start response'
+    }
     $coreCount = Wait-ObkatkaExactPathProcessCount -ExecutablePath $Paths.core -ExpectedCount 1 -TimeoutSeconds 10
     if ($coreCount -ne 1) {
       $client.Dispose()
@@ -149,13 +208,26 @@ function Start-E2EHelperCoreFixture {
     }
     $coreIdentity = @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $Paths.core)[0]
     if ([uint64]$coreIdentity.creationTime100ns -eq 0) {
+      $reader.Dispose()
       $client.Dispose()
       throw 'helper-spawned core identity has no creationTime100ns'
+    }
+    if ([uint32]$coreIdentity.pid -ne [uint32]$startIdentity.corePid -or [uint64]$coreIdentity.creationTime100ns -ne [uint64]$startIdentity.coreCreationTime100ns) {
+      $reader.Dispose()
+      $client.Dispose()
+      throw 'helper start response does not match observed exact-path core identity'
     }
     return [pscustomobject]@{
       listener = $listener
       client = $client
+      reader = $reader
       coreIdentity = $coreIdentity
+      helperIdentity = [pscustomobject]@{
+        corePid = [uint32]$startIdentity.corePid
+        coreCreationTime100ns = [uint64]$startIdentity.coreCreationTime100ns
+        runToken = $runToken
+      }
+      runTokenFingerprint = Get-E2ETokenFingerprint -Token $runToken
     }
   } catch {
     $listener.Stop()
@@ -167,8 +239,106 @@ function Close-E2EHelperCoreFixture {
   param([AllowNull()][object]$Fixture)
 
   if (-not $Fixture) { return }
+  $Fixture.reader.Dispose()
   $Fixture.client.Dispose()
   $Fixture.listener.Stop()
+}
+
+function Stop-E2EHelperCoreFixture {
+  param([Parameter(Mandatory)][object]$Fixture)
+
+  $body = [ordered]@{
+    corePid = $Fixture.helperIdentity.corePid
+    coreCreationTime100ns = $Fixture.helperIdentity.coreCreationTime100ns
+    runToken = $Fixture.helperIdentity.runToken
+  } | ConvertTo-Json -Compress
+  $response = Invoke-WebRequest -Uri 'http://127.0.0.1:47896/stop' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 10 -ErrorAction Stop
+  $result = $response.Content | ConvertFrom-Json
+  if (-not [bool]$result.stopped) { throw 'typed helper stop did not confirm observed child exit' }
+}
+
+function Invoke-TwoAppIdentityConflictProbe {
+  param([Parameter(Mandatory)][object]$Paths)
+
+  $evidenceRoot = Get-ObkatkaEvidenceRoot
+  $childScript = Join-Path $evidenceRoot 'two-app-child.ps1'
+  $conflictResultPath = Join-Path $evidenceRoot 'two-app-conflict.json'
+  $startResultPath = Join-Path $evidenceRoot 'two-app-start.json'
+  $releasePath = Join-Path $evidenceRoot 'two-app-release'
+  @'
+param([string]$CorePath,[string]$HomeDir,[string]$ResultPath,[string]$ReleasePath,[ValidateSet('Conflict','KeepAlive')][string]$Mode)
+$ErrorActionPreference='Stop'
+$listener=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0)
+$listener.Start()
+$accept=$listener.AcceptTcpClientAsync()
+$bytes=[byte[]]::new(16)
+[Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+$token=([Convert]::ToHexString($bytes)).ToLowerInvariant()
+$fingerprint=([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($token)))).ToLowerInvariant().Substring(0,8)
+$current=[Diagnostics.Process]::GetCurrentProcess()
+$body=[ordered]@{path=$CorePath;bridgePort=([Net.IPEndPoint]$listener.LocalEndpoint).Port;homeDir=$HomeDir;runToken=$token;appPid=[uint32]$current.Id;appCreationTime100ns=[uint64]$current.StartTime.ToUniversalTime().ToFileTimeUtc();appSessionId=[uint32]$current.SessionId}|ConvertTo-Json -Compress
+$response=Invoke-WebRequest -Uri 'http://127.0.0.1:47896/start' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 10 -SkipHttpErrorCheck
+$content=$response.Content|ConvertFrom-Json
+$result=[ordered]@{statusCode=[int]$response.StatusCode;code=[string]$content.code;appPid=[uint32]$current.Id;appCreationTime100ns=[uint64]$current.StartTime.ToUniversalTime().ToFileTimeUtc();runTokenFingerprint=$fingerprint;corePid=$content.corePid;coreCreationTime100ns=$content.coreCreationTime100ns}
+$temp="$ResultPath.tmp"
+$result|ConvertTo-Json -Depth 5|Set-Content -LiteralPath $temp -Encoding utf8NoBOM
+Move-Item -LiteralPath $temp -Destination $ResultPath -Force
+if ($Mode -eq 'KeepAlive' -and [int]$response.StatusCode -eq 200) {
+  if (-not $accept.Wait(10000)) { throw 'second app core did not connect' }
+  $client=$accept.Result
+  $deadline=[DateTime]::UtcNow.AddSeconds(30)
+  while (-not (Test-Path -LiteralPath $ReleasePath) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+  $stop=[ordered]@{corePid=[uint32]$content.corePid;coreCreationTime100ns=[uint64]$content.coreCreationTime100ns;runToken=$token}|ConvertTo-Json -Compress
+  [void](Invoke-WebRequest -Uri 'http://127.0.0.1:47896/stop' -Method Post -ContentType 'application/json' -Body $stop -TimeoutSec 10)
+  $client.Dispose()
+}
+$listener.Stop()
+'@ | Set-Content -LiteralPath $childScript -Encoding utf8NoBOM
+
+  $first = $null
+  $second = $null
+  try {
+    $first = Start-E2EHelperCoreFixture -Paths $Paths
+    $firstIdentityBefore = $first.coreIdentity | ConvertTo-Json -Compress
+    $leaseBefore = Get-E2ELeaseEvidence -Paths $Paths
+    # A separate pwsh process is mandatory: helper re-derives the caller PID/start/session.
+    & pwsh -NoProfile -NonInteractive -File $childScript -CorePath $Paths.core -HomeDir $Paths.root -ResultPath $conflictResultPath -ReleasePath $releasePath -Mode Conflict
+    if ($LASTEXITCODE -ne 0) { throw "second app conflict child exit=$LASTEXITCODE" }
+    $conflict = Get-Content -LiteralPath $conflictResultPath -Raw | ConvertFrom-Json
+    Add-E2ECheck -Name 'two-app-second-start-conflict' -Passed ([int]$conflict.statusCode -eq 409 -and [string]$conflict.code -eq 'activeInAnotherSession') -Detail "status=$($conflict.statusCode) code=$($conflict.code)"
+    $firstStillAlive = Test-ObkatkaProcessIdentityAlive -Identity $first.coreIdentity
+    $currentFirstIdentities = @(Get-ObkatkaExactPathProcessIdentities -ExecutablePath $Paths.core)
+    Add-E2ECheck -Name 'two-app-first-identity-unchanged' -Passed ($firstStillAlive -and $currentFirstIdentities.Count -eq 1 -and (($currentFirstIdentities[0] | ConvertTo-Json -Compress) -eq $firstIdentityBefore)) -Detail $firstIdentityBefore
+    $leaseAfter = Get-E2ELeaseEvidence -Paths $Paths
+    Add-E2ECheck -Name 'two-app-first-lease-unchanged' -Passed ([uint32]$leaseAfter.corePid -eq [uint32]$leaseBefore.corePid -and [uint64]$leaseAfter.coreCreationTime100ns -eq [uint64]$leaseBefore.coreCreationTime100ns -and [string]$leaseAfter.runTokenFingerprint -ceq [string]$leaseBefore.runTokenFingerprint) -Detail ($leaseAfter | ConvertTo-Json -Compress)
+    $script:Metadata['run-token-fingerprint'] = $first.runTokenFingerprint
+    $script:Metadata.runTokenStatus = 'verified-echo-and-hello'
+    $script:Metadata.twoAppConflict = [ordered]@{ first = $leaseAfter.runTokenFingerprint; second = $conflict.runTokenFingerprint; status = [int]$conflict.statusCode }
+
+    Stop-E2EHelperCoreFixture -Fixture $first
+    Close-E2EHelperCoreFixture -Fixture $first
+    $first = $null
+    $afterFirstStop = Wait-ObkatkaExactPathProcessCount -ExecutablePath $Paths.core -ExpectedCount 0 -TimeoutSeconds 10
+    Add-E2ECheck -Name 'two-app-first-honest-stop' -Passed ($afterFirstStop -eq 0) -Detail "count=$afterFirstStop"
+
+    Remove-Item -LiteralPath $startResultPath, $releasePath -Force -ErrorAction SilentlyContinue
+    $arguments = @('-NoProfile', '-NonInteractive', '-File', "`"$childScript`"", '-CorePath', "`"$($Paths.core)`"", '-HomeDir', "`"$($Paths.root)`"", '-ResultPath', "`"$startResultPath`"", '-ReleasePath', "`"$releasePath`"", '-Mode', 'KeepAlive')
+    $second = Start-Process -FilePath 'pwsh' -ArgumentList $arguments -PassThru
+    $deadline = [DateTime]::UtcNow.AddSeconds(15)
+    while (-not (Test-Path -LiteralPath $startResultPath) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+    Add-E2ECheck -Name 'two-app-second-start-after-stop-result' -Passed (Test-Path -LiteralPath $startResultPath) -Detail $startResultPath
+    $secondStart = Get-Content -LiteralPath $startResultPath -Raw | ConvertFrom-Json
+    Add-E2ECheck -Name 'two-app-second-start-after-stop' -Passed ([int]$secondStart.statusCode -eq 200 -and [uint32]$secondStart.corePid -gt 0 -and [uint64]$secondStart.coreCreationTime100ns -gt 0) -Detail ($secondStart | ConvertTo-Json -Compress)
+    Write-ObkatkaAtomicText -Path $releasePath -Content 'release'
+    if (-not $second.WaitForExit(15000)) { throw 'second app child did not stop its exact core' }
+    Add-E2ECheck -Name 'two-app-second-honest-stop' -Passed ((Wait-ObkatkaExactPathProcessCount -ExecutablePath $Paths.core -ExpectedCount 0 -TimeoutSeconds 10) -eq 0) -Detail "childExit=$($second.ExitCode)"
+  } finally {
+    if ($first) { Close-E2EHelperCoreFixture -Fixture $first }
+    if ($second -and -not $second.HasExited) {
+      Write-ObkatkaAtomicText -Path $releasePath -Content 'release'
+      [void]$second.WaitForExit(15000)
+    }
+  }
 }
 
 function Invoke-HelperLifecycleProbes {
@@ -176,6 +346,7 @@ function Invoke-HelperLifecycleProbes {
 
   $before = Assert-InstalledHelperIdentity -Paths $Paths
   $script:Metadata.helperServiceBeforeProbes = ConvertTo-E2EHelperEvidence -Identity $before -Paths $Paths
+  Invoke-TwoAppIdentityConflictProbe -Paths $Paths
   $scmFixture = $null
   try {
     $scmFixture = Start-E2EHelperCoreFixture -Paths $Paths

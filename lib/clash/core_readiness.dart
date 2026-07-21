@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 enum CoreBootPhase {
@@ -19,6 +20,82 @@ final class CoreBootAttempt {
 
   final int generation;
   final int attempt;
+}
+
+final class CoreBridgeExpectation {
+  const CoreBridgeExpectation({
+    required this.runToken,
+    this.corePid,
+    this.coreCreationTime100ns,
+  });
+
+  final String runToken;
+  final int? corePid;
+  final int? coreCreationTime100ns;
+}
+
+final class CoreBridgeHello {
+  const CoreBridgeHello({
+    required this.runToken,
+    required this.corePid,
+    required this.coreCreationTime100ns,
+  });
+
+  final String runToken;
+  final int corePid;
+  final int coreCreationTime100ns;
+}
+
+final class CoreBridgeHandshakeException implements Exception {
+  const CoreBridgeHandshakeException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'core bridge handshake failed: $message';
+}
+
+CoreBridgeHello admitCoreBridgeHello({
+  required String line,
+  required CoreBridgeExpectation expectation,
+  required CoreBootAttempt attempt,
+  required CoreBootAttempt? currentAttempt,
+}) {
+  if (!identical(attempt, currentAttempt)) {
+    throw const CoreBridgeHandshakeException('stale boot attempt');
+  }
+  final Object? value;
+  try {
+    value = jsonDecode(line);
+  } on FormatException {
+    throw const CoreBridgeHandshakeException('first frame is not JSON');
+  }
+  if (value is! Map<String, dynamic> ||
+      value['type'] != 'dropweb-core-hello' ||
+      value['protocol'] != 1) {
+    throw const CoreBridgeHandshakeException('first frame is not a core hello');
+  }
+  final runToken = value['runToken'];
+  final corePid = value['corePid'];
+  final coreCreationTime100ns = value['coreCreationTime100ns'];
+  if (runToken is! String ||
+      corePid is! int ||
+      corePid <= 0 ||
+      coreCreationTime100ns is! int ||
+      coreCreationTime100ns <= 0) {
+    throw const CoreBridgeHandshakeException('hello identity is malformed');
+  }
+  if (runToken != expectation.runToken ||
+      (expectation.corePid != null && corePid != expectation.corePid) ||
+      (expectation.coreCreationTime100ns != null &&
+          coreCreationTime100ns != expectation.coreCreationTime100ns)) {
+    throw const CoreBridgeHandshakeException('hello identity mismatch');
+  }
+  return CoreBridgeHello(
+    runToken: runToken,
+    corePid: corePid,
+    coreCreationTime100ns: coreCreationTime100ns,
+  );
 }
 
 final class CoreBootException implements Exception {

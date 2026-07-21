@@ -5,13 +5,46 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 )
 
 var conn net.Conn
+
+type serverConfig struct {
+	bridge   string
+	runToken string
+}
+
+type coreProcessIdentity struct {
+	pid               int
+	creationTime100ns uint64
+}
+
+type coreBridgeHello struct {
+	Type                  string `json:"type"`
+	Protocol              int    `json:"protocol"`
+	RunToken              string `json:"runToken"`
+	CorePID               int    `json:"corePid"`
+	CoreCreationTime100ns uint64 `json:"coreCreationTime100ns"`
+}
+
+func parseServerArgs(args []string) (serverConfig, error) {
+	if len(args) != 3 || args[0] == "" || args[1] != "--run-token" {
+		return serverConfig{}, errors.New("expected <bridge> --run-token <32 lowercase hex>")
+	}
+	if len(args[2]) != 32 {
+		return serverConfig{}, errors.New("run token must contain 32 lowercase hexadecimal characters")
+	}
+	for _, char := range args[2] {
+		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f')) {
+			return serverConfig{}, errors.New("run token must contain 32 lowercase hexadecimal characters")
+		}
+	}
+	return serverConfig{bridge: args[0], runToken: args[2]}, nil
+}
 
 func (result ActionResult) send() {
 	data, err := result.Json()
@@ -36,25 +69,45 @@ func send(data []byte) {
 	_, _ = conn.Write(append(data, []byte("\n")...))
 }
 
-func startServer(arg string) {
-
-	_, err := strconv.Atoi(arg)
-
+func startServer(config serverConfig) error {
+	_, err := strconv.Atoi(config.bridge)
 	if err != nil {
-		conn, err = net.Dial("unix", arg)
+		conn, err = net.Dial("unix", config.bridge)
 	} else {
-		conn, err = net.Dial("tcp", fmt.Sprintf("127.0.0.1:%s", arg))
+		conn, err = net.Dial("tcp", fmt.Sprintf("127.0.0.1:%s", config.bridge))
 	}
 	if err != nil {
-		fmt.Printf("ERROR: failed to connect to server: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to connect to server: %w", err)
 	}
-
 	defer func(conn net.Conn) {
 		_ = conn.Close()
 	}(conn)
+	identity, err := currentCoreProcessIdentity()
+	if err != nil {
+		return fmt.Errorf("read core process identity: %w", err)
+	}
+	serveCoreBridge(conn, config, identity)
+	return nil
+}
 
-	reader := bufio.NewReader(conn)
+func serveCoreBridge(connection net.Conn, config serverConfig, identity coreProcessIdentity) {
+	conn = connection
+	hello := coreBridgeHello{
+		Type:                  "dropweb-core-hello",
+		Protocol:              1,
+		RunToken:              config.runToken,
+		CorePID:               identity.pid,
+		CoreCreationTime100ns: identity.creationTime100ns,
+	}
+	data, err := json.Marshal(hello)
+	if err != nil {
+		return
+	}
+	if _, err := connection.Write(append(data, '\n')); err != nil {
+		return
+	}
+
+	reader := bufio.NewReader(connection)
 
 	for {
 		data, err := reader.ReadString('\n')
