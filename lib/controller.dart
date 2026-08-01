@@ -1057,6 +1057,7 @@ class AppController {
       );
 
       if (newGroups.isNotEmpty) {
+        _forgetStaleSelections(newGroups);
         _ref.read(groupsProvider.notifier).value = newGroups;
         _ref.read(versionProvider.notifier).value =
             _ref.read(versionProvider) + 1;
@@ -1067,6 +1068,32 @@ class AppController {
     } catch (e) {
       commonPrint.log("updateGroups error: $e, keeping old groups");
     }
+  }
+
+  /// Forgets saved pins the core has already dropped.
+  ///
+  /// A computed group clears its own `selected` as soon as the pinned member
+  /// fails its health check and fails over to a healthy one, but the profile
+  /// kept the pin — so every later setup force-applied it again
+  /// (`patchSelectGroup` → `ForceSet`), resurrecting a member the core had
+  /// abandoned. Dropping the entry here makes the app follow the core instead.
+  /// Work-mode keys and selector picks are never touched (see [proxy_pin]).
+  void _forgetStaleSelections(List<Group> groups) {
+    final currentProfile = _ref.read(currentProfileProvider);
+    if (currentProfile == null) return;
+    final staleNames = staleSelectedGroupNames(
+      groups: groups,
+      selectedMap: currentProfile.selectedMap,
+    );
+    if (staleNames.isEmpty) return;
+    final selectedMap = Map<String, String>.from(currentProfile.selectedMap)
+      ..removeWhere((groupName, _) => staleNames.contains(groupName));
+    commonPrint.log(
+      "updateGroups: forgetting pins the core dropped: ${staleNames.join(', ')}",
+    );
+    _ref.read(profilesProvider.notifier).setProfile(
+          currentProfile.copyWith(selectedMap: selectedMap),
+        );
   }
 
   /// Delegates to [ProfileService.updateProfiles].
@@ -1887,9 +1914,7 @@ class AppController {
     // e.g. after a subscription update). Plus GLOBAL. Never touch the user's
     // own manual selections.
     selectedMap
-      ..removeWhere((_, v) =>
-          v == workModeSmartGroupName ||
-          v.startsWith('$workModeCountryGroupPrefix '))
+      ..removeWhere((_, v) => isWorkModeOwnedSelection(v))
       ..remove(GroupName.GLOBAL.name);
 
     switch (mode) {
