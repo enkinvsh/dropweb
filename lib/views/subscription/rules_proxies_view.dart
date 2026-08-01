@@ -50,9 +50,11 @@ void _pingSelectedProxies(WidgetRef ref, List<Group> groups) {
   final byTestUrl = <String?, List<Proxy>>{};
   final seen = <String>{}; // dedupe per URL: "<testUrl>\u0000<name>"
   for (final group in groups) {
-    final proxyName = ref.read(getProxyNameProvider(group.name));
-    final selectedName =
-        proxyName != null && proxyName.isNotEmpty ? proxyName : group.realNow;
+    final proxyName = ref.read(getProxyNameProvider(group.name)) ?? '';
+    // Probe what the core actually routes through. A computed group drops a
+    // pinned member that failed its health check and fails over on its own, so
+    // measuring the saved pin would keep scoring an abandoned member.
+    final selectedName = group.resolveSelectedName(proxyName);
     if (selectedName.isEmpty) continue; // no selection → nothing to measure
     final member = group.all.where((p) => p.name == selectedName).firstOrNull;
     if (member == null) continue;
@@ -146,9 +148,15 @@ class _RulesGroupCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final proxyName = ref.watch(getProxyNameProvider(group.name));
-    final selectedName =
-        proxyName != null && proxyName.isNotEmpty ? proxyName : group.realNow;
+    final proxyName = ref.watch(getProxyNameProvider(group.name)) ?? '';
+    // The core's live routing decision, NOT the saved pin: a computed group
+    // drops a pinned member the moment it fails its health check, so rendering
+    // the pin here showed (and delay-probed) a member the core had abandoned —
+    // the row that read «🌀 Cascade · n/a» while traffic went through ⚡ Fastest.
+    final selectedName = group.resolveSelectedName(proxyName);
+    // Display-only: an unpinned smart group picks per destination, so it shows
+    // the localized auto label instead of a member name.
+    final selectedLabel = group.getCurrentSelectedName(proxyName);
     final selectedProxy =
         group.all.where((p) => p.name == selectedName).firstOrNull;
     final colorScheme = Theme.of(context).colorScheme;
@@ -199,9 +207,9 @@ class _RulesGroupCard extends ConsumerWidget {
                       const SizedBox(height: 2),
                       EmojiText(
                         selectedProxy != null
-                            ? '${selectedProxy.type} · $selectedName'
-                            : selectedName.isNotEmpty
-                                ? selectedName
+                            ? '${selectedProxy.type} · $selectedLabel'
+                            : selectedLabel.isNotEmpty
+                                ? selectedLabel
                                 : '...',
                         style: context.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
@@ -277,9 +285,10 @@ class _ProxySelectorSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final proxyName = ref.watch(getProxyNameProvider(group.name));
-    final selectedName =
-        proxyName != null && proxyName.isNotEmpty ? proxyName : group.realNow;
+    final proxyName = ref.watch(getProxyNameProvider(group.name)) ?? '';
+    // Tick the member the core actually routes through: once it drops a dead
+    // pin, that pin is no longer the selection.
+    final selectedName = group.resolveSelectedName(proxyName);
 
     return ConstrainedBox(
       constraints: BoxConstraints(
