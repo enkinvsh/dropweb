@@ -244,6 +244,14 @@ class Group with _$Group {
     required GroupType type,
     @Default([]) List<Proxy> all,
     String? now,
+
+    /// The manual pin the core still honors for a computed group — mihomo's
+    /// `fixed` (adapter/outboundgroup/{fallback,urltest,smart}.go). It goes
+    /// empty the moment mihomo drops a pinned member that failed its health
+    /// check and fails over on its own, which is how the app tells a live
+    /// selection apart from a pin the core has already abandoned. A selector
+    /// never reports it: there `now` IS the user's pick.
+    @Default("") String fixed,
     bool? hidden,
     String? testUrl,
     @Default("") String icon,

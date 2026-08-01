@@ -2266,6 +2266,14 @@ mixin _$Group {
   GroupType get type => throw _privateConstructorUsedError;
   List<Proxy> get all => throw _privateConstructorUsedError;
   String? get now => throw _privateConstructorUsedError;
+
+  /// The manual pin the core still honors for a computed group — mihomo's
+  /// `fixed` (adapter/outboundgroup/{fallback,urltest,smart}.go). It goes
+  /// empty the moment mihomo drops a pinned member that failed its health
+  /// check and fails over on its own, which is how the app tells a live
+  /// selection apart from a pin the core has already abandoned. A selector
+  /// never reports it: there `now` IS the user's pick.
+  String get fixed => throw _privateConstructorUsedError;
   bool? get hidden => throw _privateConstructorUsedError;
   String? get testUrl => throw _privateConstructorUsedError;
   String get icon => throw _privateConstructorUsedError;
@@ -2289,6 +2297,7 @@ abstract class $GroupCopyWith<$Res> {
       {GroupType type,
       List<Proxy> all,
       String? now,
+      String fixed,
       bool? hidden,
       String? testUrl,
       String icon,
@@ -2313,6 +2322,7 @@ class _$GroupCopyWithImpl<$Res, $Val extends Group>
     Object? type = null,
     Object? all = null,
     Object? now = freezed,
+    Object? fixed = null,
     Object? hidden = freezed,
     Object? testUrl = freezed,
     Object? icon = null,
@@ -2331,6 +2341,10 @@ class _$GroupCopyWithImpl<$Res, $Val extends Group>
           ? _value.now
           : now // ignore: cast_nullable_to_non_nullable
               as String?,
+      fixed: null == fixed
+          ? _value.fixed
+          : fixed // ignore: cast_nullable_to_non_nullable
+              as String,
       hidden: freezed == hidden
           ? _value.hidden
           : hidden // ignore: cast_nullable_to_non_nullable
@@ -2362,6 +2376,7 @@ abstract class _$$GroupImplCopyWith<$Res> implements $GroupCopyWith<$Res> {
       {GroupType type,
       List<Proxy> all,
       String? now,
+      String fixed,
       bool? hidden,
       String? testUrl,
       String icon,
@@ -2384,6 +2399,7 @@ class __$$GroupImplCopyWithImpl<$Res>
     Object? type = null,
     Object? all = null,
     Object? now = freezed,
+    Object? fixed = null,
     Object? hidden = freezed,
     Object? testUrl = freezed,
     Object? icon = null,
@@ -2402,6 +2418,10 @@ class __$$GroupImplCopyWithImpl<$Res>
           ? _value.now
           : now // ignore: cast_nullable_to_non_nullable
               as String?,
+      fixed: null == fixed
+          ? _value.fixed
+          : fixed // ignore: cast_nullable_to_non_nullable
+              as String,
       hidden: freezed == hidden
           ? _value.hidden
           : hidden // ignore: cast_nullable_to_non_nullable
@@ -2429,6 +2449,7 @@ class _$GroupImpl implements _Group {
       {required this.type,
       final List<Proxy> all = const [],
       this.now,
+      this.fixed = "",
       this.hidden,
       this.testUrl,
       this.icon = "",
@@ -2451,6 +2472,16 @@ class _$GroupImpl implements _Group {
 
   @override
   final String? now;
+
+  /// The manual pin the core still honors for a computed group — mihomo's
+  /// `fixed` (adapter/outboundgroup/{fallback,urltest,smart}.go). It goes
+  /// empty the moment mihomo drops a pinned member that failed its health
+  /// check and fails over on its own, which is how the app tells a live
+  /// selection apart from a pin the core has already abandoned. A selector
+  /// never reports it: there `now` IS the user's pick.
+  @override
+  @JsonKey()
+  final String fixed;
   @override
   final bool? hidden;
   @override
@@ -2463,7 +2494,7 @@ class _$GroupImpl implements _Group {
 
   @override
   String toString() {
-    return 'Group(type: $type, all: $all, now: $now, hidden: $hidden, testUrl: $testUrl, icon: $icon, name: $name)';
+    return 'Group(type: $type, all: $all, now: $now, fixed: $fixed, hidden: $hidden, testUrl: $testUrl, icon: $icon, name: $name)';
   }
 
   @override
@@ -2474,6 +2505,7 @@ class _$GroupImpl implements _Group {
             (identical(other.type, type) || other.type == type) &&
             const DeepCollectionEquality().equals(other._all, _all) &&
             (identical(other.now, now) || other.now == now) &&
+            (identical(other.fixed, fixed) || other.fixed == fixed) &&
             (identical(other.hidden, hidden) || other.hidden == hidden) &&
             (identical(other.testUrl, testUrl) || other.testUrl == testUrl) &&
             (identical(other.icon, icon) || other.icon == icon) &&
@@ -2487,6 +2519,7 @@ class _$GroupImpl implements _Group {
       type,
       const DeepCollectionEquality().hash(_all),
       now,
+      fixed,
       hidden,
       testUrl,
       icon,
@@ -2513,6 +2546,7 @@ abstract class _Group implements Group {
       {required final GroupType type,
       final List<Proxy> all,
       final String? now,
+      final String fixed,
       final bool? hidden,
       final String? testUrl,
       final String icon,
@@ -2526,6 +2560,15 @@ abstract class _Group implements Group {
   List<Proxy> get all;
   @override
   String? get now;
+
+  /// The manual pin the core still honors for a computed group — mihomo's
+  /// `fixed` (adapter/outboundgroup/{fallback,urltest,smart}.go). It goes
+  /// empty the moment mihomo drops a pinned member that failed its health
+  /// check and fails over on its own, which is how the app tells a live
+  /// selection apart from a pin the core has already abandoned. A selector
+  /// never reports it: there `now` IS the user's pick.
+  @override
+  String get fixed;
   @override
   bool? get hidden;
   @override
