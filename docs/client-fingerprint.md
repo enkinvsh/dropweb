@@ -43,4 +43,4 @@ VLESS, VMess, Trojan, Reality, ShadowTLS. Протоколы без uTLS пар�
 
 ## Совместимость
 
-Независим от TLS Fragment (см. `tls-fragment.md`): fingerprint формирует содержимое ClientHello, fragment режет его на уровне TCP. Можно включать оба одновременно.
+Независим от TLS Fragment (см. `tls-fragment.md`): fingerprint формирует содержимое ClientHello, fragment режет его на уровне TCP. Оператор может задать оба параметра одновременно в серверном конфиге.
