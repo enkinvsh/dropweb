@@ -745,7 +745,6 @@ class GlobalState {
     }
     rawConfig["tcp-concurrent"] = realPatchConfig.tcpConcurrent;
     rawConfig["unified-delay"] = realPatchConfig.unifiedDelay;
-    rawConfig["log-level"] = realPatchConfig.logLevel.name;
     rawConfig["port"] = 0;
     rawConfig["socks-port"] = 0;
     rawConfig["keep-alive-interval"] = realPatchConfig.keepAliveInterval;

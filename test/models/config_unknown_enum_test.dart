@@ -22,6 +22,7 @@
 // lib/enum/enum.dart, lib/common/preferences.dart (quarantine wrapper).
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
@@ -239,5 +240,29 @@ void main() {
         expect(decoded.dns.listen, '4.4.4.4:53');
       });
     }
+  });
+
+  test('ClashConfig does not persist server-owned TLS fragmentation', () {
+    final decoded = ClashConfig.fromJson({
+      'tls-fragment': true,
+      'tls-fragment-size': 8,
+      'tls-fragment-delay': 5,
+    });
+
+    final localJson = decoded.toJson();
+    expect(localJson, isNot(contains('tls-fragment')));
+    expect(localJson, isNot(contains('tls-fragment-size')));
+    expect(localJson, isNot(contains('tls-fragment-delay')));
+  });
+
+  test('patchRawConfig preserves provider log-level', () {
+    final source = File('lib/state.dart').readAsStringSync();
+
+    expect(
+      source,
+      isNot(contains(
+        'rawConfig["log-level"] = realPatchConfig.logLevel.name;',
+      )),
+    );
   });
 }
