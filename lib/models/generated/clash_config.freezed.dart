@@ -3515,8 +3515,6 @@ mixin _$ClashConfig {
   bool get unifiedDelay => throw _privateConstructorUsedError;
   @JsonKey(name: "tcp-concurrent")
   bool get tcpConcurrent => throw _privateConstructorUsedError;
-  @JsonKey(name: "tls-fragment")
-  bool get tlsFragment => throw _privateConstructorUsedError;
   @JsonKey(fromJson: Tun.safeFormJson)
   Tun get tun => throw _privateConstructorUsedError;
   @JsonKey(fromJson: Dns.safeDnsFromJson)
@@ -3571,7 +3569,6 @@ abstract class $ClashConfigCopyWith<$Res> {
       @JsonKey(name: "keep-alive-interval") int keepAliveInterval,
       @JsonKey(name: "unified-delay") bool unifiedDelay,
       @JsonKey(name: "tcp-concurrent") bool tcpConcurrent,
-      @JsonKey(name: "tls-fragment") bool tlsFragment,
       @JsonKey(fromJson: Tun.safeFormJson) Tun tun,
       @JsonKey(fromJson: Dns.safeDnsFromJson) Dns dns,
       @JsonKey(name: "geox-url", fromJson: GeoXUrl.safeFormJson)
@@ -3622,7 +3619,6 @@ class _$ClashConfigCopyWithImpl<$Res, $Val extends ClashConfig>
     Object? keepAliveInterval = null,
     Object? unifiedDelay = null,
     Object? tcpConcurrent = null,
-    Object? tlsFragment = null,
     Object? tun = null,
     Object? dns = null,
     Object? geoXUrl = null,
@@ -3685,10 +3681,6 @@ class _$ClashConfigCopyWithImpl<$Res, $Val extends ClashConfig>
       tcpConcurrent: null == tcpConcurrent
           ? _value.tcpConcurrent
           : tcpConcurrent // ignore: cast_nullable_to_non_nullable
-              as bool,
-      tlsFragment: null == tlsFragment
-          ? _value.tlsFragment
-          : tlsFragment // ignore: cast_nullable_to_non_nullable
               as bool,
       tun: null == tun
           ? _value.tun
@@ -3785,7 +3777,6 @@ abstract class _$$ClashConfigImplCopyWith<$Res>
       @JsonKey(name: "keep-alive-interval") int keepAliveInterval,
       @JsonKey(name: "unified-delay") bool unifiedDelay,
       @JsonKey(name: "tcp-concurrent") bool tcpConcurrent,
-      @JsonKey(name: "tls-fragment") bool tlsFragment,
       @JsonKey(fromJson: Tun.safeFormJson) Tun tun,
       @JsonKey(fromJson: Dns.safeDnsFromJson) Dns dns,
       @JsonKey(name: "geox-url", fromJson: GeoXUrl.safeFormJson)
@@ -3837,7 +3828,6 @@ class __$$ClashConfigImplCopyWithImpl<$Res>
     Object? keepAliveInterval = null,
     Object? unifiedDelay = null,
     Object? tcpConcurrent = null,
-    Object? tlsFragment = null,
     Object? tun = null,
     Object? dns = null,
     Object? geoXUrl = null,
@@ -3901,10 +3891,6 @@ class __$$ClashConfigImplCopyWithImpl<$Res>
           ? _value.tcpConcurrent
           : tcpConcurrent // ignore: cast_nullable_to_non_nullable
               as bool,
-      tlsFragment: null == tlsFragment
-          ? _value.tlsFragment
-          : tlsFragment // ignore: cast_nullable_to_non_nullable
-              as bool,
       tun: null == tun
           ? _value.tun
           : tun // ignore: cast_nullable_to_non_nullable
@@ -3966,7 +3952,6 @@ class _$ClashConfigImpl implements _ClashConfig {
       this.keepAliveInterval = defaultKeepAliveInterval,
       @JsonKey(name: "unified-delay") this.unifiedDelay = true,
       @JsonKey(name: "tcp-concurrent") this.tcpConcurrent = true,
-      @JsonKey(name: "tls-fragment") this.tlsFragment = false,
       @JsonKey(fromJson: Tun.safeFormJson) this.tun = defaultTun,
       @JsonKey(fromJson: Dns.safeDnsFromJson) this.dns = defaultDns,
       @JsonKey(name: "geox-url", fromJson: GeoXUrl.safeFormJson)
@@ -4031,9 +4016,6 @@ class _$ClashConfigImpl implements _ClashConfig {
   @JsonKey(name: "tcp-concurrent")
   final bool tcpConcurrent;
   @override
-  @JsonKey(name: "tls-fragment")
-  final bool tlsFragment;
-  @override
   @JsonKey(fromJson: Tun.safeFormJson)
   final Tun tun;
   @override
@@ -4083,7 +4065,7 @@ class _$ClashConfigImpl implements _ClashConfig {
 
   @override
   String toString() {
-    return 'ClashConfig(mixedPort: $mixedPort, socksPort: $socksPort, port: $port, redirPort: $redirPort, tproxyPort: $tproxyPort, mode: $mode, allowLan: $allowLan, logLevel: $logLevel, ipv6: $ipv6, findProcessMode: $findProcessMode, keepAliveInterval: $keepAliveInterval, unifiedDelay: $unifiedDelay, tcpConcurrent: $tcpConcurrent, tlsFragment: $tlsFragment, tun: $tun, dns: $dns, geoXUrl: $geoXUrl, geodataLoader: $geodataLoader, proxyGroups: $proxyGroups, rule: $rule, globalUa: $globalUa, externalController: $externalController, hosts: $hosts)';
+    return 'ClashConfig(mixedPort: $mixedPort, socksPort: $socksPort, port: $port, redirPort: $redirPort, tproxyPort: $tproxyPort, mode: $mode, allowLan: $allowLan, logLevel: $logLevel, ipv6: $ipv6, findProcessMode: $findProcessMode, keepAliveInterval: $keepAliveInterval, unifiedDelay: $unifiedDelay, tcpConcurrent: $tcpConcurrent, tun: $tun, dns: $dns, geoXUrl: $geoXUrl, geodataLoader: $geodataLoader, proxyGroups: $proxyGroups, rule: $rule, globalUa: $globalUa, externalController: $externalController, hosts: $hosts)';
   }
 
   @override
@@ -4114,8 +4096,6 @@ class _$ClashConfigImpl implements _ClashConfig {
                 other.unifiedDelay == unifiedDelay) &&
             (identical(other.tcpConcurrent, tcpConcurrent) ||
                 other.tcpConcurrent == tcpConcurrent) &&
-            (identical(other.tlsFragment, tlsFragment) ||
-                other.tlsFragment == tlsFragment) &&
             (identical(other.tun, tun) || other.tun == tun) &&
             (identical(other.dns, dns) || other.dns == dns) &&
             (identical(other.geoXUrl, geoXUrl) || other.geoXUrl == geoXUrl) &&
@@ -4148,7 +4128,6 @@ class _$ClashConfigImpl implements _ClashConfig {
         keepAliveInterval,
         unifiedDelay,
         tcpConcurrent,
-        tlsFragment,
         tun,
         dns,
         geoXUrl,
@@ -4194,7 +4173,6 @@ abstract class _ClashConfig implements ClashConfig {
       @JsonKey(name: "keep-alive-interval") final int keepAliveInterval,
       @JsonKey(name: "unified-delay") final bool unifiedDelay,
       @JsonKey(name: "tcp-concurrent") final bool tcpConcurrent,
-      @JsonKey(name: "tls-fragment") final bool tlsFragment,
       @JsonKey(fromJson: Tun.safeFormJson) final Tun tun,
       @JsonKey(fromJson: Dns.safeDnsFromJson) final Dns dns,
       @JsonKey(name: "geox-url", fromJson: GeoXUrl.safeFormJson)
@@ -4253,9 +4231,6 @@ abstract class _ClashConfig implements ClashConfig {
   @override
   @JsonKey(name: "tcp-concurrent")
   bool get tcpConcurrent;
-  @override
-  @JsonKey(name: "tls-fragment")
-  bool get tlsFragment;
   @override
   @JsonKey(fromJson: Tun.safeFormJson)
   Tun get tun;
