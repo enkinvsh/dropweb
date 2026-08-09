@@ -237,13 +237,12 @@ class _ModesContentState extends ConsumerState<ModesContent>
               description: appLocalizations.workModeStandardDesc,
               isSelected: profile.workMode == WorkMode.standard,
               onTap: () => _apply(WorkMode.standard),
-              // «Серверы и группы» (manual group/server picking) is only
-              // meaningful in Standard mode → the chevron is tappable only when
-              // Standard is the active mode; otherwise it's shown disabled.
-              onChevronTap: profile.workMode == WorkMode.standard
-                  ? _openServersAndGroups
-                  : null,
-              chevronDisabled: profile.workMode != WorkMode.standard,
+              // Открывается ВСЕГДА, в любом режиме — не только в «Стандарт».
+              // Это единственное место в UI, где видно, КУДА ядро реально
+              // маршрутизирует: в режиме «Страна» здесь и виден пин на выбранной
+              // стране, иначе состояние режима наблюдать нечем. Открытие листа
+              // `workMode` НЕ меняет — режим переключает только тап по карточке.
+              onChevronTap: _openServersAndGroups,
             ),
             const SizedBox(height: 16),
             // «Умный» (Smart) is temporarily removed from the modes list and
@@ -286,7 +285,6 @@ class _ModeCard extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     this.onChevronTap,
-    this.chevronDisabled = false,
   });
 
   final List<List<dynamic>> icon;
@@ -295,11 +293,6 @@ class _ModeCard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback? onChevronTap;
-
-  /// When true, the chevron is rendered but greyed and non-tappable (the deep
-  /// screen is gated until this mode is selected — e.g. «Серверы и группы»
-  /// only applies in Standard mode).
-  final bool chevronDisabled;
 
   @override
   Widget build(BuildContext context) {
@@ -347,12 +340,9 @@ class _ModeCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (onChevronTap != null || chevronDisabled) ...[
+            if (onChevronTap != null) ...[
               const SizedBox(width: 8),
-              _ChevronAffordance(
-                onTap: onChevronTap,
-                disabled: chevronDisabled,
-              ),
+              _ChevronAffordance(onTap: onChevronTap),
             ],
           ],
         ),
@@ -368,25 +358,22 @@ class _ModeCard extends StatelessWidget {
 /// (lets «Стандарт» distinguish select-mode from open-deep). Mirrors the
 /// [ListItem] chevron visual (arrow-right glyph, onSurfaceVariant).
 class _ChevronAffordance extends StatelessWidget {
-  const _ChevronAffordance({this.onTap, this.disabled = false});
+  const _ChevronAffordance({this.onTap});
 
   final VoidCallback? onTap;
-  final bool disabled;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
-      onTap: disabled ? null : onTap,
+      onTap: onTap,
       borderRadius: BorderRadius.circular(Lumina.radiusMd),
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: HugeIcon(
           icon: HugeIcons.strokeRoundedArrowRight01,
           size: 18,
-          color: disabled
-              ? colorScheme.onSurfaceVariant.withValues(alpha: 0.35)
-              : colorScheme.onSurfaceVariant,
+          color: colorScheme.onSurfaceVariant,
         ),
       ),
     );
