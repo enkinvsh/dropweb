@@ -215,11 +215,6 @@ class _ModesContentState extends ConsumerState<ModesContent>
       return NullStatus(label: appLocalizations.nullProfileDesc);
     }
     final dataAsync = ref.watch(modeProfileDataProvider(profile.id));
-    // Pre-warm country liveness while the user is on the mode cards, so the
-    // picker opens onto an already-resolved (junk-free) list instead of
-    // filtering visibly after open. Value ignored here — this only kicks off
-    // (and keeps alive) the probe.
-    ref.watch(countryProbeProvider(profile.id));
 
     return dataAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
