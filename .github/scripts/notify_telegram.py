@@ -95,12 +95,7 @@ PACK = {
     # The download heading, "Под капотом" and "Исправления" are structural, and
     # the rest appear in shipped release notes, so dropping them would break
     # re-announcing older tags.
-    "🏴‍☠️": "5265145909326419576", "🧑‍💻": "5264951755329805695", "⚠️": "5265226418488385619",
-    "❤️": "5264735258913314397", "👁️": "5265016038105324959",
-    "🕷️": "5264936838908388851", "🎨": "5264755952065750518", "📟": "5265182931944510281",
-    "😂": "5264824937830456755", "🤔": "5264857154380142241", 
-    "🧼": "5265159902329871766",
-}
+    }
 
 SKIP_RE = re.compile(
     r"^(update changelog$|merge |chore\(release\)|chore: bump version|release:)", re.I
@@ -109,10 +104,10 @@ CC_RE = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^)]+)\))?(?P<bang>!)?:\s*(
 
 GROUPS = [  # (conventional type, emoji, title)
     ("feat", "⭐", "Новое"),
-    ("fix", "🧼", "Исправления"),
+    ("fix", "🛠", "Исправления"),
     ("perf", "🔥", "Производительность"),
 ]
-OTHER = ("📟", "Под капотом")
+OTHER = ("⚙", "Под капотом")
 
 PLATFORMS = [  # (emoji, name, label, yc_name, gh_suffix)
     # yc_name = fixed YC-bucket asset name (the in-app updater's contract);
@@ -127,16 +122,13 @@ PLATFORMS = [  # (emoji, name, label, yc_name, gh_suffix)
     ("🐧", "Linux", "AppImage · x64", "dropweb-amd64.AppImage", "linux-amd64.AppImage"),
 ]
 
-
 def ce(char: str) -> str:
     """Custom emoji tag with plain-emoji fallback for chars outside the pack."""
     eid = PACK.get(char)
     return f'<tg-emoji emoji-id="{eid}">{char}</tg-emoji>' if eid else char
 
-
 def esc(s: str) -> str:
     return html.escape(s, quote=False)
-
 
 def parse_commits(release_md: str) -> list[str]:
     lines, in_section = [], False
@@ -151,7 +143,6 @@ def parse_commits(release_md: str) -> list[str]:
             if subject and not SKIP_RE.search(subject):
                 lines.append(subject)
     return lines
-
 
 def classify(commits: list[str]) -> list[tuple[str, str, list[str]]]:
     """[(emoji, title, [html items])], only non-empty groups, brand order.
@@ -181,7 +172,6 @@ def classify(commits: list[str]) -> list[tuple[str, str, list[str]]]:
         sections.append((*OTHER, other) if sections else ("", "", other))
     return sections
 
-
 def platform_urls(version: str, is_stable: bool) -> list[tuple[str, str, str, str]]:
     """Stable -> YC versioned links (RU-friendly, fixed bucket names = the
     in-app updater's contract); pre -> GitHub release assets (versioned names
@@ -192,7 +182,6 @@ def platform_urls(version: str, is_stable: bool) -> list[tuple[str, str, str, st
     gh = f"https://github.com/{REPO}/releases/download/v{version}"
     return [(e, name, label, f"{gh}/dropweb-{version}-{suf}")
             for e, name, label, _, suf in PLATFORMS]
-
 
 def load_release_notes(tag: str) -> tuple[str, list[tuple[str, str]]]:
     """Hand-written Russian notes for the post body, if the release ships them.
@@ -228,7 +217,6 @@ def load_release_notes(tag: str) -> tuple[str, list[tuple[str, str]]]:
     flush()
     return intro, sections
 
-
 def render_notes_sections(sections: list[tuple[str, str]], rich: bool) -> list[str]:
     """Render sections whose headers start with a PACK emoji."""
     out = []
@@ -247,11 +235,9 @@ def render_notes_sections(sections: list[tuple[str, str]], rich: bool) -> list[s
             out.append(f"{lead}<b>{esc(title)}</b>\n{esc(prose)}")
     return out
 
-
 def manifest_notes(sections: list[tuple[str, str]]) -> list[str]:
     render_notes_sections(sections, rich=True)
     return [prose for _, prose in sections]
-
 
 def resolve_banner(tag: str) -> str:
     """Attention banner: env override, else the README hero from the repo.
@@ -269,7 +255,6 @@ def resolve_banner(tag: str) -> str:
             continue
     return ""
 
-
 def intro_html(version: str, is_stable: bool) -> tuple[str, str]:
     """(heading inner html, intro paragraph html)."""
     if is_stable:
@@ -278,10 +263,9 @@ def intro_html(version: str, is_stable: bool) -> tuple[str, str]:
                  "Приложение обновится само, либо скачайте вручную ниже.")
     else:
         head = f"{ce('🆕')} dropweb v{esc(version)} · beta"
-        intro = (f"{ce('⚠️')} Предварительная сборка — для тестов. "
+        intro = (f"{ce('⚠')} Предварительная сборка — для тестов. "
                  "Возможны шероховатости; фидбек приветствуется.")
     return head, intro
-
 
 def build_rich_html(version: str, is_stable: bool, commits: list[str],
                     release_url: str, banner_url: str = "",
@@ -329,7 +313,6 @@ def build_rich_html(version: str, is_stable: bool, commits: list[str],
         doc = re.sub(r"<details>.*?</details>", "", doc, flags=re.S)
     return doc
 
-
 def build_legacy_html(version: str, is_stable: bool, commits: list[str],
                       release_url: str,
                       notes: tuple[str, list[tuple[str, str]]] = ("", [])) -> str:
@@ -360,11 +343,9 @@ def build_legacy_html(version: str, is_stable: bool, commits: list[str],
         post = "\n\n".join((f"<b>{head}</b>", intro, downloads))
     return post
 
-
 def rendered_len(payload: str) -> int:
     """Approximate the length as Telegram counts it (tags stripped)."""
     return len(re.sub(r"<[^>]+>", "", payload))
-
 
 def api_call(token: str, method: str, payload: dict) -> tuple[bool, dict]:
     req = urllib.request.Request(
@@ -384,7 +365,6 @@ def api_call(token: str, method: str, payload: dict) -> tuple[bool, dict]:
     except Exception as e:  # network etc.
         return False, {"description": str(e)}
 
-
 def send_with_retry(token: str, method: str, payload: dict) -> tuple[bool, dict]:
     ok, body = api_call(token, method, payload)
     if not ok:
@@ -397,7 +377,6 @@ def send_with_retry(token: str, method: str, payload: dict) -> tuple[bool, dict]
             time.sleep(3)
         ok, body = api_call(token, method, payload)
     return ok, body
-
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -511,7 +490,6 @@ def main() -> int:
         sent += ok
     print(f"Posted to {sent}/{len(chats)} chats")
     return 0 if sent else 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

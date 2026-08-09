@@ -14,18 +14,25 @@ if SPEC is None or SPEC.loader is None:
 notify_telegram = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(notify_telegram)
 
+# Derived from PACK rather than written out: the pack is swapped wholesale now
+# and then, and literals here turn that into a red suite instead of a no-op.
+IN_PACK = "🔄" if "🔄" in notify_telegram.PACK else next(iter(notify_telegram.PACK))
+IN_PACK_2 = next(e for e in notify_telegram.PACK if e != IN_PACK)
+OUTSIDE_PACK = next(
+    c for c in ("🦄", "🦖", "🫠", "🧿", "🪬", "🛞") if c not in notify_telegram.PACK
+)
+
 
 class RenderNotesSectionsTest(unittest.TestCase):
     def test_rejects_section_headers_without_pack_prefix(self) -> None:
         for header in (
-            "⏱ Установщик дожидается готовности",
+            f"{OUTSIDE_PACK} Заголовок вне пака",
             "Заголовок без эмодзи",
-            "🚀 Автозапуск больше не спотыкается",
         ):
             with self.subTest(header=header):
                 with self.assertRaisesRegex(
                     ValueError,
-                    rf"{header}.*t\.me/addemoji/dropwebpackv1",
+                    rf"{header}.*must start with an emoji",
                 ):
                     notify_telegram.render_notes_sections(
                         [(header, "Текст секции")],
@@ -38,8 +45,11 @@ class RenderNotesSectionsTest(unittest.TestCase):
             rich=True,
         )
 
+        # Read the id from PACK rather than pinning it: the pack gets swapped
+        # wholesale now and then, and a hardcoded id turns that into a red test
+        # instead of the no-op it should be.
         self.assertIn(
-            '<tg-emoji emoji-id="5265191543353938544">🔄</tg-emoji>',
+            f'<tg-emoji emoji-id="{notify_telegram.PACK["🔄"]}">🔄</tg-emoji>',
             rendered[0],
         )
         self.assertIn("<p>Текст секции</p>", rendered[0])
@@ -58,8 +68,8 @@ class StableReleaseNotesTest(unittest.TestCase):
     def test_manifest_notes_use_only_section_prose(self) -> None:
         notes = notify_telegram.manifest_notes(
             [
-                ("🔄 Первая секция", "Первая строка.\nВторая строка."),
-                ("🧼 Вторая секция", "Авторская формулировка."),
+                (f"{IN_PACK} Первая секция", "Первая строка.\nВторая строка."),
+                (f"{IN_PACK_2} Вторая секция", "Авторская формулировка."),
             ]
         )
 
@@ -77,9 +87,9 @@ class StableReleaseNotesTest(unittest.TestCase):
         )
 
     def test_manifest_notes_reject_section_heading_outside_pack(self) -> None:
-        with self.assertRaisesRegex(ValueError, "dropwebpackv1"):
+        with self.assertRaisesRegex(ValueError, "must start with an emoji"):
             notify_telegram.manifest_notes(
-                [("🚀 Заголовок вне пака", "Текст секции")]
+                [(f"{OUTSIDE_PACK} Заголовок вне пака", "Текст секции")]
             )
 
     def test_every_section_heading_starts_with_pack_emoji(self) -> None:
