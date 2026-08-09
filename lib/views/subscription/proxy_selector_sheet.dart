@@ -17,11 +17,10 @@ class ProxySelectorSheet extends ConsumerWidget {
   /// проставить work mode. null ⇒ поведение группового экрана без изменений.
   final void Function(Proxy proxy, {required bool isAggregate})? onSelected;
 
-  const ProxySelectorSheet({required this.group, this.onSelected});
+  const ProxySelectorSheet({super.key, required this.group, this.onSelected});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final proxyName = ref.watch(getProxyNameProvider(group.name)) ?? '';
     // Tick the member the core actually routes through: once it drops a dead
     // pin, that pin is no longer the selection.
@@ -48,7 +47,6 @@ class ProxySelectorSheet extends ConsumerWidget {
             proxy: proxy,
             testUrl: group.testUrl,
             isSelected: isSelected,
-            isDark: isDark,
             onTap: () {
               final appController = globalState.appController;
               appController.updateCurrentSelectedMap(
@@ -73,14 +71,13 @@ class ProxySelectorRow extends ConsumerWidget {
   final Proxy proxy;
   final String? testUrl;
   final bool isSelected;
-  final bool isDark;
   final VoidCallback onTap;
 
   const ProxySelectorRow({
+    super.key,
     required this.proxy,
     required this.testUrl,
     required this.isSelected,
-    required this.isDark,
     required this.onTap,
   });
 
@@ -95,11 +92,13 @@ class ProxySelectorRow extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
+        // Продукт dark-only. Заливка невыбранной строки — канонический стеклянный
+        // токен: полупрозрачная, чтобы динамическая (акцент-зависимая) подложка
+        // листа и меш продолжали просвечивать. Непрозрачный Lumina.surface* здесь
+        // не подходит — он бы срезал это просвечивание.
         color: isSelected
-            ? colorScheme.primary.withValues(alpha: isDark ? 0.10 : 0.08)
-            : isDark
-                ? Colors.white.withValues(alpha: 0.04)
-                : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            ? colorScheme.primary.withValues(alpha: 0.10)
+            : Colors.white.withValues(alpha: Lumina.glassOpacity),
         borderRadius: BorderRadius.circular(Lumina.radiusLg),
         child: InkWell(
           onTap: onTap,
@@ -111,11 +110,12 @@ class ProxySelectorRow extends ConsumerWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(Lumina.radiusLg),
               border: Border.all(
+                // glassHoverOpacity == 0.06 — точное значение прежней рамки.
+                // Не менять на glassBorderOpacity (0.08): это сдвинуло бы вид.
                 color: isSelected
                     ? colorScheme.primary.withValues(alpha: 0.35)
-                    : isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : colorScheme.outlineVariant.withValues(alpha: 0.3),
+                    : Colors.white
+                        .withValues(alpha: Lumina.glassHoverOpacity),
               ),
             ),
             child: Row(
