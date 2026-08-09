@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/models/models.dart' hide Action;
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/views/proxies/common.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,7 +41,7 @@ bool isAggregateMember({
 
 // ── Proxy selector sheet ──────────────────────────────────────────────────
 
-class ProxySelectorSheet extends ConsumerWidget {
+class ProxySelectorSheet extends ConsumerStatefulWidget {
   final Group group;
 
   /// Вызывается ПОСЛЕ штатной записи выбора (`updateCurrentSelectedMap` +
@@ -46,10 +49,63 @@ class ProxySelectorSheet extends ConsumerWidget {
   /// проставить work mode. null ⇒ поведение группового экрана без изменений.
   final void Function(Proxy proxy, {required bool isAggregate})? onSelected;
 
-  const ProxySelectorSheet({super.key, required this.group, this.onSelected});
+  /// Мерить задержку ВСЕХ членов [group] один раз при открытии листа.
+  ///
+  /// Opt-in и по умолчанию ВЫКЛЮЧЕН: «Серверы и группы» уже гоняет свой
+  /// `_pingSelectedProxies` перед открытием этого листа, и второй прогон был бы
+  /// дублем. Включает его только экран «Страна», где роутер — `select` без
+  /// `url`/`interval`: ядро его состав как группу не health-check'ает, поэтому
+  /// без этого прогона выбранная страна показывает `n/a` минутами.
+  final bool pingOnOpen;
+
+  const ProxySelectorSheet({
+    super.key,
+    required this.group,
+    this.onSelected,
+    this.pingOnOpen = false,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProxySelectorSheet> createState() => _ProxySelectorSheetState();
+}
+
+class _ProxySelectorSheetState extends ConsumerState<ProxySelectorSheet> {
+  /// Один прогон на одно открытие листа. Флаг живёт в [State], а не в билде:
+  /// лист перестраивается на каждый тик `groupsProvider`, и без него замер
+  /// уходил бы в сеть на каждую перестройку. Взводится ДО запуска, так что он
+  /// же не даёт стартовать второй пачке поверх ещё летящей.
+  bool _autoPinged = false;
+
+  /// Замер задержки членов роутера — ТОЛЬКО чтобы заполнить бейджи.
+  ///
+  /// Список строк не зависит от результата: он всегда `group.all`. Провалившийся
+  /// или вообще не доехавший замер оставляет пустой бейдж (или `n/a`) — и ни
+  /// одной спрятанной строки. Ровно на этом обжёгся удалённый `countryProbe`:
+  /// он мерил И фильтровал, и на непрогретом ядре выкидывал весь список.
+  ///
+  /// [Group.testUrl] обязателен: бейдж читает
+  /// `getDelayProvider(proxyName:, testUrl: group.testUrl)`, и замер под
+  /// дефолтным URL записал бы задержку под ДРУГИМ ключом — числа бы не
+  /// появились никогда.
+  void _pingMembers() {
+    final group = widget.group;
+    if (group.all.isEmpty) return;
+    // Fire-and-forget: лист открывается мгновенно и остаётся кликабельным,
+    // бейджи подтягиваются по мере ответов.
+    unawaited(delayTest(group.all, group.testUrl));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final group = widget.group;
+    if (widget.pingOnOpen && !_autoPinged) {
+      _autoPinged = true;
+      // Из билда в сеть не ходим: `delayTest` пишет в провайдеры задержек, а
+      // запись провайдера во время фазы билда — ошибка Riverpod. Тот же приём,
+      // что у `_pingSelectedProxies` в «Серверах и группах».
+      WidgetsBinding.instance.addPostFrameCallback((_) => _pingMembers());
+    }
+
     final proxyName = ref.watch(getProxyNameProvider(group.name)) ?? '';
     // Tick the member the core actually routes through: once it drops a dead
     // pin, that pin is no longer the selection.
@@ -86,7 +142,7 @@ class ProxySelectorSheet extends ConsumerWidget {
                 group.name,
                 proxy.name,
               );
-              onSelected?.call(proxy, isAggregate: isAggregate);
+              widget.onSelected?.call(proxy, isAggregate: isAggregate);
               Navigator.of(context).pop();
             },
           );

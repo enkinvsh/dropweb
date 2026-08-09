@@ -203,6 +203,13 @@ class _ModesContentState extends ConsumerState<ModesContent>
                 case CountryScreenStatus.ready:
                   return ProxySelectorSheet(
                     group: state.group!,
+                    // Мерить задержку членов роутера на КАЖДОЕ открытие листа.
+                    // Роутер — `select` без `url`/`interval`, поэтому ядро его
+                    // состав как группу не health-check'ает: без этого юзер
+                    // видел `n/a` на выбранной стране ~1.5 минуты. Замер только
+                    // ЗАПОЛНЯЕТ бейджи — список строк остаётся `group.all`
+                    // независимо от результата.
+                    pingOnOpen: true,
                     // `routerPin` передаётся ВСЕГДА: в ветке «Страна» его
                     // перебивает цель режима, а в ветке «агрегатор» он — тот
                     // самый замок, из-за которого ошибка классификации
