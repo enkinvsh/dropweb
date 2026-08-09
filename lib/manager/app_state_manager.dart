@@ -99,6 +99,19 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
     } else {
       render?.resume();
     }
+    // Foreground gate for the sub-second polls: the traffic/runtime chain
+    // directly, and the memory + connections view polls through
+    // `globalState.isForeground`. Unlike the 20s group poll below, these must
+    // ALSO stand down on `inactive` — macOS App Nap only engages while the app
+    // is not frontmost, so leaving a 1-2s timer running on window blur keeps
+    // the process permanently ineligible.
+    final isForeground = state == AppLifecycleState.resumed;
+    globalState.isForeground.value = isForeground;
+    if (isForeground) {
+      globalState.resumeUpdateTasks();
+    } else {
+      globalState.pauseUpdateTasks();
+    }
     // Gate the 20s proxy-group poll on real backgrounding only. inactive fires
     // for transient overlays (permission dialog, notification shade) and on
     // desktop window blur — it must NOT pause the poll. Pause on

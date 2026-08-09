@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:dropweb/common/common.dart';
@@ -14,6 +13,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// alpha-only drift this slow, but it stops the app from re-rasterizing
 /// three fullscreen gradients at 120 Hz forever (measured 5-6 ms/frame of
 /// raster at idle on Pixel 10 before this change).
+///
+/// The 80 ms sampling used to be a raw periodic timer. It isn't anymore: a
+/// bare timer fires whether or not this widget — or the whole window — is on
+/// screen, which on macOS kept the process permanently ineligible for App Nap
+/// (measured: 12h energy 2415, ~5x the next app, "App Nap: No"). The pump is
+/// now an [AnimationController] on a [TickerMode]-aware vsync ticker, so
+/// Flutter's own scheduler stops ticking it the moment the subtree goes
+/// off-screen and the process can finally idle. The controller's own value is
+/// deliberately unused — sampling the wall clock is what keeps every mesh on
+/// every screen in the same phase (see below) — and an 80 ms step throttles
+/// the repaint back down to 12.5 Hz so the vsync pump costs no extra raster.
 ///
 /// Motion is FROZEN (last frame stays) whenever animating would be wasted
 /// or would fight a transition for GPU time:
@@ -33,16 +43,17 @@ class MeshBackground extends ConsumerStatefulWidget {
 }
 
 class _MeshBackgroundState extends ConsumerState<MeshBackground>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   static const int _periodMs = 14000;
   // 12.5 Hz repaint — imperceptible for a 14s alpha breathe.
-  static const Duration _step = Duration(milliseconds: 80);
+  static const int _stepMs = 80;
 
   // Gentle: orb alpha varies by ±18% around the static baseline.
   static const double _breathAmplitude = 0.18;
 
   final ValueNotifier<double> _phase = ValueNotifier(0);
-  Timer? _timer;
+  late final AnimationController _controller;
+  int _lastStepMs = 0;
   ModalRoute<dynamic>? _route;
   bool _lifecyclePaused = false;
 
@@ -50,6 +61,12 @@ class _MeshBackgroundState extends ConsumerState<MeshBackground>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Pure vsync pump: `repeat()` needs a duration, and the breathe period is
+    // the honest one to give it even though the value itself is never read.
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _periodMs),
+    )..addListener(_onFrame);
   }
 
   @override
@@ -97,18 +114,25 @@ class _MeshBackgroundState extends ConsumerState<MeshBackground>
   void _syncMotion() {
     if (!mounted) return;
     if (_shouldAnimate) {
-      if (_timer == null) {
-        _tick();
-        _timer = Timer.periodic(_step, (_) => _tick());
+      if (!_controller.isAnimating) {
+        _tick(DateTime.now().millisecondsSinceEpoch);
+        _controller.repeat();
       }
     } else {
-      _timer?.cancel();
-      _timer = null;
+      _controller.stop();
     }
   }
 
-  void _tick() {
+  // Runs on every vsync the ticker is allowed to schedule; collapses that back
+  // to one phase update per 80 ms so the repaint rate is unchanged.
+  void _onFrame() {
     final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastStepMs < _stepMs) return;
+    _tick(now);
+  }
+
+  void _tick(int now) {
+    _lastStepMs = now;
     _phase.value = (now % _periodMs) / _periodMs;
   }
 
@@ -121,7 +145,9 @@ class _MeshBackgroundState extends ConsumerState<MeshBackground>
   void dispose() {
     _detachRouteListeners();
     WidgetsBinding.instance.removeObserver(this);
-    _timer?.cancel();
+    _controller
+      ..removeListener(_onFrame)
+      ..dispose();
     _phase.dispose();
     super.dispose();
   }

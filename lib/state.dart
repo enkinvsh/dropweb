@@ -87,6 +87,17 @@ class GlobalState {
   VoidCallback? pauseGroupsPolling;
   VoidCallback? resumeGroupsPolling;
 
+  /// True while the app is frontmost (`AppLifecycleState.resumed`). Driven by
+  /// the same lifecycle observer (`AppStateManager`) that gates the 20s group
+  /// poll above; sub-second view polls (memory, connections) listen here and
+  /// stand down when it flips false.
+  ///
+  /// Unlike the group poll this treats `inactive` as background too. macOS App
+  /// Nap only engages while the app is NOT frontmost, so any always-on
+  /// sub-second timer keeps the process ineligible forever — measured on 0.8.6
+  /// as 12h energy 2415 (~5x the next app) with "App Nap: No".
+  final ValueNotifier<bool> isForeground = ValueNotifier<bool>(true);
+
   late Measure measure;
   late CommonTheme theme;
   late Color accentColor;
@@ -228,18 +239,52 @@ class GlobalState {
 
   String get ua => config.patchClashConfig.globalUa ?? packageInfo.ua;
 
+  /// True once a session has armed the chain, so a foreground resume knows
+  /// whether to re-arm it. Cleared by [stopUpdateTasks].
+  bool _updateTasksActive = false;
+
+  /// True while the app is backgrounded. Blocks both a fresh arm and the
+  /// re-arm at the tail of [startUpdateTasks].
+  bool _updateTasksPaused = false;
+
   Future<void> startUpdateTasks([UpdateTasks? tasks]) async {
     if (timer != null && timer!.isActive == true) return;
     if (tasks != null) {
       this.tasks = tasks;
     }
+    _updateTasksActive = true;
+    if (_updateTasksPaused) return;
     await executorUpdateTask();
     // Throttled from 1s → 2s to halve the background rebuild cascade
     // (traffic + runtime + proxy state all tick through this loop).
     // Speedometer/graph feel slightly less live but whole-UI work halves.
+    // Re-arm guard (same shape as the group poll's): a pause can land during
+    // the await above, and a timer armed after it would keep waking the CPU
+    // with the window hidden — which is what defeats macOS App Nap.
+    if (_updateTasksPaused) return;
     timer = Timer(const Duration(seconds: 2), () async {
       startUpdateTasks();
     });
+  }
+
+  /// Stand the traffic/runtime chain down while the app is not frontmost.
+  /// Kept separate from [stopUpdateTasks] so a resume can tell "the user
+  /// stopped the VPN" apart from "the window went away".
+  void pauseUpdateTasks() {
+    if (_updateTasksPaused) return;
+    _updateTasksPaused = true;
+    timer?.cancel();
+    timer = null;
+  }
+
+  /// Re-arm on foreground with one immediate refresh, so the dashboard shows
+  /// current traffic straight away instead of after a 2s beat. Mirrors the
+  /// group poll's resume.
+  void resumeUpdateTasks() {
+    if (!_updateTasksPaused) return;
+    _updateTasksPaused = false;
+    if (!_updateTasksActive) return;
+    unawaited(startUpdateTasks());
   }
 
   Future<void> executorUpdateTask() async {
@@ -250,6 +295,7 @@ class GlobalState {
   }
 
   void stopUpdateTasks() {
+    _updateTasksActive = false;
     if (timer == null || timer?.isActive == false) return;
     timer?.cancel();
     timer = null;
