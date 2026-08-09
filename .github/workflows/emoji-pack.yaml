@@ -1,0 +1,27 @@
+# Dump a Telegram custom-emoji pack as a ready-to-paste PACK mapping.
+#
+# The ids are not secret, but reading them requires the bot token, which is.
+# Running it here keeps the token inside Actions and prints only the mapping.
+# Use this whenever the pack changes, then paste the result into
+# .github/scripts/notify_telegram.py.
+name: Emoji pack
+
+on:
+  workflow_dispatch:
+    inputs:
+      pack:
+        description: "Sticker set name, e.g. zenbot_cabinet_by_dropwebpay_bot"
+        required: true
+        default: "zenbot_cabinet_by_dropwebpay_bot"
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dump pack and check coverage
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          PACK_NAME: ${{ github.event.inputs.pack }}
+        run: python3 .github/scripts/dump_emoji_pack.py
