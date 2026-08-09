@@ -664,19 +664,13 @@ class AppController {
     // mirroring how realTunEnable overrides tun.enable. The persisted
     // patchClashConfig.mode (the old rule/global UI axis) is irrelevant on this
     // path — work mode owns it now.
-    //   • standard / smart ⇒ rule (the provider's rules stay live);
-    //   • country ⇒ rule WHEN the country binding will actually route the
-    //     proxied surface through the chosen country (fork Б, anti-VPN-detect:
-    //     RU traffic stays DIRECT by the template rules), else global as a
-    //     fallback for degenerate configs. The country decision reads the profile
-    //     config ONCE (only on the country path — no new I/O on standard/smart),
-    //     self-heals the persisted selectedMap to the derived scheme, and logs
-    //     the choice; see [_resolveCountryModeAndHeal].
     final currentProfile = _ref.read(currentProfileProvider);
     final workMode = currentProfile?.workMode ?? WorkMode.standard;
-    final effectiveMode = workMode == WorkMode.country && currentProfile != null
-        ? await _resolveCountryModeAndHeal(currentProfile)
-        : Mode.rule;
+    // Country больше не имеет режимной развилки: биндинг делает патч, ядро
+    // ВСЕГДА в mode: rule. Прежний Mode.global-фолбэк был fail-open — при
+    // ошибке чтения конфига он ронял правила провайдера и уводил RU-трафик за
+    // границу, то есть ровно в тот детект VPN, ради которого режим и делался.
+    const effectiveMode = Mode.rule;
     // Write the derived mode back into the provider so EVERY consumer reads the
     // mode the core actually runs, not the stale rule/global UI axis:
     //   • currentGroupsState (state.dart) filters groups on patchConfig.mode —
@@ -753,52 +747,6 @@ class AppController {
     }
     // Only record the hash after a successful core setup.
     _lastSetupHash = setupHash;
-  }
-
-  /// Country path of [_setupClashConfig]. Reads the profile config ONCE (only on
-  /// the country path — no new I/O on standard/smart), decides `Mode.rule` vs the
-  /// `Mode.global` fallback via [countryRuleModeAvailable] (provably identical to
-  /// the patch's own binding condition), self-heals/reconciles the persisted
-  /// selectedMap to the derived scheme, logs the decision, and returns the mode.
-  ///
-  /// Read failure ⇒ `Mode.global` (the old Country behavior — safe: the GLOBAL
-  /// selector degrades to `proxies[0]` even with nothing wired).
-  Future<Mode> _resolveCountryModeAndHeal(Profile profile) async {
-    Map<String, dynamic> cfg;
-    try {
-      cfg = await globalState.getProfileConfig(profile.id);
-    } catch (e) {
-      commonPrint.log('country-mode: FALLBACK global (config read failed: $e)');
-      return Mode.global;
-    }
-    final staticCountry = profile.staticCountry;
-    // willInject = the «Страна <flag>» group WILL be present (≥1 node, or already
-    // defined). available = willInject AND ≥1 intercept group to bind into — the
-    // exact condition the patch binds under. Distinguishing them separates the
-    // two global-fallback sub-cases (degenerate-but-present vs no-nodes).
-    final willInject = countryGroupWillInject(cfg,
-        workMode: WorkMode.country, staticCountry: staticCountry);
-    final bindingGroups = countryBindingGroups(cfg);
-    final available =
-        countryRuleModeAvailable(cfg, staticCountry: staticCountry);
-    // Self-heal BEFORE getSetupParams reads config.currentProfile.selectedMap:
-    // migrates OLD-scheme profiles (GLOBAL-key only) and reconciles drift
-    // (intercept set shifted after a subscription update) to the derived scheme.
-    _healCountrySelectedMap(
-      profile,
-      staticCountry,
-      available: available,
-      willInject: willInject,
-      bindingGroups: bindingGroups,
-    );
-    if (available) {
-      commonPrint
-          .log('country-mode: rule (${bindingGroups.length} bound groups)');
-      return Mode.rule;
-    }
-    commonPrint.log('country-mode: FALLBACK global '
-        '(${willInject ? "empty intercept set" : "no country nodes"})');
-    return Mode.global;
   }
 
   /// Idempotently reconciles the persisted selectedMap of a Country [profile] to
