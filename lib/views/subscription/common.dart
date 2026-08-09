@@ -1,35 +1,20 @@
-import 'package:dropweb/common/common.dart';
-import 'package:dropweb/common/work_mode_patch.dart';
 import 'package:dropweb/models/models.dart' hide Action;
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Parsed work-mode inputs for the current profile, read from the profile's
-/// resolved config so they reflect the actual subscription nodes:
-/// - [countries]: flag-emoji → node names (flagless nodes appear as their own
-///   single-node groups keyed by node name, see [groupNodesByCountry]),
-///   produced over [interceptLeafNodes] (rule-group leaves only — the
-///   disconeko SOS pool baked into raw `proxies` is excluded so the picker
-///   shows only panel-curated countries);
-/// - [hasSmartCandidates]: whether the smart «Умный» group will be injectable
-///   (a primary router exists AND resolves to ≥1 leaf node). Smart mode is
-///   unavailable otherwise — matches [smartGroupWillInject], the exact
-///   condition the work-mode patch uses to inject.
-class ModeProfileData {
-  const ModeProfileData({
-    required this.countries,
-    required this.hasSmartCandidates,
-  });
-
-  final Map<String, List<String>> countries;
-  final bool hasSmartCandidates;
-}
-
-/// File-scoped: only the modes tab consumes this. Keyed by profile id so a
-/// profile switch re-reads the right config.
+/// Readiness gate for the modes tab: resolves when the current profile's
+/// config has been loaded, and carries the load error when it has not.
+///
+/// It intentionally yields NO value. The modes tab renders from `profile`
+/// (work mode, id) alone; it only needs to know whether the profile's config
+/// is still loading, failed to load, or is available — so the three
+/// `AsyncValue` states ARE the payload. Anything that needs the parsed config
+/// (country pools, smart availability) reads it where it is used, not here.
+///
+/// Keyed by profile id so a profile switch re-reads the right config.
 final modeProfileDataProvider =
-    FutureProvider.autoDispose.family<ModeProfileData, String>(
+    FutureProvider.autoDispose.family<void, String>(
   (ref, profileId) async {
     // Re-evaluate when THIS profile's subscription is updated: getProfileConfig
     // reads the saved file, whose content changes on update while `profileId`
@@ -41,18 +26,10 @@ final modeProfileDataProvider =
       final p = profiles.getProfile(profileId);
       return (p?.lastUpdateDate, p?.providerHeaders.length);
     }));
-    final cfg = await globalState.getProfileConfig(profileId);
-    // Country candidates come from the rule-group leaves only (same structurally
-    // SOS-free set as Smart) — NOT raw cfg['proxies'], which carries the
-    // disconeko emergency pool. Otherwise the picker would surface SOS flags
-    // (🇷🇺/🇬🇧/…) the panel subscription never offers. `interceptLeafNodes`
-    // resolves rules from either the 'rules' or 'rule' key (`_resolveRules`),
-    // and getProfileConfig output uses 'rules'. Native Remnawave Hy2 nodes flow
-    // through here as ordinary leaf nodes — no special-case overlay needed.
-    return ModeProfileData(
-      countries: groupNodesByCountry(interceptLeafNodes(cfg)),
-      hasSmartCandidates: smartGroupWillInject(cfg),
-    );
+    // Awaited purely for its timing and its failure mode: this is what makes
+    // the tab wait (loading) and what surfaces a broken profile (error). The
+    // resolved config itself is deliberately discarded — no consumer reads it.
+    await globalState.getProfileConfig(profileId);
   },
 );
 
