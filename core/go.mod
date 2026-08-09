@@ -4,6 +4,11 @@ go 1.20
 
 replace github.com/metacubex/mihomo => ./Clash.Meta
 
+// Spin-loop fix for the darwin batch read loop (EBADF / endless empty reads).
+// Upstream sagernet/sing-tun has the EBADF half; metacubex's fork does not, not
+// even in v0.4.22 — so we carry the patch ourselves.
+replace github.com/metacubex/sing-tun => ./Clash.Meta/patches/sing-tun
+
 require (
 	github.com/metacubex/mihomo v0.0.0-00010101000000-000000000000
 	golang.org/x/sync v0.11.0
