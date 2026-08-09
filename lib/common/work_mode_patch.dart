@@ -530,6 +530,22 @@ Map _withAppendedMember(Map group, String member) {
 List<String> _countryNodes(Map<String, dynamic> rawConfig, String flag) =>
     resolveCountryKeyNodes(interceptLeafNodes(rawConfig), flag);
 
+/// Имя, на которое `selectedMap[router]` должен указывать для [staticCountry] —
+/// РОВНО то же, что `applyWorkModePatch` привязывает к роутеру: сам узел при
+/// пуле из одного, иначе группа `Страна <key>`. null ⇒ привязывать нечего
+/// (нет ключа / нет узлов), пин не пишем.
+String? countryTargetName(
+  Map<String, dynamic> rawConfig,
+  String? staticCountry,
+) {
+  if (staticCountry == null || staticCountry.isEmpty) return null;
+  final nodes = _countryNodes(rawConfig, staticCountry);
+  if (nodes.isEmpty) return null;
+  return nodes.length == 1
+      ? nodes.single
+      : workModeCountryGroupName(staticCountry);
+}
+
 /// Привязывает [target] к [router] способом, соответствующему ТИПУ роутера.
 ///
 /// `select` — дописать [target] последним членом (идемпотентно) и положиться на
@@ -591,9 +607,7 @@ const _autoMembershipKeys = <String>{
 
 /// Возвращает копию [group], чей состав — ровно `[member]`, без ключей
 /// автонаполнения. Оригинал не мутируется.
-Map _withCollapsedMembership(Map group, String member) {
-  final copy = Map<String, dynamic>.from(group.cast<String, dynamic>())
-    ..['proxies'] = <dynamic>[member];
-  copy.removeWhere((k, _) => _autoMembershipKeys.contains(k));
-  return copy;
-}
+Map _withCollapsedMembership(Map group, String member) =>
+    Map<String, dynamic>.from(group.cast<String, dynamic>())
+      ..['proxies'] = <dynamic>[member]
+      ..removeWhere((k, _) => _autoMembershipKeys.contains(k));

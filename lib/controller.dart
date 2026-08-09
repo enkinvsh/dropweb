@@ -1808,8 +1808,8 @@ class AppController {
   }
 
   /// Applies a per-profile work mode. Persists the mode fields, rewrites only
-  /// the `selectedMap` keys WE own (Smart: the primary router; Country: every
-  /// intercept group, or `GLOBAL` in the degenerate fallback) without touching
+  /// the `selectedMap` keys WE own (both Smart and Country own EXACTLY ONE key —
+  /// the primary router, i.e. the catch-all `MATCH` target) without touching
   /// the user's other selections, invalidates the Block A setup-hash cache and
   /// triggers a full re-setup. The additive YAML group itself is injected by
   /// [applyWorkModePatch] in the config-build path (`patchRawConfig`).
@@ -1828,14 +1828,11 @@ class AppController {
     // the patch's injection condition exactly so we never point selectedMap at a
     // group that was never created.
     var smartAvailable = false;
-    // Country binds into EVERY intercept group (fork Б — the whole proxied
-    // surface egresses through the chosen country). `countryAvailable` is the
-    // SAME pure helper the config-build path uses to derive Mode.rule, so the
-    // wiring never disagrees with the effective mode; `countryWillInject`
-    // separates the two global-fallback sub-cases (group present vs no nodes).
-    var countryGroups = const <String>[];
-    var countryAvailable = false;
-    var countryWillInject = false;
+    // Country (вариант А) пинит РОВНО ОДНУ группу — первичный роутер (цель
+    // MATCH). `countryTarget` — то же имя, что привязал патч: сам узел при пуле
+    // из одного, иначе группа `Страна <key>`. null ⇒ привязывать нечего.
+    String? countryRouter;
+    String? countryTarget;
     try {
       final cfg = await globalState.getProfileConfig(currentProfile.id);
       // «Умный» binds ONLY into the primary router (the catch-all MATCH target,
@@ -1846,24 +1843,27 @@ class AppController {
       smartGroups =
           primaryRouter == null ? const <String>[] : <String>[primaryRouter];
       smartAvailable = smartGroupWillInject(cfg);
-      countryGroups = countryBindingGroups(cfg);
-      countryWillInject = countryGroupWillInject(cfg,
-          workMode: WorkMode.country, staticCountry: staticCountry);
-      countryAvailable =
-          countryRuleModeAvailable(cfg, staticCountry: staticCountry);
+      countryRouter = primaryRouter;
+      countryTarget = countryTargetName(cfg, staticCountry);
     } catch (e) {
       commonPrint.log('applyWorkMode: failed to read profile config: $e');
     }
 
     final selectedMap = Map<String, String>.from(currentProfile.selectedMap);
-    // Clear OUR keys by VALUE-ownership: any key a prior work mode pointed at
-    // «Умный» or a «Страна <flag>» group is ours to drop, regardless of which
-    // group name carried it (the rule-referenced set can shift between applies,
-    // e.g. after a subscription update). Plus GLOBAL. Never touch the user's
-    // own manual selections.
+    // Снимаем ключи, которыми владеет work mode. Два механизма:
+    //  * по VALUE — старая схема (значения «Умный» / «Страна *»), в т.ч. ключи
+    //    от прежнего fork-Б, где страна биндилась во ВСЕ rule-группы;
+    //  * по KEY — новая схема пишет в роутер ИМЯ УЗЛА, которое от ручного пина
+    //    юзера по значению не отличить, поэтому чистим ключ роутера явно.
+    //    Без этого выход из «Страны» оставлял бы узел приколотым в Standard.
     selectedMap
       ..removeWhere((_, v) => isWorkModeOwnedSelection(v))
       ..remove(GroupName.GLOBAL.name);
+    final ownedRouter =
+        countryRouter ?? (smartGroups.isEmpty ? null : smartGroups.first);
+    if (ownedRouter != null) {
+      selectedMap.remove(ownedRouter);
+    }
 
     switch (mode) {
       case WorkMode.smart:
@@ -1878,26 +1878,12 @@ class AppController {
         }
         break;
       case WorkMode.country:
-        if (staticCountry != null && staticCountry.isNotEmpty) {
-          final groupName = workModeCountryGroupName(staticCountry);
-          if (countryAvailable) {
-            // rule-mode (fork Б): point EVERY intercept group at the «Страна
-            // <flag>» group, which applyWorkModePatch binds as a member of each
-            // (D2 — the core honors a forced `selected` only among a group's own
-            // members). The whole proxied surface egresses through the country
-            // while the template's DIRECT rules keep RU traffic local.
-            for (final group in countryGroups) {
-              selectedMap[group] = groupName;
-            }
-          } else if (countryWillInject) {
-            // Degenerate global fallback (group injects but no intercept groups):
-            // point GLOBAL at the «Страна <flag>» group, consistent with the
-            // Mode.global fallback the config-build path derives here.
-            selectedMap[GroupName.GLOBAL.name] = groupName;
-          }
-          // else: the country group won't inject (no nodes) — wire nothing,
-          // mirroring smartAvailable gating (the GLOBAL selector degrades to
-          // proxies[0]); binding a dangling group would be inert.
+        // Вариант А: единственный ключ — первичный роутер (цель MATCH). Патч
+        // гарантировал, что countryTarget — его прямой член (select), либо
+        // схлопнул состав роутера до него (не-select). Пер-сервисные группы
+        // (YouTube / Discord / Telegram) сохраняют маршрут провайдера.
+        if (countryRouter != null && countryTarget != null) {
+          selectedMap[countryRouter] = countryTarget;
         }
         break;
       case WorkMode.standard:
