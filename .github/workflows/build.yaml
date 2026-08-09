@@ -8,7 +8,19 @@ env:
   IS_STABLE: ${{ !contains(github.ref, '-') }}
 
 jobs:
+  # A malformed release note only blew up in the announcement step, which runs
+  # last and carries continue-on-error — so v0.8.7-pre.3 shipped green with no
+  # post at all. Validate up front: it costs seconds and fails before anything
+  # is built, uploaded or published.
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate release notes
+        run: python3 .github/scripts/validate_release_notes.py "${{ github.ref_name }}"
+
   build:
+    needs: [notes]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
