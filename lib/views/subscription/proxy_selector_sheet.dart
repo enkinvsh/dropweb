@@ -7,6 +7,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+// ── Sponge rule: aggregate vs country ─────────────────────────────────────
+
+/// Имена ВСЕХ групп ядра — вход для [isAggregateMember].
+///
+/// Множество принципиально НЕФИЛЬТРОВАННОЕ (`groupsProvider`, не
+/// `currentGroupsStateProvider`). Регрессия 2026-08-09: фильтрованный провайдер
+/// выкидывает `hidden == true`, а живая подписка объявляет группу-агрегатор
+/// скрытой (`hidden: true` в её `proxy-groups`), из-за чего скрытый агрегатор
+/// всегда классифицировался как страна.
+///
+/// `GLOBAL` тоже НЕ исключается: это настоящая группа ядра, и член роутера с
+/// таким именем был бы агрегатором, а не страной. Исключить его — значит
+/// воспроизвести ровно тот же класс бага. Подписка не может объявить страну с
+/// именем `GLOBAL`, не столкнувшись со встроенной группой ядра.
+///
+/// Скрытость влияет только на то, что РИСУЕТСЯ («Серверы и группы» правомерно
+/// прячет скрытые группы) — но не на то, ЧЕМ ЯВЛЯЕТСЯ узел.
+Set<String> aggregateGroupNames(List<Group> groups) =>
+    groups.map((g) => g.name).toSet();
+
+/// Член роутера, чьё имя совпадает с именем ДРУГОЙ группы, — это агрегатор
+/// («авто»/каскад), а не страна. Листовая нода — страна.
+bool isAggregateMember({
+  required String proxyName,
+  required String routerName,
+  required Set<String> allGroupNames,
+}) =>
+    proxyName != routerName && allGroupNames.contains(proxyName);
+
 // ── Proxy selector sheet ──────────────────────────────────────────────────
 
 class ProxySelectorSheet extends ConsumerWidget {
@@ -25,10 +54,7 @@ class ProxySelectorSheet extends ConsumerWidget {
     // Tick the member the core actually routes through: once it drops a dead
     // pin, that pin is no longer the selection.
     final selectedName = group.resolveSelectedName(proxyName);
-    // Член роутера, чьё имя совпадает с именем ДРУГОЙ группы, — это агрегатор
-    // («авто»/каскад), а не страна. Листовая нода — страна.
-    final groupNames =
-        ref.watch(currentGroupsStateProvider).value.map((g) => g.name).toSet();
+    final groupNames = aggregateGroupNames(ref.watch(groupsProvider));
 
     return ConstrainedBox(
       constraints: BoxConstraints(
@@ -41,8 +67,11 @@ class ProxySelectorSheet extends ConsumerWidget {
         itemBuilder: (context, index) {
           final proxy = group.all[index];
           final isSelected = proxy.name == selectedName;
-          final isAggregate =
-              proxy.name != group.name && groupNames.contains(proxy.name);
+          final isAggregate = isAggregateMember(
+            proxyName: proxy.name,
+            routerName: group.name,
+            allGroupNames: groupNames,
+          );
           return ProxySelectorRow(
             proxy: proxy,
             testUrl: group.testUrl,
