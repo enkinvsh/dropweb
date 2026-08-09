@@ -99,12 +99,14 @@ class _ModesContentState extends ConsumerState<ModesContent>
   Future<void> _apply(
     WorkMode mode, {
     String? staticCountry,
+    String? routerPin,
   }) async {
     setState(() => _applying = true);
     try {
       await globalState.appController.applyWorkMode(
         mode,
         staticCountry: staticCountry,
+        routerPin: routerPin,
       );
     } finally {
       if (mounted) setState(() => _applying = false);
@@ -171,9 +173,16 @@ class _ModesContentState extends ConsumerState<ModesContent>
           // состояния перестраивал бы вкладку режимов, а не содержимое шита.
           child: Consumer(
             builder: (_, ref, __) {
+              // Множество групп — НЕФИЛЬТРОВАННОЕ (`groupsProvider`, не
+              // `currentGroupsStateProvider`): фильтрованный выкидывает
+              // `hidden == true` и `GLOBAL`, поэтому провайдер, спрятавший
+              // свою MATCH-группу, получал `getGroup → null → routerLoading`
+              // — вечный спиннер без диагностики. Скрытость влияет на то, что
+              // РИСУЕТСЯ («Серверы и группы» правомерно прячет скрытые
+              // группы), а не на то, ЧЕМ является роутер.
               final state = resolveCountryScreenState(
                 resolvedConfig,
-                ref.watch(currentGroupsStateProvider).value,
+                ref.watch(groupsProvider),
               );
               switch (state.status) {
                 case CountryScreenStatus.configUnavailable:
@@ -194,9 +203,15 @@ class _ModesContentState extends ConsumerState<ModesContent>
                 case CountryScreenStatus.ready:
                   return ProxySelectorSheet(
                     group: state.group!,
+                    // `routerPin` передаётся ВСЕГДА: в ветке «Страна» его
+                    // перебивает цель режима, а в ветке «агрегатор» он — тот
+                    // самый замок, из-за которого ошибка классификации
+                    // («страна-группа принята за агрегатор») больше не уводит
+                    // трафик в первого члена роутера.
                     onSelected: (proxy, {required isAggregate}) => _apply(
                       isAggregate ? WorkMode.standard : WorkMode.country,
                       staticCountry: isAggregate ? null : proxy.name,
+                      routerPin: proxy.name,
                     ),
                   );
               }

@@ -1794,9 +1794,14 @@ class AppController {
   /// the user's other selections, invalidates the Block A setup-hash cache and
   /// triggers a full re-setup. The additive YAML group itself is injected by
   /// [applyWorkModePatch] in the config-build path (`patchRawConfig`).
+  ///
+  /// [routerPin] — член роутера, который юзер ТОЛЬКО ЧТО ткнул. Необязателен:
+  /// null сохраняет прежнее поведение (ключ роутера снимается). Смысл и причина
+  /// — в [resolveWorkModeSelectedMap].
   Future<void> applyWorkMode(
     WorkMode mode, {
     String? staticCountry,
+    String? routerPin,
   }) async {
     final currentProfile = _ref.read(currentProfileProvider);
     if (currentProfile == null) return;
@@ -1830,46 +1835,19 @@ class AppController {
       commonPrint.log('applyWorkMode: failed to read profile config: $e');
     }
 
-    final selectedMap = Map<String, String>.from(currentProfile.selectedMap);
-    // Снимаем ключи, которыми владеет work mode. Два механизма:
-    //  * по VALUE — старая схема (значения «Умный» / «Страна *»), в т.ч. ключи
-    //    от прежнего fork-Б, где страна биндилась во ВСЕ rule-группы;
-    //  * по KEY — новая схема пишет в роутер ИМЯ УЗЛА, которое от ручного пина
-    //    юзера по значению не отличить, поэтому чистим ключ роутера явно.
-    //    Без этого выход из «Страны» оставлял бы узел приколотым в Standard.
-    selectedMap
-      ..removeWhere((_, v) => isWorkModeOwnedSelection(v))
-      ..remove(GroupName.GLOBAL.name);
-    final ownedRouter =
-        countryRouter ?? (smartGroups.isEmpty ? null : smartGroups.first);
-    if (ownedRouter != null) {
-      selectedMap.remove(ownedRouter);
-    }
-
-    switch (mode) {
-      case WorkMode.smart:
-        // Only bind when «Умный» will actually be injected AS A MEMBER of each
-        // group (smartAvailable). The core honors a forced `selected` only among
-        // a group's own members, so binding without the injected member would be
-        // inert (D2); binding when smart is unavailable would dangle.
-        if (smartAvailable) {
-          for (final group in smartGroups) {
-            selectedMap[group] = workModeSmartGroupName;
-          }
-        }
-        break;
-      case WorkMode.country:
-        // Вариант А: единственный ключ — первичный роутер (цель MATCH). Патч
-        // гарантировал, что countryTarget — его прямой член (select), либо
-        // схлопнул состав роутера до него (не-select). Пер-сервисные группы
-        // (YouTube / Discord / Telegram) сохраняют маршрут провайдера.
-        if (countryRouter != null && countryTarget != null) {
-          selectedMap[countryRouter] = countryTarget;
-        }
-        break;
-      case WorkMode.standard:
-        break;
-    }
+    // Вся арифметика ключей — в чистой [resolveWorkModeSelectedMap]: результат
+    // (куда ядро в итоге маршрутизирует) обязан быть покрыт тестом, а не только
+    // промежуточная классификация члена роутера.
+    final selectedMap = resolveWorkModeSelectedMap(
+      current: currentProfile.selectedMap,
+      mode: mode,
+      ownedRouter:
+          countryRouter ?? (smartGroups.isEmpty ? null : smartGroups.first),
+      countryTarget: countryTarget,
+      smartGroups: smartGroups,
+      smartAvailable: smartAvailable,
+      routerPin: routerPin,
+    );
 
     // Rollback on failure (B-12): keep the pre-mutation profile so a failed
     // apply can't leave the UI on a mode the core never accepted. The
