@@ -96,9 +96,9 @@ PACK = {
     # the rest appear in shipped release notes, so dropping them would break
     # re-announcing older tags.
     "🏴‍☠️": "5265145909326419576", "🧑‍💻": "5264951755329805695", "⚠️": "5265226418488385619",
-    "❤️": "5264735258913314397", "⬇️": "5265009050193534901", "👁️": "5265016038105324959",
+    "❤️": "5264735258913314397", "👁️": "5265016038105324959",
     "🕷️": "5264936838908388851", "🎨": "5264755952065750518", "📟": "5265182931944510281",
-    "😂": "5264824937830456755", "🤔": "5264857154380142241", "🧠": "5265192428117208527",
+    "😂": "5264824937830456755", "🤔": "5264857154380142241", 
     "🧼": "5265159902329871766",
 }
 
@@ -199,7 +199,7 @@ def load_release_notes(tag: str) -> tuple[str, list[tuple[str, str]]]:
 
     .github/release_notes/<tag>.md format:
         optional intro text before the first section
-        ## ⬇️ Заголовок секции
+        ## 📥 Заголовок секции
         проза секции...
     Returns (intro, [(header, prose)]); ("", []) when the file is absent —
     callers then fall back to the auto-generated commit list.
@@ -305,7 +305,7 @@ def build_rich_html(version: str, is_stable: bool, commits: list[str],
         summary = ("Полный список" if notes_sections else "Что нового") + \
             f" — {total} изменений"
         parts.append(
-            f"<details><summary>{ce('🧠')} {summary}</summary>{body}</details>"
+            f"<details><summary>{ce('📝')} {summary}</summary>{body}</details>"
         )
 
     rows = "".join(
@@ -348,7 +348,7 @@ def build_legacy_html(version: str, is_stable: bool, commits: list[str],
             for emoji, title, items in sections
         ]
         quote = "<blockquote expandable>" + "\n\n".join(blocks) + "</blockquote>"
-    downloads = f"────────────────\n{ce('⬇️')} <b>Скачать:</b>\n" + "\n".join(
+    downloads = f"────────────────\n{ce('📥')} <b>Скачать:</b>\n" + "\n".join(
         f'{ce(e)} <a href="{html.escape(url)}">{esc(name)}</a>'
         for e, name, _, url in platform_urls(version, is_stable)
     ) + f'\n{ce("📄")} <a href="{html.escape(release_url)}">GitHub Release</a>' \
@@ -443,12 +443,12 @@ def main() -> int:
     # username on the bot — the iconless keyboard below is the safe retry.
     keyboard = {"inline_keyboard": [[
         {"text": "Скачать", "style": "success", "url": release_url,
-         "icon_custom_emoji_id": PACK["⬇️"]},
+         "icon_custom_emoji_id": PACK["📥"]},
         {"text": "dropweb.org", "url": "https://dropweb.org",
          "icon_custom_emoji_id": PACK["💚"]},
     ]]}
     keyboard_plain = {"inline_keyboard": [[
-        {"text": "⬇️ Скачать", "style": "success", "url": release_url},
+        {"text": "📥 Скачать", "style": "success", "url": release_url},
         {"text": "💚 dropweb.org", "url": "https://dropweb.org"},
     ]]}
 
