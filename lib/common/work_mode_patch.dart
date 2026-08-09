@@ -95,31 +95,34 @@ Map<String, dynamic> applyWorkModePatch(
       if (staticCountry == null || staticCountry.isEmpty) {
         return Map<String, dynamic>.from(rawConfig);
       }
+      final router = detectPrimaryRouter(rawConfig);
+      if (router == null) {
+        return Map<String, dynamic>.from(rawConfig);
+      }
       final nodes = _countryNodes(rawConfig, staticCountry);
       if (nodes.isEmpty) {
         return Map<String, dynamic>.from(rawConfig);
       }
-      // Ensure the country fallback group (in-country failover safety net) AND
-      // bind it as the last member of EVERY intercept group ([countryBindingGroups]
-      // == [smartInterceptGroups]) so the whole proxied surface egresses through
-      // the chosen country while DIRECT/REJECT rules keep RU traffic local — the
-      // fork-Б "«Страна» = «Умный» с ручным выбором" mechanic. `selectedMap[g]` is
-      // pointed at this group for each such g elsewhere (controller / W2). When the
-      // intercept set is empty (degenerate config) the group is still injected but
-      // nothing is bound.
-      final groupName = workModeCountryGroupName(staticCountry);
-      return _injectBoundGroup(
+      // Один узел — целью становится САМ узел: группа-обёртка ничего не даёт
+      // (failover по пулу из одного элемента невозможен), но добавляет лишний
+      // health-check-таймер и хоп. Группа нужна ТОЛЬКО при реальном пуле ≥2.
+      final target = nodes.length == 1
+          ? nodes.single
+          : workModeCountryGroupName(staticCountry);
+      return _bindCountryTarget(
         rawConfig,
-        countryBindingGroups(rawConfig),
-        groupName,
-        () => <String, dynamic>{
-          'name': groupName,
-          'type': 'fallback',
-          'url': 'https://cp.cloudflare.com/generate_204',
-          'interval': 180,
-          'lazy': true,
-          'proxies': List<String>.from(nodes),
-        },
+        router: router,
+        target: target,
+        group: nodes.length == 1
+            ? null
+            : () => <String, dynamic>{
+                  'name': target,
+                  'type': 'fallback',
+                  'url': 'https://cp.cloudflare.com/generate_204',
+                  'interval': 180,
+                  'lazy': true,
+                  'proxies': List<String>.from(nodes),
+                },
       );
   }
 }
@@ -526,3 +529,71 @@ Map _withAppendedMember(Map group, String member) {
 /// individually) — [resolveCountryKeyNodes] handles both key kinds.
 List<String> _countryNodes(Map<String, dynamic> rawConfig, String flag) =>
     resolveCountryKeyNodes(interceptLeafNodes(rawConfig), flag);
+
+/// Привязывает [target] к [router] способом, соответствующему ТИПУ роутера.
+///
+/// `select` — дописать [target] последним членом (идемпотентно) и положиться на
+/// пин `selectedMap`: `Selector.selectedProxy` (selector.go:103-112) чтит его
+/// безусловно и вечно, но ТОЛЬКО среди собственных членов группы.
+///
+/// Любой другой тип (`url-test` / `fallback` / `load-balance`) — СХЛОПНУТЬ состав
+/// до `[target]`. Группа с одним членом детерминирована (urltest.go:118,
+/// fallback.go:123), поэтому семантика пина не задействована — в частности не
+/// срабатывает fallback.go:117, который пин уничтожает. Ключи автосостава
+/// снимаются, иначе ядро дотянет пул обратно и схлопывание будет фиктивным.
+///
+/// [group] != null ⇒ дополнительно инжектировать эту группу (пул ≥2 узлов).
+/// PURE: вход не мутируется.
+Map<String, dynamic> _bindCountryTarget(
+  Map<String, dynamic> rawConfig, {
+  required String router,
+  required String target,
+  Map<String, dynamic> Function()? group,
+}) {
+  final result = Map<String, dynamic>.from(rawConfig);
+  final groups = rawConfig['proxy-groups'];
+  final newGroups = <dynamic>[];
+  var targetGroupPresent = false;
+  if (groups is List) {
+    for (final g in groups) {
+      final name = g is Map ? g['name']?.toString() : null;
+      if (name == target) {
+        targetGroupPresent = true;
+        newGroups.add(g);
+        continue;
+      }
+      if (name == router && g is Map) {
+        newGroups.add(g['type']?.toString() == 'select'
+            ? _withAppendedMember(g, target)
+            : _withCollapsedMembership(g, target));
+        continue;
+      }
+      newGroups.add(g);
+    }
+  }
+  if (group != null && !targetGroupPresent) {
+    newGroups.add(group());
+  }
+  result['proxy-groups'] = newGroups;
+  return result;
+}
+
+/// Ключи, которые заставляют ядро наполнять группу автоматически. При
+/// схлопывании состава их обязательно снять, иначе пул вернётся.
+const _autoMembershipKeys = <String>{
+  'include-all',
+  'include-all-proxies',
+  'include-all-providers',
+  'filter',
+  'exclude-filter',
+  'use',
+};
+
+/// Возвращает копию [group], чей состав — ровно `[member]`, без ключей
+/// автонаполнения. Оригинал не мутируется.
+Map _withCollapsedMembership(Map group, String member) {
+  final copy = Map<String, dynamic>.from(group.cast<String, dynamic>())
+    ..['proxies'] = <dynamic>[member];
+  copy.removeWhere((k, _) => _autoMembershipKeys.contains(k));
+  return copy;
+}
