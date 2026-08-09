@@ -91,10 +91,6 @@ PACK = {
     "🧹": "5442916327989749260", "🧾": "5442877406996112507", "🪙": "5442863487007109511",
     "🪟": "5445205906335769874", "🪪": "5443005624654802540",
 
-    # t.me/addemoji/dropwebpackv1 (SimpleG) — only what the new pack lacks.
-    # The download heading, "Под капотом" and "Исправления" are structural, and
-    # the rest appear in shipped release notes, so dropping them would break
-    # re-announcing older tags.
     }
 
 SKIP_RE = re.compile(
