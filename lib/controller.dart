@@ -674,8 +674,8 @@ class AppController {
     // Write the derived mode back into the provider so EVERY consumer reads the
     // mode the core actually runs, not the stale rule/global UI axis:
     //   • currentGroupsState (state.dart) filters groups on patchConfig.mode —
-    //     a Country profile normally runs rule now (fork Б); only the degenerate
-    //     global FALLBACK makes GroupName.GLOBAL the visible surface.
+    //     a Country profile ALWAYS runs rule now, so GroupName.GLOBAL is never
+    //     the visible surface.
     //   • trayState.mode (the desktop checkmark) and the VPN notification's
     //     mode label (service isolate, fed via the 'updateMode' IPC below).
     // Loop-safety: this mutates only `mode`. It does NOT touch needSetupProvider

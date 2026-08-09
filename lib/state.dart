@@ -982,18 +982,17 @@ class GlobalState {
     // group. Mode + selectedMap wiring lives in the controller, not here.
     //
     // Defensive backstop (B-3): a Country profile whose country lost all its
-    // nodes (e.g. a LOCAL file edit between revalidation chokepoints) injects no
-    // group, yet selectedMap[GLOBAL] may still point at it. That does NOT break
-    // core startup — the GLOBAL selector silently falls back to its first proxy
-    // — but log it so the dangle is visible. The revalidation chokepoints are
-    // the primary fix; this is only a cheap last-line warning.
-    if (profile.workMode == WorkMode.country &&
-        !countryGroupWillInject(
-          rawConfig,
-          workMode: profile.workMode,
-          staticCountry: profile.staticCountry,
-        )) {
-      commonPrint.log('[workmode] country group missing, config falls back');
+    // nodes (e.g. a LOCAL file edit between revalidation chokepoints) resolves
+    // to no target, so the patch is a no-op and the router keeps the panel's own
+    // routing. That does NOT break core startup — but log it so the dangle is
+    // visible. The revalidation chokepoints are the primary fix; this is only a
+    // cheap last-line warning.
+    if (profile.workMode == WorkMode.country) {
+      final target = countryTargetName(rawConfig, profile.staticCountry);
+      if (target == null) {
+        commonPrint.log('country-mode: no target for ${profile.staticCountry} '
+            '— patch is a no-op');
+      }
     }
     return applyWorkModePatch(
       rawConfig,

@@ -37,23 +37,21 @@ String workModeCountryGroupName(String flag) =>
 ///     `selected` ONLY among a group's own members — D2). When no router is
 ///     found or the leaf list resolves empty, nothing is injected (smart
 ///     unavailable; mirrors the country-no-nodes behavior).
-///   * [WorkMode.country] — ensures an additive `Страна <flag>` group
-///     (`type: fallback`) whose members are exactly the [interceptLeafNodes]
-///     of [staticCountry] (the flag-emoji key, grouped via [groupNodesByCountry]
-///     over the rule-group leaves — NOT the raw `proxies`, which carry the SOS
-///     pool). It ALSO binds that group as the LAST member of EVERY intercept
-///     group ([countryBindingGroups] == [smartInterceptGroups]) so the core —
-///     staying in `mode: rule` — routes the whole proxied surface through the
-///     chosen country, while the template's DIRECT/REJECT rules keep RU traffic
-///     local (the anti-VPN-detect fix: fork Б, "«Страна» = «Умный» с ручным
-///     выбором" — see docs/plans/2026-07-12-country-mode-rule-based.md). Unlike
-///     Smart (primary router only — ИТЕРАЦИЯ 2), Country binds all of them.
-///     `Страна *` groups are never rule-referenced, so they never bind into
-///     themselves; the SOS chain is excluded by [smartInterceptGroups]. When the
-///     intercept set is empty (degenerate config) the group is still injected but
-///     nothing is bound. When [staticCountry] is null/unknown or has no such
-///     nodes, nothing is injected (the caller is expected to have revalidated
-///     first).
+///   * [WorkMode.country] — points the PRIMARY router ([detectPrimaryRouter]) at
+///     the chosen country, and ONLY that router. Candidates come from
+///     [interceptLeafNodes] resolved for [staticCountry] (a flag-emoji key or an
+///     exact node name — the rule-group leaves, NOT the raw `proxies`, which
+///     carry the SOS pool). With exactly ONE candidate the target is that node
+///     itself (a one-member wrapper group buys nothing but a health-check timer
+///     and an extra hop); with ≥2 an additive `Страна <flag>` `fallback` group is
+///     injected and becomes the target. Per-service groups (YouTube / Discord /
+///     …) keep the panel template's own routing — only the catch-all `MATCH`
+///     traffic follows the country (variant А, owner decision 2026-08-09; this
+///     REPLACES the fork-Б "bind every intercept group" design of
+///     docs/plans/2026-07-12-country-mode-rule-based.md). Binding itself is
+///     [_bindCountryTarget]. When no router is found, or [staticCountry] is
+///     null/unknown or resolves to no nodes, nothing is injected (the caller is
+///     expected to have revalidated first).
 ///
 /// Idempotent: re-applying never duplicates an already-present group NOR an
 /// appended member.
@@ -127,43 +125,16 @@ Map<String, dynamic> applyWorkModePatch(
   }
 }
 
-/// Whether the `Страна <flag>` group will be PRESENT in [applyWorkModePatch]'s
-/// output for the given [workMode]/[staticCountry] over [rawConfig] — i.e. it is
-/// already defined, or it is injectable because the country has ≥1 matching
-/// subscription node.
-///
-/// Returns false for non-country modes, a null/empty country, or a country with
-/// no matching nodes and no pre-existing group. When this is false but the
-/// profile's `selectedMap[GLOBAL]` points at that group, the Mihomo core does
-/// NOT error: its GLOBAL selector silently falls back to its first proxy (see
-/// `Selector.selectedProxy` → `proxies[0]`). This lets the config-build path log
-/// the dangling-group case without re-parsing.
-bool countryGroupWillInject(
-  Map<String, dynamic> rawConfig, {
-  required WorkMode workMode,
-  String? staticCountry,
-}) {
-  if (workMode != WorkMode.country) return false;
-  if (staticCountry == null || staticCountry.isEmpty) return false;
-  final groupName = workModeCountryGroupName(staticCountry);
-  final groups = rawConfig['proxy-groups'];
-  if (groups is List) {
-    for (final g in groups) {
-      if (g is Map && g['name']?.toString() == groupName) return true;
-    }
-  }
-  return _countryNodes(rawConfig, staticCountry).isNotEmpty;
-}
-
 /// Whether the `Умный` smart group will be PRESENT in [applyWorkModePatch]'s
 /// `WorkMode.smart` output over [rawConfig] — i.e. it is already defined, or it
 /// is injectable because the primary router ([detectPrimaryRouter]) resolves to
 /// ≥1 leaf node (see [_smartLeafNodes]).
 ///
-/// Mirror of [countryGroupWillInject] for smart mode: lets the UI gate Smart
-/// availability and the controller decide whether to wire `selectedMap`, using
-/// EXACTLY the same condition the patch uses to inject — so the binding never
-/// points at a group that was never created.
+/// Lets the UI gate Smart availability and the controller decide whether to wire
+/// `selectedMap`, using EXACTLY the same condition the patch uses to inject — so
+/// the binding never points at a group that was never created. The Country
+/// counterpart is [countryTargetName] (which returns the target name itself,
+/// since Country may bind a bare node rather than a group).
 bool smartGroupWillInject(Map<String, dynamic> rawConfig) {
   final groups = rawConfig['proxy-groups'];
   if (groups is List) {
@@ -267,39 +238,6 @@ List<String> smartInterceptGroups(Map<String, dynamic> rawConfig) {
       if (qualifies(name)) name
   ];
 }
-
-/// The proxy-groups the `Страна <flag>` country group is bound into as a last
-/// member — IDENTICAL to [smartInterceptGroups] (every rule-referenced, routable,
-/// non-SOS group in `proxy-groups` declaration order). A documented alias that
-/// fixes the plan's fork-Б decision ("«Страна» = «Умный» с ручным выбором") in
-/// code: unlike Smart (which binds only the primary router — ИТЕРАЦИЯ 2), Country
-/// binds ALL intercept groups so the entire proxied surface egresses through the
-/// chosen country, while DIRECT/REJECT rules keep RU traffic local (anti-detect).
-/// The controller (W2) imports this to point `selectedMap[g]` at the country
-/// group for each such group. `Страна *` groups are never rule-referenced, so
-/// they never appear here (never bind into themselves).
-List<String> countryBindingGroups(Map<String, dynamic> rawConfig) =>
-    smartInterceptGroups(rawConfig);
-
-/// Whether Country mode can run the core in `mode: rule` (vs the `mode: global`
-/// fallback for degenerate configs) for [rawConfig] / [staticCountry].
-///
-/// This is the SINGLE decision the controller (W2) uses to derive the effective
-/// mihomo mode for a Country profile, and it is provably IDENTICAL to what
-/// [applyWorkModePatch]'s country branch actually does: rule mode is available
-/// iff the `Страна <flag>` group WILL be present ([countryGroupWillInject] — the
-/// country has ≥1 node, or the group already exists) AND there is ≥1 intercept
-/// group to bind it into ([countryBindingGroups] non-empty). When either fails,
-/// the binding cannot route the proxied surface through the country, so the
-/// caller falls back to `mode: global` (GLOBAL-key wiring). PURE — same inputs,
-/// same nested pure functions as the patch.
-bool countryRuleModeAvailable(
-  Map<String, dynamic> rawConfig, {
-  String? staticCountry,
-}) =>
-    countryGroupWillInject(rawConfig,
-        workMode: WorkMode.country, staticCountry: staticCountry) &&
-    countryBindingGroups(rawConfig).isNotEmpty;
 
 /// The PRIMARY router group the `Умный` work mode binds into: the catch-all
 /// `MATCH` rule's target — the group all otherwise-unmatched traffic flows to,
@@ -453,9 +391,9 @@ List<String> _smartLeafNodes(
 ///      (non-destructive copy; idempotent; never reorders/removes existing
 ///      members).
 ///
-/// Smart binds only the primary router (`interceptGroups == [primaryRouter]`,
-/// `groupName == 'Умный'`); Country binds EVERY intercept group
-/// (`interceptGroups == countryBindingGroups(...)`, `groupName == 'Страна <flag>'`).
+/// Used by Smart only (`interceptGroups == [primaryRouter]`,
+/// `groupName == 'Умный'`); Country has its own binder ([_bindCountryTarget]),
+/// which may collapse membership instead of appending.
 /// Because [applyWorkModePatch] is workMode-gated and runs per-setup, the
 /// Standard setup never carries an appended member — so the routers' url-test
 /// never races the injected group outside its mode. Every group NOT in
