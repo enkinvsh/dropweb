@@ -1,16 +1,82 @@
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/error_mapper.dart';
+// ВНИМАНИЕ: `detectPrimaryRouter` определён ДВАЖДЫ. Нужен именно этот —
+// `work_mode_patch.dart:253`, `String? detectPrimaryRouter(Map<String, dynamic>)`,
+// тот же, что использует `applyWorkMode`. Одноимённая функция в
+// `smart_pool_patch.dart:267` берёт `(Object? proxyGroups, Object? rules)` и к
+// экрану «Страна» отношения не имеет — импортировать её сюда нельзя.
+import 'package:dropweb/common/work_mode_patch.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart' hide Action;
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/subscription/common.dart';
-import 'package:dropweb/views/subscription/country_deep_view.dart';
+import 'package:dropweb/views/subscription/proxy_selector_sheet.dart';
 import 'package:dropweb/views/subscription/rules_proxies_view.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
+
+// ── Экран «Страна»: разрешение состояния ──────────────────────────────────
+
+/// Что именно экран «Страна» может показать ПРЯМО СЕЙЧАС. Каждая ветка — своя
+/// реальная ситуация со своим честным текстом: экран не имеет права выдавать
+/// «нет профиля» (профиль есть) или «страны не определены, обновите подписку»
+/// (подписка ни при чём) там, где проблема совсем в другом.
+enum CountryScreenStatus {
+  /// Конфиг профиля не прочитался (`getProfileConfig` бросил). Это ошибка
+  /// чтения, а НЕ отсутствие профиля и НЕ отсутствие стран.
+  configUnavailable,
+
+  /// Конфиг прочитан, но основной группы маршрутизации (цели `MATCH`) в нём
+  /// нет: выбирать страну структурно не через что.
+  noRouter,
+
+  /// Роутер известен, но ядро ещё не отдало его состав — узкое окно холодного
+  /// старта, пока профиль не догрузился. Это ЗАГРУЗКА, а не пустой список и не
+  /// «серверы недоступны»: с выключенным VPN ядро состав групп СОХРАНЯЕТ.
+  routerLoading,
+
+  /// Роутер и его состав на руках — рисуем список его членов.
+  ready,
+}
+
+/// Разрешённое состояние экрана «Страна»: [status] плюс сама группа-роутер,
+/// не-null РОВНО для [CountryScreenStatus.ready].
+class CountryScreenState {
+  const CountryScreenState(this.status, this.group);
+
+  final CountryScreenStatus status;
+  final Group? group;
+}
+
+/// Чистая функция разрешения экрана «Страна» из сырого конфига профиля [cfg]
+/// (null ⇒ не прочитался) и текущего состава групп ядра [groups].
+///
+/// Роутер ищется тем же [detectPrimaryRouter], которым `applyWorkMode`
+/// выбирает единственный ключ `selectedMap` — так экран и движок режимов не
+/// могут разъехаться в том, какая группа «основная».
+CountryScreenState resolveCountryScreenState(
+  Map<String, dynamic>? cfg,
+  List<Group> groups,
+) {
+  if (cfg == null) {
+    return const CountryScreenState(
+      CountryScreenStatus.configUnavailable,
+      null,
+    );
+  }
+  final routerName = detectPrimaryRouter(cfg);
+  if (routerName == null) {
+    return const CountryScreenState(CountryScreenStatus.noRouter, null);
+  }
+  final group = groups.getGroup(routerName);
+  if (group == null) {
+    return const CountryScreenState(CountryScreenStatus.routerLoading, null);
+  }
+  return CountryScreenState(CountryScreenStatus.ready, group);
+}
 
 // ── Work modes content ────────────────────────────────────────────────────
 
@@ -67,9 +133,27 @@ class _ModesContentState extends ConsumerState<ModesContent>
 
   /// Country picker: a popup modal sheet (same presentation as «Серверы и
   /// группы» — [showSheet] + [AdaptiveSheetScaffold], NOT a full-page push).
-  /// Selecting a country applies [WorkMode.country] through [_apply] (so the
-  /// applying-state guard still covers the modes tab) and closes the sheet.
-  void _openCountryDeep(Profile profile) {
+  ///
+  /// Телом идёт [ProxySelectorSheet] по ГРУППЕ-РОУТЕРУ (цель `MATCH`) — тот же
+  /// виджет, что рисует «Серверы и группы», поэтому список стран это буквально
+  /// состав роутера, а не отдельно вычисленный параллельный список. Агрегатор
+  /// внутри роутера («Авто») возвращает профиль в [WorkMode.standard], листовая
+  /// нода пинит [WorkMode.country] — оба через [_apply], так что guard
+  /// `_applying` по-прежнему накрывает вкладку режимов.
+  ///
+  /// Конфиг читается ДО открытия шита (единственный настоящий `await`), а
+  /// состав роутера подтягивается реактивно внутри — холодный старт сам доедет
+  /// до списка без действий юзера.
+  Future<void> _openCountryDeep(Profile profile) async {
+    Map<String, dynamic>? config;
+    try {
+      config = await globalState.getProfileConfig(profile.id);
+    } catch (e) {
+      commonPrint.log('country screen: failed to read profile config: $e');
+    }
+    // `await` выше пересекает кадр: виджет мог быть размонтирован.
+    if (!mounted) return;
+    final resolvedConfig = config;
     showSheet(
       context: context,
       props: const SheetProps(isScrollControlled: true),
@@ -83,12 +167,40 @@ class _ModesContentState extends ConsumerState<ModesContent>
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.85,
           ),
-          child: CountryDeepView(
-            profileId: profile.id,
-            onApply: (country) => _apply(
-              WorkMode.country,
-              staticCountry: country,
-            ),
+          // Своя точка подписки: шит живёт в оверлее Navigator'а, `ref`
+          // состояния перестраивал бы вкладку режимов, а не содержимое шита.
+          child: Consumer(
+            builder: (_, ref, __) {
+              final state = resolveCountryScreenState(
+                resolvedConfig,
+                ref.watch(currentGroupsStateProvider).value,
+              );
+              switch (state.status) {
+                case CountryScreenStatus.configUnavailable:
+                  return NullStatus(
+                    label: appLocalizations.genericErrorMessage,
+                  );
+                case CountryScreenStatus.noRouter:
+                  // Строка литералом: l10n здесь генерит IDE-плагин Flutter
+                  // Intl (pubspec `flutter_intl`), а не build_runner —
+                  // перегенерация 89-килобайтного `lib/l10n/l10n.dart` чужим
+                  // тулом несоразмерна одной строке.
+                  return const NullStatus(
+                    label: 'Не удалось определить основную группу '
+                        'маршрутизации подписки.',
+                  );
+                case CountryScreenStatus.routerLoading:
+                  return const Center(child: CircularProgressIndicator());
+                case CountryScreenStatus.ready:
+                  return ProxySelectorSheet(
+                    group: state.group!,
+                    onSelected: (proxy, {required isAggregate}) => _apply(
+                      isAggregate ? WorkMode.standard : WorkMode.country,
+                      staticCountry: isAggregate ? null : proxy.name,
+                    ),
+                  );
+              }
+            },
           ),
         ),
       ),
