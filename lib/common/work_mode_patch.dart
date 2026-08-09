@@ -546,6 +546,31 @@ String? countryTargetName(
       : workModeCountryGroupName(staticCountry);
 }
 
+/// Приводит [current] к схеме варианта А: ровно один ключ [router] → [target].
+///
+/// Снимает всё, чем владеет work mode: значения `Умный` / `Страна *` (в т.ч.
+/// многогрупповые ключи прежнего fork-Б), ключ `GLOBAL` (прежний
+/// `Mode.global`-фолбэк) и сам ключ [router]. Ручные выборы юзера в прочих
+/// группах не трогаются. PURE.
+///
+/// Ключ `GLOBAL` берётся из [GroupName.GLOBAL] (`enum.dart:57`), а не литералом:
+/// имя ядровой группы должно ехать за enum'ом, иначе переименование enum'а молча
+/// оставит здесь мёртвую строку и пин `GLOBAL` от fork-Б переживёт миграцию.
+Map<String, String> reconcileCountrySelectedMap({
+  required Map<String, String> current,
+  required String? router,
+  required String? target,
+}) {
+  final desired = Map<String, String>.from(current)
+    ..removeWhere((_, v) =>
+        v == workModeSmartGroupName ||
+        v.startsWith('$workModeCountryGroupPrefix '))
+    ..remove(GroupName.GLOBAL.name);
+  if (router != null) desired.remove(router);
+  if (router != null && target != null) desired[router] = target;
+  return desired;
+}
+
 /// Привязывает [target] к [router] способом, соответствующему ТИПУ роутера.
 ///
 /// `select` — дописать [target] последним членом (идемпотентно) и положиться на

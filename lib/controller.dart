@@ -725,6 +725,35 @@ class AppController {
       await Geodata.currentProfileNeedsGeodata(),
     );
 
+    // Одноразовое примирение persisted-профиля со схемой варианта А (в т.ч.
+    // миграция многогрупповой fork-Б схемы). Идемпотентно: пишем только при
+    // расхождении. Loop-safe: пишем ТОЛЬКО `profiles`, который needSetupProvider
+    // не watch'ит, и selectedMap не входит в _computeSetupHash.
+    // Стоит ВПЛОТНУЮ перед getSetupParams, который и читает
+    // `config.currentProfile.selectedMap` — так вылеченная карта применяется на
+    // ЭТОМ же проходе setup'а. setProfile миррорится в globalState.config
+    // синхронно (AutoDisposeNotifierMixin.updateShouldNotify → onUpdate →
+    // ConfigRepository.syncSlice), поэтому вызов ниже видит уже новую карту.
+    if (currentProfile != null && workMode == WorkMode.country) {
+      try {
+        final cfg = await globalState.getProfileConfig(currentProfile.id);
+        final desired = reconcileCountrySelectedMap(
+          current: currentProfile.selectedMap,
+          router: detectPrimaryRouter(cfg),
+          target: countryTargetName(cfg, currentProfile.staticCountry),
+        );
+        if (!mapEquals(currentProfile.selectedMap, desired)) {
+          _ref.read(profilesProvider.notifier).setProfile(
+                currentProfile.copyWith(selectedMap: desired),
+              );
+        }
+      } catch (e) {
+        // Не смогли прочитать конфиг — оставляем selectedMap как есть. Ядро
+        // всё равно в mode: rule, правила провайдера живы, RU-трафик локален.
+        commonPrint.log('country-mode: reconcile skipped ($e)');
+      }
+    }
+
     final params = await globalState.getSetupParams(
       pathConfig: realPatchConfig,
     );
@@ -747,54 +776,6 @@ class AppController {
     }
     // Only record the hash after a successful core setup.
     _lastSetupHash = setupHash;
-  }
-
-  /// Idempotently reconciles the persisted selectedMap of a Country [profile] to
-  /// the derived scheme, so an existing user's traffic follows the country
-  /// WITHOUT any user action after a normal app start / profile apply.
-  ///
-  /// Mirrors [applyWorkMode]'s country wiring exactly:
-  ///   * rule available → every [bindingGroups] group → the `Страна <flag>` group;
-  ///   * degenerate global fallback (group present, empty intercept set) → the
-  ///     GLOBAL key → the country group (consistent with the Mode.global fallback);
-  ///   * unavailable (no nodes) → nothing wired.
-  /// It first strips OUR keys by VALUE-ownership (any «Умный»/«Страна *» value +
-  /// GLOBAL), which drops stale keys left by drift (a dropped intercept group /
-  /// the OLD GLOBAL-scheme) without touching the user's own manual selections.
-  ///
-  /// Idempotent: only writes when the derived map differs ([mapEquals] guard), so
-  /// a second run is a no-op. Loop-safe: it writes ONLY `profiles`, which
-  /// [needSetupProvider] (profileId + script content + dns) does NOT watch — the
-  /// sole trigger of `handleChangeProfile → _setupClashConfig` — so it can never
-  /// re-enter setup. The write also does not feed [_computeSetupHash] (selectedMap
-  /// is excluded there), so it never invalidates the hash either; getSetupParams
-  /// applies the healed map on THIS setup pass regardless.
-  void _healCountrySelectedMap(
-    Profile profile,
-    String? staticCountry, {
-    required bool available,
-    required bool willInject,
-    required List<String> bindingGroups,
-  }) {
-    if (staticCountry == null || staticCountry.isEmpty) return;
-    final groupName = workModeCountryGroupName(staticCountry);
-    final desired = Map<String, String>.from(profile.selectedMap)
-      ..removeWhere((_, v) =>
-          v == workModeSmartGroupName ||
-          v.startsWith('$workModeCountryGroupPrefix '))
-      ..remove(GroupName.GLOBAL.name);
-    if (available) {
-      for (final g in bindingGroups) {
-        desired[g] = groupName;
-      }
-    } else if (willInject) {
-      desired[GroupName.GLOBAL.name] = groupName;
-    }
-    if (!mapEquals(profile.selectedMap, desired)) {
-      _ref.read(profilesProvider.notifier).setProfile(
-            profile.copyWith(selectedMap: desired),
-          );
-    }
   }
 
   /// Builds the content hash for [_setupClashConfig]'s cache gate over the
