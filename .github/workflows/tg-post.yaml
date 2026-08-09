@@ -10,7 +10,7 @@ on:
         required: false
         default: ""
       chat_id:
-        description: "Target chat id / @username. Empty = dry-run (print payload only)."
+        description: "Target chat id / @username, or 'stable' / 'pre' for the configured channels. Empty = dry-run (print payload only)."
         required: false
         default: ""
       notes_override:
@@ -76,8 +76,21 @@ jobs:
           IS_STABLE: ${{ steps.prep.outputs.stable }}
         run: python3 .github/scripts/notify_telegram.py --release-md release.md
 
+      # Pre-release announcements had no manual path at all: the id lives in
+      # TELEGRAM_PRERELEASE_CHAT_IDS and cannot be typed into the chat_id input
+      # without leaking it, so a failed automatic post could not be retried.
+      - name: Post to pre-release target
+        if: ${{ github.event.inputs.chat_id == 'pre' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_PRERELEASE_CHAT_IDS }}
+          TELEGRAM_PRERELEASE_CHAT_IDS: ${{ secrets.TELEGRAM_PRERELEASE_CHAT_IDS }}
+          VERSION: ${{ steps.prep.outputs.tag }}
+          IS_STABLE: ${{ steps.prep.outputs.stable }}
+        run: python3 .github/scripts/notify_telegram.py --release-md release.md
+
       - name: Post (or dry-run)
-        if: ${{ github.event.inputs.chat_id != 'stable' }}
+        if: ${{ github.event.inputs.chat_id != 'stable' && github.event.inputs.chat_id != 'pre' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_IDS: ${{ github.event.inputs.chat_id }}
