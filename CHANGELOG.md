@@ -1,3 +1,373 @@
+## v0.8.7
+
+- chore(release): prepare v0.8.7 stable
+
+- Merge origin/main (emoji pack utility) into dev
+
+- main carries a971e21 on its own because a workflow_dispatch entry point
+- only registers from the default branch. dev landed byte-identical copies
+- of both files in ca45ae0, so this merge changes no content — it only
+- makes main an ancestor of dev again so main can fast-forward.
+
+- docs: refresh the README screenshots for the 0.8.7 UI
+
+- Recaptured all three frames on the same 1080x2424 device, so the table
+- layout is untouched.
+
+- The country sheet now shows what the Hysteria2 work actually shipped: a
+- Hy2 node sitting inline with the Vless ones in the picker, which is the
+- whole point of serving it as a plain leaf node. The dashboard card also
+- no longer exposes a real traffic counter and expiry date.
+
+- ci: add the Emoji pack dump utility
+
+- workflow_dispatch only registers from the default branch, so this utility has
+- to live here to be runnable at all. It reads a Telegram sticker set with the
+- bot token and prints just the emoji -> custom_emoji_id mapping, so the token
+- never leaves Actions while the ids can be pasted into notify_telegram.py.
+
+## v0.8.7-pre.4
+
+- docs(release): drop the ad tone from the pre.4 notes
+
+- chore: bump build number to 2050000013 for v0.8.7-pre.4
+
+- docs(release): notes for v0.8.7-pre.4
+
+- docs(release): name Zenbot Cabinet as the only emoji source
+
+- TEMPLATE.md still pointed authors at dropwebpackv1, a pack we no longer
+- use, and notify_telegram.py kept a comment describing the block of
+- dropwebpackv1 entries that ff32c82 had already emptied — it claimed a
+- dependency on glyphs that are no longer in PACK.
+
+- The template now names Zenbot Cabinet and, more usefully, says where the
+- authoritative list actually lives: the PACK dict. An emoji absent from
+- PACK will not animate, and the trap that just cost us a post is called
+- out by name — 🌍 is not in the pack, 🌐 is.
+
+- feat(ui): refresh country latencies when the sheet opens
+
+- The router group is a `select` with no url/interval, so the core never
+- health-checks its members as a group and the lazy groups above it only
+- measure under traffic. The selected country therefore sat at `n/a` for
+- ~90s after a cold start.
+
+- ProxySelectorSheet becomes stateful with an opt-in `pingOnOpen` flag
+- (default off, so «Серверы и группы» keeps its own single probe) and runs
+- one `delayTest(group.all, group.testUrl)` per open from a post-frame
+- callback. The group's own testUrl is mandatory: it is the key the badge
+- reads. The measurement only FILLS badges — the list stays `group.all`
+- whatever the probe returns.
+
+- refactor: drop dead country-picker helpers and the write-only ModeProfileData
+
+- countryPickerEntries and its exclusive helpers (CountryPickerEntry,
+- countryDisplayName, isCountryFlagKey, kNoFlagDisplayFlag) lost their last
+- production caller when resolveCountryPickerState was removed. They encoded a
+- different product policy than what now ships — the country screen renders the
+- router group's members directly — and that contradiction was locked behind
+- green tests. country.dart: 227 -> 122 lines.
+
+- Also rewrote the file header, which referenced a symbol that never existed
+- (kNoFlagCountryKey) and described an «Другое» bucket the UI no longer has, and
+- the groupNodesByCountry / countryCodeToFlag dartdocs, which linked the deleted
+- helpers.
+
+- ModeProfileData was write-only: both fields had zero reads, while its provider
+- ran two full config walks (groupNodesByCountry(interceptLeafNodes) and
+- smartGroupWillInject) on every profile load and subscription update. The modes
+- tab watches the provider purely as a loading/error/ready gate, so the provider
+- now yields void and only awaits getProfileConfig. Both dropped calls are pure
+- computations; interceptLeafNodes and smartGroupWillInject stay live in
+- controller.dart and work_mode_patch.dart.
+
+- fix(core): keep the router pin the user just set
+
+- Правило «член роутера, чьё имя совпало с именем группы, — агрегатор» ошибается
+- на каноничном шаблоне Clash/Remnawave, где страна САМА является группой
+- (🌍 VPN → [🇩🇪 Германия (url-test), 🇳🇱 Нидерланды (url-test), …]). Тап уводил
+- профиль в Standard, а Standard стирал ключ роутера из selectedMap — ровно тот
+- пин, который лист записал строкой выше. Ядро пересобиралось без пина, mihomo
+- select брал первого члена: юзер думал, что он в Нидерландах, а выходил в
+- Германии.
+
+- Фикс fail-safe, а не угадывание: правило остаётся структурным, но ошибка
+- классификации становится безвредной. applyWorkMode получает необязательный
+- routerPin, и Standard восстанавливает его после снятия ключа роутера.
+- Попутно обезврежена гонка changeProxyDebounce (600 мс): отложенная запись в
+- ядро и персист теперь говорят одно и то же.
+
+- Арифметика selectedMap вынесена из applyWorkMode в чистую
+- resolveWorkModeSelectedMap — до этого результат (куда ядро маршрутизирует)
+- не был покрыт тестом, покрывалась только промежуточная классификация.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ui): recognise hidden aggregate groups in the country picker
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(ui): servers & groups viewable in any work mode
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- refactor(ui): drop the country picker's parallel probe
+
+- style(ui): tokenize ProxySelectorRow per DESIGN.md
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(ui): country screen renders the router group
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- refactor(ui): extract reusable ProxySelectorSheet
+
+- refactor(modes): drop fork-B country helpers and their tests
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(modes): migrate fork-B selectedMap to the single-router scheme
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(modes): country wires exactly one selectedMap key
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(modes): country binds only the primary router (variant A)
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- refactor(modes): country always runs the core in rule mode
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(release): drop the old emoji pack entirely
+
+- Everything the post renders now comes from Zenbot Cabinet. The two glyphs
+- that showed on every release moved over — "Исправления" 🧼 → 🛠 and "Под
+- капотом" 📟 → ⚙ — the beta warning uses the pack's own ⚠, and the section
+- headers that only lived in shipped notes follow: 🕷️ → 🔎, 🎨 → 💎, 🤔 → 💡.
+- PACK is 134 entries with nothing left from SimpleG.
+
+- The tests pinned pack literals — an id, two headers that the new pack turned
+- valid, and the old pack URL — so swapping packs turned them red for no real
+- reason. They now derive their fixtures from PACK and assert on the stable
+- part of the message instead.
+
+- feat(release): use 📥 for downloads and retire the brain glyph
+
+- 📥 comes from the current pack, so the download heading, the button icon and
+- the plain-text fallback all stop reaching back into the old one. The brain is
+- out of the visual language: the expandable changelog now opens with 📝, and
+- the three notes that used it as a section header move to 🌐 and 🛜.
+
+- Both glyphs are dropped from PACK now that nothing references them. What is
+- left from the old pack is 📟 and 🧼, which are structural, plus a handful that
+- only appear in already-published notes.
+
+- feat(release): move announcements to the Zenbot Cabinet emoji pack
+
+- Primary source is now t.me/addemoji/zenbot_cabinet_by_dropwebpay_bot (134
+- glyphs, up from 33). Thirteen entries from the old SimpleG pack are kept
+- because the new one does not carry them: the download heading, "Под капотом"
+- and "Исправления" are structural, and the rest appear in notes that already
+- shipped, so dropping them would break re-announcing an older tag.
+
+- Keys are now ordered longest-first. A variation-selector form and its bare
+- codepoint both live in the map, and the header match is a plain startswith —
+- without the ordering "⚠" would win over "⚠️" and leave the selector stranded
+- in the title.
+
+- Four notes carried emoji that were never in any pack, so those announcements
+- had been failing silently since v0.8.6-pre.4: 🇷🇺 → 🪟, 🩺 → 🔎, 🧟 → 🛠.
+- All fifteen notes render now.
+
+- ci(release): validate release notes before building, not after publishing
+
+- The announcement step runs last and carries continue-on-error, so a note the
+- renderer rejects produces a fully green release with no post — which is how
+- v0.8.7-pre.3 shipped silently. A new `notes` job runs the same renderer up
+- front and fails in seconds, before any artifact is built or uploaded.
+
+- Also adds an `Emoji pack` workflow: the custom-emoji ids are not secret but
+- reading them needs the bot token, which is. Dumping them inside Actions keeps
+- the token there and prints only the mapping, plus a check that the pack still
+- covers every emoji the post structurally needs.
+
+- fix(release): make the pre-release announcement postable again
+
+- Two things kept v0.8.7-pre.3 from being announced.
+
+- The notes used section emoji outside the pack, so notify_telegram.py raised
+- before sending. The step carries continue-on-error, so the release went out
+- green while the announcement never happened. Headers now use pack emoji.
+
+- There was also no way to retry by hand: tg-post only offered 'stable' or a
+- literal chat id, and the pre-release id lives in a secret that cannot be
+- typed into the input without leaking it. Added a 'pre' target that reads
+- TELEGRAM_PRERELEASE_CHAT_IDS the same way 'stable' reads its own.
+
+## v0.8.7-pre.3
+
+- fix(build): pick up the vendored sing-tun wintun DLLs for the windows build
+
+- chore: bump build number to 2050000012 for v0.8.7-pre.3
+
+- docs(release): notes for v0.8.7-pre.3
+
+- perf(ui): let macOS App Nap engage when the window is not in front
+
+- The app never became App Nap eligible: the mesh gradient repainted off a
+- raw 80ms Timer.periodic that kept ticking while hidden, and the traffic,
+- memory and connections polls ran regardless of what was on screen. Activity
+- Monitor showed 12h energy consumption five times the next application while
+- the instantaneous impact stayed low, with "App Nap: No" throughout.
+
+- The mesh now runs off an AnimationController with vsync, so Flutter's own
+- scheduler stops it under TickerMode when the widget is off-screen. The
+- phase stays wall-clock derived to keep every mesh in step across screens,
+- and the 80ms throttle is kept deliberately — the mesh was moved off
+- AnimationController in the first place to avoid idle raster cost on Pixel 10,
+- and driving repaints off controller.value would bring that back.
+
+- The 1s and 2s polls are now gated on their view being visible and the window
+- being in front. This treats "inactive" as background, unlike the 20s group
+- poll, which is left untouched: App Nap only engages when the app is not
+- frontmost, so a one-second timer surviving window blur defeats the purpose.
+- Visible cost on macOS — the traffic graph and memory readout hold their last
+- value while the window is not focused and refresh on return.
+
+- fix(core): pin the patched sing-tun that stops the darwin spin loop
+
+- The core helper could pin whole CPU cores for days with no traffic and no
+- log line: after macOS tore down the utun device, sing-tun's darwin read
+- loops treated EBADF and zero-length reads as recoverable and re-issued the
+- syscall immediately, forever. Measured at 38M iterations/s on the EBADF
+- path and 1.5B/s on the silent one.
+
+- The replace lives here, in the main module, because Go only honours replace
+- directives from the module it builds — the one inside core/Clash.Meta/go.mod
+- is for standalone core tests and is ignored by this build.
+
+## v0.8.7-pre.2
+
+- chore: bump build number to 2050000011 for v0.8.7-pre.2
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- docs(release): notes for v0.8.7-pre.2
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- docs(config): describe TLS fragmentation as server-owned
+
+- Document the root-level schema Remnawave must emit, the defaults, the global reach over DIRECT TCP dials, the QUIC exclusion, and the one-shot nature of the activation log.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(config): keep the log level the provider asked for
+
+- patchRawConfig unconditionally overwrote the profile's log-level with the locally persisted default, so a provider asking for info always ran the core at error and core diagnostics stayed dark. Regression tests now lock both server-owned paths: log-level survives the patch, and tls-fragment keys are never persisted locally.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- refactor(config): drop the dead in-app TLS fragment toggle
+
+- The switch never reached the core: patchRawConfig never wrote tls-fragment and the core's UpdateParams has no such field, so it always rendered false while the provider profile decided the real behaviour. TLS fragmentation is server-owned, so the control and its persisted field are gone.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+## v0.8.7-pre.1
+
+- chore: bump build number to 2050000010 for v0.8.7-pre.1
+
+- docs(release): notes for v0.8.7-pre.1
+
+- fix(proxies): show the member the group actually routes through
+
+- The servers sheet preferred the saved pin over the core's live choice, so a group whose pinned member had died kept rendering and delay-probing it - the row that read 'Cascade, n/a' while traffic already went through Fastest. Label, tick and probe now follow the group's resolved selection.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- fix(proxies): stop resurrecting a pin the core dropped
+
+- A dead pinned member is cleared by the core itself, but the profile kept it, so every setup force-applied it again through patchSelectGroup and the group latched back onto a member that had failed its health check. updateGroups now forgets those entries instead.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(proxies): detect selections the core has dropped
+
+- One place decides which saved selectedMap entries are stale: a computed group holding a pin the core no longer reports as fixed. Selector groups, work-mode keys and empty pins are deliberately left alone, and applyWorkMode now shares the same ownership predicate.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(models): carry the core's honored group pin
+
+- mihomo marshals the manual pin a computed group still honors as 'fixed', and empties it the moment that member fails its health check. The Dart model dropped the field, so the app could not tell a live selection from one the core had already abandoned.
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- ci(windows): stop e2e rebuilds on release tooling changes
+
+- feat(release): add v0.8.5+v0.8.6 digest post with tg-post override
+
+- Merge v0.8.6 generated changelog into dev
+
+- fix(release): use curated notes across metadata
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- feat(release): expose curated manifest notes
+
+- Ultraworked with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+
+- Co-authored-by: Sisyphus <clio-agent@sisyphuslabs.ai>
+
+- Update changelog
+
 ## v0.8.6
 
 - Merge origin/main changelog into dev for v0.8.6
