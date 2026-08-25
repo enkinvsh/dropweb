@@ -35,7 +35,44 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
       },
       fireImmediately: true,
     );
+    ref.listenManual(
+      hasMusicDataProvider,
+      (_, hasMusic) {
+        if (hasMusic) _seedMeowzicWidget();
+      },
+      fireImmediately: true,
+    );
     return super.initState();
+  }
+
+  /// Puts meowzic into the saved layout the first time the provider offers
+  /// it, then never again.
+  ///
+  /// The grid renders the persisted widget list, so a newly added
+  /// [DashboardWidget] would otherwise sit unseen in the "add widget" pool
+  /// for everyone whose layout was already written — which is everyone.
+  /// Guarded by [AppSettingProps.meowzicSeeded] so that removing the strip
+  /// is respected and it does not crawl back on the next launch.
+  void _seedMeowzicWidget() {
+    final setting = ref.read(appSettingProvider);
+    if (setting.meowzicSeeded ||
+        setting.dashboardWidgets.contains(DashboardWidget.meowzic)) {
+      if (!setting.meowzicSeeded) {
+        ref
+            .read(appSettingProvider.notifier)
+            .updateState((state) => state.copyWith(meowzicSeeded: true));
+      }
+      return;
+    }
+    ref.read(appSettingProvider.notifier).updateState(
+          (state) => state.copyWith(
+            meowzicSeeded: true,
+            dashboardWidgets: [
+              ...state.dashboardWidgets,
+              DashboardWidget.meowzic,
+            ],
+          ),
+        );
   }
 
   @override
@@ -104,6 +141,8 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
     DashboardWidget item, {
     required bool hasServiceInfoData,
     required bool hasServerInfoData,
+    required bool hasMusicData,
+    required bool isConnected,
   }) {
     if (!item.platforms.contains(SupportPlatform.currentPlatform)) {
       return false;
@@ -115,6 +154,13 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
     if (item == DashboardWidget.changeServerButton && !hasServerInfoData) {
       return false;
     }
+    // meowzic needs both the provider opting in and a live tunnel: audio is
+    // only reachable through it. Disconnecting therefore hides the entry
+    // point — playback already in the buffer keeps going and is controlled
+    // from the media notification, which does not depend on the tunnel.
+    if (item == DashboardWidget.meowzic && !(hasMusicData && isConnected)) {
+      return false;
+    }
 
     return true;
   }
@@ -124,6 +170,10 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
     final dashboardState = ref.watch(dashboardStateProvider);
     final hasServiceInfo = ref.watch(hasServiceInfoDataProvider);
     final hasServerInfo = ref.watch(hasServerInfoDataProvider);
+    final hasMusic = ref.watch(hasMusicDataProvider);
+    final isConnected = ref.watch(
+      runTimeProvider.select((state) => state != null),
+    );
     final hasNoProfiles = ref.watch(
       profilesProvider.select((state) => state.isEmpty),
     );
@@ -165,6 +215,8 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
           item,
           hasServiceInfoData: hasServiceInfo,
           hasServerInfoData: hasServerInfo,
+          hasMusicData: hasMusic,
+          isConnected: isConnected,
         );
 
     final children = [

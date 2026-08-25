@@ -595,6 +595,29 @@ bool hasServerInfoData(Ref ref) {
   return value != null && value.isNotEmpty;
 }
 
+const _musicTruthyValues = {'on', 'true', '1', 'yes', 'enabled'};
+
+/// Whether the provider advertises meowzic via `dropweb-music`.
+///
+/// Gates the whole music feature per provider: dropweb ships it, other
+/// panels running the same client do not send the header and never see the
+/// entry point. `navigation.dart` and the dashboard grid are shared across
+/// those builds, so without this gate the feature would reach everyone.
+///
+/// Unlike the presence-checked headers above, this one is a pure switch, so
+/// it matches against an explicit truthy set rather than "is it there". A
+/// presence check would turn `dropweb-music: off` into ON — the exact
+/// opposite of what the operator typed. Fail-closed is deliberate: an
+/// unrecognised value leaves music disabled instead of shipping it to a
+/// provider that never asked for it.
+@riverpod
+bool hasMusicData(Ref ref) {
+  final profile = ref.watch(currentProfileProvider);
+  final value = profile?.providerHeaders['dropweb-music']?.trim().toLowerCase();
+  if (value == null || value.isEmpty) return false;
+  return _musicTruthyValues.contains(value);
+}
+
 @riverpod
 String? backgroundUrl(Ref ref) {
   final profile = ref.watch(currentProfileProvider);

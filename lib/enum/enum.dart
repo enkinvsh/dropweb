@@ -399,6 +399,12 @@ enum DashboardWidget {
       crossAxisCellCount: 8,
       child: ServiceInfoWidget(),
     ),
+  ),
+  meowzic(
+    GridItem(
+      crossAxisCellCount: 8,
+      child: MeowzicStrip(),
+    ),
   );
 
   final GridItem widget;

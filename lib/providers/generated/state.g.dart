@@ -1175,6 +1175,36 @@ final hasServerInfoDataProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef HasServerInfoDataRef = AutoDisposeProviderRef<bool>;
+String _$hasMusicDataHash() => r'4b3b53a5c335c691c7a3a921acb3d4a196b4556a';
+
+/// Whether the provider advertises meowzic via `dropweb-music`.
+///
+/// Gates the whole music feature per provider: dropweb ships it, other
+/// panels running the same client do not send the header and never see the
+/// entry point. `navigation.dart` and the dashboard grid are shared across
+/// those builds, so without this gate the feature would reach everyone.
+///
+/// Unlike the presence-checked headers above, this one is a pure switch, so
+/// it matches against an explicit truthy set rather than "is it there". A
+/// presence check would turn `dropweb-music: off` into ON — the exact
+/// opposite of what the operator typed. Fail-closed is deliberate: an
+/// unrecognised value leaves music disabled instead of shipping it to a
+/// provider that never asked for it.
+///
+/// Copied from [hasMusicData].
+@ProviderFor(hasMusicData)
+final hasMusicDataProvider = AutoDisposeProvider<bool>.internal(
+  hasMusicData,
+  name: r'hasMusicDataProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$hasMusicDataHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef HasMusicDataRef = AutoDisposeProviderRef<bool>;
 String _$backgroundUrlHash() => r'74a1cf9afae561a6c454b4ba9ebb8ea4c135e64e';
 
 /// See also [backgroundUrl].

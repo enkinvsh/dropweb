@@ -75,6 +75,16 @@ class AppSettingProps with _$AppSettingProps {
     @Default(defaultDashboardWidgets)
     @JsonKey(fromJson: dashboardWidgetsSafeFormJson)
     List<DashboardWidget> dashboardWidgets,
+    /// Set once meowzic has been seeded into [dashboardWidgets].
+    ///
+    /// A new [DashboardWidget] does not reach anyone who already uses the app:
+    /// the grid renders the *saved* list, and unknown-to-it widgets only show
+    /// up in the "add widget" pool. Defaults apply solely when the key is
+    /// absent, and the whole settings blob is persisted on any change — so by
+    /// the time meowzic ships, every existing layout is already frozen
+    /// without it. Seeding once on first sight of `dropweb-music` fixes that;
+    /// the flag makes it once, so removing the widget sticks.
+    @Default(false) bool meowzicSeeded,
     @Default(false) bool onlyStatisticsProxy,
     @Default(false) bool autoLaunch,
     @Default(false) bool silentLaunch,

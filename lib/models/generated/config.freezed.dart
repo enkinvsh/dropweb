@@ -24,6 +24,17 @@ mixin _$AppSettingProps {
   @JsonKey(fromJson: dashboardWidgetsSafeFormJson)
   List<DashboardWidget> get dashboardWidgets =>
       throw _privateConstructorUsedError;
+
+  /// Set once meowzic has been seeded into [dashboardWidgets].
+  ///
+  /// A new [DashboardWidget] does not reach anyone who already uses the app:
+  /// the grid renders the *saved* list, and unknown-to-it widgets only show
+  /// up in the "add widget" pool. Defaults apply solely when the key is
+  /// absent, and the whole settings blob is persisted on any change — so by
+  /// the time meowzic ships, every existing layout is already frozen
+  /// without it. Seeding once on first sight of `dropweb-music` fixes that;
+  /// the flag makes it once, so removing the widget sticks.
+  bool get meowzicSeeded => throw _privateConstructorUsedError;
   bool get onlyStatisticsProxy => throw _privateConstructorUsedError;
   bool get autoLaunch => throw _privateConstructorUsedError;
   bool get silentLaunch => throw _privateConstructorUsedError;
@@ -70,6 +81,7 @@ abstract class $AppSettingPropsCopyWith<$Res> {
       {String? locale,
       @JsonKey(fromJson: dashboardWidgetsSafeFormJson)
       List<DashboardWidget> dashboardWidgets,
+      bool meowzicSeeded,
       bool onlyStatisticsProxy,
       bool autoLaunch,
       bool silentLaunch,
@@ -108,6 +120,7 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
   $Res call({
     Object? locale = freezed,
     Object? dashboardWidgets = null,
+    Object? meowzicSeeded = null,
     Object? onlyStatisticsProxy = null,
     Object? autoLaunch = null,
     Object? silentLaunch = null,
@@ -137,6 +150,10 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
           ? _value.dashboardWidgets
           : dashboardWidgets // ignore: cast_nullable_to_non_nullable
               as List<DashboardWidget>,
+      meowzicSeeded: null == meowzicSeeded
+          ? _value.meowzicSeeded
+          : meowzicSeeded // ignore: cast_nullable_to_non_nullable
+              as bool,
       onlyStatisticsProxy: null == onlyStatisticsProxy
           ? _value.onlyStatisticsProxy
           : onlyStatisticsProxy // ignore: cast_nullable_to_non_nullable
@@ -229,6 +246,7 @@ abstract class _$$AppSettingPropsImplCopyWith<$Res>
       {String? locale,
       @JsonKey(fromJson: dashboardWidgetsSafeFormJson)
       List<DashboardWidget> dashboardWidgets,
+      bool meowzicSeeded,
       bool onlyStatisticsProxy,
       bool autoLaunch,
       bool silentLaunch,
@@ -265,6 +283,7 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
   $Res call({
     Object? locale = freezed,
     Object? dashboardWidgets = null,
+    Object? meowzicSeeded = null,
     Object? onlyStatisticsProxy = null,
     Object? autoLaunch = null,
     Object? silentLaunch = null,
@@ -294,6 +313,10 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
           ? _value._dashboardWidgets
           : dashboardWidgets // ignore: cast_nullable_to_non_nullable
               as List<DashboardWidget>,
+      meowzicSeeded: null == meowzicSeeded
+          ? _value.meowzicSeeded
+          : meowzicSeeded // ignore: cast_nullable_to_non_nullable
+              as bool,
       onlyStatisticsProxy: null == onlyStatisticsProxy
           ? _value.onlyStatisticsProxy
           : onlyStatisticsProxy // ignore: cast_nullable_to_non_nullable
@@ -381,6 +404,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
       {this.locale,
       @JsonKey(fromJson: dashboardWidgetsSafeFormJson)
       final List<DashboardWidget> dashboardWidgets = defaultDashboardWidgets,
+      this.meowzicSeeded = false,
       this.onlyStatisticsProxy = false,
       this.autoLaunch = false,
       this.silentLaunch = false,
@@ -417,6 +441,18 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
     return EqualUnmodifiableListView(_dashboardWidgets);
   }
 
+  /// Set once meowzic has been seeded into [dashboardWidgets].
+  ///
+  /// A new [DashboardWidget] does not reach anyone who already uses the app:
+  /// the grid renders the *saved* list, and unknown-to-it widgets only show
+  /// up in the "add widget" pool. Defaults apply solely when the key is
+  /// absent, and the whole settings blob is persisted on any change — so by
+  /// the time meowzic ships, every existing layout is already frozen
+  /// without it. Seeding once on first sight of `dropweb-music` fixes that;
+  /// the flag makes it once, so removing the widget sticks.
+  @override
+  @JsonKey()
+  final bool meowzicSeeded;
   @override
   @JsonKey()
   final bool onlyStatisticsProxy;
@@ -483,7 +519,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
 
   @override
   String toString() {
-    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, lastUpdateCheckMs: $lastUpdateCheckMs, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, applySubscriptionLogo: $applySubscriptionLogo, overrideNetworkSettings: $overrideNetworkSettings)';
+    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, meowzicSeeded: $meowzicSeeded, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, lastUpdateCheckMs: $lastUpdateCheckMs, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, applySubscriptionLogo: $applySubscriptionLogo, overrideNetworkSettings: $overrideNetworkSettings)';
   }
 
   @override
@@ -494,6 +530,8 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
             (identical(other.locale, locale) || other.locale == locale) &&
             const DeepCollectionEquality()
                 .equals(other._dashboardWidgets, _dashboardWidgets) &&
+            (identical(other.meowzicSeeded, meowzicSeeded) ||
+                other.meowzicSeeded == meowzicSeeded) &&
             (identical(other.onlyStatisticsProxy, onlyStatisticsProxy) ||
                 other.onlyStatisticsProxy == onlyStatisticsProxy) &&
             (identical(other.autoLaunch, autoLaunch) ||
@@ -539,6 +577,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
         runtimeType,
         locale,
         const DeepCollectionEquality().hash(_dashboardWidgets),
+        meowzicSeeded,
         onlyStatisticsProxy,
         autoLaunch,
         silentLaunch,
@@ -582,6 +621,7 @@ abstract class _AppSettingProps implements AppSettingProps {
       {final String? locale,
       @JsonKey(fromJson: dashboardWidgetsSafeFormJson)
       final List<DashboardWidget> dashboardWidgets,
+      final bool meowzicSeeded,
       final bool onlyStatisticsProxy,
       final bool autoLaunch,
       final bool silentLaunch,
@@ -610,6 +650,18 @@ abstract class _AppSettingProps implements AppSettingProps {
   @override
   @JsonKey(fromJson: dashboardWidgetsSafeFormJson)
   List<DashboardWidget> get dashboardWidgets;
+
+  /// Set once meowzic has been seeded into [dashboardWidgets].
+  ///
+  /// A new [DashboardWidget] does not reach anyone who already uses the app:
+  /// the grid renders the *saved* list, and unknown-to-it widgets only show
+  /// up in the "add widget" pool. Defaults apply solely when the key is
+  /// absent, and the whole settings blob is persisted on any change — so by
+  /// the time meowzic ships, every existing layout is already frozen
+  /// without it. Seeding once on first sight of `dropweb-music` fixes that;
+  /// the flag makes it once, so removing the widget sticks.
+  @override
+  bool get meowzicSeeded;
   @override
   bool get onlyStatisticsProxy;
   @override

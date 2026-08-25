@@ -1,4 +1,5 @@
 export 'change_server_button.dart';
+export 'meowzic_strip.dart';
 export 'intranet_ip.dart';
 export 'memory_info.dart';
 export 'network_detection.dart';
