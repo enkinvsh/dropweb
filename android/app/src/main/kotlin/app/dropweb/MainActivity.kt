@@ -12,13 +12,22 @@ import app.dropweb.plugins.AppPlugin
 import app.dropweb.plugins.ServicePlugin
 import app.dropweb.plugins.TilePlugin
 import app.dropweb.plugins.VpnPlugin
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONObject
 
-class MainActivity : FlutterActivity() {
+// Extends AudioServiceActivity (itself a FlutterActivity) so meowzic can keep
+// playing with the app backgrounded and own a media notification. Its only
+// change is provideFlutterEngine(), which serves a process-cached engine that
+// the media service shares with this activity.
+//
+// That engine is the same one the VPN plumbing binds to below, so two paths
+// need re-checking whenever this class changes: a cold start after reboot (the
+// reason onCreate is passed null) and starting the VPN from the Quick Settings
+// tile while the app is not in memory.
+class MainActivity : AudioServiceActivity() {
     // Cold start route delivered via Intent extra. Consumed once by Dart via
     // `getInitialRoute`. Hot/warm start routes are pushed through
     // [navigationSink] in [onNewIntent].

@@ -38,6 +38,11 @@
          CONTEXTUALLY (only after the user's first successful VPN start) and only
          once ever — never an app-launch nag — to stay Google Play compliant. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- meowzic background playback. Its own foreground service type, separate
+         from the VPN one above: audio is not a VPN and mediaPlayback carries no
+         cumulative runtime cap, unlike dataSync. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- In-app self-update for the SIDELOADED build: download our signed APK and
          launch the system package installer (docs/plans/2026-06-25-auto-update.md).
          Inert on the Play build via the kIsPlayBuild dart-define gate, BUT this
@@ -234,6 +239,25 @@
             android:name=".services.DropwebService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- meowzic playback. audio_service ships an empty manifest and expects
+             the host app to declare both of these itself. -->
+        <service
+            android:name="com.ryanheise.audioservice.AudioService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
 
         <meta-data
             android:name="flutterEmbedding"
