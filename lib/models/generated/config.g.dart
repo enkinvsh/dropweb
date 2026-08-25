@@ -14,6 +14,7 @@ _$AppSettingPropsImpl _$$AppSettingPropsImplFromJson(
           ? defaultDashboardWidgets
           : dashboardWidgetsSafeFormJson(json['dashboardWidgets'] as List?),
       meowzicSeeded: json['meowzicSeeded'] as bool? ?? false,
+      meowzicAccepted: json['meowzicAccepted'] as bool? ?? false,
       onlyStatisticsProxy: json['onlyStatisticsProxy'] as bool? ?? false,
       autoLaunch: json['autoLaunch'] as bool? ?? false,
       silentLaunch: json['silentLaunch'] as bool? ?? false,
@@ -45,6 +46,7 @@ Map<String, dynamic> _$$AppSettingPropsImplToJson(
           .map((e) => _$DashboardWidgetEnumMap[e]!)
           .toList(),
       'meowzicSeeded': instance.meowzicSeeded,
+      'meowzicAccepted': instance.meowzicAccepted,
       'onlyStatisticsProxy': instance.onlyStatisticsProxy,
       'autoLaunch': instance.autoLaunch,
       'silentLaunch': instance.silentLaunch,

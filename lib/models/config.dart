@@ -85,6 +85,14 @@ class AppSettingProps with _$AppSettingProps {
     /// without it. Seeding once on first sight of `dropweb-music` fixes that;
     /// the flag makes it once, so removing the widget sticks.
     @Default(false) bool meowzicSeeded,
+
+    /// Set once the user has accepted the meowzic agreement.
+    ///
+    /// The agreement is shown on the first tap of the strip — not at first
+    /// launch and not as a settings entry — so the feature stays absent until
+    /// somebody deliberately asks for it. Declining leaves everything as it
+    /// was and the next tap asks again.
+    @Default(false) bool meowzicAccepted,
     @Default(false) bool onlyStatisticsProxy,
     @Default(false) bool autoLaunch,
     @Default(false) bool silentLaunch,

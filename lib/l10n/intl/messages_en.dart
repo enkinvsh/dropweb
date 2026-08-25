@@ -458,6 +458,22 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("Memory info"),
     "menu": MessageLookupByLibrary.simpleMessage("MENU"),
+    "meowzicAgreementAccept": MessageLookupByLibrary.simpleMessage("Turn on"),
+    "meowzicAgreementBody": MessageLookupByLibrary.simpleMessage(
+      "meowzic is not part of the app. It is a separate module: it matches tracks against your Spotify library and plays the audio it finds through the tunnel.\n\nMusic only works while the VPN is on — the audio takes the same path as the rest of your traffic.\n\nTurning it on is your decision, and you accept the risks of using it.",
+    ),
+    "meowzicAgreementDecline": MessageLookupByLibrary.simpleMessage("Not now"),
+    "meowzicAgreementTitle": MessageLookupByLibrary.simpleMessage(
+      "Before you turn it on",
+    ),
+    "meowzicLibraryEmpty": MessageLookupByLibrary.simpleMessage(
+      "Your library appears once Spotify is linked",
+    ),
+    "meowzicLibraryTab": MessageLookupByLibrary.simpleMessage("Library"),
+    "meowzicSearchEmpty": MessageLookupByLibrary.simpleMessage(
+      "Find a track by title or artist",
+    ),
+    "meowzicSearchTab": MessageLookupByLibrary.simpleMessage("Search"),
     "messageTest": MessageLookupByLibrary.simpleMessage("Message test"),
     "messageTestTip": MessageLookupByLibrary.simpleMessage(
       "This is a message.",

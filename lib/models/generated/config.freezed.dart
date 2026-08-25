@@ -35,6 +35,14 @@ mixin _$AppSettingProps {
   /// without it. Seeding once on first sight of `dropweb-music` fixes that;
   /// the flag makes it once, so removing the widget sticks.
   bool get meowzicSeeded => throw _privateConstructorUsedError;
+
+  /// Set once the user has accepted the meowzic agreement.
+  ///
+  /// The agreement is shown on the first tap of the strip — not at first
+  /// launch and not as a settings entry — so the feature stays absent until
+  /// somebody deliberately asks for it. Declining leaves everything as it
+  /// was and the next tap asks again.
+  bool get meowzicAccepted => throw _privateConstructorUsedError;
   bool get onlyStatisticsProxy => throw _privateConstructorUsedError;
   bool get autoLaunch => throw _privateConstructorUsedError;
   bool get silentLaunch => throw _privateConstructorUsedError;
@@ -82,6 +90,7 @@ abstract class $AppSettingPropsCopyWith<$Res> {
       @JsonKey(fromJson: dashboardWidgetsSafeFormJson)
       List<DashboardWidget> dashboardWidgets,
       bool meowzicSeeded,
+      bool meowzicAccepted,
       bool onlyStatisticsProxy,
       bool autoLaunch,
       bool silentLaunch,
@@ -121,6 +130,7 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
     Object? locale = freezed,
     Object? dashboardWidgets = null,
     Object? meowzicSeeded = null,
+    Object? meowzicAccepted = null,
     Object? onlyStatisticsProxy = null,
     Object? autoLaunch = null,
     Object? silentLaunch = null,
@@ -153,6 +163,10 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
       meowzicSeeded: null == meowzicSeeded
           ? _value.meowzicSeeded
           : meowzicSeeded // ignore: cast_nullable_to_non_nullable
+              as bool,
+      meowzicAccepted: null == meowzicAccepted
+          ? _value.meowzicAccepted
+          : meowzicAccepted // ignore: cast_nullable_to_non_nullable
               as bool,
       onlyStatisticsProxy: null == onlyStatisticsProxy
           ? _value.onlyStatisticsProxy
@@ -247,6 +261,7 @@ abstract class _$$AppSettingPropsImplCopyWith<$Res>
       @JsonKey(fromJson: dashboardWidgetsSafeFormJson)
       List<DashboardWidget> dashboardWidgets,
       bool meowzicSeeded,
+      bool meowzicAccepted,
       bool onlyStatisticsProxy,
       bool autoLaunch,
       bool silentLaunch,
@@ -284,6 +299,7 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
     Object? locale = freezed,
     Object? dashboardWidgets = null,
     Object? meowzicSeeded = null,
+    Object? meowzicAccepted = null,
     Object? onlyStatisticsProxy = null,
     Object? autoLaunch = null,
     Object? silentLaunch = null,
@@ -316,6 +332,10 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
       meowzicSeeded: null == meowzicSeeded
           ? _value.meowzicSeeded
           : meowzicSeeded // ignore: cast_nullable_to_non_nullable
+              as bool,
+      meowzicAccepted: null == meowzicAccepted
+          ? _value.meowzicAccepted
+          : meowzicAccepted // ignore: cast_nullable_to_non_nullable
               as bool,
       onlyStatisticsProxy: null == onlyStatisticsProxy
           ? _value.onlyStatisticsProxy
@@ -405,6 +425,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
       @JsonKey(fromJson: dashboardWidgetsSafeFormJson)
       final List<DashboardWidget> dashboardWidgets = defaultDashboardWidgets,
       this.meowzicSeeded = false,
+      this.meowzicAccepted = false,
       this.onlyStatisticsProxy = false,
       this.autoLaunch = false,
       this.silentLaunch = false,
@@ -453,6 +474,16 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
   @override
   @JsonKey()
   final bool meowzicSeeded;
+
+  /// Set once the user has accepted the meowzic agreement.
+  ///
+  /// The agreement is shown on the first tap of the strip — not at first
+  /// launch and not as a settings entry — so the feature stays absent until
+  /// somebody deliberately asks for it. Declining leaves everything as it
+  /// was and the next tap asks again.
+  @override
+  @JsonKey()
+  final bool meowzicAccepted;
   @override
   @JsonKey()
   final bool onlyStatisticsProxy;
@@ -519,7 +550,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
 
   @override
   String toString() {
-    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, meowzicSeeded: $meowzicSeeded, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, lastUpdateCheckMs: $lastUpdateCheckMs, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, applySubscriptionLogo: $applySubscriptionLogo, overrideNetworkSettings: $overrideNetworkSettings)';
+    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, meowzicSeeded: $meowzicSeeded, meowzicAccepted: $meowzicAccepted, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, lastUpdateCheckMs: $lastUpdateCheckMs, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, applySubscriptionLogo: $applySubscriptionLogo, overrideNetworkSettings: $overrideNetworkSettings)';
   }
 
   @override
@@ -532,6 +563,8 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
                 .equals(other._dashboardWidgets, _dashboardWidgets) &&
             (identical(other.meowzicSeeded, meowzicSeeded) ||
                 other.meowzicSeeded == meowzicSeeded) &&
+            (identical(other.meowzicAccepted, meowzicAccepted) ||
+                other.meowzicAccepted == meowzicAccepted) &&
             (identical(other.onlyStatisticsProxy, onlyStatisticsProxy) ||
                 other.onlyStatisticsProxy == onlyStatisticsProxy) &&
             (identical(other.autoLaunch, autoLaunch) ||
@@ -578,6 +611,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
         locale,
         const DeepCollectionEquality().hash(_dashboardWidgets),
         meowzicSeeded,
+        meowzicAccepted,
         onlyStatisticsProxy,
         autoLaunch,
         silentLaunch,
@@ -622,6 +656,7 @@ abstract class _AppSettingProps implements AppSettingProps {
       @JsonKey(fromJson: dashboardWidgetsSafeFormJson)
       final List<DashboardWidget> dashboardWidgets,
       final bool meowzicSeeded,
+      final bool meowzicAccepted,
       final bool onlyStatisticsProxy,
       final bool autoLaunch,
       final bool silentLaunch,
@@ -662,6 +697,15 @@ abstract class _AppSettingProps implements AppSettingProps {
   /// the flag makes it once, so removing the widget sticks.
   @override
   bool get meowzicSeeded;
+
+  /// Set once the user has accepted the meowzic agreement.
+  ///
+  /// The agreement is shown on the first tap of the strip — not at first
+  /// launch and not as a settings entry — so the feature stays absent until
+  /// somebody deliberately asks for it. Declining leaves everything as it
+  /// was and the next tap asks again.
+  @override
+  bool get meowzicAccepted;
   @override
   bool get onlyStatisticsProxy;
   @override

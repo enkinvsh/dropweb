@@ -1,6 +1,7 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import 'intl/messages_all.dart';
 
 // **************************************************************************
@@ -4149,6 +4150,81 @@ class AppLocalizations {
     return Intl.message(
       'https://… — your provider\'s subscription link',
       name: 'importFromUrlHint',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Before you turn it on`
+  String get meowzicAgreementTitle {
+    return Intl.message(
+      'Before you turn it on',
+      name: 'meowzicAgreementTitle',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `meowzic is not part of the app. It is a separate module: it matches tracks against your Spotify library and plays the audio it finds through the tunnel.\n\nMusic only works while the VPN is on — the audio takes the same path as the rest of your traffic.\n\nTurning it on is your decision, and you accept the risks of using it.`
+  String get meowzicAgreementBody {
+    return Intl.message(
+      'meowzic is not part of the app. It is a separate module: it matches tracks against your Spotify library and plays the audio it finds through the tunnel.\n\nMusic only works while the VPN is on — the audio takes the same path as the rest of your traffic.\n\nTurning it on is your decision, and you accept the risks of using it.',
+      name: 'meowzicAgreementBody',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Turn on`
+  String get meowzicAgreementAccept {
+    return Intl.message(
+      'Turn on',
+      name: 'meowzicAgreementAccept',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Not now`
+  String get meowzicAgreementDecline {
+    return Intl.message(
+      'Not now',
+      name: 'meowzicAgreementDecline',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Search`
+  String get meowzicSearchTab {
+    return Intl.message('Search', name: 'meowzicSearchTab', desc: '', args: []);
+  }
+
+  /// `Library`
+  String get meowzicLibraryTab {
+    return Intl.message(
+      'Library',
+      name: 'meowzicLibraryTab',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Find a track by title or artist`
+  String get meowzicSearchEmpty {
+    return Intl.message(
+      'Find a track by title or artist',
+      name: 'meowzicSearchEmpty',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Your library appears once Spotify is linked`
+  String get meowzicLibraryEmpty {
+    return Intl.message(
+      'Your library appears once Spotify is linked',
+      name: 'meowzicLibraryEmpty',
       desc: '',
       args: [],
     );

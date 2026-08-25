@@ -534,5 +534,13 @@
   "onboardingImported": "Подписка добавлена. Нажмите, чтобы подключиться",
   "dashboardEmptyTitle": "Добавьте подписку",
   "dashboardEmptyHint": "Вставьте ссылку или отсканируйте QR-код",
-  "importFromUrlHint": "https://… — ссылка подписки вашего провайдера"
+  "importFromUrlHint": "https://… — ссылка подписки вашего провайдера",
+  "meowzicAgreementTitle": "Прежде чем включить",
+  "meowzicAgreementBody": "meowzic не входит в приложение. Это отдельный модуль: он подбирает треки по данным вашей библиотеки Spotify и проигрывает найденный звук через туннель.\n\nМузыка работает только при включённом VPN — звук идёт тем же путём, что и остальной трафик.\n\nВключить его — ваше решение, и вы принимаете риски использования.",
+  "meowzicAgreementAccept": "Включить",
+  "meowzicAgreementDecline": "Не сейчас",
+  "meowzicSearchTab": "Поиск",
+  "meowzicLibraryTab": "Библиотека",
+  "meowzicSearchEmpty": "Найдите трек по названию или артисту",
+  "meowzicLibraryEmpty": "Библиотека появится после привязки Spotify"
 }

@@ -534,5 +534,13 @@
   "onboardingImported": "Subscription added. Tap to connect",
   "dashboardEmptyTitle": "Add a subscription",
   "dashboardEmptyHint": "Paste a link or scan a QR code",
-  "importFromUrlHint": "https://… — your provider's subscription link"
+  "importFromUrlHint": "https://… — your provider's subscription link",
+  "meowzicAgreementTitle": "Before you turn it on",
+  "meowzicAgreementBody": "meowzic is not part of the app. It is a separate module: it matches tracks against your Spotify library and plays the audio it finds through the tunnel.\n\nMusic only works while the VPN is on — the audio takes the same path as the rest of your traffic.\n\nTurning it on is your decision, and you accept the risks of using it.",
+  "meowzicAgreementAccept": "Turn on",
+  "meowzicAgreementDecline": "Not now",
+  "meowzicSearchTab": "Search",
+  "meowzicLibraryTab": "Library",
+  "meowzicSearchEmpty": "Find a track by title or artist",
+  "meowzicLibraryEmpty": "Your library appears once Spotify is linked"
 }

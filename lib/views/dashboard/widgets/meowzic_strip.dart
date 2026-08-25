@@ -1,6 +1,11 @@
 import 'package:dropweb/common/common.dart';
+import 'package:dropweb/common/navigator.dart';
+import 'package:dropweb/providers/providers.dart';
+import 'package:dropweb/views/meowzic/agreement_sheet.dart';
+import 'package:dropweb/views/meowzic/meowzic_page.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 /// Entry point for meowzic — music served through the tunnel.
@@ -17,16 +22,34 @@ import 'package:hugeicons/hugeicons.dart';
 /// through the tunnel, so an entry point while disconnected would lead
 /// nowhere.
 ///
-/// Playing state (cover, track, play/pause in this same cell) and the tap
-/// target land with the player itself; the card is deliberately inert until
-/// there is a screen to open.
-class MeowzicStrip extends StatelessWidget {
+/// Playing state — cover, track and play/pause in this same cell — arrives
+/// with the player itself.
+class MeowzicStrip extends ConsumerWidget {
   const MeowzicStrip({super.key});
 
+  /// Opens meowzic, asking for consent the first time.
+  ///
+  /// Consent is requested here rather than at launch or from settings, so
+  /// nothing is installed until somebody deliberately asks for music.
+  /// Declining leaves everything as it was and the next tap asks again.
+  Future<void> _open(BuildContext context, WidgetRef ref) async {
+    final accepted = ref.read(appSettingProvider).meowzicAccepted;
+    if (!accepted) {
+      final agreed = await showMeowzicAgreement(context);
+      if (!agreed) return;
+      ref
+          .read(appSettingProvider.notifier)
+          .updateState((state) => state.copyWith(meowzicAccepted: true));
+    }
+    if (!context.mounted) return;
+    await BaseNavigator.push(context, const MeowzicPage());
+  }
+
   @override
-  Widget build(BuildContext context) => SizedBox(
+  Widget build(BuildContext context, WidgetRef ref) => SizedBox(
         height: getWidgetHeight(1),
         child: CommonCard(
+          onPressed: () => _open(context, ref),
           child: Container(
             padding: baseInfoEdgeInsets.copyWith(top: 6, bottom: 6),
             child: Row(
