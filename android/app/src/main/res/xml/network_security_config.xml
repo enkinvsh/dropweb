@@ -12,6 +12,18 @@
         <domain includeSubdomains="false">localhost</domain>
         <domain includeSubdomains="false">127.0.0.1</domain>
     </domain-config>
+    <!-- meowzic bridge. Cleartext here is not an exposed hop: the name has no
+         public DNS record and resolves only inside our own nodes, where xray
+         maps it to loopback. The connection to it is carried inside the
+         VLESS/Reality tunnel, so it is already encrypted end to end, and the
+         plaintext leg exists solely on the node's own loopback interface.
+
+         TLS would make this worse, not better — the name is unresolvable
+         publicly, so no CA can issue for it and the app would have to trust a
+         self-signed certificate. Everything else stays strict. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">meow.dropweb.org</domain>
+    </domain-config>
     <!-- Debug builds (android:debuggable=true) additionally trust user CAs so
          devs can intercept traffic with mitmproxy. Ignored in release. -->
     <debug-overrides>
