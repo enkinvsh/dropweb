@@ -1,4 +1,5 @@
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 /// Playback for meowzic, fronted by a media notification.
@@ -62,6 +63,15 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
       );
 }
 
+/// The live handler, or null while music has never been started.
+///
+/// Lets the dashboard strip observe playback WITHOUT bringing the service
+/// into existence: reading a getter would be enough to start it, and someone
+/// who never opens music must not get a media service. Stays null until
+/// [meowzicAudio] is actually called.
+final ValueNotifier<MeowzicAudioHandler?> meowzicHandlerListenable =
+    ValueNotifier(null);
+
 MeowzicAudioHandler? _handler;
 Future<MeowzicAudioHandler>? _pending;
 
@@ -83,6 +93,7 @@ Future<MeowzicAudioHandler> meowzicAudio() {
     ),
   ).then((handler) {
     _handler = handler;
+    meowzicHandlerListenable.value = handler;
     return handler;
   });
 }
