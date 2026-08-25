@@ -36,9 +36,9 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
       fireImmediately: true,
     );
     ref.listenManual(
-      hasMusicDataProvider,
-      (_, hasMusic) {
-        if (hasMusic) _seedMeowzicWidget();
+      meowzicBridgeProvider,
+      (_, bridge) {
+        if (bridge != null) _seedMeowzicWidget();
       },
       fireImmediately: true,
     );
@@ -170,7 +170,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
     final dashboardState = ref.watch(dashboardStateProvider);
     final hasServiceInfo = ref.watch(hasServiceInfoDataProvider);
     final hasServerInfo = ref.watch(hasServerInfoDataProvider);
-    final hasMusic = ref.watch(hasMusicDataProvider);
+    final hasMusic = ref.watch(meowzicBridgeProvider) != null;
     final isConnected = ref.watch(
       runTimeProvider.select((state) => state != null),
     );

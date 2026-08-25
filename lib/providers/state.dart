@@ -595,27 +595,112 @@ bool hasServerInfoData(Ref ref) {
   return value != null && value.isNotEmpty;
 }
 
-const _musicTruthyValues = {'on', 'true', '1', 'yes', 'enabled'};
+/// The vocabulary `dropweb-music` used before it carried a token.
+///
+/// A panel still sending `dropweb-music: on` is describing a switch, not a
+/// credential — forwarding it to the bridge would spend every request on a
+/// 403. Treating the old words as "configured, but not with a token" keeps
+/// music off until the operator pastes the real value, which is the visible
+/// failure rather than the silent one.
+const _musicSwitchWords = {
+  'on',
+  'true',
+  '1',
+  'yes',
+  'enabled',
+  'off',
+  'false',
+  '0',
+  'no',
+  'disabled',
+};
 
-/// Whether the provider advertises meowzic via `dropweb-music`.
+/// Where the bridge lives when a provider names a token but no address.
+const _defaultMeowzicBaseUrl = 'http://meow.dropweb.org:8090';
+
+/// The music bridge a provider advertises: a token and the address to spend
+/// it on.
+@immutable
+class MeowzicBridge {
+  const MeowzicBridge({required this.token, required this.baseUrl});
+
+  final String token;
+  final Uri baseUrl;
+
+  Uri searchUri(String query) => baseUrl.replace(
+        path: '${baseUrl.path}/s',
+        queryParameters: {'q': query},
+      );
+
+  Uri audioUri(String videoId) =>
+      baseUrl.replace(path: '${baseUrl.path}/a/$videoId');
+
+  /// The credential, as a request header — never a query parameter.
+  ///
+  /// The audio URL ends up inside a `MediaItem`, and Android publishes that
+  /// to the system media session, where any app holding notification access
+  /// can read it. A token in the query string would leak to every scrobbler
+  /// on the phone.
+  Map<String, String> get headers => {'X-Bridge-Token': token};
+
+  @override
+  bool operator ==(Object other) =>
+      other is MeowzicBridge &&
+      other.token == token &&
+      other.baseUrl == baseUrl;
+
+  @override
+  int get hashCode => Object.hash(token, baseUrl);
+}
+
+/// Reads `dropweb-music: <token>[,<baseUrl>]`, or null when music stays off.
 ///
-/// Gates the whole music feature per provider: dropweb ships it, other
-/// panels running the same client do not send the header and never see the
-/// entry point. `navigation.dart` and the dashboard grid are shared across
-/// those builds, so without this gate the feature would reach everyone.
+/// Fail-closed at every step. Anything unparseable leaves music disabled
+/// rather than shipping an entry point that cannot reach a bridge.
+MeowzicBridge? parseMeowzicBridge(String? raw) {
+  final value = raw?.trim();
+  if (value == null || value.isEmpty) return null;
+
+  final fields = value.split(',');
+  final token = fields.first.trim();
+  if (token.isEmpty) return null;
+  if (_musicSwitchWords.contains(token.toLowerCase())) return null;
+  // Sent as an HTTP header, and dart:io rejects non-ASCII header values
+  // outright. Refusing here turns a mangled panel value into a quiet "music
+  // off" instead of an exception on the first search.
+  if (!_isHeaderSafe(token)) return null;
+
+  final address = fields.length > 1 ? fields[1].trim() : '';
+  final base = Uri.tryParse(address.isEmpty ? _defaultMeowzicBaseUrl : address);
+  if (base == null || !base.hasAuthority) return null;
+  // Anything but http/https would not survive the platform HTTP client, and
+  // cleartext http only reaches the one host listed in
+  // `network_security_config.xml` — a third-party bridge has to serve TLS.
+  if (base.scheme != 'http' && base.scheme != 'https') return null;
+
+  return MeowzicBridge(
+    token: token,
+    baseUrl: base.replace(path: base.path.replaceAll(RegExp(r'/+$'), '')),
+  );
+}
+
+bool _isHeaderSafe(String value) =>
+    value.codeUnits.every((unit) => unit > 0x20 && unit < 0x7f);
+
+/// The bridge this provider advertises, or null while music is off.
 ///
-/// Unlike the presence-checked headers above, this one is a pure switch, so
-/// it matches against an explicit truthy set rather than "is it there". A
-/// presence check would turn `dropweb-music: off` into ON — the exact
-/// opposite of what the operator typed. Fail-closed is deliberate: an
-/// unrecognised value leaves music disabled instead of shipping it to a
-/// provider that never asked for it.
+/// Gates the whole music feature per provider: dropweb ships it, other panels
+/// running the same client send no header and never see the entry point.
+/// `navigation.dart` and the dashboard grid are shared across those builds,
+/// so without this gate the feature would reach everyone.
+///
+/// The token doubles as the switch. A separate on/off field would allow
+/// "enabled, but with nothing to connect to" — a state that can only render
+/// as a broken screen, so the contract does not have it.
 @riverpod
-bool hasMusicData(Ref ref) {
+MeowzicBridge? meowzicBridge(Ref ref) {
   final profile = ref.watch(currentProfileProvider);
-  final value = profile?.providerHeaders['dropweb-music']?.trim().toLowerCase();
-  if (value == null || value.isEmpty) return false;
-  return _musicTruthyValues.contains(value);
+  return parseMeowzicBridge(profile?.providerHeaders['dropweb-music']);
 }
 
 @riverpod

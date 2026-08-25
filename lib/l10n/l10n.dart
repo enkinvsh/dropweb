@@ -4229,6 +4229,56 @@ class AppLocalizations {
       args: [],
     );
   }
+
+  /// `Title or artist`
+  String get meowzicSearchHint {
+    return Intl.message(
+      'Title or artist',
+      name: 'meowzicSearchHint',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Nothing found`
+  String get meowzicSearchNothing {
+    return Intl.message(
+      'Nothing found',
+      name: 'meowzicSearchNothing',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Music goes through the tunnel. Turn the VPN on and try again`
+  String get meowzicNeedVpn {
+    return Intl.message(
+      'Music goes through the tunnel. Turn the VPN on and try again',
+      name: 'meowzicNeedVpn',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The provider changed access. Refresh the subscription and try again`
+  String get meowzicAccessRejected {
+    return Intl.message(
+      'The provider changed access. Refresh the subscription and try again',
+      name: 'meowzicAccessRejected',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The bridge did not answer. Try again`
+  String get meowzicBridgeError {
+    return Intl.message(
+      'The bridge did not answer. Try again',
+      name: 'meowzicBridgeError',
+      desc: '',
+      args: [],
+    );
+  }
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<AppLocalizations> {

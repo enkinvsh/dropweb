@@ -458,6 +458,9 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("Memory info"),
     "menu": MessageLookupByLibrary.simpleMessage("MENU"),
+    "meowzicAccessRejected": MessageLookupByLibrary.simpleMessage(
+      "The provider changed access. Refresh the subscription and try again",
+    ),
     "meowzicAgreementAccept": MessageLookupByLibrary.simpleMessage("Turn on"),
     "meowzicAgreementBody": MessageLookupByLibrary.simpleMessage(
       "meowzic is not part of the app. It is a separate module: it matches tracks against your Spotify library and plays the audio it finds through the tunnel.\n\nMusic only works while the VPN is on — the audio takes the same path as the rest of your traffic.\n\nTurning it on is your decision, and you accept the risks of using it.",
@@ -466,12 +469,24 @@ class MessageLookup extends MessageLookupByLibrary {
     "meowzicAgreementTitle": MessageLookupByLibrary.simpleMessage(
       "Before you turn it on",
     ),
+    "meowzicBridgeError": MessageLookupByLibrary.simpleMessage(
+      "The bridge did not answer. Try again",
+    ),
     "meowzicLibraryEmpty": MessageLookupByLibrary.simpleMessage(
       "Your library appears once Spotify is linked",
     ),
     "meowzicLibraryTab": MessageLookupByLibrary.simpleMessage("Library"),
+    "meowzicNeedVpn": MessageLookupByLibrary.simpleMessage(
+      "Music goes through the tunnel. Turn the VPN on and try again",
+    ),
     "meowzicSearchEmpty": MessageLookupByLibrary.simpleMessage(
       "Find a track by title or artist",
+    ),
+    "meowzicSearchHint": MessageLookupByLibrary.simpleMessage(
+      "Title or artist",
+    ),
+    "meowzicSearchNothing": MessageLookupByLibrary.simpleMessage(
+      "Nothing found",
     ),
     "meowzicSearchTab": MessageLookupByLibrary.simpleMessage("Search"),
     "messageTest": MessageLookupByLibrary.simpleMessage("Message test"),

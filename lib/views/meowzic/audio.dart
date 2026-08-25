@@ -18,9 +18,17 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
   Duration get position => _player.position;
 
   /// Plays [uri], announcing [item] to the notification and lock screen.
-  Future<void> playUri(Uri uri, MediaItem item) async {
+  ///
+  /// [headers] carries the bridge token. It must never move into [uri]:
+  /// [item] is handed to the system media session, and any app holding
+  /// notification access can read the ids in it.
+  Future<void> playUri(
+    Uri uri,
+    MediaItem item, {
+    Map<String, String>? headers,
+  }) async {
     mediaItem.add(item);
-    await _player.setAudioSource(AudioSource.uri(uri));
+    await _player.setAudioSource(AudioSource.uri(uri, headers: headers));
     await _player.play();
   }
 

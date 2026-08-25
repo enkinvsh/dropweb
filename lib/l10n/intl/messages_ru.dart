@@ -473,6 +473,9 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("Информация о памяти"),
     "menu": MessageLookupByLibrary.simpleMessage("MENU"),
+    "meowzicAccessRejected": MessageLookupByLibrary.simpleMessage(
+      "Провайдер обновил доступ. Обновите подписку и повторите",
+    ),
     "meowzicAgreementAccept": MessageLookupByLibrary.simpleMessage("Включить"),
     "meowzicAgreementBody": MessageLookupByLibrary.simpleMessage(
       "meowzic не входит в приложение. Это отдельный модуль: он подбирает треки по данным вашей библиотеки Spotify и проигрывает найденный звук через туннель.\n\nМузыка работает только при включённом VPN — звук идёт тем же путём, что и остальной трафик.\n\nВключить его — ваше решение, и вы принимаете риски использования.",
@@ -483,12 +486,24 @@ class MessageLookup extends MessageLookupByLibrary {
     "meowzicAgreementTitle": MessageLookupByLibrary.simpleMessage(
       "Прежде чем включить",
     ),
+    "meowzicBridgeError": MessageLookupByLibrary.simpleMessage(
+      "Мост не ответил. Попробуйте ещё раз",
+    ),
     "meowzicLibraryEmpty": MessageLookupByLibrary.simpleMessage(
       "Библиотека появится после привязки Spotify",
     ),
     "meowzicLibraryTab": MessageLookupByLibrary.simpleMessage("Библиотека"),
+    "meowzicNeedVpn": MessageLookupByLibrary.simpleMessage(
+      "Музыка идёт через туннель. Включите VPN и повторите",
+    ),
     "meowzicSearchEmpty": MessageLookupByLibrary.simpleMessage(
       "Найдите трек по названию или артисту",
+    ),
+    "meowzicSearchHint": MessageLookupByLibrary.simpleMessage(
+      "Название или артист",
+    ),
+    "meowzicSearchNothing": MessageLookupByLibrary.simpleMessage(
+      "Ничего не нашлось",
     ),
     "meowzicSearchTab": MessageLookupByLibrary.simpleMessage("Поиск"),
     "messageTest": MessageLookupByLibrary.simpleMessage(

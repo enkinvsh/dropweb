@@ -1175,36 +1175,34 @@ final hasServerInfoDataProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef HasServerInfoDataRef = AutoDisposeProviderRef<bool>;
-String _$hasMusicDataHash() => r'4b3b53a5c335c691c7a3a921acb3d4a196b4556a';
+String _$meowzicBridgeHash() => r'fa63df2988ed55b2a9c20109ce25050ec6ecac2d';
 
-/// Whether the provider advertises meowzic via `dropweb-music`.
+/// The bridge this provider advertises, or null while music is off.
 ///
-/// Gates the whole music feature per provider: dropweb ships it, other
-/// panels running the same client do not send the header and never see the
-/// entry point. `navigation.dart` and the dashboard grid are shared across
-/// those builds, so without this gate the feature would reach everyone.
+/// Gates the whole music feature per provider: dropweb ships it, other panels
+/// running the same client send no header and never see the entry point.
+/// `navigation.dart` and the dashboard grid are shared across those builds,
+/// so without this gate the feature would reach everyone.
 ///
-/// Unlike the presence-checked headers above, this one is a pure switch, so
-/// it matches against an explicit truthy set rather than "is it there". A
-/// presence check would turn `dropweb-music: off` into ON — the exact
-/// opposite of what the operator typed. Fail-closed is deliberate: an
-/// unrecognised value leaves music disabled instead of shipping it to a
-/// provider that never asked for it.
+/// The token doubles as the switch. A separate on/off field would allow
+/// "enabled, but with nothing to connect to" — a state that can only render
+/// as a broken screen, so the contract does not have it.
 ///
-/// Copied from [hasMusicData].
-@ProviderFor(hasMusicData)
-final hasMusicDataProvider = AutoDisposeProvider<bool>.internal(
-  hasMusicData,
-  name: r'hasMusicDataProvider',
-  debugGetCreateSourceHash:
-      const bool.fromEnvironment('dart.vm.product') ? null : _$hasMusicDataHash,
+/// Copied from [meowzicBridge].
+@ProviderFor(meowzicBridge)
+final meowzicBridgeProvider = AutoDisposeProvider<MeowzicBridge?>.internal(
+  meowzicBridge,
+  name: r'meowzicBridgeProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$meowzicBridgeHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-typedef HasMusicDataRef = AutoDisposeProviderRef<bool>;
+typedef MeowzicBridgeRef = AutoDisposeProviderRef<MeowzicBridge?>;
 String _$backgroundUrlHash() => r'74a1cf9afae561a6c454b4ba9ebb8ea4c135e64e';
 
 /// See also [backgroundUrl].

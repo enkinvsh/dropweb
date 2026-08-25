@@ -542,5 +542,10 @@
   "meowzicSearchTab": "Поиск",
   "meowzicLibraryTab": "Библиотека",
   "meowzicSearchEmpty": "Найдите трек по названию или артисту",
-  "meowzicLibraryEmpty": "Библиотека появится после привязки Spotify"
+  "meowzicLibraryEmpty": "Библиотека появится после привязки Spotify",
+  "meowzicSearchHint": "Название или артист",
+  "meowzicSearchNothing": "Ничего не нашлось",
+  "meowzicNeedVpn": "Музыка идёт через туннель. Включите VPN и повторите",
+  "meowzicAccessRejected": "Провайдер обновил доступ. Обновите подписку и повторите",
+  "meowzicBridgeError": "Мост не ответил. Попробуйте ещё раз"
 }

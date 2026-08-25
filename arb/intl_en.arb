@@ -542,5 +542,10 @@
   "meowzicSearchTab": "Search",
   "meowzicLibraryTab": "Library",
   "meowzicSearchEmpty": "Find a track by title or artist",
-  "meowzicLibraryEmpty": "Your library appears once Spotify is linked"
+  "meowzicLibraryEmpty": "Your library appears once Spotify is linked",
+  "meowzicSearchHint": "Title or artist",
+  "meowzicSearchNothing": "Nothing found",
+  "meowzicNeedVpn": "Music goes through the tunnel. Turn the VPN on and try again",
+  "meowzicAccessRejected": "The provider changed access. Refresh the subscription and try again",
+  "meowzicBridgeError": "The bridge did not answer. Try again"
 }
