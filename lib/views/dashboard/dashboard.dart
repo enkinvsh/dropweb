@@ -7,6 +7,7 @@ import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/dashboard/widgets/card_menu.dart';
+import 'package:dropweb/views/meowzic/audio.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,7 +43,15 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
       },
       fireImmediately: true,
     );
+    // A session starting or ending happens once per track, so a rebuild is
+    // cheap — and it is the only signal that crosses from the audio service
+    // back into the grid.
+    meowzicSessionListenable.addListener(_handleMeowzicSession);
     return super.initState();
+  }
+
+  void _handleMeowzicSession() {
+    if (mounted) setState(() {});
   }
 
   /// Puts meowzic into the saved layout the first time the provider offers
@@ -77,6 +86,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
 
   @override
   void dispose() {
+    meowzicSessionListenable.removeListener(_handleMeowzicSession);
     _isEditNotifier.dispose();
     super.dispose();
   }
@@ -143,6 +153,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
     required bool hasServerInfoData,
     required bool hasMusicData,
     required bool isConnected,
+    required bool hasMusicSession,
   }) {
     if (!item.platforms.contains(SupportPlatform.currentPlatform)) {
       return false;
@@ -154,11 +165,12 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
     if (item == DashboardWidget.changeServerButton && !hasServerInfoData) {
       return false;
     }
-    // meowzic needs both the provider opting in and a live tunnel: audio is
-    // only reachable through it. Disconnecting therefore hides the entry
-    // point — playback already in the buffer keeps going and is controlled
-    // from the media notification, which does not depend on the tunnel.
-    if (item == DashboardWidget.meowzic && !(hasMusicData && isConnected)) {
+    // meowzic needs the panel to advertise `dropweb-music`, and then shows
+    // while the tunnel is up OR while a session is parked. A track paused
+    // waiting for the VPN needs somewhere to come back to — hiding the cell
+    // at the moment the tunnel drops would read as the music having vanished.
+    if (item == DashboardWidget.meowzic &&
+        !(hasMusicData && (isConnected || hasMusicSession))) {
       return false;
     }
 
@@ -174,6 +186,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
     final isConnected = ref.watch(
       runTimeProvider.select((state) => state != null),
     );
+    final hasMusicSession = meowzicSessionListenable.value;
     final hasNoProfiles = ref.watch(
       profilesProvider.select((state) => state.isEmpty),
     );
@@ -217,6 +230,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
           hasServerInfoData: hasServerInfo,
           hasMusicData: hasMusic,
           isConnected: isConnected,
+          hasMusicSession: hasMusicSession,
         );
 
     final children = [

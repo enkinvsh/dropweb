@@ -547,5 +547,8 @@
   "meowzicSearchNothing": "Nothing found",
   "meowzicNeedVpn": "Music goes through the tunnel. Turn the VPN on and try again",
   "meowzicAccessRejected": "The provider changed access. Refresh the subscription and try again",
-  "meowzicBridgeError": "The bridge did not answer. Try again"
+  "meowzicBridgeError": "The bridge did not answer. Try again",
+  "meowzicNeedVpnShort": "Turn on dropweb",
+  "meowzicReconnect": "Connect and resume",
+  "meowzicBridgeErrorShort": "Bridge did not answer"
 }

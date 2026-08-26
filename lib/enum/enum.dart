@@ -326,6 +326,7 @@ enum FunctionTag {
   proxiesTabChange,
   logs,
   requests,
+  meowzicTunnel,
 }
 
 enum DashboardWidget {

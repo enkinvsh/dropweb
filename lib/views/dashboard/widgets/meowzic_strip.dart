@@ -20,13 +20,13 @@ import 'package:hugeicons/hugeicons.dart';
 /// and the lens, which is exactly where the grid puts this.
 ///
 /// Visibility is decided in `_isAllowedWidget`: the panel must advertise
-/// `dropweb-music` and the tunnel must be up. Music only reaches the bridge
-/// through the tunnel, so an entry point while disconnected would lead
-/// nowhere.
+/// `dropweb-music`, and the cell shows while the tunnel is up or while a
+/// session is parked waiting for it.
 ///
-/// One cell, two faces: an entry point at rest, a mini player while
-/// something is loaded. Both are the same height so the grid never jumps
-/// when playback starts or ends.
+/// One cell, three faces: an entry point at rest, a mini player while
+/// something is loaded, and a parked track naming whatever stopped it — the
+/// tunnel or the bridge. All three are the same height so the grid never
+/// jumps.
 class MeowzicStrip extends ConsumerWidget {
   const MeowzicStrip({super.key});
 
@@ -68,7 +68,17 @@ class MeowzicStrip extends ConsumerWidget {
                   builder: (context, snapshot) {
                     final item = snapshot.data;
                     if (item == null) return const _Idle();
-                    return _Playing(handler: handler, item: item);
+                    return ValueListenableBuilder<MeowzicStall>(
+                      valueListenable: handler.stallListenable,
+                      builder: (context, stall, __) =>
+                          stall == MeowzicStall.none
+                              ? _Playing(handler: handler, item: item)
+                              : _Stalled(
+                                  handler: handler,
+                                  item: item,
+                                  stall: stall,
+                                ),
+                    );
                   },
                 );
               },
@@ -157,6 +167,73 @@ class _Idle extends StatelessWidget {
             ),
             child: HugeIcon(
               icon: HugeIcons.strokeRoundedArrowRight01,
+              size: 22,
+              color: context.colorScheme.onPrimary,
+            ),
+          ),
+        ],
+      );
+}
+
+/// The parked face: the track is still loaded, but whatever it was reading
+/// from is gone. Names which one on the second line instead of leaving a play
+/// button that would do nothing.
+class _Stalled extends StatelessWidget {
+  const _Stalled({
+    required this.handler,
+    required this.item,
+    required this.stall,
+  });
+
+  final MeowzicAudioHandler handler;
+  final MediaItem item;
+  final MeowzicStall stall;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          _Badge(artUri: item.artUri),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: context.textTheme.titleSmall?.copyWith(
+                    color: context.colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  switch (stall) {
+                    MeowzicStall.none => '',
+                    MeowzicStall.needVpn =>
+                      appLocalizations.meowzicNeedVpnShort,
+                    MeowzicStall.bridgeError =>
+                      appLocalizations.meowzicBridgeErrorShort,
+                  },
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: context.colorScheme.error,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Routed through handler.play so the stall override decides what a
+          // press means — here it asks for the tunnel back, not for audio.
+          IconButton.filled(
+            onPressed: handler.play,
+            tooltip: appLocalizations.meowzicReconnect,
+            icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedPlay,
               size: 22,
               color: context.colorScheme.onPrimary,
             ),

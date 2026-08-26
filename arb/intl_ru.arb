@@ -547,5 +547,8 @@
   "meowzicSearchNothing": "Ничего не нашлось",
   "meowzicNeedVpn": "Музыка идёт через туннель. Включите VPN и повторите",
   "meowzicAccessRejected": "Провайдер обновил доступ. Обновите подписку и повторите",
-  "meowzicBridgeError": "Мост не ответил. Попробуйте ещё раз"
+  "meowzicBridgeError": "Мост не ответил. Попробуйте ещё раз",
+  "meowzicNeedVpnShort": "Включи dropweb",
+  "meowzicReconnect": "Подключить и продолжить",
+  "meowzicBridgeErrorShort": "Мост не ответил"
 }

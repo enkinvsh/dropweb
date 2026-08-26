@@ -175,7 +175,9 @@ class ApplicationState extends ConsumerState<Application> {
                     globalState.appController.addCheckIpNumDebounce,
               );
             },
-            child: child,
+            child: MeowzicManager(
+              child: child,
+            ),
           ),
         ),
       );

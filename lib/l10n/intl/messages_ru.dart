@@ -489,12 +489,21 @@ class MessageLookup extends MessageLookupByLibrary {
     "meowzicBridgeError": MessageLookupByLibrary.simpleMessage(
       "Мост не ответил. Попробуйте ещё раз",
     ),
+    "meowzicBridgeErrorShort": MessageLookupByLibrary.simpleMessage(
+      "Мост не ответил",
+    ),
     "meowzicLibraryEmpty": MessageLookupByLibrary.simpleMessage(
       "Библиотека появится после привязки Spotify",
     ),
     "meowzicLibraryTab": MessageLookupByLibrary.simpleMessage("Библиотека"),
     "meowzicNeedVpn": MessageLookupByLibrary.simpleMessage(
       "Музыка идёт через туннель. Включите VPN и повторите",
+    ),
+    "meowzicNeedVpnShort": MessageLookupByLibrary.simpleMessage(
+      "Включи dropweb",
+    ),
+    "meowzicReconnect": MessageLookupByLibrary.simpleMessage(
+      "Подключить и продолжить",
     ),
     "meowzicSearchEmpty": MessageLookupByLibrary.simpleMessage(
       "Найдите трек по названию или артисту",

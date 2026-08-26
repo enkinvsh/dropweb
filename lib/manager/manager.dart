@@ -2,6 +2,7 @@ export 'android_manager.dart';
 export 'app_state_manager.dart';
 export 'clash_manager.dart';
 export 'connectivity_manager.dart';
+export 'meowzic_manager.dart';
 export 'message_manager.dart';
 export 'proxy_manager.dart';
 export 'theme_manager.dart';

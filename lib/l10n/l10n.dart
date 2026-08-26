@@ -4279,6 +4279,36 @@ class AppLocalizations {
       args: [],
     );
   }
+
+  /// `Turn on dropweb`
+  String get meowzicNeedVpnShort {
+    return Intl.message(
+      'Turn on dropweb',
+      name: 'meowzicNeedVpnShort',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Connect and resume`
+  String get meowzicReconnect {
+    return Intl.message(
+      'Connect and resume',
+      name: 'meowzicReconnect',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Bridge did not answer`
+  String get meowzicBridgeErrorShort {
+    return Intl.message(
+      'Bridge did not answer',
+      name: 'meowzicBridgeErrorShort',
+      desc: '',
+      args: [],
+    );
+  }
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<AppLocalizations> {

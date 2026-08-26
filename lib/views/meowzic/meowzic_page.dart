@@ -121,21 +121,35 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
   Future<void> _play(MeowzicTrack track) async {
     final bridge = ref.read(meowzicBridgeProvider);
     if (bridge == null) return;
-    final handler = await meowzicAudio();
-    await handler.playUri(
-      bridge.audioUri(track.id),
-      MediaItem(
-        // The video id, not the audio URL. The URL is fine to hold — the
-        // token lives in a header — but the id is what the system media
-        // session publishes, and it has no business carrying a URL.
-        id: track.id,
-        title: track.title,
-        artist: track.author.isEmpty ? null : track.author,
-        duration: track.duration > Duration.zero ? track.duration : null,
-        artUri: track.thumbnail,
-      ),
-      headers: bridge.headers,
-    );
+    try {
+      final handler = await meowzicAudio();
+      await handler.playUri(
+        bridge.audioUri(track.id),
+        MediaItem(
+          // The video id, not the audio URL. The URL is fine to hold — the
+          // token lives in a header — but the id is what the system media
+          // session publishes, and it has no business carrying a URL.
+          id: track.id,
+          title: track.title,
+          artist: track.author.isEmpty ? null : track.author,
+          duration: track.duration > Duration.zero ? track.duration : null,
+          artUri: track.thumbnail,
+        ),
+        headers: bridge.headers,
+      );
+    } catch (error, stackTrace) {
+      // A tap that fails must say why. Which failure it is cannot be read off
+      // the player's error code, but the tunnel answers it directly: the
+      // bridge is reachable only through it.
+      commonPrint.log('meowzic play failed: $error\n$stackTrace');
+      if (!mounted) return;
+      final connected = ref.read(runTimeProvider) != null;
+      context.showNotifier(
+        connected
+            ? appLocalizations.meowzicBridgeError
+            : appLocalizations.meowzicNeedVpn,
+      );
+    }
   }
 
   String _failureLabel(MeowzicFailure failure) => switch (failure) {

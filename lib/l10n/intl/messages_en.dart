@@ -472,12 +472,21 @@ class MessageLookup extends MessageLookupByLibrary {
     "meowzicBridgeError": MessageLookupByLibrary.simpleMessage(
       "The bridge did not answer. Try again",
     ),
+    "meowzicBridgeErrorShort": MessageLookupByLibrary.simpleMessage(
+      "Bridge did not answer",
+    ),
     "meowzicLibraryEmpty": MessageLookupByLibrary.simpleMessage(
       "Your library appears once Spotify is linked",
     ),
     "meowzicLibraryTab": MessageLookupByLibrary.simpleMessage("Library"),
     "meowzicNeedVpn": MessageLookupByLibrary.simpleMessage(
       "Music goes through the tunnel. Turn the VPN on and try again",
+    ),
+    "meowzicNeedVpnShort": MessageLookupByLibrary.simpleMessage(
+      "Turn on dropweb",
+    ),
+    "meowzicReconnect": MessageLookupByLibrary.simpleMessage(
+      "Connect and resume",
     ),
     "meowzicSearchEmpty": MessageLookupByLibrary.simpleMessage(
       "Find a track by title or artist",
