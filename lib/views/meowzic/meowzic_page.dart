@@ -118,23 +118,36 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
     }
   }
 
-  Future<void> _play(MeowzicTrack track) async {
+  /// Plays the tapped result and queues everything shown with it.
+  ///
+  /// The whole list goes over, not the tail from [index]: skipping backwards
+  /// has to reach the results above the tapped one, which is where somebody
+  /// looks first when they meant the row above.
+  Future<void> _play(int index) async {
     final bridge = ref.read(meowzicBridgeProvider);
     if (bridge == null) return;
     try {
       final handler = await meowzicAudio();
-      await handler.playUri(
-        bridge.audioUri(track.id),
-        MediaItem(
-          // The video id, not the audio URL. The URL is fine to hold — the
-          // token lives in a header — but the id is what the system media
-          // session publishes, and it has no business carrying a URL.
-          id: track.id,
-          title: track.title,
-          artist: track.author.isEmpty ? null : track.author,
-          duration: track.duration > Duration.zero ? track.duration : null,
-          artUri: track.thumbnail,
-        ),
+      await handler.playQueue(
+        [
+          for (final track in _results)
+            MeowzicQueueItem(
+              uri: bridge.audioUri(track.id),
+              item: MediaItem(
+                // The video id, not the audio URL. The URL is fine to hold —
+                // the token lives in a header — but the id is what the system
+                // media session publishes, and it has no business carrying a
+                // URL.
+                id: track.id,
+                title: track.title,
+                artist: track.author.isEmpty ? null : track.author,
+                duration:
+                    track.duration > Duration.zero ? track.duration : null,
+                artUri: track.thumbnail,
+              ),
+            ),
+        ],
+        index,
         headers: bridge.headers,
       );
     } catch (error, stackTrace) {
@@ -158,6 +171,33 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
         MeowzicFailure.upstream => appLocalizations.meowzicBridgeError,
       };
 
+  /// The results, with whichever row is currently loaded marked.
+  ///
+  /// The handler is observed through the notifier rather than by calling
+  /// `meowzicAudio()`, which would spin up the media service for anyone who
+  /// merely searched. `MediaItem.id` is the video id, so it compares directly
+  /// against the track.
+  Widget _buildResults() => ValueListenableBuilder<MeowzicAudioHandler?>(
+        valueListenable: meowzicHandlerListenable,
+        builder: (context, handler, _) => handler == null
+            ? _buildList(null)
+            : StreamBuilder<MediaItem?>(
+                stream: handler.mediaItem,
+                builder: (context, snapshot) => _buildList(snapshot.data?.id),
+              ),
+      );
+
+  Widget _buildList(String? playingId) => ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        itemCount: _results.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (_, index) => _TrackRow(
+          track: _results[index],
+          isPlaying: _results[index].id == playingId,
+          onPressed: () => _play(index),
+        ),
+      );
+
   Widget _buildBody() => switch (_phase) {
         _Phase.idle => NullStatus(label: appLocalizations.meowzicSearchEmpty),
         _Phase.loading => const Center(child: CircularProgressIndicator()),
@@ -165,15 +205,7 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
           NullStatus(label: _failureLabel(_failure ?? MeowzicFailure.upstream)),
         _Phase.done when _results.isEmpty =>
           NullStatus(label: appLocalizations.meowzicSearchNothing),
-        _Phase.done => ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            itemCount: _results.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, index) => _TrackRow(
-              track: _results[index],
-              onPressed: () => _play(_results[index]),
-            ),
-          ),
+        _Phase.done => _buildResults(),
       };
 
   @override
@@ -204,13 +236,23 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
 }
 
 class _TrackRow extends StatelessWidget {
-  const _TrackRow({required this.track, required this.onPressed});
+  const _TrackRow({
+    required this.track,
+    required this.isPlaying,
+    required this.onPressed,
+  });
 
   final MeowzicTrack track;
+
+  /// Whether this is the row the handler currently has loaded. Marked with the
+  /// card's own selected border and a tinted title rather than a new treatment
+  /// invented for this list.
+  final bool isPlaying;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) => CommonCard(
+        isSelected: isPlaying,
         onPressed: onPressed,
         child: Padding(
           padding: const EdgeInsets.all(8),
@@ -226,7 +268,9 @@ class _TrackRow extends StatelessWidget {
                     Text(
                       track.title,
                       style: context.textTheme.titleSmall?.copyWith(
-                        color: context.colorScheme.onSurface,
+                        color: isPlaying
+                            ? context.colorScheme.primary
+                            : context.colorScheme.onSurface,
                         fontWeight: FontWeight.w600,
                       ),
                       maxLines: 1,
