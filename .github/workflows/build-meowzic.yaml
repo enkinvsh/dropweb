@@ -1,0 +1,115 @@
+# Side channel for the long-lived `feat/meowzic` branch.
+#
+# WHY A SEPARATE FILE AND A SEPARATE TAG NAMESPACE.
+# Git tags are not bound to a branch. A `v*` tag created while standing on
+# `feat/meowzic` fires `build.yaml`, which is the PRODUCTION pipeline: it
+# publishes a GitHub release, writes `update.json` to object storage — which the
+# in-app updater reads, so every installed client pulls it — and posts to the
+# Telegram subscriber topics. `build.yaml` also decides stability from a single
+# rule, `IS_STABLE: ${{ !contains(github.ref, '-') }}`, so a hyphen-free tag such
+# as `v0.8.7m` would be treated as a STABLE release and auto-update the whole
+# user base to an experimental music build.
+#
+# `meowzic-v*` does not match `v*`, so this branch can ship builds without any of
+# that being possible by accident. Nothing here touches `update.json` or
+# Telegram, and the release is always marked pre-release.
+name: build-meowzic
+
+on:
+  push:
+    tags:
+      - "meowzic-v*"
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Same reclaim as the production android job: the Go core plus the APK
+      # merge step can exhaust the ~14 GB runner. Touches nothing the build uses.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+                      /usr/share/swift /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          df -h /
+
+      # Release signing is fail-closed in this project: without the keystore the
+      # release tasks abort rather than falling back to a debug key.
+      - name: Setup Android signing
+        run: |
+          echo "${{ secrets.KEYSTORE }}" | base64 --decode > android/app/keystore.jks
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/local.properties
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> android/local.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/local.properties
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.0"
+          cache-dependency-path: |
+            core/go.sum
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+          flutter-version: 3.41.6
+
+      - name: Get Flutter dependency
+        run: flutter pub get
+
+      # The production pipeline runs NEITHER of these — it has never run
+      # `dart analyze` or `flutter test` at all. This branch does, because it is
+      # where the unreviewed work lives. `--fatal-infos` is deliberately NOT
+      # used: the tree carries ~620 pre-existing infos and gating on them would
+      # make every build red for reasons unrelated to the change under test.
+      - name: Analyze
+        run: dart analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Build
+        run: dart setup.dart android --arch arm64
+
+      # A green job with an empty dist/ is a real failure mode here: setup.dart
+      # can exit 0 and produce nothing, and the upload step would not care.
+      - name: Verify build artifacts
+        shell: bash
+        run: |
+          if [ -z "$(ls -A ./dist 2>/dev/null)" ]; then
+            echo "::error::dist/ is empty after setup.dart — the build produced no artifacts."
+            exit 1
+          fi
+          ls -la ./dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: meowzic-android-arm64
+          path: ./dist
+
+      # Pre-release, always. This channel is hand-delivered; it must never
+      # become the newest thing the in-app updater or the public release list
+      # points at.
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/meowzic-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./dist/*
+          prerelease: true
+          name: "meowzic ${{ github.ref_name }}"
+          body: |
+            Экспериментальная сборка ветки `feat/meowzic` — музыка внутри dropweb
+            (метаданные и поиск Spotify, звук через собственный мост на YouTube Music).
+
+            Раздаётся вручную. Не публикуется в `update.json`, автообновление её
+            не подхватывает, в Telegram не анонсируется.
