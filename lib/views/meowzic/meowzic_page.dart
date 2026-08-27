@@ -64,8 +64,6 @@ class _MeowzicPageState extends State<MeowzicPage> {
       );
 }
 
-enum _Phase { idle, loading, done, failed }
-
 class _SearchTab extends ConsumerStatefulWidget {
   const _SearchTab();
 
@@ -74,16 +72,11 @@ class _SearchTab extends ConsumerStatefulWidget {
 }
 
 class _SearchTabState extends ConsumerState<_SearchTab> {
-  final TextEditingController _controller = TextEditingController();
-
-  _Phase _phase = _Phase.idle;
-  List<MeowzicTrack> _results = const [];
-  MeowzicFailure? _failure;
-
-  /// Guards against a slow first query landing after a faster second one and
-  /// overwriting it. The bridge takes seconds on a cold lookup, which is long
-  /// enough for someone to retype.
-  int _generation = 0;
+  /// Seeded from the notifier, because this State is built fresh every time
+  /// the route is pushed and an empty box over a full list reads as a bug.
+  late final TextEditingController _controller = TextEditingController(
+    text: ref.read(meowzicSearchProvider).query,
+  );
 
   @override
   void dispose() {
@@ -91,78 +84,15 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
     super.dispose();
   }
 
-  Future<void> _search(String raw) async {
-    final query = raw.trim();
-    final bridge = ref.read(meowzicBridgeProvider);
-    if (query.isEmpty || bridge == null) return;
-
-    final generation = ++_generation;
-    setState(() {
-      _phase = _Phase.loading;
-      _failure = null;
-    });
-
-    try {
-      final tracks = await searchMeowzic(bridge, query);
-      if (!mounted || generation != _generation) return;
-      setState(() {
-        _results = tracks;
-        _phase = _Phase.done;
-      });
-    } on MeowzicException catch (error) {
-      if (!mounted || generation != _generation) return;
-      setState(() {
-        _failure = error.failure;
-        _phase = _Phase.failed;
-      });
-    }
-  }
-
-  /// Plays the tapped result and queues everything shown with it.
+  /// Shows why a tap could not play, when the notifier says it could not.
   ///
-  /// The whole list goes over, not the tail from [index]: skipping backwards
-  /// has to reach the results above the tapped one, which is where somebody
-  /// looks first when they meant the row above.
+  /// The reason is decided there — it needs the tunnel, not a widget — and
+  /// shown here, because a `BuildContext` is the one thing a notifier has no
+  /// business holding.
   Future<void> _play(int index) async {
-    final bridge = ref.read(meowzicBridgeProvider);
-    if (bridge == null) return;
-    try {
-      final handler = await meowzicAudio();
-      await handler.playQueue(
-        [
-          for (final track in _results)
-            MeowzicQueueItem(
-              uri: bridge.audioUri(track.id),
-              item: MediaItem(
-                // The video id, not the audio URL. The URL is fine to hold —
-                // the token lives in a header — but the id is what the system
-                // media session publishes, and it has no business carrying a
-                // URL.
-                id: track.id,
-                title: track.title,
-                artist: track.author.isEmpty ? null : track.author,
-                duration:
-                    track.duration > Duration.zero ? track.duration : null,
-                artUri: track.thumbnail,
-              ),
-            ),
-        ],
-        index,
-        headers: bridge.headers,
-      );
-    } catch (error, stackTrace) {
-      // A tap that fails must say why. Which failure it is cannot be read off
-      // the player's error code, but the tunnel answers it directly: the
-      // bridge is reachable only through it.
-      commonPrint.log('meowzic play failed: $error\n$stackTrace');
-      if (!mounted) return;
-      final connected = ref.read(runTimeProvider) != null;
-      context.showNotifier(
-        connected
-            ? appLocalizations.meowzicBridgeError
-            : appLocalizations.meowzicNeedVpn,
-      );
-    }
+    final message = await ref.read(meowzicSearchProvider.notifier).play(index);
+    if (!mounted || message == null) return;
+    context.showNotifier(message);
   }
 
   String _failureLabel(MeowzicFailure failure) => switch (failure) {
@@ -177,62 +107,70 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
   /// `meowzicAudio()`, which would spin up the media service for anyone who
   /// merely searched. `MediaItem.id` is the video id, so it compares directly
   /// against the track.
-  Widget _buildResults() => ValueListenableBuilder<MeowzicAudioHandler?>(
+  Widget _buildResults(List<MeowzicTrack> results) =>
+      ValueListenableBuilder<MeowzicAudioHandler?>(
         valueListenable: meowzicHandlerListenable,
         builder: (context, handler, _) => handler == null
-            ? _buildList(null)
+            ? _buildList(results, null)
             : StreamBuilder<MediaItem?>(
                 stream: handler.mediaItem,
-                builder: (context, snapshot) => _buildList(snapshot.data?.id),
+                builder: (context, snapshot) =>
+                    _buildList(results, snapshot.data?.id),
               ),
       );
 
-  Widget _buildList(String? playingId) => ListView.separated(
+  Widget _buildList(List<MeowzicTrack> results, String? playingId) =>
+      ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        itemCount: _results.length,
+        itemCount: results.length,
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (_, index) => _TrackRow(
-          track: _results[index],
-          isPlaying: _results[index].id == playingId,
+          track: results[index],
+          isPlaying: results[index].id == playingId,
           onPressed: () => _play(index),
         ),
       );
 
-  Widget _buildBody() => switch (_phase) {
-        _Phase.idle => NullStatus(label: appLocalizations.meowzicSearchEmpty),
-        _Phase.loading => const Center(child: CircularProgressIndicator()),
-        _Phase.failed =>
-          NullStatus(label: _failureLabel(_failure ?? MeowzicFailure.upstream)),
-        _Phase.done when _results.isEmpty =>
+  Widget _buildBody(MeowzicSearchState search) => switch (search.phase) {
+        MeowzicPhase.idle =>
+          NullStatus(label: appLocalizations.meowzicSearchEmpty),
+        MeowzicPhase.loading => const Center(child: CircularProgressIndicator()),
+        MeowzicPhase.failed => NullStatus(
+            label: _failureLabel(search.failure ?? MeowzicFailure.upstream),
+          ),
+        MeowzicPhase.done when search.results.isEmpty =>
           NullStatus(label: appLocalizations.meowzicSearchNothing),
-        _Phase.done => _buildResults(),
+        MeowzicPhase.done => _buildResults(search.results),
       };
 
   @override
-  Widget build(BuildContext context) => Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: TextField(
-              controller: _controller,
-              textInputAction: TextInputAction.search,
-              onSubmitted: _search,
-              decoration: InputDecoration(
-                hintText: appLocalizations.meowzicSearchHint,
-                prefixIcon: const HugeIcon(
-                  icon: HugeIcons.strokeRoundedSearch01,
-                  size: 20,
-                ),
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(Lumina.radiusLg),
-                ),
+  Widget build(BuildContext context) {
+    final search = ref.watch(meowzicSearchProvider);
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: TextField(
+            controller: _controller,
+            textInputAction: TextInputAction.search,
+            onSubmitted: ref.read(meowzicSearchProvider.notifier).search,
+            decoration: InputDecoration(
+              hintText: appLocalizations.meowzicSearchHint,
+              prefixIcon: const HugeIcon(
+                icon: HugeIcons.strokeRoundedSearch01,
+                size: 20,
+              ),
+              isDense: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(Lumina.radiusLg),
               ),
             ),
           ),
-          Expanded(child: _buildBody()),
-        ],
-      );
+        ),
+        Expanded(child: _buildBody(search)),
+      ],
+    );
+  }
 }
 
 class _TrackRow extends StatelessWidget {

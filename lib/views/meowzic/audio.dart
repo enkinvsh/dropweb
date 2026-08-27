@@ -44,7 +44,15 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
     // what keeps the notification and the dashboard strip honest when a track
     // ends on its own: the advance happens inside ExoPlayer and nothing here
     // gets a chance to run first.
-    _player.currentIndexStream.listen(_handleIndex);
+    //
+    // Followed by ACTIVE SOURCE, never by index — the idiom Spotube uses
+    // (`activeSourceChangedStream`, audio_players_streams_mixin.dart). An index
+    // is only a position in whichever list the player is holding right now, so
+    // the moment a new playlist goes in it names a track in the outgoing one.
+    // A source names the track itself and cannot mean a different one. Do NOT
+    // "simplify" this back into `currentIndexStream`: that is the bug, not the
+    // shorter spelling of it.
+    _player.sequenceStateStream.listen(_handleSequence);
   }
 
   final AudioPlayer _player = AudioPlayer(
@@ -94,18 +102,24 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
   /// than baked into any URL.
   Map<String, String>? _headers;
 
-  /// Which entry of [_queue] is current. Kept in step with the player by
-  /// [_handleIndex], and the value a resume re-prepares at.
+  /// Which entry of [_queue] is current. Resolved from the player's active
+  /// source by [_handleSequence], and the value a resume re-prepares at.
   int _index = 0;
 
   Duration _resumeFrom = Duration.zero;
 
-  /// True while this handler is itself (re)loading the playlist.
+  /// The source this handler last asked the player to make active.
   ///
-  /// The player republishes the outgoing index while a new playlist is being
-  /// installed, and acting on that would overwrite the index the load was
-  /// asked for — losing the track a stalled skip just picked.
-  bool _preparing = false;
+  /// just_audio installs a playlist before it moves the index onto it:
+  /// `setAudioSources` runs `_playlist._init`, which broadcasts a sequence
+  /// carrying the NEW sources under the PREVIOUS index (just_audio 0.10.6,
+  /// just_audio.dart `_init` -> `_broadcastSequence`). That one event names a
+  /// real track of the new queue — just not the one the load asked for — so
+  /// source identity alone cannot tell it from an advance. Events are held
+  /// back until the requested source actually shows up; from then on the
+  /// player leads and this clears, so a track it reaches on its own is news
+  /// rather than an echo.
+  Uri? _requestedUri;
 
   /// Whether the user wants this playing — not merely whether it happened to
   /// be playing. Set from the player when the tunnel parks a track, and set
@@ -177,7 +191,7 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
 
     queue.add([for (final entry in tracks) entry.item]);
     mediaItem.add(tracks[start].item);
-    _preparing = true;
+    _requestedUri = tracks[start].uri;
     try {
       await _player.setAudioSources(
         _buildSources(),
@@ -195,8 +209,6 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
       // The caller reports the failure either way; rolling back must not
       // swallow it.
       rethrow;
-    } finally {
-      _preparing = false;
     }
   }
 
@@ -206,6 +218,7 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
     _headers = null;
     _index = 0;
     _resumeFrom = Duration.zero;
+    _requestedUri = null;
     _wasPlaying = false;
     stallListenable.value = MeowzicStall.none;
     meowzicSessionListenable.value = false;
@@ -213,15 +226,31 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
     queue.add(const []);
   }
 
-  /// Follows the player's own idea of which track is current.
+  /// Follows the player's own idea of which track is current, by asking which
+  /// SOURCE is active rather than which index.
   ///
   /// This is the only path that reports an automatic advance, so it publishes
   /// the new [MediaItem] itself. While a stall is armed it republishes the
   /// stalled face instead — the reason still applies, and overwriting it with
   /// pristine metadata would leave the shade claiming everything is fine.
-  void _handleIndex(int? index) {
-    if (_preparing) return;
-    if (index == null || index < 0 || index >= _queue.length) return;
+  void _handleSequence(SequenceState state) {
+    final source = state.currentSource;
+    // Every source this handler builds is a `UriAudioSource`; anything else
+    // did not come from here.
+    if (source is! UriAudioSource) return;
+    final uri = source.uri;
+
+    final requested = _requestedUri;
+    if (requested != null) {
+      if (uri != requested) return;
+      _requestedUri = null;
+    }
+
+    // The URI is the identity, so a source belonging to a playlist this
+    // handler no longer owns simply is not found and is ignored — where an
+    // index would have been found in the wrong list and believed.
+    final index = _queue.indexWhere((entry) => entry.uri == uri);
+    if (index < 0) return;
     if (index == _index) return;
     _index = index;
     // A track reached on its own starts at the top; carrying the previous
@@ -316,7 +345,7 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
     // playing audio, and an invisible stall makes the next park early-return.
     // Up front, the worst a stale continuation can do is nothing at all.
     stallListenable.value = MeowzicStall.none;
-    _preparing = true;
+    _requestedUri = _queue[_index].uri;
     try {
       await _player.setAudioSources(
         _buildSources(),
@@ -339,8 +368,6 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
       if (generation != _tunnelGeneration) return;
       stallListenable.value = MeowzicStall.bridgeError;
       _publishStalled(item, MeowzicStall.bridgeError);
-    } finally {
-      _preparing = false;
     }
   }
 
@@ -472,7 +499,10 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
       updatePosition: _player.position,
       bufferedPosition: _player.bufferedPosition,
       speed: _player.speed,
-      queueIndex: event.currentIndex,
+      // The resolved index, not `event.currentIndex`: this position is read
+      // against the queue published above, and the player's own index still
+      // points into the outgoing list while a playlist is going in.
+      queueIndex: _queue.isEmpty ? null : _index,
     );
   }
 }

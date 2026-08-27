@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dropweb/providers/providers.dart';
+// The narrow import, not the `providers` barrel: the barrel now also exports
+// the meowzic search notifier, which imports this file — and a library cycle
+// through a barrel is a needless thing to leave lying around.
+import 'package:dropweb/providers/state.dart';
 import 'package:http/http.dart' as http;
 
 /// One track, as the bridge describes it.
