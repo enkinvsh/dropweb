@@ -412,6 +412,25 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
                       backgroundColor:
                           transparentAppBar ? Colors.transparent : null,
                       elevation: transparentAppBar ? 0 : null,
+                      // The two below say the same thing as the two above, for
+                      // the scrolled state, and both are needed because
+                      // Material 3 overrides the two above the moment anything
+                      // scrolls: `scrolledUnderElevation` defaults to 3 and
+                      // wins over `elevation: 0`, and `surfaceTintColor`
+                      // resolves to the scheme's accent rather than to the
+                      // transparent this bar was handed. `Material` then blends
+                      // the accent in at that elevation, so a bar declared
+                      // invisible paints a slab the moment you touch the list.
+                      //
+                      // Measured on a phone, not inferred: the strip read
+                      // rgb(21,22,21) after a scroll against rgb(2,2,4) —
+                      // `Lumina.void_` — directly beneath it, a flat lighter
+                      // band the exact height of the bar over a live gradient.
+                      // It cost two wrong diagnoses, so it is written down: an
+                      // app bar declared transparent has FOUR knobs, not two.
+                      scrolledUnderElevation: transparentAppBar ? 0 : null,
+                      surfaceTintColor:
+                          transparentAppBar ? Colors.transparent : null,
                       centerTitle: widget.centerTitle ?? false,
                       automaticallyImplyLeading:
                           widget.automaticallyImplyLeading,
