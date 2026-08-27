@@ -4,12 +4,10 @@ import 'package:dropweb/providers/app.dart';
 import 'package:dropweb/providers/state.dart';
 import 'package:dropweb/views/meowzic/audio.dart';
 import 'package:dropweb/views/meowzic/bridge.dart';
+import 'package:dropweb/views/meowzic/phase.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'generated/meowzic.g.dart';
-
-/// What the search tab has to show.
-enum MeowzicPhase { idle, loading, done, failed }
 
 /// The search tab's whole visible state.
 ///

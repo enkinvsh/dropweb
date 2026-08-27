@@ -32,17 +32,19 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m4(label) => "Current ${label} already exists";
 
-  static String m5(label) => "No ${label} at the moment";
+  static String m5(count) => "Tracks: ${count}";
 
-  static String m6(label) => "${label} must be a number";
+  static String m6(label) => "No ${label} at the moment";
 
-  static String m7(label) => "${label} must be between 1024 and 49151";
+  static String m7(label) => "${label} must be a number";
 
-  static String m8(count) => "${count} items have been selected";
+  static String m8(label) => "${label} must be between 1024 and 49151";
 
-  static String m9(days) => "Your subscription expires in ${days} day(s)";
+  static String m9(count) => "${count} items have been selected";
 
-  static String m10(label) => "${label} must be a url";
+  static String m10(days) => "Your subscription expires in ${days} day(s)";
+
+  static String m11(label) => "${label} must be a url";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
@@ -469,16 +471,38 @@ class MessageLookup extends MessageLookupByLibrary {
     "meowzicAgreementTitle": MessageLookupByLibrary.simpleMessage(
       "Before you turn it on",
     ),
+    "meowzicArtistReleases": MessageLookupByLibrary.simpleMessage("Releases"),
     "meowzicBridgeError": MessageLookupByLibrary.simpleMessage(
       "The bridge did not answer. Try again",
     ),
     "meowzicBridgeErrorShort": MessageLookupByLibrary.simpleMessage(
       "Bridge did not answer",
     ),
+    "meowzicContainerEmpty": MessageLookupByLibrary.simpleMessage(
+      "No tracks here",
+    ),
+    "meowzicKindAlbum": MessageLookupByLibrary.simpleMessage("Album"),
+    "meowzicKindArtist": MessageLookupByLibrary.simpleMessage("Artist"),
+    "meowzicKindPlaylist": MessageLookupByLibrary.simpleMessage("Playlist"),
+    "meowzicLibraryAlbums": MessageLookupByLibrary.simpleMessage("Albums"),
+    "meowzicLibraryArtists": MessageLookupByLibrary.simpleMessage("Artists"),
     "meowzicLibraryEmpty": MessageLookupByLibrary.simpleMessage(
       "Your library appears once Spotify is linked",
     ),
+    "meowzicLibraryNothing": MessageLookupByLibrary.simpleMessage(
+      "Nothing saved here yet",
+    ),
+    "meowzicLibraryPlaylists": MessageLookupByLibrary.simpleMessage(
+      "Playlists",
+    ),
+    "meowzicLibraryRejected": MessageLookupByLibrary.simpleMessage(
+      "Spotify refused the request. Link the account again",
+    ),
+    "meowzicLibrarySignedOut": MessageLookupByLibrary.simpleMessage(
+      "The Spotify session ended. Link the account again",
+    ),
     "meowzicLibraryTab": MessageLookupByLibrary.simpleMessage("Library"),
+    "meowzicLibraryTrackCount": m5,
     "meowzicNeedVpn": MessageLookupByLibrary.simpleMessage(
       "Music goes through the tunnel. Turn the VPN on and try again",
     ),
@@ -498,6 +522,33 @@ class MessageLookup extends MessageLookupByLibrary {
       "Nothing found",
     ),
     "meowzicSearchTab": MessageLookupByLibrary.simpleMessage("Search"),
+    "meowzicSpotifyAccount": MessageLookupByLibrary.simpleMessage(
+      "Spotify account",
+    ),
+    "meowzicSpotifyAnonymous": MessageLookupByLibrary.simpleMessage(
+      "Spotify didn\'t accept the sign-in. Try again",
+    ),
+    "meowzicSpotifyConnected": MessageLookupByLibrary.simpleMessage(
+      "Spotify linked",
+    ),
+    "meowzicSpotifyCookieExpired": MessageLookupByLibrary.simpleMessage(
+      "The Spotify session has expired. Sign in again",
+    ),
+    "meowzicSpotifyRetry": MessageLookupByLibrary.simpleMessage("Try again"),
+    "meowzicSpotifySignIn": MessageLookupByLibrary.simpleMessage(
+      "Link Spotify",
+    ),
+    "meowzicSpotifySignOut": MessageLookupByLibrary.simpleMessage("Unlink"),
+    "meowzicSpotifyTitle": MessageLookupByLibrary.simpleMessage("Spotify"),
+    "meowzicSpotifyUnreachable": MessageLookupByLibrary.simpleMessage(
+      "Couldn\'t reach Spotify. Check the connection and try again",
+    ),
+    "meowzicSpotifyUpstream": MessageLookupByLibrary.simpleMessage(
+      "Spotify answered with something unexpected. Try again",
+    ),
+    "meowzicTrackNotFound": MessageLookupByLibrary.simpleMessage(
+      "Couldn\'t find this track. Try another one",
+    ),
     "messageTest": MessageLookupByLibrary.simpleMessage("Message test"),
     "messageTestTip": MessageLookupByLibrary.simpleMessage(
       "This is a message.",
@@ -552,8 +603,8 @@ class MessageLookup extends MessageLookupByLibrary {
       "No profile, Please add a profile",
     ),
     "nullScriptTip": MessageLookupByLibrary.simpleMessage("No scripts"),
-    "nullTip": m5,
-    "numberTip": m6,
+    "nullTip": m6,
+    "numberTip": m7,
     "ok": MessageLookupByLibrary.simpleMessage("OK"),
     "onboardingAddHint": MessageLookupByLibrary.simpleMessage(
       "Tap to add your subscription",
@@ -641,7 +692,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "portConflictTip": MessageLookupByLibrary.simpleMessage(
       "Please enter a different port",
     ),
-    "portTip": m7,
+    "portTip": m8,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage(
       "Prioritize the use of DOH\'s http/3",
     ),
@@ -771,7 +822,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("Select all"),
     "selectProfile": MessageLookupByLibrary.simpleMessage("Select Profile"),
     "selected": MessageLookupByLibrary.simpleMessage("Selected"),
-    "selectedCountTitle": m8,
+    "selectedCountTitle": m9,
     "sendToTv": MessageLookupByLibrary.simpleMessage("Send to TV"),
     "sendToTvTitle": MessageLookupByLibrary.simpleMessage("Send to TV"),
     "sentSuccessfullyMessage": MessageLookupByLibrary.simpleMessage(
@@ -831,7 +882,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscriptionExpired": MessageLookupByLibrary.simpleMessage(
       "Your subscription has expired",
     ),
-    "subscriptionExpiresInDays": m9,
+    "subscriptionExpiresInDays": m10,
     "subscriptionExpiresSoon": MessageLookupByLibrary.simpleMessage(
       "Subscription expires soon",
     ),
@@ -932,7 +983,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "urlDesc": MessageLookupByLibrary.simpleMessage(
       "Obtain profile through URL",
     ),
-    "urlTip": m10,
+    "urlTip": m11,
     "useHosts": MessageLookupByLibrary.simpleMessage("Use hosts"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("Use system hosts"),
     "value": MessageLookupByLibrary.simpleMessage("Value"),

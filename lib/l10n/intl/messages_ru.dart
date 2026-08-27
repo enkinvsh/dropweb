@@ -31,17 +31,19 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m4(label) => "Текущий ${label} уже существует";
 
-  static String m5(label) => "Сейчас ${label} нет";
+  static String m5(count) => "Треков: ${count}";
 
-  static String m6(label) => "${label} должно быть числом";
+  static String m6(label) => "Сейчас ${label} нет";
 
-  static String m7(label) => "${label} должен быть числом от 1024 до 49151";
+  static String m7(label) => "${label} должно быть числом";
 
-  static String m8(count) => "Выбрано ${count} элементов";
+  static String m8(label) => "${label} должен быть числом от 1024 до 49151";
 
-  static String m9(days) => "Ваша подписка истекает через ${days} дн.";
+  static String m9(count) => "Выбрано ${count} элементов";
 
-  static String m10(label) => "${label} должен быть URL";
+  static String m10(days) => "Ваша подписка истекает через ${days} дн.";
+
+  static String m11(label) => "${label} должен быть URL";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
@@ -486,16 +488,38 @@ class MessageLookup extends MessageLookupByLibrary {
     "meowzicAgreementTitle": MessageLookupByLibrary.simpleMessage(
       "Прежде чем включить",
     ),
+    "meowzicArtistReleases": MessageLookupByLibrary.simpleMessage("Релизы"),
     "meowzicBridgeError": MessageLookupByLibrary.simpleMessage(
       "Мост не ответил. Попробуйте ещё раз",
     ),
     "meowzicBridgeErrorShort": MessageLookupByLibrary.simpleMessage(
       "Мост не ответил",
     ),
+    "meowzicContainerEmpty": MessageLookupByLibrary.simpleMessage(
+      "Здесь нет треков",
+    ),
+    "meowzicKindAlbum": MessageLookupByLibrary.simpleMessage("Альбом"),
+    "meowzicKindArtist": MessageLookupByLibrary.simpleMessage("Артист"),
+    "meowzicKindPlaylist": MessageLookupByLibrary.simpleMessage("Плейлист"),
+    "meowzicLibraryAlbums": MessageLookupByLibrary.simpleMessage("Альбомы"),
+    "meowzicLibraryArtists": MessageLookupByLibrary.simpleMessage("Артисты"),
     "meowzicLibraryEmpty": MessageLookupByLibrary.simpleMessage(
       "Библиотека появится после привязки Spotify",
     ),
+    "meowzicLibraryNothing": MessageLookupByLibrary.simpleMessage(
+      "Здесь пока пусто",
+    ),
+    "meowzicLibraryPlaylists": MessageLookupByLibrary.simpleMessage(
+      "Плейлисты",
+    ),
+    "meowzicLibraryRejected": MessageLookupByLibrary.simpleMessage(
+      "Spotify отклонил запрос. Привяжите аккаунт заново",
+    ),
+    "meowzicLibrarySignedOut": MessageLookupByLibrary.simpleMessage(
+      "Сессия Spotify закончилась. Привяжите аккаунт заново",
+    ),
     "meowzicLibraryTab": MessageLookupByLibrary.simpleMessage("Библиотека"),
+    "meowzicLibraryTrackCount": m5,
     "meowzicNeedVpn": MessageLookupByLibrary.simpleMessage(
       "Музыка идёт через туннель. Включите VPN и повторите",
     ),
@@ -515,6 +539,35 @@ class MessageLookup extends MessageLookupByLibrary {
       "Ничего не нашлось",
     ),
     "meowzicSearchTab": MessageLookupByLibrary.simpleMessage("Поиск"),
+    "meowzicSpotifyAccount": MessageLookupByLibrary.simpleMessage(
+      "Аккаунт Spotify",
+    ),
+    "meowzicSpotifyAnonymous": MessageLookupByLibrary.simpleMessage(
+      "Spotify не принял вход. Попробуйте ещё раз",
+    ),
+    "meowzicSpotifyConnected": MessageLookupByLibrary.simpleMessage(
+      "Spotify привязан",
+    ),
+    "meowzicSpotifyCookieExpired": MessageLookupByLibrary.simpleMessage(
+      "Сессия Spotify истекла. Войдите заново",
+    ),
+    "meowzicSpotifyRetry": MessageLookupByLibrary.simpleMessage(
+      "Попробовать снова",
+    ),
+    "meowzicSpotifySignIn": MessageLookupByLibrary.simpleMessage(
+      "Привязать Spotify",
+    ),
+    "meowzicSpotifySignOut": MessageLookupByLibrary.simpleMessage("Отвязать"),
+    "meowzicSpotifyTitle": MessageLookupByLibrary.simpleMessage("Spotify"),
+    "meowzicSpotifyUnreachable": MessageLookupByLibrary.simpleMessage(
+      "Spotify не отвечает. Проверьте соединение и повторите",
+    ),
+    "meowzicSpotifyUpstream": MessageLookupByLibrary.simpleMessage(
+      "Spotify ответил чем-то непонятным. Попробуйте ещё раз",
+    ),
+    "meowzicTrackNotFound": MessageLookupByLibrary.simpleMessage(
+      "Не нашли этот трек. Попробуйте другой",
+    ),
     "messageTest": MessageLookupByLibrary.simpleMessage(
       "Тестирование сообщения",
     ),
@@ -575,8 +628,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "nullScriptTip": MessageLookupByLibrary.simpleMessage(
       "Скрипты отсутствуют",
     ),
-    "nullTip": m5,
-    "numberTip": m6,
+    "nullTip": m6,
+    "numberTip": m7,
     "ok": MessageLookupByLibrary.simpleMessage("OK"),
     "onboardingAddHint": MessageLookupByLibrary.simpleMessage(
       "Нажмите, чтобы добавить подписку",
@@ -668,7 +721,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "portConflictTip": MessageLookupByLibrary.simpleMessage(
       "Введите другой порт",
     ),
-    "portTip": m7,
+    "portTip": m8,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage(
       "Использовать HTTP/3 для DOH (если доступно)",
     ),
@@ -800,7 +853,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("Выбрать все"),
     "selectProfile": MessageLookupByLibrary.simpleMessage("Выбрать профиль"),
     "selected": MessageLookupByLibrary.simpleMessage("Выбрано"),
-    "selectedCountTitle": m8,
+    "selectedCountTitle": m9,
     "sendToTv": MessageLookupByLibrary.simpleMessage("Отправить на ТВ"),
     "sendToTvTitle": MessageLookupByLibrary.simpleMessage("Отправить на ТВ"),
     "sentSuccessfullyMessage": MessageLookupByLibrary.simpleMessage(
@@ -860,7 +913,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscriptionExpired": MessageLookupByLibrary.simpleMessage(
       "Ваша подписка истекла",
     ),
-    "subscriptionExpiresInDays": m9,
+    "subscriptionExpiresInDays": m10,
     "subscriptionExpiresSoon": MessageLookupByLibrary.simpleMessage(
       "Подписка скоро истекает",
     ),
@@ -961,7 +1014,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "upload": MessageLookupByLibrary.simpleMessage("Отправка"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
     "urlDesc": MessageLookupByLibrary.simpleMessage("Загрузить профиль по URL"),
-    "urlTip": m10,
+    "urlTip": m11,
     "useHosts": MessageLookupByLibrary.simpleMessage("Использовать hosts"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage(
       "Использовать системные hosts",

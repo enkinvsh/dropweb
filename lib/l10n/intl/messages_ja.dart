@@ -30,17 +30,17 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m4(label) => "現在の${label}は既に存在しています";
 
-  static String m5(label) => "現在${label}はありません";
+  static String m6(label) => "現在${label}はありません";
 
-  static String m6(label) => "${label}は数字でなければなりません";
+  static String m7(label) => "${label}は数字でなければなりません";
 
-  static String m7(label) => "${label} は 1024 から 49151 の間でなければなりません";
+  static String m8(label) => "${label} は 1024 から 49151 の間でなければなりません";
 
-  static String m8(count) => "${count} 項目が選択されています";
+  static String m9(count) => "${count} 項目が選択されています";
 
-  static String m9(days) => "サブスクリプションは${days}日後に期限切れになります";
+  static String m10(days) => "サブスクリプションは${days}日後に期限切れになります";
 
-  static String m10(label) => "${label}はURLである必要があります";
+  static String m11(label) => "${label}はURLである必要があります";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
@@ -408,8 +408,8 @@ class MessageLookup extends MessageLookupByLibrary {
       "プロファイルがありません。追加してください",
     ),
     "nullScriptTip": MessageLookupByLibrary.simpleMessage("スクリプトはありません"),
-    "nullTip": m5,
-    "numberTip": m6,
+    "nullTip": m6,
+    "numberTip": m7,
     "ok": MessageLookupByLibrary.simpleMessage("OK"),
     "onboardingAddHint": MessageLookupByLibrary.simpleMessage(
       "タップしてサブスクリプションを追加",
@@ -483,7 +483,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "port": MessageLookupByLibrary.simpleMessage("ポート"),
     "portConflictTip": MessageLookupByLibrary.simpleMessage("別のポートを入力してください"),
-    "portTip": m7,
+    "portTip": m8,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage("DOHのHTTP/3を優先使用"),
     "presetAmber": MessageLookupByLibrary.simpleMessage("アンバー"),
     "presetAmethyst": MessageLookupByLibrary.simpleMessage("アメジスト"),
@@ -591,7 +591,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("すべて選択"),
     "selectProfile": MessageLookupByLibrary.simpleMessage("プロファイルを選択"),
     "selected": MessageLookupByLibrary.simpleMessage("選択済み"),
-    "selectedCountTitle": m8,
+    "selectedCountTitle": m9,
     "sendToTv": MessageLookupByLibrary.simpleMessage("TVに送信"),
     "sendToTvTitle": MessageLookupByLibrary.simpleMessage("TVに送信"),
     "sentSuccessfullyMessage": MessageLookupByLibrary.simpleMessage("送信しました"),
@@ -639,7 +639,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscriptionExpired": MessageLookupByLibrary.simpleMessage(
       "サブスクリプションが期限切れになりました",
     ),
-    "subscriptionExpiresInDays": m9,
+    "subscriptionExpiresInDays": m10,
     "subscriptionExpiresSoon": MessageLookupByLibrary.simpleMessage(
       "サブスクリプションがまもなく期限切れ",
     ),
@@ -710,7 +710,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "upload": MessageLookupByLibrary.simpleMessage("アップロード"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
     "urlDesc": MessageLookupByLibrary.simpleMessage("URL経由でプロファイルを取得"),
-    "urlTip": m10,
+    "urlTip": m11,
     "useHosts": MessageLookupByLibrary.simpleMessage("ホストを使用"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("システムホストを使用"),
     "value": MessageLookupByLibrary.simpleMessage("値"),

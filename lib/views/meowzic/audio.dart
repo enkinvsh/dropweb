@@ -521,6 +521,21 @@ final ValueNotifier<MeowzicAudioHandler?> meowzicHandlerListenable =
 /// session that outlives the tunnel still needs somewhere to come back to.
 final ValueNotifier<bool> meowzicSessionListenable = ValueNotifier(false);
 
+/// The track a tap is currently turning into something playable, as a Spotify
+/// uri, or null when nothing is being matched.
+///
+/// One value for the whole app, next to the session it belongs to, because
+/// resolving is singular in fact: one tap wins, one queue loads, one track
+/// plays. It lived on the container's own state until a playlist opened
+/// earlier sat with a spinner on a track forever while a different playlist
+/// played something else — each container kept a private copy, and a copy that
+/// nobody else can see is a copy nobody else can clear. Moving to `keepAlive`
+/// providers made that permanent instead of merely invisible.
+///
+/// Screens read it and none of them own it. A screen that owns a flag can only
+/// clear the flag it set.
+final ValueNotifier<String?> meowzicResolvingListenable = ValueNotifier(null);
+
 MeowzicAudioHandler? _handler;
 Future<MeowzicAudioHandler>? _pending;
 

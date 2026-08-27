@@ -1,16 +1,37 @@
+import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:dropweb/common/common.dart';
-// Narrowed on purpose: the models barrel and `audio_service` both carry names
-// this file already uses, and the menu needs exactly one type out of it.
-import 'package:dropweb/models/models.dart' show PopupMenuItemData;
 import 'package:dropweb/providers/providers.dart';
-import 'package:dropweb/views/meowzic/art_wash.dart';
 import 'package:dropweb/views/meowzic/audio.dart';
 import 'package:dropweb/views/meowzic/bridge.dart';
+import 'package:dropweb/views/meowzic/faded_list.dart';
+import 'package:dropweb/views/meowzic/phase.dart';
+import 'package:dropweb/views/meowzic/spotify/account_sheet.dart';
+import 'package:dropweb/views/meowzic/spotify/cover_tile.dart';
+import 'package:dropweb/views/meowzic/spotify/detail_page.dart';
+import 'package:dropweb/views/meowzic/spotify/gql.dart';
+import 'package:dropweb/views/meowzic/spotify/library.dart';
+import 'package:dropweb/views/meowzic/spotify/login_webview.dart';
+import 'package:dropweb/views/meowzic/spotify/session.dart';
+import 'package:dropweb/views/meowzic/track_row.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
+
+/// The height of the controls that sit directly under the tab bar.
+///
+/// [GlassTabBar] is 48, and the search box under it was not — `isDense` left it
+/// visibly shorter, so the two never read as the same row of chrome. Anything
+/// that lands in that slot uses this.
+const _chromeHeight = 48.0;
+
+/// The gap under that slot, before the content starts.
+///
+/// One value for both tabs. They had 16 and 8, which is why moving between
+/// Поиск and Библиотека looked like the whole screen shifted.
+const _chromeGap = 12.0;
 
 /// The meowzic screen: search and library behind tabs at the top.
 ///
@@ -24,9 +45,11 @@ import 'package:hugeicons/hugeicons.dart';
 /// flat black and reads as a different app the moment you arrive from the
 /// dashboard.
 ///
-/// Search is served by the bridge; the library stays empty until a Spotify
-/// adapter fills it. The empty states are the product's real ones, not
-/// scaffolding, so they survive that arrival.
+/// Search is served by the bridge; the library tab is where Spotify is linked
+/// and unlinked. Linking is the whole of it today — the account is proved and
+/// named, and nothing is browsed yet — so the tab still spends most of its
+/// life as an empty state. Those states are the product's real ones, not
+/// scaffolding.
 class MeowzicPage extends StatefulWidget {
   const MeowzicPage({super.key});
 
@@ -53,28 +76,9 @@ class _MeowzicPageState extends State<MeowzicPage>
   @override
   Widget build(BuildContext context) => CommonScaffold(
         title: 'meowzic',
-        actions: [
-          // Dimmed and unpressable on purpose — not a stub waiting to be
-          // wired. There are no meowzic settings yet, and a gear that opens
-          // nothing is worse than one that plainly reads as not ready. It is
-          // drawn now so the slot is settled and the header does not
-          // rearrange itself the day settings arrive; the strip on the
-          // dashboard makes the same call with its skip arrows when there is
-          // nowhere to skip to.
-          //
-          // A [HugeIcon] rather than an SVG: the project carries no .svg
-          // assets and no flutter_svg, and every glyph in the app comes from
-          // this set. Pulling in a renderer for one gear would put this
-          // header on a different footing from every other one.
-          IconButton(
-            onPressed: null,
-            icon: HugeIcon(
-              icon: HugeIcons.strokeRoundedSettings02,
-              size: 24,
-              color: context.colorScheme.onSurface.opacity38,
-            ),
-          ),
-          const SizedBox(width: 8),
+        actions: const [
+          _MeowzicSettingsButton(),
+          SizedBox(width: 8),
         ],
         body: Column(
           children: [
@@ -100,9 +104,9 @@ class _MeowzicPageState extends State<MeowzicPage>
               // on. Do not "fix" this back to an IndexedStack.
               child: TabBarView(
                 controller: _tabController,
-                children: [
-                  const _SearchTab(),
-                  NullStatus(label: appLocalizations.meowzicLibraryEmpty),
+                children: const [
+                  _SearchTab(),
+                  _LibraryTab(),
                 ],
               ),
             ),
@@ -111,15 +115,41 @@ class _MeowzicPageState extends State<MeowzicPage>
       );
 }
 
-/// How deep the results dissolve into the background at the bottom edge.
-const _listFade = 40.0;
-
-/// Bottom padding of the results list.
+/// The header's gear — meowzic's settings, which today are the linked account.
 ///
-/// Deliberately clear of [_listFade] on both counts: the final card has to
-/// come to rest above the fade rather than inside it, and it should not be
-/// crowded against the gesture bar once it gets there.
-const _listBottomPadding = 56.0;
+/// It used to be dimmed and unpressable, with a note saying a gear that opens
+/// nothing is worse than one that plainly reads as not ready. That note is now
+/// obsolete: there IS something behind it. The account moved here out of the
+/// Library tab, where it sat above the covers repeating a fact that is read
+/// once — settings is where a thing you change twice a year belongs.
+///
+/// Still dimmed while signed out, and for the original reason rather than as a
+/// leftover: with no account linked the sheet would have nothing in it, and the
+/// Library tab is already carrying the sign-in prompt.
+///
+/// A [HugeIcon] rather than an SVG: the project carries no .svg assets and no
+/// flutter_svg, and every glyph in the app comes from this set. Pulling in a
+/// renderer for one gear would put this header on a different footing from
+/// every other one.
+class _MeowzicSettingsButton extends ConsumerWidget {
+  const _MeowzicSettingsButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final signedIn =
+        ref.watch(spotifyAuthProvider).phase == SpotifyPhase.signedIn;
+    return IconButton(
+      onPressed: signedIn ? () => showSpotifyAccount(context) : null,
+      icon: HugeIcon(
+        icon: HugeIcons.strokeRoundedSettings02,
+        size: 24,
+        color: signedIn
+            ? context.colorScheme.onSurface
+            : context.colorScheme.onSurface.opacity38,
+      ),
+    );
+  }
+}
 
 class _SearchTab extends ConsumerStatefulWidget {
   const _SearchTab();
@@ -176,56 +206,28 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
               ),
       );
 
-  /// The results, dissolved where they meet the bottom of the viewport.
-  ///
-  /// A bare [ListView] guillotines whichever row the bottom edge lands on. On
-  /// a flat list that reads as scrolling; on these cards it reads as a
-  /// rendering fault, because a squircle carrying cover art suddenly ends in a
-  /// straight line with the gesture pill sitting on top of it.
-  ///
-  /// Masked, not scrimmed. The mesh behind the list is a live gradient, so a
-  /// fade painted down to [Lumina.void_] would sit on it as a dark band;
-  /// taking the alpha down instead lets the mesh through untouched. That is
-  /// the same call [MeowzicArtWash] makes horizontally, for the same reason.
-  ///
-  /// [_listFade] is a count of logical pixels turned into a stop against the
-  /// measured viewport, so the fade stays the same physical depth on a tall
-  /// phone and a short one. [_listBottomPadding] is deliberately larger: at
-  /// full scroll the fade has to be lying on empty padding, or the last card
-  /// would come to rest half transparent — which would be a worse bug than
-  /// the one this fixes.
+  /// The results, dissolved where they meet the bottom of the viewport by the
+  /// shared [MeowzicFade] — which is where the reasoning for that fade now
+  /// lives, because the container screen needs the identical treatment and had
+  /// a pasted copy of it.
   Widget _buildList(List<MeowzicTrack> results, String? playingId) =>
-      LayoutBuilder(
-        builder: (context, constraints) {
-          // A viewport too short to hold the fade and something to read would
-          // be all fade; leave those alone rather than dim the whole list.
-          final fade = constraints.maxHeight <= _listFade * 3
-              ? 0.0
-              : _listFade / constraints.maxHeight;
-          return ShaderMask(
-            blendMode: BlendMode.dstIn,
-            shaderCallback: (rect) => LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: const [
-                Colors.white,
-                Colors.white,
-                Colors.transparent,
-              ],
-              stops: [0.0, 1 - fade, 1.0],
-            ).createShader(rect),
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, _listBottomPadding),
-              itemCount: results.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (_, index) => _TrackRow(
-                track: results[index],
-                isPlaying: results[index].id == playingId,
-                onPressed: () => _play(index),
-              ),
-            ),
-          );
-        },
+      MeowzicFade(
+        child: ListView.separated(
+          padding: meowzicListPadding,
+          itemCount: results.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (_, index) => MeowzicTrackRow(
+            title: results[index].title,
+            subtitle: results[index].author,
+            image: results[index].thumbnail,
+            isSelected: results[index].id == playingId,
+            onPressed: () => _play(index),
+            // The row ends in an IconButton, which reserves its own tap
+            // padding — see [MeowzicTrackRow.trailingPadsItself].
+            trailingPadsItself: true,
+            trailing: MeowzicTrackMenu(onListen: () => _play(index)),
+          ),
+        ),
       );
 
   Widget _buildBody(MeowzicSearchState search) => switch (search.phase) {
@@ -246,7 +248,11 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          // Top zero: the gap under the tab bar is the one the parent already
+          // sets for both tabs. Adding another 8 here is what made arriving at
+          // Поиск and arriving at Библиотека look different — one sat 16 below
+          // the bar, the other 8.
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, _chromeGap),
           child: TextField(
             controller: _controller,
             textInputAction: TextInputAction.search,
@@ -269,7 +275,16 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
                 icon: HugeIcons.strokeRoundedSearch01,
                 size: 20,
               ),
+              // Pinned to the tab bar's own height instead of `isDense`, which
+              // is what left this box visibly shorter than the bar it sits
+              // under. The padding does the centring; the constraint does the
+              // height.
               isDense: true,
+              constraints: const BoxConstraints(
+                minHeight: _chromeHeight,
+                maxHeight: _chromeHeight,
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(Lumina.radiusLg),
               ),
@@ -282,121 +297,291 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
   }
 }
 
-class _TrackRow extends StatelessWidget {
-  const _TrackRow({
-    required this.track,
-    required this.isPlaying,
-    required this.onPressed,
-  });
+/// The library tab: link a Spotify account, then browse what it holds.
+///
+/// Browsing only. Tiles are not pressable and there is no menu on them — the
+/// screens they would open do not exist yet, and a tile that swallows a tap is
+/// worse than one that plainly does not take them. They become pressable when
+/// there is somewhere to go.
+class _LibraryTab extends ConsumerWidget {
+  const _LibraryTab();
 
-  final MeowzicTrack track;
+  /// Opens Spotify's own login page and hands what it yields to the notifier.
+  ///
+  /// The webview is opened here rather than by the notifier because it needs a
+  /// `BuildContext`, which is the screen's to hold — the same division the
+  /// search tab already keeps when it shows a failure the notifier decided.
+  Future<void> _signIn(BuildContext context, WidgetRef ref) async {
+    final cookies = await showSpotifyLogin(context);
+    // Null means the back button. Nothing is reported and nothing changes:
+    // backing out of a login is not a failed login.
+    if (cookies == null) return;
+    await ref.read(spotifyAuthProvider.notifier).signIn(cookies);
+  }
 
-  /// Whether this is the row the handler currently has loaded. Marked with the
-  /// card's own selected border and a tinted title rather than a new treatment
-  /// invented for this list.
-  final bool isPlaying;
-  final VoidCallback onPressed;
+  String _failureLabel(SpotifyAuthFailure failure) => switch (failure) {
+        SpotifyAuthFailure.unreachable =>
+          appLocalizations.meowzicSpotifyUnreachable,
+        SpotifyAuthFailure.cookieExpired =>
+          appLocalizations.meowzicSpotifyCookieExpired,
+        SpotifyAuthFailure.anonymous =>
+          appLocalizations.meowzicSpotifyAnonymous,
+        SpotifyAuthFailure.upstream => appLocalizations.meowzicSpotifyUpstream,
+      };
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        height: getWidgetHeight(1),
-        child: CommonCard(
-          radius: Lumina.radiusLg,
-          isSelected: isPlaying,
-          onPressed: onPressed,
-          // No ClipRRect here and none is needed — CommonCard is an
-          // `OutlinedButton` with `clipBehavior: Clip.antiAlias` and a
-          // `RoundedSuperellipseBorder` (lib/widgets/card.dart), so the wash is
-          // already clipped to the card's squircle. Adding a clip of our own
-          // would only cost a second saveLayer and round the art to the wrong
-          // curve.
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (track.thumbnail case final uri?) MeowzicArtWash(uri: uri),
-              // 8 on the right, matching the dashboard strip: the row ends in
-              // an IconButton, and its own tap padding around the glyph is
-              // what carries the rest of the way to an optical 16.
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            track.title,
-                            style: context.textTheme.titleSmall?.copyWith(
-                              color: isPlaying
-                                  ? context.colorScheme.primary
-                                  : context.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (track.author.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              track.author,
-                              style: context.textTheme.bodySmall?.copyWith(
-                                color: context.colorScheme.onSurfaceVariant,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _TrackMenu(onListen: onPressed),
-                  ],
-                ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(spotifyAuthProvider);
+    // The signed-in branch is pulled out of the centred column rather than
+    // added to it: a grid has to own the full height of the tab, and a [Center]
+    // above it would shrink-wrap the whole library into the middle of the
+    // screen. Everything else here is one sentence and a button, which is
+    // exactly what a Center is for.
+    if (auth.phase == SpotifyPhase.signedIn) return const _SpotifyLibraryView();
+    return Padding(
+      // Matching the results list, so the two tabs do not shift their content
+      // sideways as you swipe between them.
+      padding: meowzicListPadding,
+      child: Center(
+        child: switch (auth.phase) {
+          SpotifyPhase.working => const CircularProgressIndicator(),
+          SpotifyPhase.failed => _SpotifyPrompt(
+              label: _failureLabel(
+                auth.failure ?? SpotifyAuthFailure.upstream,
               ),
-            ],
+              action: appLocalizations.meowzicSpotifyRetry,
+              onPressed: () => _signIn(context, ref),
+            ),
+          // Unreachable — handled above — but named rather than defaulted, so
+          // the day a fifth phase is added the compiler asks about it here.
+          SpotifyPhase.signedIn => const SizedBox.shrink(),
+          SpotifyPhase.signedOut => _SpotifyPrompt(
+              label: appLocalizations.meowzicLibraryEmpty,
+              action: appLocalizations.meowzicSpotifySignIn,
+              onPressed: () => _signIn(context, ref),
+            ),
+        },
+      ),
+    );
+  }
+}
+
+/// The three filters and the grid under them.
+///
+/// The account row that used to sit on top has moved behind the header's gear:
+/// "kinvsh — отвязать" is a setting, and it was occupying the first band of a
+/// screen whose subject is covers. Nothing here replaced it, deliberately —
+/// the tab is the library now.
+///
+/// Stateful only to kick the first fetch. The notifier cannot start it from its
+/// own `build` — that runs while the widget tree is building, and assigning
+/// state there throws — so the tab asks once on mount and the notifier ignores
+/// every later ask. Nothing else here is held: the filter, the items and the
+/// paging all live in `spotifyLibraryProvider`, which is why swiping to search
+/// and back does not refetch.
+class _SpotifyLibraryView extends ConsumerStatefulWidget {
+  const _SpotifyLibraryView();
+
+  @override
+  ConsumerState<_SpotifyLibraryView> createState() =>
+      _SpotifyLibraryViewState();
+}
+
+class _SpotifyLibraryViewState extends ConsumerState<_SpotifyLibraryView> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      ref
+          .read(
+            spotifyLibraryProvider(ref.read(spotifyLibrarySelectionProvider))
+                .notifier,
+          )
+          .ensureLoaded(),
+    );
+  }
+
+  /// Switches the grid to [filter] and makes sure that filter has something in
+  /// it.
+  ///
+  /// Two calls rather than one because they answer two different questions:
+  /// which chip is lit, and whether that filter has ever been fetched. The
+  /// second is a no-op for a filter that is already loaded, which is what makes
+  /// going back to Playlists after a look at Albums instant instead of another
+  /// trip through the tunnel — the defect this pass exists to close.
+  ///
+  /// A filter that previously failed is the exception: there the tap is the
+  /// only retry the screen offers, so it reloads rather than sitting on the
+  /// failure.
+  void _select(SpotifyLibraryFilter filter) {
+    ref.read(spotifyLibrarySelectionProvider.notifier).select(filter);
+    final notifier = ref.read(spotifyLibraryProvider(filter).notifier);
+    unawaited(
+      ref.read(spotifyLibraryProvider(filter)).phase ==
+              MeowzicPhase.failed
+          ? notifier.reload()
+          : notifier.ensureLoaded(),
+    );
+  }
+
+  /// Asks for the next page as the grid comes to rest near its end.
+  ///
+  /// Hung off the scroll notification rather than off "the last tile was
+  /// built", which is the other common way to do this and is wrong here: an
+  /// item builder runs during layout, and starting a fetch from there mutates
+  /// provider state in the middle of a frame. [ScrollEndNotification] arrives
+  /// between frames, and waiting for the scroll to settle also means a fast
+  /// flick through a long library fires one request instead of several.
+  bool _onScrollEnd(ScrollEndNotification notification) {
+    if (notification.metrics.extentAfter < meowzicLoadMoreThreshold) {
+      final filter = ref.read(spotifyLibrarySelectionProvider);
+      unawaited(ref.read(spotifyLibraryProvider(filter).notifier).loadMore());
+    }
+    return false;
+  }
+
+  Widget _buildGrid(SpotifyLibraryState library) =>
+      NotificationListener<ScrollEndNotification>(
+        onNotification: _onScrollEnd,
+        // Faded at the bottom like the two track lists are. A grid of squircles
+        // guillotined on a straight line reads as the same rendering fault a
+        // guillotined card does, and this used to be the one meowzic scrollable
+        // that did not get the treatment — because the treatment was written
+        // twice inline and neither copy was reachable from here.
+        child: MeowzicFade(
+          child: GridView.builder(
+            padding: meowzicListPadding,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              // Taller than square: the tile is a square cover with two lines
+              // under it, and a ratio that only budgets for the cover pushes
+              // the second line out of the card on the first long title.
+              childAspectRatio: 0.72,
+            ),
+            itemCount: library.items.length,
+            itemBuilder: (context, index) {
+              final item = library.items[index];
+              return SpotifyCoverTile(
+                item: item,
+                // Pushed from here rather than from inside the tile, because
+                // opening a route needs the `BuildContext` of something that
+                // is still mounted after the push — the same reason the
+                // sign-in webview is opened by the tab and not by the notifier.
+                onPressed: () => unawaited(
+                  BaseNavigator.push<void>(
+                    context,
+                    SpotifyDetailPage(item: item),
+                  ),
+                ),
+              );
+            },
           ),
+        ),
+      );
+
+  Widget _buildBody(SpotifyLibraryState library) => switch (library.phase) {
+        MeowzicPhase.idle ||
+        MeowzicPhase.loading =>
+          const Center(child: CircularProgressIndicator()),
+        MeowzicPhase.failed => NullStatus(
+            label: spotifyGqlFailureLabel(
+              library.failure ?? SpotifyGqlFailure.upstream,
+            ),
+          ),
+        MeowzicPhase.done when library.items.isEmpty =>
+          NullStatus(label: appLocalizations.meowzicLibraryNothing),
+        MeowzicPhase.done => _buildGrid(library),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final filter = ref.watch(spotifyLibrarySelectionProvider);
+    // Watched through the selection, so the grid and the chips read the same
+    // answer to "which filter" and cannot drift apart into a highlighted
+    // Albums chip over a list of playlists.
+    final library = ref.watch(spotifyLibraryProvider(filter));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _LibraryFilters(selected: filter, onSelected: _select),
+        Expanded(child: _buildBody(library)),
+      ],
+    );
+  }
+}
+
+/// The three filters, as chips.
+///
+/// The chosen one is drawn with an accent border — [CommonChip.isSelected] —
+/// and that is the whole of it. It used to be marked with a tick in the avatar
+/// slot, because the atom had no selected state and the slot was there; the
+/// tick was the only one in the app and read as borrowed from somewhere else.
+/// Giving the atom the state it was missing was the smaller fix, and it keeps
+/// the chips the same width whether chosen or not, so the row does not reflow
+/// under the thumb.
+class _LibraryFilters extends StatelessWidget {
+  const _LibraryFilters({required this.selected, required this.onSelected});
+
+  final SpotifyLibraryFilter selected;
+  final void Function(SpotifyLibraryFilter) onSelected;
+
+  String _label(SpotifyLibraryFilter filter) => switch (filter) {
+        SpotifyLibraryFilter.playlists =>
+          appLocalizations.meowzicLibraryPlaylists,
+        SpotifyLibraryFilter.albums => appLocalizations.meowzicLibraryAlbums,
+        SpotifyLibraryFilter.artists => appLocalizations.meowzicLibraryArtists,
+      };
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        // The same gap the search box leaves, from the same constant, so the
+        // content does not start at a different height depending on which tab
+        // you are on.
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, _chromeGap),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final filter in SpotifyLibraryFilter.values)
+              CommonChip(
+                label: _label(filter),
+                // The house corner. Material's chip default is 8, which reads
+                // as a different app directly under a tab bar drawn at 26.
+                radius: Lumina.radiusLg,
+                isSelected: filter == selected,
+                onPressed: () => onSelected(filter),
+              ),
+          ],
         ),
       );
 }
 
-/// The row's overflow menu — the same [CommonPopupBox] the profile cards use,
-/// down to the glyph, so a long-press-shaped habit learned on one screen keeps
-/// working on the other.
+/// An explanation with one thing to do about it.
 ///
-/// It stands where the running time used to. The time was read-only trivia on
-/// a row you can already only do one thing with; the corner is worth more as
-/// the way into the things a track is attached to.
-///
-/// Only "listen" is offered today, and that is the honest whole of it: artist
-/// and playlist entries belong here, and they land when there are screens to
-/// send them to — the library tab is still waiting on Spotify. An item that
-/// opened nothing would be worse than a short menu. The duplication with the
-/// row tap is deliberate: a menu that can be opened has to be able to do
-/// something, and this is the one thing that works.
-class _TrackMenu extends StatelessWidget {
-  const _TrackMenu({required this.onListen});
+/// [NullStatus] carries the sentence and nothing else, which is right for the
+/// search tab — there is nothing to press there — and wrong here, where the
+/// sentence exists to be answered. Its typography is reused rather than
+/// re-invented so the two tabs read as one screen.
+class _SpotifyPrompt extends StatelessWidget {
+  const _SpotifyPrompt({
+    required this.label,
+    required this.action,
+    required this.onPressed,
+  });
 
-  final VoidCallback onListen;
+  final String label;
+  final String action;
+  final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => CommonPopupBox(
-        popup: CommonPopupMenu(
-          items: [
-            PopupMenuItemData(
-              label: appLocalizations.listen,
-              onPressed: onListen,
-            ),
-          ],
-        ),
-        targetBuilder: (open) => IconButton(
-          onPressed: open,
-          icon: const HugeIcon(
-            icon: HugeIcons.strokeRoundedMoreVertical,
-            size: 24,
-          ),
-        ),
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          NullStatus(label: label),
+          const SizedBox(height: 24),
+          FilledButton(onPressed: onPressed, child: Text(action)),
+        ],
       );
 }

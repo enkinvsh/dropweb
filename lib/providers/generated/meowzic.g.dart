@@ -6,7 +6,7 @@ part of '../meowzic.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$meowzicSearchHash() => r'c235bc586e44945b466e3960921a49dd1157d67d';
+String _$meowzicSearchHash() => r'd85120b29b764520b3f1aca1a4343c31cc0d098b';
 
 /// The search and the queue behind it, held above the route.
 ///

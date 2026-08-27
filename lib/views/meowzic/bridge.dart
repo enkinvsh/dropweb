@@ -75,16 +75,22 @@ const _searchTimeout = Duration(seconds: 30);
 ///
 /// The token rides in a header, so the request URI holds no secret and is
 /// safe to log or surface in an error.
+///
+/// [isrc] narrows the lookup to one exact recording when the caller knows it —
+/// which the Spotify library does and the search box never will. Additive on
+/// purpose: with it absent this is byte-for-byte the request the search tab has
+/// always sent.
 Future<List<MeowzicTrack>> searchMeowzic(
   MeowzicBridge bridge,
   String query, {
   http.Client? client,
+  String? isrc,
 }) async {
   final borrowed = client != null;
   final transport = client ?? http.Client();
   try {
     final response = await transport
-        .get(bridge.searchUri(query), headers: bridge.headers)
+        .get(bridge.searchUri(query, isrc: isrc), headers: bridge.headers)
         .timeout(_searchTimeout);
 
     if (response.statusCode == HttpStatus.forbidden) {

@@ -4309,6 +4309,231 @@ class AppLocalizations {
       args: [],
     );
   }
+
+  /// `Spotify`
+  String get meowzicSpotifyTitle {
+    return Intl.message(
+      'Spotify',
+      name: 'meowzicSpotifyTitle',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Link Spotify`
+  String get meowzicSpotifySignIn {
+    return Intl.message(
+      'Link Spotify',
+      name: 'meowzicSpotifySignIn',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Unlink`
+  String get meowzicSpotifySignOut {
+    return Intl.message(
+      'Unlink',
+      name: 'meowzicSpotifySignOut',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Spotify linked`
+  String get meowzicSpotifyConnected {
+    return Intl.message(
+      'Spotify linked',
+      name: 'meowzicSpotifyConnected',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Spotify account`
+  String get meowzicSpotifyAccount {
+    return Intl.message(
+      'Spotify account',
+      name: 'meowzicSpotifyAccount',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Try again`
+  String get meowzicSpotifyRetry {
+    return Intl.message(
+      'Try again',
+      name: 'meowzicSpotifyRetry',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Couldn't reach Spotify. Check the connection and try again`
+  String get meowzicSpotifyUnreachable {
+    return Intl.message(
+      'Couldn\'t reach Spotify. Check the connection and try again',
+      name: 'meowzicSpotifyUnreachable',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The Spotify session has expired. Sign in again`
+  String get meowzicSpotifyCookieExpired {
+    return Intl.message(
+      'The Spotify session has expired. Sign in again',
+      name: 'meowzicSpotifyCookieExpired',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Spotify didn't accept the sign-in. Try again`
+  String get meowzicSpotifyAnonymous {
+    return Intl.message(
+      'Spotify didn\'t accept the sign-in. Try again',
+      name: 'meowzicSpotifyAnonymous',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Spotify answered with something unexpected. Try again`
+  String get meowzicSpotifyUpstream {
+    return Intl.message(
+      'Spotify answered with something unexpected. Try again',
+      name: 'meowzicSpotifyUpstream',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Playlists`
+  String get meowzicLibraryPlaylists {
+    return Intl.message(
+      'Playlists',
+      name: 'meowzicLibraryPlaylists',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Albums`
+  String get meowzicLibraryAlbums {
+    return Intl.message(
+      'Albums',
+      name: 'meowzicLibraryAlbums',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Artists`
+  String get meowzicLibraryArtists {
+    return Intl.message(
+      'Artists',
+      name: 'meowzicLibraryArtists',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Playlist`
+  String get meowzicKindPlaylist {
+    return Intl.message(
+      'Playlist',
+      name: 'meowzicKindPlaylist',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Album`
+  String get meowzicKindAlbum {
+    return Intl.message('Album', name: 'meowzicKindAlbum', desc: '', args: []);
+  }
+
+  /// `Artist`
+  String get meowzicKindArtist {
+    return Intl.message(
+      'Artist',
+      name: 'meowzicKindArtist',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Tracks: {count}`
+  String meowzicLibraryTrackCount(Object count) {
+    return Intl.message(
+      'Tracks: $count',
+      name: 'meowzicLibraryTrackCount',
+      desc: '',
+      args: [count],
+    );
+  }
+
+  /// `Nothing saved here yet`
+  String get meowzicLibraryNothing {
+    return Intl.message(
+      'Nothing saved here yet',
+      name: 'meowzicLibraryNothing',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The Spotify session ended. Link the account again`
+  String get meowzicLibrarySignedOut {
+    return Intl.message(
+      'The Spotify session ended. Link the account again',
+      name: 'meowzicLibrarySignedOut',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Spotify refused the request. Link the account again`
+  String get meowzicLibraryRejected {
+    return Intl.message(
+      'Spotify refused the request. Link the account again',
+      name: 'meowzicLibraryRejected',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `No tracks here`
+  String get meowzicContainerEmpty {
+    return Intl.message(
+      'No tracks here',
+      name: 'meowzicContainerEmpty',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Couldn't find this track. Try another one`
+  String get meowzicTrackNotFound {
+    return Intl.message(
+      'Couldn\'t find this track. Try another one',
+      name: 'meowzicTrackNotFound',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Releases`
+  String get meowzicArtistReleases {
+    return Intl.message(
+      'Releases',
+      name: 'meowzicArtistReleases',
+      desc: '',
+      args: [],
+    );
+  }
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<AppLocalizations> {

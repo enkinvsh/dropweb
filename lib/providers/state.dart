@@ -637,13 +637,48 @@ class MeowzicBridge {
   /// clamped back to it, silently.
   static const searchLimit = 20;
 
-  Uri searchUri(String query) => baseUrl.replace(
+  /// A search, optionally pinned to a recording rather than to a title.
+  ///
+  /// [isrc] is the recording's own global identifier, and YouTube Music indexes
+  /// it — the bridge hands it to `_ytmusic_search_blocking` and only falls back
+  /// to the text query when nothing matches. That fallback is why this stays
+  /// optional and additive: the search tab has no ISRC to give and must keep
+  /// behaving exactly as it did.
+  ///
+  /// Passing it matters more than it looks. A text query for a well-known song
+  /// lands on live takes, covers and reuploads roughly as often as on the
+  /// record — the ISRC lands on the record. The token stays in a header, as
+  /// ever, so this URI carries no secret.
+  Uri searchUri(String query, {String? isrc}) => baseUrl.replace(
         path: '${baseUrl.path}/s',
-        queryParameters: {'q': query, 'n': '$searchLimit'},
+        queryParameters: {
+          'q': query,
+          'n': '$searchLimit',
+          if (isrc != null && isrc.isNotEmpty) 'isrc': isrc,
+        },
       );
 
   Uri audioUri(String videoId) =>
       baseUrl.replace(path: '${baseUrl.path}/a/$videoId');
+
+  /// Where the bridge mirrors the TOTP nuance Spotify's web player is signed
+  /// with.
+  ///
+  /// Mirrored rather than read straight from the public gist because the gist
+  /// is a third party's file on GitHub: it is reachable only when GitHub is,
+  /// its cache is not ours to bust, and whoever maintains it can stop at any
+  /// time. The bridge is already the thing this feature cannot work without,
+  /// so making it the first stop adds no new dependency.
+  ///
+  /// [fresh] asks the bridge to go back to source instead of answering from
+  /// its own cache. Spent only after a token request has already been refused
+  /// — the assumption being that the nuance we hold has been rotated out from
+  /// under us — never speculatively, which would turn every sign-in into two
+  /// round trips.
+  Uri nuanceUri({bool fresh = false}) => baseUrl.replace(
+        path: '${baseUrl.path}/nuance',
+        queryParameters: fresh ? const {'fresh': '1'} : null,
+      );
 
   /// The credential, as a request header — never a query parameter.
   ///
