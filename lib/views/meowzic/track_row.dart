@@ -143,16 +143,25 @@ class MeowzicTrackRow extends StatelessWidget {
 /// read-only trivia on a row you can already only do one thing with; the corner
 /// is worth more as the way into the things a track is attached to.
 ///
-/// Only "listen" is offered today, and that is the honest whole of it: artist
-/// and playlist entries belong here, and they land when a track knows which
-/// artist and playlist it came from. An item that opened nothing would be worse
-/// than a short menu. The duplication with the row tap is deliberate: a menu
-/// that can be opened has to be able to do something, and this is the one thing
-/// that works.
+/// "Listen" is always offered; radio only where a track has a Spotify identity
+/// to seed it with. Artist and playlist entries belong here too, and they land
+/// when a track knows which artist and playlist it came from. An item that
+/// opened nothing would be worse than a short menu. The duplication between
+/// "listen" and the row tap is deliberate: a menu that can be opened has to be
+/// able to do something, and that is the one thing that always works.
 class MeowzicTrackMenu extends StatelessWidget {
-  const MeowzicTrackMenu({super.key, required this.onListen});
+  const MeowzicTrackMenu({super.key, required this.onListen, this.onRadio});
 
   final VoidCallback onListen;
+
+  /// Starts a radio mix seeded from this track, where there is one to start.
+  ///
+  /// Null on the search tab, whose rows come straight from the bridge and have
+  /// no Spotify uri to seed with — and null means the entry is not drawn at
+  /// all, rather than drawn greyed out. A disabled row in a two-item menu is a
+  /// promise the app cannot keep for those tracks in any state, which is the
+  /// same reasoning that keeps the heart off them in the mini player.
+  final VoidCallback? onRadio;
 
   @override
   Widget build(BuildContext context) => CommonPopupBox(
@@ -162,6 +171,11 @@ class MeowzicTrackMenu extends StatelessWidget {
               label: appLocalizations.listen,
               onPressed: onListen,
             ),
+            if (onRadio case final radio?)
+              PopupMenuItemData(
+                label: appLocalizations.meowzicTrackRadio,
+                onPressed: radio,
+              ),
           ],
         ),
         targetBuilder: (open) => IconButton(

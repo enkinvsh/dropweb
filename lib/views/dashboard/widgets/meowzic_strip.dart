@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/navigator.dart';
@@ -134,6 +136,7 @@ class _GhostControl extends StatelessWidget {
     this.size = 22,
     this.tapSize = 40,
     this.tooltip,
+    this.color,
   });
 
   final List<List<dynamic>> icon;
@@ -141,6 +144,12 @@ class _GhostControl extends StatelessWidget {
   final double size;
   final double tapSize;
   final String? tooltip;
+
+  /// Overrides the glyph colour for a control that carries its state in the
+  /// colour rather than in a second glyph — the heart, which hugeicons only
+  /// ships as an outline. Left null by the transport, which is white when it
+  /// can fire and dim when it cannot.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) => IconButton(
@@ -156,9 +165,10 @@ class _GhostControl extends StatelessWidget {
         icon: HugeIcon(
           icon: icon,
           size: size,
-          color: onPressed == null
-              ? context.colorScheme.onSurface.opacity38
-              : context.colorScheme.onSurface,
+          color: color ??
+              (onPressed == null
+                  ? context.colorScheme.onSurface.opacity38
+                  : context.colorScheme.onSurface),
         ),
       );
 }
@@ -305,11 +315,15 @@ class _Playing extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // A like control (HugeIcons.strokeRoundedFavourite) belongs at the
-            // head of this row, and it lands the day Spotify authentication
-            // does. A like has to be written to the listener's own Spotify
-            // account to mean anything, and there is no account here yet — so
-            // nothing is drawn rather than a heart that lies.
+            // The like control, at the head of the transport cluster, and only
+            // for a track that has a Spotify identity to write against. A like
+            // has to land in the listener's own account to mean anything, so a
+            // track that came from the bridge's text search gets no heart at
+            // all rather than one that lies — and no reserved gap either, which
+            // is why this is an `if` element and not an opacity or a
+            // Visibility.
+            if (item.extras?['spotifyUri'] case final String uri)
+              _LikeControl(uri: uri),
             StreamBuilder<PlaybackState>(
               stream: handler.playbackState,
               builder: (context, snapshot) {
@@ -353,4 +367,95 @@ class _Playing extends StatelessWidget {
           ],
         ),
       );
+}
+
+/// The heart, for a track that has a Spotify identity.
+///
+/// Only ever built with a uri — deciding whether to draw anything belongs to
+/// the caller, so this widget never has to render an apologetic disabled state.
+///
+/// Filled and hollow are the same glyph in two colours, not two glyphs.
+/// hugeicons 1.1.7 ships one set and it is outline-only: `strokeRoundedFavourite`,
+/// `strokeRoundedFavouriteCircle` and `strokeRoundedFavouriteSquare` are all of
+/// it, and none of them is solid. Colour is what is left, and it is enough here
+/// — unlike in the notification shade, where the system draws the icon from a
+/// drawable and two real resources are the only way to say the same thing.
+class _LikeControl extends ConsumerStatefulWidget {
+  const _LikeControl({required this.uri});
+
+  final String uri;
+
+  @override
+  ConsumerState<_LikeControl> createState() => _LikeControlState();
+}
+
+class _LikeControlState extends ConsumerState<_LikeControl> {
+  @override
+  void initState() {
+    super.initState();
+    _ensureKnown();
+  }
+
+  @override
+  void didUpdateWidget(covariant _LikeControl oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The card does not rebuild this widget per track — the same element is
+    // reused with a new uri when playback advances — so the fetch has to be
+    // hung off the change, not off the mount.
+    if (oldWidget.uri != widget.uri) _ensureKnown();
+  }
+
+  /// Asks Spotify about this track, one frame from now.
+  ///
+  /// The delay is the whole point. `initState` and `didUpdateWidget` both run
+  /// inside the build phase, and Riverpod throws when a provider is modified
+  /// from there; this project has already paid for that once, with a screen
+  /// that threw during initialisation and then held a spinner forever. A
+  /// post-frame callback puts the request outside the phase, where a notifier
+  /// may legally publish.
+  ///
+  /// Cheap to call more often than needed: `fetchLikedStatus` only puts uris it
+  /// has no answer for on the wire.
+  void _ensureKnown() {
+    final uri = widget.uri;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        ref.read(spotifyLikesProvider.notifier).fetchLikedStatus([uri]),
+      );
+    });
+  }
+
+  /// Flips the like and says so only when it did not stick.
+  ///
+  /// No spinner and no local pending flag: the notifier flips its map before it
+  /// sends anything and rolls it back if the write fails, so the glyph already
+  /// answers the tap in the same frame. A second copy of that state here would
+  /// be the very thing this provider was written to avoid.
+  Future<void> _toggle() async {
+    final message =
+        await ref.read(spotifyLikesProvider.notifier).toggleLike(widget.uri);
+    if (message == null || !mounted) return;
+    await context.showNotifier(message);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Selected down to this one track: the map holds every uri the session has
+    // looked at, and watching the whole of it would rebuild this heart every
+    // time a listing checked its own.
+    final liked = ref.watch(
+      spotifyLikesProvider.select((likes) => likes[widget.uri] ?? false),
+    );
+    return _GhostControl(
+      icon: HugeIcons.strokeRoundedFavourite,
+      onPressed: () => unawaited(_toggle()),
+      tooltip: liked
+          ? appLocalizations.meowzicUnlike
+          : appLocalizations.meowzicLike,
+      color: liked
+          ? context.colorScheme.primary
+          : context.colorScheme.onSurfaceVariant,
+    );
+  }
 }

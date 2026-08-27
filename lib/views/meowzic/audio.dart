@@ -31,6 +31,38 @@ class MeowzicQueueItem {
   final MediaItem item;
 }
 
+/// The actions the collapsed notification is allowed to draw.
+///
+/// Membership, not position: the control list is assembled conditionally, so
+/// the indices the platform is given have to be looked up in the list that was
+/// actually built. Play and pause are both here because exactly one of them is
+/// ever in the list.
+const Set<MediaAction> _compactActions = {
+  MediaAction.skipToPrevious,
+  MediaAction.play,
+  MediaAction.pause,
+  MediaAction.skipToNext,
+};
+
+/// The custom action name the notification's heart fires.
+///
+/// Shared between the control that carries it and the handler that answers it,
+/// so the two cannot drift apart on a typo the compiler would not catch.
+const String meowzicToggleLikeAction = 'toggleLike';
+
+/// Whether the track currently loaded is in the listener's Liked Songs.
+///
+/// The same idiom as [meowzicSessionListenable] and for the same reason: the
+/// handler is built by `AudioService.init` and holds no `Ref`, so the Riverpod
+/// layer pushes the answer down here rather than the handler reaching up for
+/// it. `MeowzicManager` keeps it in sync with `spotifyLikesProvider`; the
+/// handler listens and republishes its state so the shade redraws the glyph.
+///
+/// False while nothing is loaded, while the track has no Spotify identity, and
+/// while the status is simply not known yet — an unknown heart is a hollow
+/// heart, exactly as it is in the mini player.
+final ValueNotifier<bool> meowzicLikedListenable = ValueNotifier(false);
+
 /// Playback for meowzic, fronted by a media notification.
 ///
 /// Deliberately NOT started at app launch: [meowzicAudio] builds the service on
@@ -39,7 +71,17 @@ class MeowzicQueueItem {
 /// this one is typed mediaPlayback and carries no runtime cap.
 class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
   MeowzicAudioHandler() {
-    _player.playbackEventStream.map(_toState).pipe(playbackState);
+    // Listened rather than piped, because a pipe is an `addStream` and rxdart
+    // refuses `add` while one is running ("You cannot add items while items are
+    // being added from addStream", rxdart Subject.add). The like state has to
+    // republish this outside the player's own events — see [_republishState] —
+    // so the stream is forwarded by hand. Errors are forwarded exactly as the
+    // pipe forwarded them; only the close-on-done is dropped, and this player
+    // is never disposed.
+    _player.playbackEventStream.listen(
+      (event) => playbackState.add(_toState(event)),
+      onError: playbackState.addError,
+    );
     // Following the player rather than announcing the next track ourselves is
     // what keeps the notification and the dashboard strip honest when a track
     // ends on its own: the advance happens inside ExoPlayer and nothing here
@@ -53,6 +95,10 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
     // "simplify" this back into `currentIndexStream`: that is the bug, not the
     // shorter spelling of it.
     _player.sequenceStateStream.listen(_handleSequence);
+    // The shade's heart is a native drawable, so nothing about it can change
+    // until this handler publishes a new PlaybackState. Nothing in the player
+    // moves when a like is written, so the listenable is what moves it.
+    meowzicLikedListenable.addListener(_republishState);
   }
 
   final AudioPlayer _player = AudioPlayer(
@@ -149,6 +195,16 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
   /// Wired alongside [onTunnelRequested] so this handler carries no
   /// localization of its own and each stall can name itself.
   String Function(MeowzicStall stall)? stallReason;
+
+  /// Asks whoever owns the Spotify account to flip the like on that track uri.
+  ///
+  /// Wired by `MeowzicManager` for the same reason [onTunnelRequested] is: this
+  /// handler is built by `AudioService.init`, which leaves no room to hand it a
+  /// `Ref`, and reaching for a provider from here would put account state
+  /// inside the media service. The answer is deliberately not carried back —
+  /// the notifier rolls its own optimistic flip back on failure, and the shade
+  /// has nowhere to show a sentence anyway.
+  Future<void> Function(String uri)? onLikeRequested;
 
   Duration get position => _player.position;
 
@@ -473,21 +529,80 @@ class MeowzicAudioHandler extends BaseAudioHandler with SeekHandler {
     await super.stop();
   }
 
+  /// The Spotify identity of the loaded track, or null when it has none.
+  ///
+  /// Tracks found through the bridge's own text search have no counterpart in
+  /// Spotify, so there is nothing a like could be written against. They get no
+  /// heart at all rather than one that cannot do anything.
+  String? get _likeableUri {
+    final uri = _current?.extras?['spotifyUri'];
+    return uri is String ? uri : null;
+  }
+
+  /// Publishes the current state again without waiting for the player to move.
+  ///
+  /// The only reason this exists: a like is written outside the player, and the
+  /// shade cannot notice it until a new [PlaybackState] carries a new icon.
+  void _republishState() {
+    if (playbackState.isClosed) return;
+    playbackState.add(_toState(_player.playbackEvent));
+  }
+
+  @override
+  Future<dynamic> customAction(
+    String name, [
+    Map<String, dynamic>? extras,
+  ]) async {
+    if (name != meowzicToggleLikeAction) {
+      return super.customAction(name, extras);
+    }
+    // Read from the queue rather than from the control that was pressed: the
+    // shade may be showing a notification built a track ago.
+    final uri = _likeableUri;
+    if (uri == null) return null;
+    await onLikeRequested?.call(uri);
+    return null;
+  }
+
   PlaybackState _toState(PlaybackEvent event) {
     // A single result played on its own has nowhere to skip to, and a dead
     // button in the shade is worse than an absent one.
     final queued = _queue.length > 1;
+    final likeable = _likeableUri != null;
+    final liked = meowzicLikedListenable.value;
+    final controls = <MediaControl>[
+      if (queued) MediaControl.skipToPrevious,
+      if (_player.playing) MediaControl.pause else MediaControl.play,
+      if (queued) MediaControl.skipToNext,
+      MediaControl.stop,
+      // Last, because the expanded shade lays them out in order and the
+      // transport belongs on the left. Absent entirely for a track with no
+      // Spotify identity — same honesty as the mini player's.
+      if (likeable)
+        MediaControl.custom(
+          androidIcon:
+              liked ? 'drawable/ic_heart_filled' : 'drawable/ic_heart',
+          label: liked
+              ? appLocalizations.meowzicUnlike
+              : appLocalizations.meowzicLike,
+          name: meowzicToggleLikeAction,
+        ),
+    ];
     return PlaybackState(
-      controls: [
-        if (queued) MediaControl.skipToPrevious,
-        if (_player.playing) MediaControl.pause else MediaControl.play,
-        if (queued) MediaControl.skipToNext,
-        MediaControl.stop,
-      ],
+      controls: controls,
       systemActions: const {MediaAction.seek},
       // The collapsed notification draws at most three, and previous/play/next
-      // are the three worth having there; stop stays reachable expanded.
-      androidCompactActionIndices: queued ? const [0, 1, 2] : const [0],
+      // are the three worth having there; stop and the heart stay reachable
+      // expanded.
+      //
+      // Derived from the list actually built and never written as a literal
+      // `[0, 1, 2]`. The skip controls above are conditional, so on a single
+      // track play/pause sits at index 0 and stop at index 1 — fixed numbers
+      // would put stop under the finger that meant pause.
+      androidCompactActionIndices: [
+        for (var i = 0; i < controls.length; i++)
+          if (_compactActions.contains(controls[i].action)) i,
+      ],
       processingState: switch (event.processingState) {
         ProcessingState.idle => AudioProcessingState.idle,
         ProcessingState.loading => AudioProcessingState.loading,

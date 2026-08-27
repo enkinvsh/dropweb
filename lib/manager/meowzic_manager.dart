@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/providers/providers.dart';
@@ -57,6 +58,16 @@ class _MeowzicManagerState extends ConsumerState<MeowzicManager> {
   /// Do not "simplify" it back into a `ref.read`.
   bool _connected = false;
 
+  /// The Spotify uri of the track currently loaded, or null when there is none
+  /// — nothing loaded, or a bridge-search track with no Spotify counterpart.
+  ///
+  /// Held here rather than read from the handler on demand for the same reason
+  /// [_connected] is held: the answer has to be available inside detached
+  /// callbacks, and it is the value this manager's own subscription delivered.
+  String? _likeUri;
+
+  StreamSubscription<MediaItem?>? _mediaItemSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -77,8 +88,17 @@ class _MeowzicManagerState extends ConsumerState<MeowzicManager> {
       },
       fireImmediately: true,
     );
-    meowzicHandlerListenable.addListener(_wireTunnelRequest);
-    _wireTunnelRequest();
+    meowzicHandlerListenable.addListener(_wireHandler);
+    // The notification's heart is drawn from a native drawable and cannot
+    // change colour, so the handler has to be told when the account's answer
+    // moves. Watching the whole map rather than one key: which track is loaded
+    // changes under this listener, and the uri it cares about is read fresh
+    // each time.
+    ref.listenManual(
+      spotifyLikesProvider,
+      (previous, next) => _publishLiked(),
+    );
+    _wireHandler();
   }
 
   /// Acts on the tunnel only once it has stopped moving.
@@ -130,10 +150,18 @@ class _MeowzicManagerState extends ConsumerState<MeowzicManager> {
   ///
   /// Stall labels are wired from the same place so the handler holds no
   /// localization: it decides what broke, the UI layer decides how to say it.
-  void _wireTunnelRequest() {
+  ///
+  /// The like seam is wired here for the same reason and in the same idiom: the
+  /// handler may not hold a `Ref`, so this manager reaches down into it rather
+  /// than the other way round. Which track is loaded arrives on the handler's
+  /// own `mediaItem` stream — the only place an automatic advance is announced,
+  /// so a track the player reached on its own gets its heart looked up too.
+  void _wireHandler() {
     final handler = meowzicHandlerListenable.value;
     if (handler == null) return;
     handler
+      ..onLikeRequested = ((uri) =>
+          ref.read(spotifyLikesProvider.notifier).toggleLike(uri))
       ..onTunnelRequested = (() async {
         if (_connected) return true;
         // Awaited all the way through _startWithTunRecovery -> handleStart, so
@@ -152,11 +180,47 @@ class _MeowzicManagerState extends ConsumerState<MeowzicManager> {
             MeowzicStall.bridgeError =>
               appLocalizations.meowzicBridgeErrorShort,
           });
+    // Guarded rather than assumed to run once: this method is called both from
+    // initState and from every hand-over of the notifier, and two live
+    // subscriptions would ask for the same status twice.
+    unawaited(_mediaItemSubscription?.cancel());
+    _mediaItemSubscription = handler.mediaItem.listen(_handleMediaItem);
+  }
+
+  /// Follows which track the heart is about, and makes sure its status is known.
+  ///
+  /// Runs on a stream event, which is outside the build phase — the only place
+  /// a notifier may legally publish. Asking for the status from a widget's
+  /// `initState` instead is how this project earned a screen that threw and
+  /// then sat on a spinner forever.
+  void _handleMediaItem(MediaItem? item) {
+    final uri = item?.extras?['spotifyUri'];
+    _likeUri = uri is String ? uri : null;
+    // Published before the fetch so a track whose status is already cached
+    // shows the right glyph in the same beat, without a round trip.
+    _publishLiked();
+    final wanted = _likeUri;
+    if (wanted == null) return;
+    unawaited(
+      ref.read(spotifyLikesProvider.notifier).fetchLikedStatus([wanted]),
+    );
+  }
+
+  /// Hands the handler the answer for whatever is loaded right now.
+  ///
+  /// False for a track with no Spotify identity and for one whose status has
+  /// not come back yet: the shade gets the hollow heart, which is what unknown
+  /// looks like everywhere else in this app.
+  void _publishLiked() {
+    final uri = _likeUri;
+    meowzicLikedListenable.value = uri != null &&
+        ref.read(spotifyLikesProvider.notifier).isLiked(uri);
   }
 
   @override
   void dispose() {
-    meowzicHandlerListenable.removeListener(_wireTunnelRequest);
+    meowzicHandlerListenable.removeListener(_wireHandler);
+    unawaited(_mediaItemSubscription?.cancel());
     super.dispose();
   }
 

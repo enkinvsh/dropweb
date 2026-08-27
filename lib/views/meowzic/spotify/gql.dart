@@ -22,8 +22,10 @@ const _spotifyGqlEndpoint =
 /// Comfortably longer than a healthy round trip, short enough that a censored
 /// `api-partner.spotify.com` does not leave the tab spinning. Matched to the
 /// profile call next door rather than to the bridge's thirty seconds: this is
-/// a plain API read, not a cold catalogue lookup.
-const _spotifyGqlTimeout = Duration(seconds: 15);
+/// a plain API read, not a cold catalogue lookup. The same ceiling covers the
+/// `spclient.wg.spotify.com` calls, which are the same kind of read against the
+/// same kind of host.
+const _spotifyTimeout = Duration(seconds: 15);
 
 /// Why an authenticated Spotify query failed, in the terms the screen has to
 /// explain.
@@ -85,24 +87,135 @@ class SpotifyGqlException implements Exception {
 /// Runs one persisted query and returns its `data` block.
 ///
 /// [notifier] rather than a [SpotifySession]: the token has to be re-mintable
-/// mid-call (see below), and only the notifier owns the machinery that can do
-/// that without racing a second one.
+/// mid-call (see [_sendAuthorized]), and only the notifier owns the machinery
+/// that can do that without racing a second one.
+///
+/// [mutation] tightens what counts as an answer, and is off by default because
+/// the read callers depend on it being off — see [_readMutationResult].
 Future<Map<String, dynamic>> spotifyGqlQuery({
   required SpotifyAuth notifier,
   required String operationName,
   required String sha256Hash,
   required Map<String, dynamic> variables,
+  bool mutation = false,
+  http.Client? client,
+}) async {
+  final decoded = await _sendAuthorized(
+    notifier: notifier,
+    operation: 'gql $operationName',
+    uri: Uri.parse(_spotifyGqlEndpoint),
+    body: jsonEncode({
+      'variables': variables,
+      'operationName': operationName,
+      'extensions': {
+        'persistedQuery': {'version': 1, 'sha256Hash': sha256Hash},
+      },
+    }),
+    client: client,
+  );
+
+  final envelope =
+      decoded is Map<String, dynamic> ? decoded : const <String, dynamic>{};
+  final data = envelope['data'];
+  if (data is! Map<String, dynamic>) {
+    // GraphQL answers 200 with `errors` and no `data` for a rotated hash,
+    // which is the single most likely way this breaks — so the error list is
+    // worth writing down rather than collapsing silently. It carries query
+    // names and messages, never credentials.
+    final errors = envelope['errors'];
+    throw _gqlFailure(
+      'gql $operationName',
+      FormatException('no data block${errors == null ? '' : ': $errors'}'),
+      SpotifyGqlFailure.upstream,
+    );
+  }
+
+  if (mutation) _readMutationResult(operationName, envelope);
+  return data;
+}
+
+/// Fetches an authenticated Spotify REST endpoint and returns the decoded body.
+///
+/// The internal `spclient.wg.spotify.com` services — track radio, most of all —
+/// are plain GETs rather than pathfinder operations, but they sit behind the
+/// same web token, go down with the same censored connection and die with the
+/// same revoked cookie. They therefore run through the same envelope as
+/// [spotifyGqlQuery]: the same headers, the same single forced re-mint, the
+/// same four [SpotifyGqlFailure] verdicts.
+///
+/// The body comes back as decoded JSON rather than a `Map`, because these
+/// endpoints are not one shape — the caller checks what it got, the way the
+/// parsers in this directory already do.
+Future<Object?> spotifyRestGet({
+  required SpotifyAuth notifier,
+  required Uri uri,
+  http.Client? client,
+}) =>
+    _sendAuthorized(
+      notifier: notifier,
+      operation: 'rest ${uri.path}',
+      uri: uri,
+      client: client,
+    );
+
+/// Refuses a mutation that only *looks* like it worked.
+///
+/// A read can live with a partial answer: `libraryV3` losing one facet still
+/// fills the grid, and failing the whole screen over it would be worse than
+/// showing what came back. A mutation cannot. Spotify reports a rotated hash or
+/// a rejected write as HTTP 200 carrying an `errors` list beside a `data` whose
+/// own result node is null, so tolerating that here means the heart fills in,
+/// the listener believes the track is saved, and nothing was written to their
+/// account. That silent lie is the whole reason this check exists, and the
+/// reason it is opt-in rather than applied to every call: the read callers ship
+/// today against the tolerant behaviour and must keep it.
+///
+/// `errors` is the ONLY thing checked, and that is a correction paid for on a
+/// live device: the first version of this also demanded a result node named
+/// after the operation, and it rejected a like that Spotify had actually
+/// accepted — `spotify gql addToLibrary failed (upstream): mutation returned no
+/// result node`, with an empty `errors` beside it.
+///
+/// There is no result-node contract to lean on. Spotify's own recorded
+/// responses disagree with each other for the SAME operation name:
+///   addToLibrary on a track    -> {"data": {"addToLibrary": {...}}}
+///   addToLibrary on an artist  -> {"data": {"addLibraryItems": {...}}}
+///   removeFromLibrary          -> {"data": {"removeLibraryItems": {...}}}
+///   addToPlaylist              -> {"data": {"addItemsToPlaylist": {...}}}
+///   saving an album            -> {}                     — no `data` at all
+/// The node is a field of the registered document, which Spotify rotates
+/// independently of the operation name we send, so any table of expected names
+/// is a future false failure waiting for a rotation. A rotated or unknown hash
+/// is reported the honest way regardless — as a non-empty `errors` — which is
+/// exactly the case this guard exists to catch.
+void _readMutationResult(
+  String operationName,
+  Map<String, dynamic> envelope,
+) {
+  final errors = envelope['errors'];
+  if (errors is List && errors.isNotEmpty) {
+    throw _gqlFailure(
+      'gql $operationName',
+      FormatException('mutation returned errors: $errors'),
+      SpotifyGqlFailure.upstream,
+    );
+  }
+}
+
+/// One authorized round trip to Spotify, decoded, with the retry and the
+/// verdicts that every call to them needs.
+///
+/// [body] decides the method: `null` sends a GET, anything else a POST of that
+/// string. [operation] is a label for the log and nothing more.
+Future<Object?> _sendAuthorized({
+  required SpotifyAuth notifier,
+  required String operation,
+  required Uri uri,
+  String? body,
   http.Client? client,
 }) async {
   final borrowed = client != null;
   final transport = client ?? http.Client();
-  final body = jsonEncode({
-    'variables': variables,
-    'operationName': operationName,
-    'extensions': {
-      'persistedQuery': {'version': 1, 'sha256Hash': sha256Hash},
-    },
-  });
 
   try {
     var credentials = await notifier.credentials();
@@ -110,7 +223,7 @@ Future<Map<String, dynamic>> spotifyGqlQuery({
       throw const SpotifyGqlException(SpotifyGqlFailure.signedOut);
     }
 
-    var response = await _send(transport, credentials, body);
+    var response = await _send(transport, credentials, uri, body);
 
     // The one retry, and it is not a retry for flakiness. A token dies two
     // ways: it expires, which the refresh margin already covers, and it is
@@ -124,16 +237,16 @@ Future<Map<String, dynamic>> spotifyGqlQuery({
     // sentence.
     if (_isRefusal(response.statusCode)) {
       commonPrint.log(
-        'spotify gql $operationName refused ${response.statusCode}, re-minting',
+        'spotify $operation refused ${response.statusCode}, re-minting',
       );
       credentials = await notifier.credentials(forceRefresh: true);
       if (credentials == null) {
         throw const SpotifyGqlException(SpotifyGqlFailure.signedOut);
       }
-      response = await _send(transport, credentials, body);
+      response = await _send(transport, credentials, uri, body);
       if (_isRefusal(response.statusCode)) {
         throw _gqlFailure(
-          operationName,
+          operation,
           HttpException('status ${response.statusCode} after refresh'),
           SpotifyGqlFailure.rejected,
         );
@@ -142,37 +255,23 @@ Future<Map<String, dynamic>> spotifyGqlQuery({
 
     if (response.statusCode != HttpStatus.ok) {
       throw _gqlFailure(
-        operationName,
+        operation,
         HttpException('status ${response.statusCode}'),
         SpotifyGqlFailure.upstream,
       );
     }
 
-    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-    final data = decoded is Map<String, dynamic> ? decoded['data'] : null;
-    if (data is! Map<String, dynamic>) {
-      // GraphQL answers 200 with `errors` and no `data` for a rotated hash,
-      // which is the single most likely way this breaks — so the error list is
-      // worth writing down rather than collapsing silently. It carries query
-      // names and messages, never credentials.
-      final errors = decoded is Map<String, dynamic> ? decoded['errors'] : null;
-      throw _gqlFailure(
-        operationName,
-        FormatException('no data block${errors == null ? '' : ': $errors'}'),
-        SpotifyGqlFailure.upstream,
-      );
-    }
-    return data;
+    return jsonDecode(utf8.decode(response.bodyBytes));
   } on SpotifyGqlException {
     rethrow;
   } on SocketException catch (error) {
-    throw _gqlFailure(operationName, error, SpotifyGqlFailure.unreachable);
+    throw _gqlFailure(operation, error, SpotifyGqlFailure.unreachable);
   } on TimeoutException catch (error) {
-    throw _gqlFailure(operationName, error, SpotifyGqlFailure.unreachable);
+    throw _gqlFailure(operation, error, SpotifyGqlFailure.unreachable);
   } on http.ClientException catch (error) {
-    throw _gqlFailure(operationName, error, SpotifyGqlFailure.unreachable);
+    throw _gqlFailure(operation, error, SpotifyGqlFailure.unreachable);
   } on FormatException catch (error) {
-    throw _gqlFailure(operationName, error, SpotifyGqlFailure.upstream);
+    throw _gqlFailure(operation, error, SpotifyGqlFailure.upstream);
   } finally {
     if (!borrowed) transport.close();
   }
@@ -189,21 +288,27 @@ bool _isRefusal(int status) =>
 Future<http.Response> _send(
   http.Client transport,
   SpotifyCredentials credentials,
-  String body,
-) =>
-    transport
-        .post(
-          Uri.parse(_spotifyGqlEndpoint),
-          headers: {
-            'Authorization': 'Bearer ${credentials.accessToken}',
-            'Cookie': credentials.cookieHeader,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': spotifyUserAgent,
-          },
+  Uri uri,
+  String? body,
+) {
+  final headers = {
+    'Authorization': 'Bearer ${credentials.accessToken}',
+    'Cookie': credentials.cookieHeader,
+    'Accept': 'application/json',
+    'User-Agent': spotifyUserAgent,
+  };
+  // The bearer and the cookie are what `spclient.wg.spotify.com` wants too —
+  // only the content type is specific to sending a GraphQL body, so it is added
+  // rather than declared on a request that carries nothing.
+  final sent = body == null
+      ? transport.get(uri, headers: headers)
+      : transport.post(
+          uri,
+          headers: {...headers, 'Content-Type': 'application/json'},
           body: body,
-        )
-        .timeout(_spotifyGqlTimeout);
+        );
+  return sent.timeout(_spotifyTimeout);
+}
 
 /// Writes down what actually went wrong before collapsing it into [failure].
 ///
@@ -214,10 +319,10 @@ Future<http.Response> _send(
 /// of "Spotify ответил чем-то непонятным" cannot be told apart from a hash
 /// rotation, and the first such report would be answered by guessing.
 ///
-/// [operation] is the GraphQL operation name and nothing else. The bearer, the
-/// cookie header and the request body stay out of it deliberately — a support
-/// bundle collects these logs, and one of those three is a working key to
-/// somebody's account.
+/// [operation] is the operation label and nothing else — `gql <operationName>`
+/// or `rest <path>`. The bearer, the cookie header and the request body stay
+/// out of it deliberately — a support bundle collects these logs, and one of
+/// those three is a working key to somebody's account.
 SpotifyGqlException _gqlFailure(
   String operation,
   Object error,
