@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:dropweb/common/common.dart';
 import 'package:dropweb/providers/spotify.dart';
+import 'package:dropweb/views/meowzic/library_tab.dart';
 import 'package:dropweb/views/meowzic/phase.dart';
 import 'package:dropweb/views/meowzic/spotify/gql.dart';
 import 'package:dropweb/views/meowzic/spotify/library.dart';
@@ -43,36 +45,41 @@ class SpotifyLibraryState {
   bool get hasMore => items.length < totalCount;
 }
 
-/// Which filter the grid is showing.
+/// Which band of the library is showing.
+///
+/// Typed as [MeowzicLibraryTab] rather than as [SpotifyLibraryFilter] because
+/// the first tab — Сохранённые — is not a filter of the library at all; see the
+/// enum's own note for why that distinction is not allowed to leak onto the
+/// wire.
 ///
 /// Held in a provider rather than in the tab's `State` because the tab does not
 /// survive: it lives inside a `TabBarView`, which disposes the off-screen
-/// child, so a selection kept in the widget would reset to Playlists every time
-/// somebody swiped to search and back. It is deliberately the ONLY thing the
-/// selection owns — the items behind each filter live in
+/// child, so a selection kept in the widget would reset to the first tab every
+/// time somebody swiped to search and back. It is deliberately the ONLY thing
+/// the selection owns — the items behind each filter live in
 /// [SpotifyLibrary], one instance per filter.
 @Riverpod(keepAlive: true)
 class SpotifyLibrarySelection extends _$SpotifyLibrarySelection {
   @override
-  SpotifyLibraryFilter build() {
-    // Back to the first filter when the account goes, so the next person to
-    // link one does not arrive on a tab labelled Artists that was chosen by
-    // somebody else.
+  MeowzicLibraryTab build() {
+    // Back to the first tab when the account goes, so the next person to link
+    // one does not arrive on a tab labelled Artists that was chosen by somebody
+    // else.
     ref.listen(spotifyAuthProvider, (_, next) {
       if (next.phase == SpotifyPhase.signedOut) {
-        state = SpotifyLibraryFilter.playlists;
+        state = MeowzicLibraryTab.saved;
       }
     });
-    return SpotifyLibraryFilter.playlists;
+    return MeowzicLibraryTab.saved;
   }
 
-  /// Re-selecting the filter that is already showing is swallowed rather than
+  /// Re-selecting the tab that is already showing is swallowed rather than
   /// re-published: it is the tap somebody makes by accident while scrolling,
-  /// and answering it by notifying every listener would rebuild the grid for
+  /// and answering it by notifying every listener would rebuild the body for
   /// nothing.
-  void select(SpotifyLibraryFilter filter) {
-    if (filter == state) return;
-    state = filter;
+  void select(MeowzicLibraryTab tab) {
+    if (tab == state) return;
+    state = tab;
   }
 }
 
@@ -212,6 +219,39 @@ class SpotifyLibrary extends _$SpotifyLibrary {
         items: existing,
         totalCount: state.totalCount,
         failure: error.failure,
+      );
+    } catch (error, stackTrace) {
+      // Everything that is not a `SpotifyGqlException` — a `TimeoutException`, a
+      // cast that failed on a shape Spotify moved, a `StateError`. The owner hit
+      // this class of defect on a Pixel, on the sibling Сохранённые tab: the
+      // list spun forever, the flutter log for that moment was completely EMPTY,
+      // and killing the app was the only cure. That is what an escaping
+      // throwable does here — `_onAuthChanged` fires this unawaited, so the zone
+      // swallows it silently, `phase` is left on `loading`, and [ensureLoaded]
+      // and [reload] both refuse to try again on anything but `idle`. The grid
+      // is wedged until the process dies.
+      //
+      // The invariant this establishes, and the reason this catch-all is not
+      // defensive noise to be tidied away: after any load attempt, `phase` is
+      // `done` or `failed` — never `loading`.
+      //
+      // The log line is the other half of the fix and is not optional. This
+      // failure mode was not merely wrong, it was invisible.
+      commonPrint.log(
+        'SpotifyLibrary._load failed (filter: $filter, append: $append, '
+        'offset: ${existing.length}): $error\n$stackTrace',
+      );
+      if (generation != _generation) return;
+      state = SpotifyLibraryState(
+        // Same split as the typed branch: an appended page that failed keeps the
+        // list that is already up, a failed first page has nothing to keep.
+        phase: append ? MeowzicPhase.done : MeowzicPhase.failed,
+        items: existing,
+        totalCount: state.totalCount,
+        // `upstream` because that is the whole of what an untyped throwable
+        // supports saying: something answered and misbehaved. Carried
+        // unconditionally, exactly as the typed branch carries it.
+        failure: SpotifyGqlFailure.upstream,
       );
     }
   }

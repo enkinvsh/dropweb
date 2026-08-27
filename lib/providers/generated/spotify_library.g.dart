@@ -7,21 +7,26 @@ part of '../spotify_library.dart';
 // **************************************************************************
 
 String _$spotifyLibrarySelectionHash() =>
-    r'd69fa092b0d5923a533528da7f3db04ae9455c9e';
+    r'1200927887231ad93bf4915aaba7dac87871f562';
 
-/// Which filter the grid is showing.
+/// Which band of the library is showing.
+///
+/// Typed as [MeowzicLibraryTab] rather than as [SpotifyLibraryFilter] because
+/// the first tab — Сохранённые — is not a filter of the library at all; see the
+/// enum's own note for why that distinction is not allowed to leak onto the
+/// wire.
 ///
 /// Held in a provider rather than in the tab's `State` because the tab does not
 /// survive: it lives inside a `TabBarView`, which disposes the off-screen
-/// child, so a selection kept in the widget would reset to Playlists every time
-/// somebody swiped to search and back. It is deliberately the ONLY thing the
-/// selection owns — the items behind each filter live in
+/// child, so a selection kept in the widget would reset to the first tab every
+/// time somebody swiped to search and back. It is deliberately the ONLY thing
+/// the selection owns — the items behind each filter live in
 /// [SpotifyLibrary], one instance per filter.
 ///
 /// Copied from [SpotifyLibrarySelection].
 @ProviderFor(SpotifyLibrarySelection)
 final spotifyLibrarySelectionProvider =
-    NotifierProvider<SpotifyLibrarySelection, SpotifyLibraryFilter>.internal(
+    NotifierProvider<SpotifyLibrarySelection, MeowzicLibraryTab>.internal(
   SpotifyLibrarySelection.new,
   name: r'spotifyLibrarySelectionProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -31,8 +36,8 @@ final spotifyLibrarySelectionProvider =
   allTransitiveDependencies: null,
 );
 
-typedef _$SpotifyLibrarySelection = Notifier<SpotifyLibraryFilter>;
-String _$spotifyLibraryHash() => r'23c7e97aa510bc7dc88f2dbe9a911b8adf5f7461';
+typedef _$SpotifyLibrarySelection = Notifier<MeowzicLibraryTab>;
+String _$spotifyLibraryHash() => r'9960ebeb310059c31f7c1acd7c8c814540b301f3';
 
 /// Copied from Dart SDK
 class _SystemHash {

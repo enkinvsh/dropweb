@@ -6,7 +6,7 @@ part of '../spotify_detail.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$spotifyDetailHash() => r'4be4ebbf7ab3367e66878815cf74b2d1f092b9a5';
+String _$spotifyDetailHash() => r'950d2d427db2686cf16d4a7757f99b37010464df';
 
 /// Copied from Dart SDK
 class _SystemHash {

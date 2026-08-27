@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/providers/app.dart';
 import 'package:dropweb/providers/spotify.dart';
+import 'package:dropweb/providers/spotify_isrcs.dart';
 import 'package:dropweb/providers/state.dart';
 import 'package:dropweb/views/meowzic/audio.dart';
 import 'package:dropweb/views/meowzic/phase.dart';
@@ -126,6 +127,33 @@ class SpotifyDetail extends _$SpotifyDetail {
         phase: MeowzicPhase.failed,
         failure: error.failure,
       );
+    } catch (error, stackTrace) {
+      // Everything that is not a `SpotifyGqlException` — a `TimeoutException`, a
+      // cast that failed on a shape Spotify moved, a `StateError`. The owner hit
+      // this class of defect on a Pixel, on the Сохранённые tab: the list spun
+      // forever, the flutter log for that moment was completely EMPTY, and
+      // killing the app was the only cure. That is what an escaping throwable
+      // does here — the call is unawaited, so the zone swallows it silently and
+      // `phase` is left on `loading`, and the early return at the top of this
+      // method then refuses every retry, because `loading` is not `idle`.
+      //
+      // The invariant this establishes, and the reason neither catch-all in this
+      // file is defensive noise to be tidied away: after any load attempt,
+      // `phase` is `done` or `failed` — never `loading`.
+      //
+      // The log line is the other half of the fix and is not optional. This
+      // failure mode was not merely wrong, it was invisible.
+      commonPrint.log(
+        'SpotifyDetail.ensureLoaded failed (uri: $uri, kind: $kind): '
+        '$error\n$stackTrace',
+      );
+      if (_disposed) return;
+      state = const SpotifyDetailState(
+        phase: MeowzicPhase.failed,
+        // `upstream` because that is the whole of what an untyped throwable
+        // supports saying: something answered and misbehaved.
+        failure: SpotifyGqlFailure.upstream,
+      );
     }
   }
 
@@ -177,6 +205,20 @@ class SpotifyDetail extends _$SpotifyDetail {
         phase: MeowzicPhase.done,
         detail: current,
       );
+    } catch (error, stackTrace) {
+      // See the catch-all in [ensureLoaded]. Nothing may leave `phase` on
+      // `loading`, and nothing may fail without saying so in the log.
+      commonPrint.log(
+        'SpotifyDetail.fetchMore failed (uri: $uri, kind: $kind, '
+        'offset: ${current.tracks.length}): $error\n$stackTrace',
+      );
+      if (_disposed) return;
+      // Same landing as the typed branch above: the listing already on screen
+      // stays, and no failure is surfaced over rows that still read correctly.
+      state = SpotifyDetailState(
+        phase: MeowzicPhase.done,
+        detail: current,
+      );
     }
   }
 
@@ -216,6 +258,11 @@ class SpotifyDetail extends _$SpotifyDetail {
         notifier: ref.read(spotifyAuthProvider.notifier),
         bridge: bridge,
         tracks: window,
+        // Handed in from here because this is where the `ref` lives. Scrolling
+        // a playlist and tapping down it is the exact motion that earned the
+        // 429 on `/v1/tracks?ids=`, and after the first window the ids overlap
+        // heavily — the cache answers them without a request.
+        isrcCache: ref.read(spotifyIsrcsProvider.notifier),
       );
       if (_disposed) return null;
       // Empty means the tapped track itself did not resolve — the queue builder
