@@ -152,6 +152,16 @@ The user retains control of appearance: the **"Theme from subscription"** and **
 
 ---
 
+## <img src="docs/icons/puzzle.svg" width="24" alt="" /> Music (feat/meowzic branch)
+
+The `feat/meowzic` branch turns dropweb into a music client via the `meowzic` dashboard card. This is an experimental build distributed manually. It isn't part of the mainline release and isn't available on Google Play.
+
+Interface navigation, metadata, and search come directly from Spotify. You sign in with your own Spotify account to access your personal library, including saved tracks, playlists, albums, artists, and catalogue search. Your account stays in sync: liking a track saves it to your real Spotify library, saving external playlists adds them to your profile, and the "Song radio" feature launches a Spotify-generated mix.
+
+Audio streams are resolved through the project's own bridge running on the VPN exit nodes against the YouTube Music catalogue. Track matching relies on the ISRC code, the exact recording identifier published by Spotify. In project benchmarks, a naive text search returned six incorrect results out of ten (live recordings, lyrics videos, a translation, and a clean version), whereas an ISRC lookup matches exactly one source recording. Music playback requires an active VPN connection because the bridge is reachable only inside the tunnel.
+
+---
+
 ## <img src="docs/icons/privacy.svg" width="24" alt="" /> Privacy
 
 dropweb is a client: the app does not provide server infrastructure. You connect your own configuration (subscription), which the app uses to establish a connection. Traffic is not modified, no ads are shown, and no logs of network activity are retained. Configurations and keys are stored in on-device secure storage and are not transmitted.
