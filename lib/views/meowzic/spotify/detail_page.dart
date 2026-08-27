@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/providers/providers.dart';
@@ -10,6 +11,7 @@ import 'package:dropweb/views/meowzic/spotify/cover_tile.dart';
 import 'package:dropweb/views/meowzic/spotify/detail.dart';
 import 'package:dropweb/views/meowzic/spotify/gql.dart';
 import 'package:dropweb/views/meowzic/spotify/library.dart';
+import 'package:dropweb/views/meowzic/spotify/radio.dart';
 import 'package:dropweb/views/meowzic/track_row.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -18,8 +20,8 @@ import 'package:hugeicons/hugeicons.dart';
 
 /// What a library tile opens: the container's cover and name, and its tracks.
 ///
-/// Listing and playing, nothing else. No following, no saving, no editing and
-/// no now-playing screen — the mini player already on the dashboard strip is
+/// Listing, playing, and — for a playlist — keeping. No following, no editing
+/// and no now-playing screen: the mini player already on the dashboard strip is
 /// where playback is watched, and duplicating it here would give the app two
 /// places claiming to be the player.
 ///
@@ -29,9 +31,26 @@ import 'package:hugeicons/hugeicons.dart';
 /// opening a playlist flash empty for no reason. It is also the only source of
 /// a title for "Liked Songs", whose query answers with tracks alone.
 class SpotifyDetailPage extends ConsumerStatefulWidget {
-  const SpotifyDetailPage({super.key, required this.item});
+  const SpotifyDetailPage({
+    super.key,
+    required this.item,
+    this.autoPlay = false,
+  });
 
   final SpotifyLibraryItem item;
+
+  /// Whether to start playing the first track as soon as the listing lands.
+  ///
+  /// Set only by track radio, and only because a radio mix is asked for by
+  /// pressing play in everything but name: the listener wanted music, and the
+  /// screen is opened alongside it so the mix can be seen and saved rather than
+  /// instead of it. Every other way into this screen is somebody browsing, and
+  /// browsing must not seize the player.
+  ///
+  /// It lives here rather than in the caller because the tracks are not known
+  /// until this page has loaded them; driving the first play from the previous
+  /// screen would mean racing this one's own `ensureLoaded`.
+  final bool autoPlay;
 
   @override
   ConsumerState<SpotifyDetailPage> createState() => _SpotifyDetailPageState();
@@ -43,12 +62,43 @@ class _SpotifyDetailPageState extends ConsumerState<SpotifyDetailPage> {
     widget.item.kind,
   );
 
+  /// The track whose radio is being looked up right now, or null.
+  ///
+  /// Plain `State` on purpose, and it is the whole mechanism. A resolve is
+  /// something a finger is doing on this screen; parking it in a keepAlive
+  /// provider is exactly how this project earned a spinner that outlived its
+  /// screen and kept turning on an unrelated playlist. This one cannot: it is
+  /// born with the route and dies with it.
+  String? _radioTrackUri;
+
   @override
   void initState() {
     super.initState();
     // On mount rather than inside the notifier's own build, which runs while
     // the tree is building and may not assign state.
-    unawaited(ref.read(_provider.notifier).ensureLoaded());
+    unawaited(_load());
+  }
+
+  /// Loads the container, then does the two things that depend on having it.
+  ///
+  /// The saved-status read is fired first and not awaited: it decides what one
+  /// glyph in the header looks like, and making the listing wait on it would
+  /// trade the whole screen for a checkmark.
+  Future<void> _load() async {
+    if (widget.item.kind == SpotifyLibraryKind.playlist) {
+      unawaited(
+        ref
+            .read(spotifySavedProvider.notifier)
+            .fetchSavedStatus([widget.item.uri]),
+      );
+    }
+    await ref.read(_provider.notifier).ensureLoaded();
+    if (!mounted || !widget.autoPlay) return;
+    final tracks = ref.read(_provider).detail?.tracks ?? const <SpotifyTrack>[];
+    if (tracks.isEmpty) return;
+    // Past two awaits, so well clear of the build pass `ensureLoaded` has to
+    // defer around — nothing here is assigning provider state mid-frame.
+    await _play(0);
   }
 
   /// Shows why a tap could not play, when the notifier says it could not.
@@ -60,6 +110,52 @@ class _SpotifyDetailPageState extends ConsumerState<SpotifyDetailPage> {
     final message = await ref.read(_provider.notifier).play(index);
     if (!mounted || message == null) return;
     unawaited(context.showNotifier(message));
+  }
+
+  /// Builds a radio mix around [track] and opens it, playing.
+  ///
+  /// Two taps cannot overlap: the second is dropped rather than queued, the
+  /// same rule the notifier applies to a resolve in flight. Without it a
+  /// double-tap on the menu would push two copies of the same mix onto the
+  /// stack, each starting playback of the other's first track.
+  ///
+  /// The mix is pushed with a placeholder name, because the seed service
+  /// answers with a uri and nothing else. It is on screen for as long as the
+  /// container query takes and is then replaced by Spotify's own title, which
+  /// the header already prefers when it has one.
+  Future<void> _openRadio(SpotifyTrack track) async {
+    if (_radioTrackUri != null) return;
+    setState(() => _radioTrackUri = track.uri);
+    unawaited(context.showNotifier(appLocalizations.meowzicRadioLoading));
+    try {
+      final playlistUri = await resolveSpotifyTrackRadio(
+        notifier: ref.read(spotifyAuthProvider.notifier),
+        trackUri: track.uri,
+      );
+      if (!mounted) return;
+      unawaited(
+        BaseNavigator.push<void>(
+          context,
+          SpotifyDetailPage(
+            item: SpotifyLibraryItem(
+              uri: playlistUri,
+              title: appLocalizations.meowzicTrackRadio,
+              subtitle: track.title,
+              kind: SpotifyLibraryKind.playlist,
+            ),
+            autoPlay: true,
+          ),
+        ),
+      );
+    } catch (error) {
+      commonPrint.log('spotify track radio failed: $error');
+      if (!mounted) return;
+      unawaited(context.showNotifier(appLocalizations.meowzicRadioFailed));
+    } finally {
+      // Unconditional. Whatever else went wrong, the row must not stay marked
+      // as working — that is the defect this whole shape exists to avoid.
+      if (mounted) setState(() => _radioTrackUri = null);
+    }
   }
 
   /// Asks for the next page as the list comes to rest near its end.
@@ -88,7 +184,32 @@ class _SpotifyDetailPageState extends ConsumerState<SpotifyDetailPage> {
   /// `faded_list.dart`. They were copied into this file from the search tab
   /// once already, which is how two screens ended up with one defect each to
   /// fix separately.
-  Widget _buildList(SpotifyDetailState detail) {
+  /// The listing, with the row that is currently playing marked.
+  ///
+  /// Same shape as the search tab's own results builder, deliberately: handler
+  /// is observed through the notifier rather than by calling `meowzicAudio()`,
+  /// which would spin up the media service for anyone who merely opened a
+  /// playlist to look at it.
+  ///
+  /// Matched on `extras['spotifyUri']` rather than on `MediaItem.id`, because
+  /// `id` is the bridge's video id and these rows only know their Spotify uri.
+  /// That is the same value the like control reads, so a row is marked here
+  /// exactly when the heart elsewhere is talking about it.
+  Widget _buildListening(SpotifyDetailState detail) =>
+      ValueListenableBuilder<MeowzicAudioHandler?>(
+        valueListenable: meowzicHandlerListenable,
+        builder: (context, handler, _) => handler == null
+            ? _buildList(detail, null)
+            : StreamBuilder<MediaItem?>(
+                stream: handler.mediaItem,
+                builder: (context, snapshot) => _buildList(
+                  detail,
+                  snapshot.data?.extras?['spotifyUri'] as String?,
+                ),
+              ),
+      );
+
+  Widget _buildList(SpotifyDetailState detail, String? playingUri) {
     final tracks = detail.detail?.tracks ?? const <SpotifyTrack>[];
     final releases = detail.detail?.releases ?? const <SpotifyLibraryItem>[];
     if (tracks.isEmpty && releases.isEmpty) {
@@ -108,16 +229,47 @@ class _SpotifyDetailPageState extends ConsumerState<SpotifyDetailPage> {
               itemBuilder: (_, index) => ValueListenableBuilder<String?>(
                 valueListenable: meowzicResolvingListenable,
                 builder: (_, resolvingUri, __) {
-                  final isResolving = tracks[index].uri == resolvingUri;
+                  // Two different waits, drawn as one mark: matching a track
+                  // on the bridge, and building a radio around it. To the
+                  // listener they are the same statement — this row is being
+                  // worked on — and inventing a second treatment for the
+                  // second one would say something the screen does not mean.
+                  final isBusy = tracks[index].uri == resolvingUri ||
+                      tracks[index].uri == _radioTrackUri;
                   return MeowzicTrackRow(
                     title: tracks[index].title,
                     subtitle: tracks[index].artists,
                     image: tracks[index].image,
-                    isSelected: isResolving,
+                    // The band marks what is PLAYING, not what is loading —
+                    // the same thing it means one tab over in search. It used
+                    // to mark the busy row, which left the listing with no way
+                    // at all to say where the listener actually is. Loading
+                    // keeps the spinner in the corner; the two no longer share
+                    // one mark.
+                    isSelected: tracks[index].uri == playingUri,
                     onPressed: () => _play(index),
-                    trailing: _TrackTrailing(
-                      duration: tracks[index].duration,
-                      isResolving: isResolving,
+                    // The row ends in an IconButton, which reserves its own
+                    // tap padding — see [MeowzicTrackRow.trailingPadsItself].
+                    trailingPadsItself: true,
+                    trailing: Row(
+                      // Min, or the row would hand the whole free width to the
+                      // trailing and push the title into an ellipsis.
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Length is deliberately not printed. It said nothing
+                        // the listener had asked for and crowded the corner
+                        // the menu needs; search has never printed one either,
+                        // and these two listings answer to the same eye.
+                        if (isBusy)
+                          const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        MeowzicTrackMenu(
+                          onListen: () => _play(index),
+                          onRadio: () => unawaited(_openRadio(tracks[index])),
+                        ),
+                      ],
                     ),
                   );
                 },
@@ -210,7 +362,7 @@ class _SpotifyDetailPageState extends ConsumerState<SpotifyDetailPage> {
               detail.failure ?? SpotifyGqlFailure.upstream,
             ),
           ),
-        MeowzicPhase.done => _buildList(detail),
+        MeowzicPhase.done => _buildListening(detail),
       };
 
   @override
@@ -322,6 +474,13 @@ class _DetailHeader extends StatelessWidget {
               ],
             ),
           ),
+          // Playlists only. An album or an artist is saved by a different
+          // rootlist operation with a different notion of what "saved" means,
+          // and Liked Songs cannot be unsaved at all — it is the account's own
+          // collection. A control that appeared on all four and worked on one
+          // would be worse than one that appears where it works.
+          if (item.kind == SpotifyLibraryKind.playlist)
+            _SavePlaylistButton(uri: item.uri),
         ],
       ),
     );
@@ -352,43 +511,66 @@ class _DetailHeader extends StatelessWidget {
   }
 }
 
-/// The right-hand end of a row: the running time, or a spinner while the track
-/// is being matched.
+/// Keeps this playlist, or lets it go.
 ///
-/// The time is printed here and not on the search rows, where the corner was
-/// given to an overflow menu instead. There is no menu to give it to here — a
-/// track in a library has nowhere else to go yet — and a listing whose rows
-/// show no length looks unfinished next to every other music app.
-class _TrackTrailing extends StatelessWidget {
-  const _TrackTrailing({required this.duration, required this.isResolving});
+/// The whole control is two glyphs and a colour. `hugeicons 1.1.7` is a
+/// stroke-only set — there is no filled twin of anything in it — so a state
+/// that other clients carry with a fill is carried here with the accent, the
+/// same way the heart in the mini player does it. The glyph changes too, plus
+/// to tick, because that pairing is what every music app means by saved and
+/// costs nothing to honour.
+///
+/// A [ConsumerWidget] of its own rather than a branch inside the header, so
+/// that a save flipping repaints one icon instead of the cover, the title and
+/// the artist line with it.
+class _SavePlaylistButton extends ConsumerWidget {
+  const _SavePlaylistButton({required this.uri});
 
-  final Duration duration;
-  final bool isResolving;
+  final String uri;
 
-  /// `m:ss`, and no hours: nothing in a track listing runs to an hour, and a
-  /// format that budgets for one would print `0:03:41` on every row.
-  String get _label {
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
+  /// Flips it, and says so — or says why not.
+  ///
+  /// The icon has already moved by the time this is awaited: the notifier is
+  /// optimistic and rolls itself back, so there is nothing to undo here, only
+  /// something to report. The confirmation on the way up is worth its line
+  /// because the result of a save is a playlist appearing in a grid on another
+  /// screen, which is not something this one can show.
+  Future<void> _toggle(BuildContext context, WidgetRef ref) async {
+    final wasSaved = ref.read(spotifySavedProvider.notifier).isSaved(uri);
+    final message = await ref.read(spotifySavedProvider.notifier).toggleSaved(
+          uri,
+        );
+    if (!context.mounted) return;
+    if (message != null) {
+      unawaited(context.showNotifier(message));
+      return;
+    }
+    if (!wasSaved) {
+      unawaited(context.showNotifier(appLocalizations.meowzicPlaylistSaved));
+    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (isResolving) {
-      return const SizedBox.square(
-        dimension: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
-    // Zero means Spotify did not say, and printing "0:00" would be a claim
-    // about the track rather than an admission about the answer.
-    if (duration <= Duration.zero) return const SizedBox.shrink();
-    return Text(
-      _label,
-      style: context.textTheme.bodySmall?.copyWith(
-        color: context.colorScheme.onSurfaceVariant,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final saved = ref.watch(spotifySavedProvider)[uri] ?? false;
+    return IconButton(
+      onPressed: () => unawaited(_toggle(context, ref)),
+      tooltip: saved
+          ? appLocalizations.meowzicPlaylistRemove
+          : appLocalizations.meowzicPlaylistSave,
+      icon: HugeIcon(
+        icon: saved
+            ? HugeIcons.strokeRoundedCheckmarkCircle02
+            : HugeIcons.strokeRoundedAddCircle,
+        size: 24,
+        color: saved
+            ? context.colorScheme.primary
+            : context.colorScheme.onSurfaceVariant,
       ),
     );
   }
 }
+
+/// The right-hand end of a row: the running time, or a spinner while the track
+/// is being matched.
+///

@@ -4410,6 +4410,16 @@ class AppLocalizations {
     );
   }
 
+  /// `Saved`
+  String get meowzicLibrarySaved {
+    return Intl.message(
+      'Saved',
+      name: 'meowzicLibrarySaved',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Playlists`
   String get meowzicLibraryPlaylists {
     return Intl.message(
@@ -4530,6 +4540,91 @@ class AppLocalizations {
     return Intl.message(
       'Releases',
       name: 'meowzicArtistReleases',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Like`
+  String get meowzicLike {
+    return Intl.message('Like', name: 'meowzicLike', desc: '', args: []);
+  }
+
+  /// `Remove from Liked Songs`
+  String get meowzicUnlike {
+    return Intl.message(
+      'Remove from Liked Songs',
+      name: 'meowzicUnlike',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Track Radio`
+  String get meowzicTrackRadio {
+    return Intl.message(
+      'Track Radio',
+      name: 'meowzicTrackRadio',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Save to library`
+  String get meowzicPlaylistSave {
+    return Intl.message(
+      'Save to library',
+      name: 'meowzicPlaylistSave',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Saved in library`
+  String get meowzicPlaylistSaved {
+    return Intl.message(
+      'Saved in library',
+      name: 'meowzicPlaylistSaved',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Remove from library`
+  String get meowzicPlaylistRemove {
+    return Intl.message(
+      'Remove from library',
+      name: 'meowzicPlaylistRemove',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Creating radio...`
+  String get meowzicRadioLoading {
+    return Intl.message(
+      'Creating radio...',
+      name: 'meowzicRadioLoading',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Failed to create radio. Try again`
+  String get meowzicRadioFailed {
+    return Intl.message(
+      'Failed to create radio. Try again',
+      name: 'meowzicRadioFailed',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Failed to save changes`
+  String get meowzicMutationFailed {
+    return Intl.message(
+      'Failed to save changes',
+      name: 'meowzicMutationFailed',
       desc: '',
       args: [],
     );

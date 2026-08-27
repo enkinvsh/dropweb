@@ -515,16 +515,36 @@ class MessageLookup extends MessageLookupByLibrary {
     "meowzicLibraryRejected": MessageLookupByLibrary.simpleMessage(
       "Spotify отклонил запрос. Привяжите аккаунт заново",
     ),
+    "meowzicLibrarySaved": MessageLookupByLibrary.simpleMessage("Сохранённые"),
     "meowzicLibrarySignedOut": MessageLookupByLibrary.simpleMessage(
       "Сессия Spotify закончилась. Привяжите аккаунт заново",
     ),
     "meowzicLibraryTab": MessageLookupByLibrary.simpleMessage("Библиотека"),
     "meowzicLibraryTrackCount": m5,
+    "meowzicLike": MessageLookupByLibrary.simpleMessage("Нравится"),
+    "meowzicMutationFailed": MessageLookupByLibrary.simpleMessage(
+      "Не удалось сохранить изменения",
+    ),
     "meowzicNeedVpn": MessageLookupByLibrary.simpleMessage(
       "Музыка идёт через туннель. Включите VPN и повторите",
     ),
     "meowzicNeedVpnShort": MessageLookupByLibrary.simpleMessage(
       "Включи dropweb",
+    ),
+    "meowzicPlaylistRemove": MessageLookupByLibrary.simpleMessage(
+      "Удалить из библиотеки",
+    ),
+    "meowzicPlaylistSave": MessageLookupByLibrary.simpleMessage(
+      "Сохранить в библиотеку",
+    ),
+    "meowzicPlaylistSaved": MessageLookupByLibrary.simpleMessage(
+      "Сохранено в библиотеке",
+    ),
+    "meowzicRadioFailed": MessageLookupByLibrary.simpleMessage(
+      "Не удалось создать радио. Попробуйте ещё раз",
+    ),
+    "meowzicRadioLoading": MessageLookupByLibrary.simpleMessage(
+      "Составляем радио...",
     ),
     "meowzicReconnect": MessageLookupByLibrary.simpleMessage(
       "Подключить и продолжить",
@@ -568,6 +588,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "meowzicTrackNotFound": MessageLookupByLibrary.simpleMessage(
       "Не нашли этот трек. Попробуйте другой",
     ),
+    "meowzicTrackRadio": MessageLookupByLibrary.simpleMessage("Радио по треку"),
+    "meowzicUnlike": MessageLookupByLibrary.simpleMessage("Удалить из любимых"),
     "messageTest": MessageLookupByLibrary.simpleMessage(
       "Тестирование сообщения",
     ),

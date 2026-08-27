@@ -498,16 +498,36 @@ class MessageLookup extends MessageLookupByLibrary {
     "meowzicLibraryRejected": MessageLookupByLibrary.simpleMessage(
       "Spotify refused the request. Link the account again",
     ),
+    "meowzicLibrarySaved": MessageLookupByLibrary.simpleMessage("Saved"),
     "meowzicLibrarySignedOut": MessageLookupByLibrary.simpleMessage(
       "The Spotify session ended. Link the account again",
     ),
     "meowzicLibraryTab": MessageLookupByLibrary.simpleMessage("Library"),
     "meowzicLibraryTrackCount": m5,
+    "meowzicLike": MessageLookupByLibrary.simpleMessage("Like"),
+    "meowzicMutationFailed": MessageLookupByLibrary.simpleMessage(
+      "Failed to save changes",
+    ),
     "meowzicNeedVpn": MessageLookupByLibrary.simpleMessage(
       "Music goes through the tunnel. Turn the VPN on and try again",
     ),
     "meowzicNeedVpnShort": MessageLookupByLibrary.simpleMessage(
       "Turn on dropweb",
+    ),
+    "meowzicPlaylistRemove": MessageLookupByLibrary.simpleMessage(
+      "Remove from library",
+    ),
+    "meowzicPlaylistSave": MessageLookupByLibrary.simpleMessage(
+      "Save to library",
+    ),
+    "meowzicPlaylistSaved": MessageLookupByLibrary.simpleMessage(
+      "Saved in library",
+    ),
+    "meowzicRadioFailed": MessageLookupByLibrary.simpleMessage(
+      "Failed to create radio. Try again",
+    ),
+    "meowzicRadioLoading": MessageLookupByLibrary.simpleMessage(
+      "Creating radio...",
     ),
     "meowzicReconnect": MessageLookupByLibrary.simpleMessage(
       "Connect and resume",
@@ -548,6 +568,10 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "meowzicTrackNotFound": MessageLookupByLibrary.simpleMessage(
       "Couldn\'t find this track. Try another one",
+    ),
+    "meowzicTrackRadio": MessageLookupByLibrary.simpleMessage("Track Radio"),
+    "meowzicUnlike": MessageLookupByLibrary.simpleMessage(
+      "Remove from Liked Songs",
     ),
     "messageTest": MessageLookupByLibrary.simpleMessage("Message test"),
     "messageTestTip": MessageLookupByLibrary.simpleMessage(

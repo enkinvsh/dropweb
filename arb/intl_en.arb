@@ -561,6 +561,7 @@
   "meowzicSpotifyCookieExpired": "The Spotify session has expired. Sign in again",
   "meowzicSpotifyAnonymous": "Spotify didn't accept the sign-in. Try again",
   "meowzicSpotifyUpstream": "Spotify answered with something unexpected. Try again",
+  "meowzicLibrarySaved": "Saved",
   "meowzicLibraryPlaylists": "Playlists",
   "meowzicLibraryAlbums": "Albums",
   "meowzicLibraryArtists": "Artists",
@@ -573,5 +574,14 @@
   "meowzicLibraryRejected": "Spotify refused the request. Link the account again",
   "meowzicContainerEmpty": "No tracks here",
   "meowzicTrackNotFound": "Couldn't find this track. Try another one",
-  "meowzicArtistReleases": "Releases"
+  "meowzicArtistReleases": "Releases",
+  "meowzicLike": "Like",
+  "meowzicUnlike": "Remove from Liked Songs",
+  "meowzicTrackRadio": "Track Radio",
+  "meowzicPlaylistSave": "Save to library",
+  "meowzicPlaylistSaved": "Saved in library",
+  "meowzicPlaylistRemove": "Remove from library",
+  "meowzicRadioLoading": "Creating radio...",
+  "meowzicRadioFailed": "Failed to create radio. Try again",
+  "meowzicMutationFailed": "Failed to save changes"
 }

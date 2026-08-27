@@ -7,6 +7,7 @@ import 'package:audio_service/audio_service.dart';
 // this directory: the barrel exports notifiers that import these files back.
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/providers/spotify.dart';
+import 'package:dropweb/providers/spotify_isrcs.dart';
 import 'package:dropweb/providers/state.dart';
 import 'package:dropweb/views/meowzic/audio.dart';
 import 'package:dropweb/views/meowzic/bridge.dart';
@@ -37,6 +38,14 @@ const spotifyPlaybackWindow = 10;
 const _isrcBatchLimit = 50;
 
 const _isrcTimeout = Duration(seconds: 15);
+
+/// How long the rest of the window may keep the tapped track waiting.
+///
+/// Deliberately short. The first track is already resolved and playable by the
+/// time this starts, so every second here is silence the listener is paying for
+/// tracks they have not asked for yet. Whatever misses it is dropped from the
+/// queue, not waited on.
+const _prefetchBudget = Duration(seconds: 6);
 
 /// The ISRCs for [trackIds], by track id, best-effort.
 ///
@@ -76,7 +85,19 @@ Future<Map<String, String>> fetchSpotifyIsrcs({
       // 429 in particular is expected rather than exceptional — see above — and
       // is written down so a run of text-quality matches has an explanation
       // sitting in the log rather than being attributed to the bridge.
-      commonPrint.log('spotify isrc lookup answered ${response.statusCode}');
+      //
+      // Named apart from every other refusal because the two ask different
+      // things of whoever reads the log. Throttled means the credential and the
+      // request were both right and the endpoint simply said "not so fast" —
+      // the answer is to ask it less, which is what `SpotifyIsrcs` now does.
+      // Any other code means the request itself is wrong, and asking less would
+      // hide it. A single line reading "answered 401" for both was the reason
+      // the throttle went unattributed for a day.
+      commonPrint.log(
+        response.statusCode == HttpStatus.tooManyRequests
+            ? 'spotify isrc lookup throttled: answered 429'
+            : 'spotify isrc lookup answered ${response.statusCode}',
+      );
       return const {};
     }
 
@@ -109,10 +130,21 @@ Future<Map<String, String>> fetchSpotifyIsrcs({
 /// plainly that this one could not be found. Everything after the first is
 /// dropped silently, because a hole in a queue is a track that stalls the
 /// player when it advances into it.
+///
+/// [isrcCache] is where the identifiers come from when the caller has one, and
+/// every caller in the app does — all three `play` paths hold a `ref`. It is
+/// optional rather than required so this function still behaves exactly as it
+/// did when nobody hands one over: the network is asked directly, which is what
+/// keeps tests and any future caller honest instead of silently uncached.
+///
+/// Handing the cache in rather than reaching for the provider from here is
+/// deliberate. This is a plain function in the views layer; a global read would
+/// tie it to a container it does not own and make it untestable without one.
 Future<List<MeowzicQueueItem>> resolveSpotifyQueue({
   required SpotifyAuth notifier,
   required MeowzicBridge bridge,
   required List<SpotifyTrack> tracks,
+  SpotifyIsrcs? isrcCache,
   http.Client? client,
 }) async {
   if (tracks.isEmpty) return const [];
@@ -124,24 +156,69 @@ Future<List<MeowzicQueueItem>> resolveSpotifyQueue({
   // handshakes through the tunnel.
   final transport = client ?? http.Client();
   try {
-    final isrcs = await fetchSpotifyIsrcs(
-      notifier: notifier,
-      trackIds: [for (final track in tracks) track.id],
-      client: transport,
-    );
-    if (isrcs.isEmpty) {
+    final trackIds = [for (final track in tracks) track.id];
+    // The cache is asked first and the network only for what it cannot answer.
+    // That ordering is the fix for a measured 429 on `/v1/tracks?ids=`: the
+    // endpoint is throttled hard against the web-player bearer, and the old
+    // path spent a request on every single tap — including a tap on a window
+    // whose ISRCs it had just been given a second earlier.
+    final isrcs = isrcCache == null
+        ? await fetchSpotifyIsrcs(
+            notifier: notifier,
+            trackIds: trackIds,
+            client: transport,
+          )
+        : await isrcCache.ensureFor(trackIds, client: transport);
+
+    // Counted per track rather than reported on an empty map, so this line now
+    // means what it says. It is the expensive outcome and deserves to be
+    // legible: a track with no ISRC is matched by title text against ytbridge,
+    // which is both slow — a live YouTube Music lookup, seconds each — and the
+    // very mismatching (live cuts, lyric videos, covers) that moving search to
+    // Spotify was meant to end. It should now appear only when an identifier
+    // genuinely could not be had, not on every throttled call.
+    final missing = trackIds.where((id) => !isrcs.containsKey(id)).length;
+    if (missing > 0) {
       commonPrint.log(
-        'spotify playback degraded to text queries for ${tracks.length} tracks',
+        'spotify playback degraded to text queries for $missing tracks',
       );
     }
 
-    final resolved = await Future.wait([
-      for (final track in tracks)
-        _resolveTrack(bridge, track, isrcs[track.id], transport),
-    ]);
+    // The tapped track is resolved ALONE and first, and only then is the rest
+    // of the window given a short budget of its own.
+    //
+    // This used to be one `Future.wait` over the whole window, and on a device
+    // it timed out: `TimeoutException after 0:00:45` with the listener staring
+    // at a spinner the whole time. The cause is head-of-line blocking — ten
+    // lookups go out through the tunnel and the queue is handed back only when
+    // the SLOWEST returns, so a track that was ready in a second is held
+    // hostage by a straggler that never comes. One deliberate tap must not be
+    // priced at ten network round trips.
+    //
+    // The prefetch keeps a deadline rather than a `Future.wait`, because a
+    // short queue that plays beats a complete queue that never arrives. What
+    // misses the deadline is dropped, which the queue contract above already
+    // allows for: everything after the first is droppable, and a hole would
+    // stall the player when it advanced into it.
+    final head = await _resolveTrack(
+      bridge,
+      tracks.first,
+      isrcs[tracks.first.id],
+      transport,
+    );
+    if (head == null) return const [];
+    if (tracks.length == 1) return [head];
 
-    if (resolved.first == null) return const [];
-    return [for (final item in resolved) if (item != null) item];
+    // Indexed slots, not `add` on completion: the queue must keep the order of
+    // the listing the tap came from, and completion order is arrival order.
+    final rest = List<MeowzicQueueItem?>.filled(tracks.length - 1, null);
+    await Future.wait<void>([
+      for (var i = 1; i < tracks.length; i++)
+        _resolveTrack(bridge, tracks[i], isrcs[tracks[i].id], transport)
+            .then((item) => rest[i - 1] = item),
+    ]).timeout(_prefetchBudget, onTimeout: () => const <void>[]);
+
+    return [head, for (final item in rest) if (item != null) item];
   } finally {
     if (!borrowed) transport.close();
   }
@@ -181,6 +258,13 @@ Future<MeowzicQueueItem?> _resolveTrack(
         artist: track.artists,
         duration: track.duration > Duration.zero ? track.duration : null,
         artUri: track.image,
+        // The one thing the queue keeps of where this track came from. `id` is
+        // a YouTube video, so without this the player — and the notification
+        // shade behind it — has no way to name the Spotify track it is
+        // playing, and nothing to write a like against. Tracks queued from the
+        // search tab come from the bridge alone and never get this key, which
+        // is how the UI knows not to offer an action it cannot perform.
+        extras: {'spotifyUri': track.uri},
       ),
     );
   } on MeowzicException catch (error) {

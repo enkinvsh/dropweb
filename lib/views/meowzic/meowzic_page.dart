@@ -6,6 +6,7 @@ import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/views/meowzic/audio.dart';
 import 'package:dropweb/views/meowzic/bridge.dart';
 import 'package:dropweb/views/meowzic/faded_list.dart';
+import 'package:dropweb/views/meowzic/library_tab.dart';
 import 'package:dropweb/views/meowzic/phase.dart';
 import 'package:dropweb/views/meowzic/spotify/account_sheet.dart';
 import 'package:dropweb/views/meowzic/spotify/cover_tile.dart';
@@ -14,6 +15,7 @@ import 'package:dropweb/views/meowzic/spotify/gql.dart';
 import 'package:dropweb/views/meowzic/spotify/library.dart';
 import 'package:dropweb/views/meowzic/spotify/login_webview.dart';
 import 'package:dropweb/views/meowzic/spotify/session.dart';
+import 'package:dropweb/views/meowzic/spotify/track_list.dart';
 import 'package:dropweb/views/meowzic/track_row.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -159,11 +161,34 @@ class _SearchTab extends ConsumerStatefulWidget {
 }
 
 class _SearchTabState extends ConsumerState<_SearchTab> {
-  /// Seeded from the notifier, because this State is built fresh every time
-  /// the route is pushed and an empty box over a full list reads as a bug.
-  late final TextEditingController _controller = TextEditingController(
-    text: ref.read(meowzicSearchProvider).query,
-  );
+  /// Seeded from whichever notifier is serving this tab, because this State is
+  /// built fresh every time the route is pushed and an empty box over a full
+  /// list reads as a bug.
+  ///
+  /// Read once, on mount, rather than watched: the box holds what somebody
+  /// typed, and rewriting it under them because a token was refreshed in the
+  /// background would be the autocorrect problem this field already refuses.
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: _isSpotify
+          ? ref.read(spotifySearchProvider).query
+          : ref.read(meowzicSearchProvider).query,
+    );
+  }
+
+  /// Whether this tab is searching Spotify rather than the bridge.
+  ///
+  /// The one question that decides the source, and it is asked of the same
+  /// provider the settings gear and the library tab ask — there is exactly one
+  /// notion of "signed in" in this screen, and a second one invented here would
+  /// be able to disagree with the account sheet about whether an account is
+  /// linked.
+  bool get _isSpotify =>
+      ref.read(spotifyAuthProvider).phase == SpotifyPhase.signedIn;
 
   @override
   void dispose() {
@@ -244,7 +269,11 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
 
   @override
   Widget build(BuildContext context) {
-    final search = ref.watch(meowzicSearchProvider);
+    // Watched, not read: linking an account while standing on this tab has to
+    // move the source under the box on the next frame, not on the next push of
+    // the route.
+    final signedIn =
+        ref.watch(spotifyAuthProvider).phase == SpotifyPhase.signedIn;
     return Column(
       children: [
         Padding(
@@ -268,7 +297,17 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
             // Suggestions stay ON: offering a completion someone can tap is
             // help, substituting the word behind their back is not.
             autocorrect: false,
-            onSubmitted: ref.read(meowzicSearchProvider.notifier).search,
+            // Routed by authorisation, and this is the whole of change (A):
+            // once an account is linked the bridge stops being asked what the
+            // listener meant. It stays the source of sound — a Spotify hit is
+            // played by ISRC through it — but a video catalogue has no notion
+            // of "the track", and a measured `ytsearch10` answered one ordinary
+            // query with six wrong recordings out of ten. Nobody who never
+            // links Spotify loses anything: they keep the branch below,
+            // unchanged.
+            onSubmitted: signedIn
+                ? ref.read(spotifySearchProvider.notifier).search
+                : ref.read(meowzicSearchProvider.notifier).search,
             decoration: InputDecoration(
               hintText: appLocalizations.meowzicSearchHint,
               prefixIcon: const HugeIcon(
@@ -291,9 +330,67 @@ class _SearchTabState extends ConsumerState<_SearchTab> {
             ),
           ),
         ),
-        Expanded(child: _buildBody(search)),
+        Expanded(
+          child: signedIn
+              ? const _SpotifySearchResults()
+              : _buildBody(ref.watch(meowzicSearchProvider)),
+        ),
       ],
     );
+  }
+}
+
+/// What a Spotify search found.
+///
+/// A widget of its own rather than a branch inside [_SearchTab] so that the
+/// bridge state is not watched at all while an account is linked — the two
+/// sources have nothing to say to each other, and a tab that rebuilt on both
+/// would be rebuilding on a notifier it is not showing.
+///
+/// The rows are [SpotifyTrackList], which is the container screen's own list:
+/// same card, same menu with «Радио по треку» on it, same no-duration corner,
+/// same marking of the row that is playing. A search hit and a playlist row are
+/// the same object once both have a Spotify uri, and drawing them differently
+/// would be inventing a distinction the listener cannot act on.
+class _SpotifySearchResults extends ConsumerWidget {
+  const _SpotifySearchResults();
+
+  /// Shows why a tap could not play, when the notifier says it could not.
+  ///
+  /// The reason is decided there — it needs the tunnel, not a widget — and
+  /// shown here, because a `BuildContext` is the one thing a notifier has no
+  /// business holding. The same split every other meowzic surface keeps.
+  Future<void> _play(BuildContext context, WidgetRef ref, int index) async {
+    final message = await ref.read(spotifySearchProvider.notifier).play(index);
+    if (!context.mounted || message == null) return;
+    unawaited(context.showNotifier(message));
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final search = ref.watch(spotifySearchProvider);
+    return switch (search.phase) {
+      MeowzicPhase.idle =>
+        NullStatus(label: appLocalizations.meowzicSearchEmpty),
+      MeowzicPhase.loading => const Center(child: CircularProgressIndicator()),
+      MeowzicPhase.failed => NullStatus(
+          label: spotifyGqlFailureLabel(
+            search.failure ?? SpotifyGqlFailure.upstream,
+          ),
+        ),
+      MeowzicPhase.done when search.results.isEmpty =>
+        NullStatus(label: appLocalizations.meowzicSearchNothing),
+      MeowzicPhase.done => SpotifyTrackList(
+          tracks: search.results,
+          loadingMore: search.loadingMore,
+          onPlay: (index) => _play(context, ref, index),
+          // Paging, which the bridge could not offer at all: its `/s` endpoint
+          // has no cursor and a hard ceiling of twenty rows. Spotify's search
+          // takes an offset, so the list simply keeps going.
+          onLoadMore: () =>
+              unawaited(ref.read(spotifySearchProvider.notifier).fetchMore()),
+        ),
+    };
   }
 }
 
@@ -366,62 +463,102 @@ class _LibraryTab extends ConsumerWidget {
   }
 }
 
-/// The three filters and the grid under them.
+/// The library's tabs and whatever is under them.
 ///
 /// The account row that used to sit on top has moved behind the header's gear:
 /// "kinvsh — отвязать" is a setting, and it was occupying the first band of a
 /// screen whose subject is covers. Nothing here replaced it, deliberately —
 /// the tab is the library now.
 ///
-/// Stateful only to kick the first fetch. The notifier cannot start it from its
-/// own `build` — that runs while the widget tree is building, and assigning
-/// state there throws — so the tab asks once on mount and the notifier ignores
-/// every later ask. Nothing else here is held: the filter, the items and the
-/// paging all live in `spotifyLibraryProvider`, which is why swiping to search
-/// and back does not refetch.
-class _SpotifyLibraryView extends ConsumerStatefulWidget {
+/// Stateless, and each band under the chips fetches its own. Nothing here is
+/// held: the chosen tab lives in `spotifyLibrarySelectionProvider`, the items
+/// behind each filter in `spotifyLibraryProvider`, which is why swiping to
+/// search and back does not refetch.
+class _SpotifyLibraryView extends ConsumerWidget {
   const _SpotifyLibraryView();
 
-  @override
-  ConsumerState<_SpotifyLibraryView> createState() =>
-      _SpotifyLibraryViewState();
-}
-
-class _SpotifyLibraryViewState extends ConsumerState<_SpotifyLibraryView> {
-  @override
-  void initState() {
-    super.initState();
-    unawaited(
-      ref
-          .read(
-            spotifyLibraryProvider(ref.read(spotifyLibrarySelectionProvider))
-                .notifier,
-          )
-          .ensureLoaded(),
-    );
-  }
-
-  /// Switches the grid to [filter] and makes sure that filter has something in
-  /// it.
+  /// Switches to [tab] and makes sure it has something in it.
   ///
   /// Two calls rather than one because they answer two different questions:
   /// which chip is lit, and whether that filter has ever been fetched. The
   /// second is a no-op for a filter that is already loaded, which is what makes
   /// going back to Playlists after a look at Albums instant instead of another
-  /// trip through the tunnel — the defect this pass exists to close.
+  /// trip through the tunnel.
   ///
   /// A filter that previously failed is the exception: there the tap is the
   /// only retry the screen offers, so it reloads rather than sitting on the
   /// failure.
-  void _select(SpotifyLibraryFilter filter) {
-    ref.read(spotifyLibrarySelectionProvider.notifier).select(filter);
+  void _select(WidgetRef ref, MeowzicLibraryTab tab) {
+    ref.read(spotifyLibrarySelectionProvider.notifier).select(tab);
+    final filter = tab.filter;
+    // Сохранённые is not a filter of the library and is not fetched like one:
+    // it has its own notifier over its own document. Routed here rather than
+    // returning early, so that tapping its chip retries a failure exactly the
+    // way tapping any other chip does.
+    if (filter == null) {
+      final saved = ref.read(spotifySavedTracksProvider.notifier);
+      unawaited(
+        ref.read(spotifySavedTracksProvider).phase == MeowzicPhase.failed
+            ? saved.reload()
+            : saved.ensureLoaded(),
+      );
+      return;
+    }
     final notifier = ref.read(spotifyLibraryProvider(filter).notifier);
     unawaited(
-      ref.read(spotifyLibraryProvider(filter)).phase ==
-              MeowzicPhase.failed
+      ref.read(spotifyLibraryProvider(filter)).phase == MeowzicPhase.failed
           ? notifier.reload()
           : notifier.ensureLoaded(),
     );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tab = ref.watch(spotifyLibrarySelectionProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _LibraryFilters(
+          selected: tab,
+          onSelected: (selected) => _select(ref, selected),
+        ),
+        Expanded(
+          // Keyed by the filter so switching chips remounts the grid and its
+          // `initState` asks for the new one. Without the key Flutter reuses
+          // the State — same widget type, same position — and the second filter
+          // would render whatever the first had fetched.
+          child: switch (tab.filter) {
+            final filter? => _LibraryGrid(key: ValueKey(filter), filter: filter),
+            null => const _SavedTracksTab(),
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// One filter's covers.
+///
+/// Stateful only to kick the first fetch. The notifier cannot start it from its
+/// own `build` — that runs while the widget tree is building, and assigning
+/// state there throws — so the grid asks once on mount and the notifier ignores
+/// every later ask.
+class _LibraryGrid extends ConsumerStatefulWidget {
+  const _LibraryGrid({super.key, required this.filter});
+
+  final SpotifyLibraryFilter filter;
+
+  @override
+  ConsumerState<_LibraryGrid> createState() => _LibraryGridState();
+}
+
+class _LibraryGridState extends ConsumerState<_LibraryGrid> {
+  late final _provider = spotifyLibraryProvider(widget.filter);
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(ref.read(_provider.notifier).ensureLoaded());
   }
 
   /// Asks for the next page as the grid comes to rest near its end.
@@ -434,8 +571,7 @@ class _SpotifyLibraryViewState extends ConsumerState<_SpotifyLibraryView> {
   /// flick through a long library fires one request instead of several.
   bool _onScrollEnd(ScrollEndNotification notification) {
     if (notification.metrics.extentAfter < meowzicLoadMoreThreshold) {
-      final filter = ref.read(spotifyLibrarySelectionProvider);
-      unawaited(ref.read(spotifyLibraryProvider(filter).notifier).loadMore());
+      unawaited(ref.read(_provider.notifier).loadMore());
     }
     return false;
   }
@@ -443,11 +579,9 @@ class _SpotifyLibraryViewState extends ConsumerState<_SpotifyLibraryView> {
   Widget _buildGrid(SpotifyLibraryState library) =>
       NotificationListener<ScrollEndNotification>(
         onNotification: _onScrollEnd,
-        // Faded at the bottom like the two track lists are. A grid of squircles
+        // Faded at the bottom like the track lists are. A grid of squircles
         // guillotined on a straight line reads as the same rendering fault a
-        // guillotined card does, and this used to be the one meowzic scrollable
-        // that did not get the treatment — because the treatment was written
-        // twice inline and neither copy was reachable from here.
+        // guillotined card does.
         child: MeowzicFade(
           child: GridView.builder(
             padding: meowzicListPadding,
@@ -496,23 +630,88 @@ class _SpotifyLibraryViewState extends ConsumerState<_SpotifyLibraryView> {
       };
 
   @override
+  Widget build(BuildContext context) => _buildBody(ref.watch(_provider));
+}
+
+/// «Сохранённые» — the account's liked tracks, listed here rather than behind a
+/// tile.
+///
+/// It is the first tab because it is the thing a listener reaches for first,
+/// and it is a list rather than a cover because there is exactly one of them:
+/// a grid holding a single square that opens another screen is two taps and a
+/// push to reach rows this tab can simply draw.
+///
+/// It depends on nothing else on this screen, and that independence is the
+/// whole of the fix that produced this version. It used to load the Плейлисты
+/// filter first, hunt through it for a row whose kind is `likedSongs`, and open
+/// that row's uri as a container — on the reasoning that the uri must come from
+/// the server rather than from a literal. The reasoning was sound and the
+/// premise was false: measured on a live account, `libraryV3` with the
+/// Playlists filter answers with real playlists and no Liked Songs tile at all.
+/// The hunt found nothing and the tab shipped reading «Здесь пока пусто» over a
+/// full saved list.
+///
+/// Saved tracks have their own document, addressed by the session rather than
+/// by a uri, and [SpotifySavedTracks] is the whole of what this tab watches.
+/// Nothing here may be made to wait on a library page again.
+class _SavedTracksTab extends ConsumerStatefulWidget {
+  const _SavedTracksTab();
+
+  @override
+  ConsumerState<_SavedTracksTab> createState() => _SavedTracksTabState();
+}
+
+class _SavedTracksTabState extends ConsumerState<_SavedTracksTab> {
+  @override
+  void initState() {
+    super.initState();
+    // On mount rather than in `build`: a notifier may not assign state while
+    // the tree is building. `ensureLoaded` yields a turn of its own before it
+    // touches anything, which is what makes this call site safe, and it is a
+    // no-op once the listing has been fetched — so swiping away to Поиск and
+    // back costs nothing.
+    unawaited(ref.read(spotifySavedTracksProvider.notifier).ensureLoaded());
+  }
+
+  /// Shows why a tap could not play, when the notifier says it could not.
+  Future<void> _play(int index) async {
+    final message =
+        await ref.read(spotifySavedTracksProvider.notifier).play(index);
+    if (!mounted || message == null) return;
+    unawaited(context.showNotifier(message));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final filter = ref.watch(spotifyLibrarySelectionProvider);
-    // Watched through the selection, so the grid and the chips read the same
-    // answer to "which filter" and cannot drift apart into a highlighted
-    // Albums chip over a list of playlists.
-    final library = ref.watch(spotifyLibraryProvider(filter));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _LibraryFilters(selected: filter, onSelected: _select),
-        Expanded(child: _buildBody(library)),
-      ],
-    );
+    final saved = ref.watch(spotifySavedTracksProvider);
+    return switch (saved.phase) {
+      MeowzicPhase.idle ||
+      MeowzicPhase.loading =>
+        const Center(child: CircularProgressIndicator()),
+      MeowzicPhase.failed => NullStatus(
+          label: spotifyGqlFailureLabel(
+            saved.failure ?? SpotifyGqlFailure.upstream,
+          ),
+        ),
+      // An account that has genuinely saved nothing. It is now the ONLY way
+      // this tab draws an empty state — a fetch that could not be made says so
+      // in the failed branch above, and a protocol change is reported as a
+      // failure by the fetcher rather than parsed into silence.
+      MeowzicPhase.done when saved.tracks.isEmpty =>
+        NullStatus(label: appLocalizations.meowzicContainerEmpty),
+      MeowzicPhase.done => SpotifyTrackList(
+          tracks: saved.tracks,
+          loadingMore: saved.loadingMore,
+          onPlay: _play,
+          onLoadMore: () => unawaited(
+            ref.read(spotifySavedTracksProvider.notifier).fetchMore(),
+          ),
+        ),
+    };
   }
 }
 
-/// The three filters, as chips.
+/// The library's tabs, as chips.
 ///
 /// The chosen one is drawn with an accent border — [CommonChip.isSelected] —
 /// and that is the whole of it. It used to be marked with a tick in the avatar
@@ -524,14 +723,15 @@ class _SpotifyLibraryViewState extends ConsumerState<_SpotifyLibraryView> {
 class _LibraryFilters extends StatelessWidget {
   const _LibraryFilters({required this.selected, required this.onSelected});
 
-  final SpotifyLibraryFilter selected;
-  final void Function(SpotifyLibraryFilter) onSelected;
+  final MeowzicLibraryTab selected;
+  final void Function(MeowzicLibraryTab) onSelected;
 
-  String _label(SpotifyLibraryFilter filter) => switch (filter) {
-        SpotifyLibraryFilter.playlists =>
+  String _label(MeowzicLibraryTab tab) => switch (tab) {
+        MeowzicLibraryTab.saved => appLocalizations.meowzicLibrarySaved,
+        MeowzicLibraryTab.playlists =>
           appLocalizations.meowzicLibraryPlaylists,
-        SpotifyLibraryFilter.albums => appLocalizations.meowzicLibraryAlbums,
-        SpotifyLibraryFilter.artists => appLocalizations.meowzicLibraryArtists,
+        MeowzicLibraryTab.albums => appLocalizations.meowzicLibraryAlbums,
+        MeowzicLibraryTab.artists => appLocalizations.meowzicLibraryArtists,
       };
 
   @override
@@ -544,14 +744,14 @@ class _LibraryFilters extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final filter in SpotifyLibraryFilter.values)
+            for (final tab in MeowzicLibraryTab.values)
               CommonChip(
-                label: _label(filter),
+                label: _label(tab),
                 // The house corner. Material's chip default is 8, which reads
                 // as a different app directly under a tab bar drawn at 26.
                 radius: Lumina.radiusLg,
-                isSelected: filter == selected,
-                onPressed: () => onSelected(filter),
+                isSelected: tab == selected,
+                onPressed: () => onSelected(tab),
               ),
           ],
         ),

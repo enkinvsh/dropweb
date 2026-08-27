@@ -27,7 +27,7 @@ class SpotifyTrack {
   final String? artists;
 
   /// Zero when Spotify did not say. Shown as nothing rather than as 0:00 —
-  /// see the note on the two duration fields in [_parseTrack].
+  /// see the note on the two duration fields in [spotifyTrackOf].
   final Duration duration;
   final Uri? image;
 
@@ -384,7 +384,7 @@ Future<SpotifyContainerDetail> _fetchSavedTracks({
   final data = await spotifyGqlQuery(
     notifier: notifier,
     operationName: 'fetchLibraryTracks',
-    sha256Hash: spotifyLibraryTracksHash,
+    sha256Hash: spotifyFetchLibraryTracksHash,
     variables: {'offset': offset, 'limit': _pageLimit},
     client: client,
   );
@@ -456,7 +456,7 @@ List<SpotifyTrack> _parseTracks(
     if (raw is! Map<String, dynamic>) continue;
     final payload = wrapped ? raw['data'] : raw;
     if (payload is! Map<String, dynamic>) continue;
-    final parsed = _parseTrack(
+    final parsed = spotifyTrackOf(
       payload,
       wrapperUri: wrapped ? spotifyStringOf(raw['_uri']) : null,
       fallbackImage: fallbackImage,
@@ -466,7 +466,18 @@ List<SpotifyTrack> _parseTracks(
   return tracks;
 }
 
-SpotifyTrack? _parseTrack(
+/// One track payload turned into a [SpotifyTrack], or null when it is not one.
+///
+/// Public, and shared with `search.dart`, because a track is a track whichever
+/// document it arrived in: the two duration field names, the artist join and
+/// the cover choice below are the same three traps for a search hit as for a
+/// playlist row. A second copy of this over there would be a second place for
+/// the `trackDuration`/`duration` split to be got wrong — and that one fails
+/// silently, printing a screen of 0:00 rows that still play.
+///
+/// [wrapperUri] is the URI off the enclosing `ResponseWrapper`, for the shapes
+/// whose payload carries none of its own; see the saved-tracks note above.
+SpotifyTrack? spotifyTrackOf(
   Map<String, dynamic> payload, {
   String? wrapperUri,
   Uri? fallbackImage,

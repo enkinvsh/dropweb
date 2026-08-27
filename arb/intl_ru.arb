@@ -561,6 +561,7 @@
   "meowzicSpotifyCookieExpired": "Сессия Spotify истекла. Войдите заново",
   "meowzicSpotifyAnonymous": "Spotify не принял вход. Попробуйте ещё раз",
   "meowzicSpotifyUpstream": "Spotify ответил чем-то непонятным. Попробуйте ещё раз",
+  "meowzicLibrarySaved": "Сохранённые",
   "meowzicLibraryPlaylists": "Плейлисты",
   "meowzicLibraryAlbums": "Альбомы",
   "meowzicLibraryArtists": "Артисты",
@@ -573,5 +574,14 @@
   "meowzicLibraryRejected": "Spotify отклонил запрос. Привяжите аккаунт заново",
   "meowzicContainerEmpty": "Здесь нет треков",
   "meowzicTrackNotFound": "Не нашли этот трек. Попробуйте другой",
-  "meowzicArtistReleases": "Релизы"
+  "meowzicArtistReleases": "Релизы",
+  "meowzicLike": "Нравится",
+  "meowzicUnlike": "Удалить из любимых",
+  "meowzicTrackRadio": "Радио по треку",
+  "meowzicPlaylistSave": "Сохранить в библиотеку",
+  "meowzicPlaylistSaved": "Сохранено в библиотеке",
+  "meowzicPlaylistRemove": "Удалить из библиотеки",
+  "meowzicRadioLoading": "Составляем радио...",
+  "meowzicRadioFailed": "Не удалось создать радио. Попробуйте ещё раз",
+  "meowzicMutationFailed": "Не удалось сохранить изменения"
 }
