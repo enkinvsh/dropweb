@@ -10,6 +10,7 @@ export 'donut_chart.dart';
 export 'effect.dart';
 export 'fade_box.dart';
 export 'float_layout.dart';
+export 'glass_tab_bar.dart';
 export 'grid.dart';
 export 'icon.dart';
 export 'input.dart';
