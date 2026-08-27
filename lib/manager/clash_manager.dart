@@ -113,12 +113,31 @@ class _ClashContainerState extends ConsumerState<ClashManager>
     }
 
     if (log.logLevel == LogLevel.error) {
-      // Run pattern matching against the original payload so existing
-      // regexes (e.g. `DioException.*connection error`) still match;
-      // fall back to the REDACTED payload, never the raw one, so a
-      // surfaced notifier cannot leak credentials or tokens.
-      final message = ErrorMapper.mapError(log.payload) ?? redactedPayload;
-      globalState.showNotifier(message);
+      // Matched against the ORIGINAL payload so the existing regexes (e.g.
+      // `DioException.*connection error`) still hit; the redacted copy is what
+      // reaches the log viewer and the file above.
+      final message = ErrorMapper.mapError(log.payload);
+
+      // An error we have written no copy for is NOT shown. It used to fall back
+      // to the payload itself, and the owner caught what that looks like in the
+      // field — a toast over the dashboard reading:
+      //
+      //   🇩🇪 Германия 🎮 failed to get the second response from
+      //   http://meow.dropweb.org:8090/health: Head "...": context canceled
+      //
+      // That is a health probe of the 🎵 Meowzic fallback group failing on one
+      // node, which is ROUTINE — the group probes every 60s precisely so a
+      // flagged node can be stepped over, and a probe failing is the mechanism
+      // working, not a fault. Even when the underlying error is real, a Go
+      // error string is untranslated, names internal hosts, and tells the
+      // listener nothing they can act on.
+      //
+      // Nothing is lost: every core error still reaches `logsProvider` and the
+      // log file above. What changes is that the user stops being the fallback
+      // renderer for diagnostics we have not triaged. When a core error IS
+      // worth telling somebody about, it earns a pattern in [ErrorMapper] and
+      // human copy with it.
+      if (message != null) globalState.showNotifier(message);
     }
     super.onLog(log);
   }
