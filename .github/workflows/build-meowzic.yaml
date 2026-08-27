@@ -24,6 +24,14 @@ on:
 jobs:
   android:
     runs-on: ubuntu-latest
+    # Creating the release needs write access to repository contents; without
+    # this the job inherits a read-only token and the last step dies with
+    # "Resource not accessible by integration" after the whole build has
+    # already been paid for. `contents: write` is the whole grant — the
+    # production pipeline hands its upload job `write-all`, which is more than
+    # anything here needs.
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
