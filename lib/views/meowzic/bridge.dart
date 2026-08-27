@@ -5,6 +5,7 @@ import 'dart:io';
 // The narrow import, not the `providers` barrel: the barrel now also exports
 // the meowzic search notifier, which imports this file — and a library cycle
 // through a barrel is a needless thing to leave lying around.
+import 'package:dropweb/common/common.dart';
 import 'package:dropweb/providers/state.dart';
 import 'package:http/http.dart' as http;
 
@@ -104,15 +105,31 @@ Future<List<MeowzicTrack>> searchMeowzic(
         .toList();
   } on MeowzicException {
     rethrow;
-  } on SocketException {
-    throw const MeowzicException(MeowzicFailure.unreachable);
-  } on TimeoutException {
-    throw const MeowzicException(MeowzicFailure.unreachable);
-  } on http.ClientException {
-    throw const MeowzicException(MeowzicFailure.unreachable);
+  } on SocketException catch (error) {
+    throw _transportFailure(error);
+  } on TimeoutException catch (error) {
+    throw _transportFailure(error);
+  } on http.ClientException catch (error) {
+    throw _transportFailure(error);
   } on FormatException {
     throw const MeowzicException(MeowzicFailure.upstream);
   } finally {
     if (!borrowed) transport.close();
   }
+}
+
+/// Reports a dead transport as [MeowzicFailure.unreachable] — and writes down
+/// what it actually was on the way past.
+///
+/// The enum cannot carry it: three very different faults collapse into that one
+/// value — no route, a refused connection, and a thirty-second timeout — and
+/// they call for three different answers from whoever gets paged. Without this
+/// line a field report of "включите VPN" is unfalsifiable, because the message
+/// is printed whether or not the VPN had anything to do with it. The sibling
+/// `play` path has logged its failures since it was written; this one never
+/// did, which is why the first such report cost a device, a rebuild and an
+/// afternoon.
+MeowzicException _transportFailure(Object error) {
+  commonPrint.log('meowzic search transport failed: $error');
+  return const MeowzicException(MeowzicFailure.unreachable);
 }

@@ -627,9 +627,19 @@ class MeowzicBridge {
   final String token;
   final Uri baseUrl;
 
+  /// How many tracks a search asks for.
+  ///
+  /// Sent explicitly, because the bridge's own default is ten — barely a
+  /// screen and a half, and short enough that a search reads as having found
+  /// almost nothing. Twenty is also the bridge's ceiling
+  /// (`min(int(request.query.get("n", 10)), 20)` in its search handler), so
+  /// this is as deep as one call goes; asking for more would simply be
+  /// clamped back to it, silently.
+  static const searchLimit = 20;
+
   Uri searchUri(String query) => baseUrl.replace(
         path: '${baseUrl.path}/s',
-        queryParameters: {'q': query},
+        queryParameters: {'q': query, 'n': '$searchLimit'},
       );
 
   Uri audioUri(String videoId) =>

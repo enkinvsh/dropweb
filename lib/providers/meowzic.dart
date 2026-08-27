@@ -86,10 +86,29 @@ class MeowzicSearch extends _$MeowzicSearch {
         query: query,
         phase: MeowzicPhase.failed,
         results: state.results,
-        failure: error.failure,
+        failure: _explain(error.failure),
       );
     }
   }
+
+  /// Turns the transport's guess into something the tunnel can back up.
+  ///
+  /// `searchMeowzic` holds no `ref` and cannot ask whether the VPN is on, so
+  /// every dead socket leaves it as `unreachable` — whose copy tells the
+  /// listener to switch the VPN on. Read literally that is a guess, and the
+  /// comment on the enum admits as much; when the tunnel is demonstrably up it
+  /// is simply false, and it sends somebody to re-toggle a switch that was
+  /// never the problem while the actual fault goes unreported. `upstream`
+  /// reads "мост не ответил", which is precisely what happened.
+  ///
+  /// This is the same question [play] has always asked, answered the same way
+  /// from the same provider. One screen must not give two verdicts on one
+  /// fault depending on which button reached it.
+  MeowzicFailure _explain(MeowzicFailure failure) =>
+      failure == MeowzicFailure.unreachable &&
+              ref.read(runTimeProvider) != null
+          ? MeowzicFailure.upstream
+          : failure;
 
   /// Plays the result at [index] and queues everything shown with it.
   ///
