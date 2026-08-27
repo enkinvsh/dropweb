@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dropweb/plugins/vpn.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _RecordingVpnListener with VpnListener {
@@ -13,7 +15,39 @@ class _RecordingVpnListener with VpnListener {
 }
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  final binding = TestWidgetsFlutterBinding.ensureInitialized();
+
+  // `handleDnsChangedPayload` logs when it rejects a malformed payload, and
+  // that log reaches `FileLogger`, which asks `path_provider` for a directory
+  // over a MethodChannel. With no platform behind the channel the call fails
+  // asynchronously — after the test that triggered it has already finished —
+  // so the run reported "failed after test completion" for a test whose own
+  // assertions had passed. It surfaced as an intermittent local failure and a
+  // hard red on CI, on a test that has nothing to do with logging.
+  //
+  // Pointing the channel at a temp directory lets that write complete instead
+  // of throwing into a dead zone. Same treatment `show_error_message_test`
+  // already gives it.
+  late Directory supportDirectory;
+  setUp(() async {
+    supportDirectory = await Directory.systemTemp.createTemp(
+      'dropweb_vpn_network_change_test',
+    );
+    binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (call) async => supportDirectory.path,
+    );
+  });
+
+  tearDown(() async {
+    binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      null,
+    );
+    if (supportDirectory.existsSync()) {
+      await supportDirectory.delete(recursive: true);
+    }
+  });
 
   group('handleUnderlyingNetworkChanged', () {
     test('network change resets resolver before closing connections',
