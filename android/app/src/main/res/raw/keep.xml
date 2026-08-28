@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Resources the shrinker cannot see a reference to.
+
+  `isShrinkResources = true` keeps only what something visibly points at: a
+  layout, the manifest, another resource. The media notification's like icon is
+  named to audio_service as a STRING from Dart — `MediaControl.custom(
+  androidIcon: 'drawable/ic_heart')` — and resolved at runtime with
+  `getIdentifier`, so nothing in the Android sources ever mentions it.
+
+  It was therefore stripped from the release build, and that was verified rather
+  than assumed: in the meowzic-v0.1.0 APK's resource table `ic_heart` and
+  `ic_heart_filled` were both absent while `ic_power` and `ic_launcher` were
+  present. `ic_power` survives because `res/layout/widget_vpn.xml` points at it
+  with `android:src`; the hearts had no such anchor. With the icon missing the
+  notification action cannot be built, which is why the shade disappeared in
+  release while debug — where shrinking is off — was fine.
+
+  Resource NAMES are not obfuscated in this build (the table still reads
+  `ic_power`), so the runtime lookup itself is sound. Keeping the files is the
+  whole fix.
+
+  Anything else addressed only by name from Dart belongs in this list too.
+-->
+<resources
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_heart,@drawable/ic_heart_filled" />
