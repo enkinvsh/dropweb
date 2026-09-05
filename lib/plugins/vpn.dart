@@ -63,26 +63,35 @@ class Vpn {
         case "status":
           return clashLibHandler?.getRunTime() != null;
         case "networkChanged":
-          // The native bearer tracker committed a real physical-bearer
-          // replacement beneath the live tunnel (WiFi<->cell, dual-SIM,
-          // offline->replacement). Stale upstream proxy sessions (mux,
-          // Hy2/QUIC) would otherwise be reused until their own long timeouts
-          // — the "minutes-long reconnect". Reset DNS pools, drop the flows,
-          // then wipe delay data: measurements from the previous bearer are
-          // FICTION on the new one — badges flip to «не замерено» instead of
-          // showing stale green numbers; URLTest cycles repopulate honest
-          // values. Safe here: networkChanged only fires under a LIVE tunnel,
-          // so appController is already initialized — no null-init window.
-          final details = call.arguments;
           commonPrint.log(
-            "[VPN] BEARER_CHANGE $details — resetting DNS pools and core connections",
+            '[isolate] vpn-channel networkChanged isService=${globalState.isService} clashLibReady=${!globalState.isService}',
           );
-          await handleUnderlyingNetworkChanged(
-            resetConnections: clashCore.resetConnections,
-            closeConnections: clashCore.closeConnections,
-            invalidateDelayData:
-                globalState.appController.invalidateDelayData,
-          );
+          try {
+            // The native bearer tracker committed a real physical-bearer
+            // replacement beneath the live tunnel (WiFi<->cell, dual-SIM,
+            // offline->replacement). Stale upstream proxy sessions (mux,
+            // Hy2/QUIC) would otherwise be reused until their own long timeouts
+            // — the "minutes-long reconnect". Reset DNS pools, drop the flows,
+            // then wipe delay data: measurements from the previous bearer are
+            // FICTION on the new one — badges flip to «не замерено» instead of
+            // showing stale green numbers; URLTest cycles repopulate honest
+            // values. Safe here: networkChanged only fires under a LIVE tunnel,
+            // so appController is already initialized — no null-init window.
+            final details = call.arguments;
+            commonPrint.log(
+              "[VPN] BEARER_CHANGE $details — resetting DNS pools and core connections",
+            );
+            await handleUnderlyingNetworkChanged(
+              resetConnections: clashCore.resetConnections,
+              closeConnections: clashCore.closeConnections,
+              invalidateDelayData:
+                  globalState.appController.invalidateDelayData,
+            );
+          } catch (e, st) {
+            commonPrint.log(
+              '[isolate-violation] networkChanged failed: $e\n$st',
+            );
+          }
         case "dnsChanged":
           handleDnsChangedPayload(call.arguments);
       }
