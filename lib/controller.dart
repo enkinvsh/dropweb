@@ -1251,14 +1251,12 @@ class AppController {
   }
 
   Future<void> init() async {
-    FlutterError.onError = (details) {
-      commonPrint.log(details.stack.toString());
-    };
-    // PlatformDispatcher catches isolate/native-channel errors FlutterError misses.
-    PlatformDispatcher.instance.onError = (error, stack) {
-      commonPrint.log('[PlatformDispatcher] $error\n$stack');
-      return true;
-    };
+    // NOTE: do NOT install FlutterError.onError / PlatformDispatcher.onError
+    // here. `main()` (and the `_service` entry point) already installed richer
+    // handlers via `_installGlobalErrorHandlers` BEFORE runApp; this method
+    // runs from a post-frame callback, so anything set here would overwrite
+    // them for the rest of the process — the message and the `[flutter-error]`
+    // tag were being dropped, leaving a bare stack in the log.
     updateTray(true);
     // Desktop core-death self-heal hook (no-op on Android where clashService is
     // null). Injected here — the service must not import the controller.

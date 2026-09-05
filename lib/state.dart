@@ -601,8 +601,8 @@ class GlobalState {
     try {
       final res = await futureFunction();
       return res;
-    } catch (e) {
-      commonPrint.log("$e");
+    } catch (e, st) {
+      commonPrint.log('[safeRun] $e\n$st');
       final message = ErrorMapper.mapError(e.toString()) ??
           appLocalizations.genericErrorMessage;
       if (silence) {
