@@ -820,7 +820,13 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             return
         }
         GlobalState.runLock.withLock {
-            if (GlobalState.runState.value == RunState.START) return
+            if (GlobalState.runState.value == RunState.START) {
+                Log.w(
+                    TAG,
+                    "handleStartService: already START — returning without startTun (Dart ack will time out)",
+                )
+                return
+            }
             // A stop() arrived while bindService() was in flight; onServiceConnected
             // re-entered here after the bind completed. Honor that stop intent.
             if (!startRequested) return
