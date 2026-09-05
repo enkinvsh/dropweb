@@ -1,0 +1,83 @@
+name: ci
+
+# The release pipeline used to build and publish without executing a single
+# test: build.yaml ran `notes` then went straight to `setup.dart`. This is the
+# gate. It runs the four suites that exist (dart analyze, flutter test, go test,
+# gradle unit test) and build.yaml now depends on it, so a tag cannot ship past
+# a red check.
+#
+# Deliberately NO `continue-on-error` on any step. A muted gate is worse than no
+# gate: it reports green while proving nothing. If a step is red, the correct
+# response is to fix the code or delete the step — never to silence it.
+
+on:
+  push:
+    branches: [dev]
+  workflow_call: {}
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # core/ builds against the Clash.Meta submodule; `go test ./...` in
+          # core/ cannot resolve its `replace` directives without it.
+          submodules: recursive
+
+      # Toolchain pins are copied from the proven release pipeline
+      # (build.yaml / build-linux.yaml), not chosen here:
+      #   flutter 3.41.6  -> .fvmrc, build.yaml, build-linux.yaml
+      #   go 1.24.0       -> build.yaml, build-linux.yaml; satisfies the
+      #                      `go 1.20` directive in core/go.mod and in the
+      #                      Clash.Meta submodule
+      #   java 17         -> android/app/build.gradle.kts and
+      #                      android/core/build.gradle.kts both set
+      #                      sourceCompatibility/targetCompatibility = VERSION_17
+      #                      and kotlinOptions.jvmTarget = "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.6
+          cache: true
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.0"
+          cache-dependency-path: core/go.sum
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - run: flutter pub get
+
+      - run: dart analyze --fatal-warnings
+
+      - run: flutter test
+
+      # CGO_ENABLED=0 is mandatory, not a preference: core/server.go and
+      # core/server_test.go are both `//go:build !cgo`, so the only test in
+      # package `core` disappears from the build when cgo is on.
+      - name: Go core tests
+        run: CGO_ENABLED=0 go test ./...
+        working-directory: core
+
+      # android/settings.gradle.kts reads flutter.sdk out of
+      # android/local.properties and hard-`require`s it; that file is gitignored,
+      # so on a fresh checkout Gradle cannot even configure. `--config-only`
+      # generates it without building anything.
+      - run: flutter build apk --config-only
+
+      # :app:testDebugUnitTest only — never a release task. The fail-closed
+      # signing guard in android/app/build.gradle.kts aborts release packaging
+      # when no production keystore is present, and this job has none.
+      #
+      # No NDK setup is needed: the resolved task graph for this target is 443
+      # tasks and contains no externalNativeBuild/CMake/strip task — the single
+      # native-adjacent entry is :core:copyNativeLibs, a plain Copy.
+      - name: Android unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+        working-directory: android

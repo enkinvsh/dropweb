@@ -19,8 +19,14 @@ jobs:
       - name: Validate release notes
         run: python3 .github/scripts/validate_release_notes.py "${{ github.ref_name }}"
 
+  # The release pipeline shipped for its entire life with zero tests executed.
+  # ci.yaml runs dart analyze / flutter test / go test / gradle unit tests; a tag
+  # that fails any of them must not produce artifacts, so `build` waits on it.
+  checks:
+    uses: ./.github/workflows/ci.yaml
+
   build:
-    needs: [notes]
+    needs: [notes, checks]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
