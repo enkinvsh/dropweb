@@ -3,6 +3,7 @@ import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/state.dart';
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -454,6 +455,32 @@ int? getDelay(
       },
     ),
   );
+  // DELAY_DIAG (handoff §4, read-boundary): the badge does NOT read the pair
+  // the widget asked for — `getProxyCardState` re-resolves recursively down the
+  // selected members, so the effective key is `(deepest group's testUrl,
+  // terminal name)`. Printed with the same `formatDelayKey` the write side
+  // uses, so `writeKey=` and `readKey=` lines can be compared literally.
+  //
+  // kDebugMode-gated because this is the hot path: four badge widgets rebuild
+  // on every delay-map mutation, and `controller.dart` `_sortOfDelay` reads
+  // this provider TWICE inside a sort comparator — O(n log n) reads per sort.
+  // Unconditional, it would bury every other line in the log.
+  //
+  // The key expression is recomputed here rather than hoisted out of the
+  // `select` closure above so the read path itself is byte-for-byte unchanged;
+  // in release this block is compiled out entirely.
+  if (kDebugMode) {
+    commonPrint.log(
+      '[DELAY_DIAG] READ '
+      'readKey=${formatDelayKey(
+        proxyCardState.testUrl.getSafeValue(currentTestUrl),
+        proxyCardState.proxyName,
+      )} '
+      'resolvedFrom=$proxyName '
+      'callerUrl=${testUrl ?? '<null>'} fallbackUrl=$currentTestUrl '
+      'value=${delay ?? '<null>'}',
+    );
+  }
   return delay;
 }
 

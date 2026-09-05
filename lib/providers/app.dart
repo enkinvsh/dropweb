@@ -2,6 +2,7 @@ import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/state.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -300,6 +301,38 @@ class Groups extends _$Groups with AutoDisposeNotifierMixin {
   }
 }
 
+/// DELAY_DIAG (handoff `docs/plans/2026-07-05-handoff-delay-badges.md` §4) —
+/// the single renderer for a `delayDataSource` key.
+///
+/// The whole value of the DELAY_DIAG instrumentation is that a human running
+/// `logcat | grep DELAY_DIAG` can put a `writeKey=` line next to a `readKey=`
+/// line and see a mismatch by eye. That only works if every side spells a key
+/// the same way, so the write side (`views/proxies/common.dart`), the apply
+/// side (`DelayDataSource.setDelay`) and the read side (`providers/state.dart`
+/// `getDelay`) all format through THIS function. Do not inline a variant.
+///
+/// An empty `url` or `name` is precisely the V7 symptom — the core omits them
+/// on its nil-proxy and panic paths, so the reply lands under `("", "")` while
+/// the badge reads a different key and stays blank forever. `(url=, name=)` is
+/// far too easy to miss in a wall of log, hence the explicit `<EMPTY>`
+/// placeholder plus a greppable `EMPTY_KEY!` marker.
+///
+/// The double quotes around the URL are LOAD-BEARING, not decoration.
+/// `commonPrint.log` pipes everything through `redactUrls`, whose URL pattern
+/// is `(?:https?|clash|dropweb)://[^\s<>"']+` — it runs to the next whitespace
+/// or quote, so an unquoted `url=…/generate_204, name=…` hands the redactor
+/// the segment `generate_204,` (13 chars, WITH the comma). That is over the
+/// 12-char benign threshold in `log_redaction.dart`, so the path would come
+/// out as `/[REDACTED]` and the key would stop being comparable. The closing
+/// quote ends the match at the real end of the URL and `generate_204` (exactly
+/// 12) survives. Any reformatting here must keep a quote or whitespace
+/// immediately after the URL.
+String formatDelayKey(String url, String name) {
+  final rendered = '(url="${url.isEmpty ? '<EMPTY>' : url}", '
+      'name="${name.isEmpty ? '<EMPTY>' : name}")';
+  return url.isEmpty || name.isEmpty ? '$rendered EMPTY_KEY!' : rendered;
+}
+
 @riverpod
 class DelayDataSource extends _$DelayDataSource with AutoDisposeNotifierMixin {
   @override
@@ -313,7 +346,30 @@ class DelayDataSource extends _$DelayDataSource with AutoDisposeNotifierMixin {
   }
 
   void setDelay(Delay delay) {
-    if (state[delay.url]?[delay.name] != delay.value) {
+    // DELAY_DIAG (handoff §4, write-boundary `setDelay`): report the outcome of
+    // the equality guard BEFORE it runs, so hypothesis B (a repeat measurement
+    // with an identical value is silently swallowed and the freshness signal is
+    // lost) is visible rather than inferred.
+    //
+    // Hoisted out of the `if` for logging only — this is the exact expression
+    // the guard used to evaluate inline, evaluated exactly once either way.
+    final previousValue = state[delay.url]?[delay.name];
+    if (kDebugMode) {
+      // kDebugMode-gated deliberately: besides the app-side delay tests, this
+      // is also fed by the core's `onDelay` push (`manager/clash_manager.dart`),
+      // a background stream that runs for the whole session. The in-app log
+      // buffer is a `FixedList` of only `maxLength` (150) entries, so an
+      // unconditional line here would keep it permanently full of DELAY_DIAG
+      // and evict the very support-bundle evidence this wave exists to collect.
+      // Handoff §4 scopes capture to the `app.dropweb.debug` build anyway.
+      commonPrint.log(
+        '[DELAY_DIAG] '
+        '${previousValue != delay.value ? 'WRITE_APPLY' : 'WRITE_NOOP_EQUAL'} '
+        'key=${formatDelayKey(delay.url, delay.name)} '
+        'old=$previousValue new=${delay.value}',
+      );
+    }
+    if (previousValue != delay.value) {
       final newDelayMap = Map<String, Map<String, int?>>.from(state);
       if (newDelayMap[delay.url] == null) {
         newDelayMap[delay.url] = <String, int?>{};
