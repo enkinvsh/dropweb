@@ -117,3 +117,6 @@ opencode.json
 
 # Dev/release tooling kept local-only (build it yourself if you need it)
 /tool/
+
+# Orchestrator notepad directory
+.omo/
