@@ -64,7 +64,7 @@ class Vpn {
           return clashLibHandler?.getRunTime() != null;
         case "networkChanged":
           commonPrint.log(
-            '[isolate] vpn-channel networkChanged isService=${globalState.isService} clashLibReady=${!globalState.isService}',
+            '[isolate] vpn-channel networkChanged isService=${globalState.isService} clashLibHandler=${clashLibHandler != null}',
           );
           try {
             // The native bearer tracker committed a real physical-bearer
