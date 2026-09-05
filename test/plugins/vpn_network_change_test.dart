@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:dropweb/plugins/vpn.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/fake_path_provider.dart';
+
 class _RecordingVpnListener with VpnListener {
   _RecordingVpnListener(this.onDns);
 
@@ -14,6 +16,7 @@ class _RecordingVpnListener with VpnListener {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  useFakePathProvider();
 
   group('handleUnderlyingNetworkChanged', () {
     test('network change resets resolver before closing connections',

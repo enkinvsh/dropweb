@@ -32,8 +32,11 @@ import 'package:dropweb/state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/fake_path_provider.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  useFakePathProvider();
 
   // A Config with a NON-DEFAULT value for every one of its 13 top-level
   // fields. Each nested prop flips a single field away from its default so the

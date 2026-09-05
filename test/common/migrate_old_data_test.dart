@@ -19,22 +19,18 @@ import 'package:dropweb/common/constant.dart';
 import 'package:dropweb/common/preferences.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/state.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/fake_path_provider.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // Recovery logs flow through fileLogger → appPath (path_provider). Swap the
+  // platform implementation before anything can construct the cached AppPath.
+  useFakePathProvider();
 
-  // Recovery logs flow through fileLogger → appPath (path_provider). Fake the
-  // channel so a best-effort log write can't surface a MissingPluginException.
-  final ppTemp = Directory.systemTemp.createTempSync('dropweb_pp_mig');
-  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-      .setMockMethodCallHandler(
-    const MethodChannel('plugins.flutter.io/path_provider'),
-    (call) async => ppTemp.path,
-  );
   // Bind the singleton to the mock store once (see recovery test rationale).
   SharedPreferences.setMockInitialValues({});
 

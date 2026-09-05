@@ -16,15 +16,15 @@
 // safely retries.
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dropweb/common/constant.dart';
 import 'package:dropweb/common/preferences.dart';
 import 'package:dropweb/common/secure_profile_store.dart';
 import 'package:dropweb/models/models.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/fake_path_provider.dart';
 
 /// In-memory [SecureProfileUrlStoreInterface] with fault injection — stands in
 /// for the real KeyStore-backed store in unit tests.
@@ -102,12 +102,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   // path_provider is touched by the quarantine/log breadcrumb path.
-  final ppTemp = Directory.systemTemp.createTempSync('dropweb_pp_mig');
-  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-      .setMockMethodCallHandler(
-    const MethodChannel('plugins.flutter.io/path_provider'),
-    (call) async => ppTemp.path,
-  );
+  useFakePathProvider();
 
   SharedPreferences.setMockInitialValues({});
 

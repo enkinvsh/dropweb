@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/manager/message_manager.dart';
@@ -12,6 +10,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+
+import '../support/fake_path_provider.dart';
 
 class _TestLogs extends Logs {
   @override
@@ -29,18 +29,11 @@ class _TestViewSize extends ViewSize {
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
   final messenger = binding.defaultBinaryMessenger;
-  late Directory supportDirectory;
+  useFakePathProvider();
   String? clipboardText;
 
   setUp(() async {
-    supportDirectory = await Directory.systemTemp.createTemp(
-      'dropweb_show_error_message_test',
-    );
     clipboardText = null;
-    messenger.setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/path_provider'),
-      (call) async => supportDirectory.path,
-    );
     await Future.wait([
       appPath.dataDir.future,
       appPath.tempDir.future,
@@ -61,14 +54,8 @@ void main() {
     );
   });
 
-  tearDown(() async {
-    messenger
-      ..setMockMethodCallHandler(SystemChannels.platform, null)
-      ..setMockMethodCallHandler(
-        const MethodChannel('plugins.flutter.io/path_provider'),
-        null,
-      );
-    await supportDirectory.delete(recursive: true);
+  tearDown(() {
+    messenger.setMockMethodCallHandler(SystemChannels.platform, null);
   });
 
   testWidgets(

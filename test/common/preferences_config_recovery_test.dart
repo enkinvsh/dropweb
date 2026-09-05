@@ -20,27 +20,22 @@ import 'dart:io';
 import 'package:dropweb/common/constant.dart';
 import 'package:dropweb/common/preferences.dart';
 import 'package:dropweb/models/models.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/fake_path_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   // The recovery path logs via `commonPrint`, which flows into `fileLogger`
   // and touches `appPath` (getApplicationSupportDirectory / temp / downloads).
-  // Without the plugin those method channels throw MissingPluginException as
-  // an unawaited async error that flutter_test attributes to the test. Fake
-  // the path_provider channel with a temp dir so the log breadcrumb's
-  // best-effort file write cannot surface a spurious failure. Recovery logic
-  // itself stays entirely real (unmocked).
-  final ppTemp = Directory.systemTemp.createTempSync('dropweb_pp');
-  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-      .setMockMethodCallHandler(
-    const MethodChannel('plugins.flutter.io/path_provider'),
-    (call) async => ppTemp.path,
-  );
+  // Back those with a real temp tree so the log breadcrumb's best-effort file
+  // write cannot surface a spurious failure. Recovery logic itself stays
+  // entirely real (unmocked).
+  useFakePathProvider();
+
   // Set the mock store ONCE, before the lazy `preferences` singleton binds to
   // a SharedPreferences instance. The singleton caches that instance for its
   // lifetime, so the test MUST write through the exact same object (fetched
