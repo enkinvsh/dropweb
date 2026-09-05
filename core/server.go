@@ -65,9 +65,12 @@ func sendMessage(message Message) {
 
 func send(data []byte) {
 	if conn == nil {
+		fmt.Fprintln(os.Stderr, "[core-bridge] dropped push: no connection")
 		return
 	}
-	_, _ = conn.Write(append(data, []byte("\n")...))
+	if _, err := conn.Write(append(data, []byte("\n")...)); err != nil {
+		fmt.Fprintf(os.Stderr, "[core-bridge] dropped push: write failed: %v\n", err)
+	}
 }
 
 func startServer(config serverConfig) error {

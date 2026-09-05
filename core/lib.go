@@ -41,12 +41,32 @@ func freeCString(s *C.char) {
 	C.free(unsafe.Pointer(s))
 }
 
+// pushType reports the Message type carried by a push payload. Action results
+// carry arbitrary data and yield the empty type.
+func pushType(payload any) MessageType {
+	message, ok := payload.(Message)
+	if !ok {
+		return ""
+	}
+	return message.Type
+}
+
 func (result ActionResult) send() {
 	data, err := result.Json()
 	if err != nil {
 		return
 	}
-	bridge.SendToPort(result.Port, string(data))
+	if !bridge.SendToPort(result.Port, string(data)) {
+		// handleStartLog forwards every log event back through sendMessage, so
+		// warning about a dropped log push would emit another log line, which
+		// becomes another dropped push, and so on. Log pushes stay silent.
+		if messageType := pushType(result.Data); messageType != LogMessage {
+			log.Warnln(
+				"[bridge] dropped push method=%s type=%s port=%d: message port rejected the payload",
+				result.Method, messageType, result.Port,
+			)
+		}
+	}
 }
 
 //export invokeAction
@@ -72,6 +92,9 @@ func invokeAction(paramsChar *C.char, port C.longlong) {
 
 func sendMessage(message Message) {
 	if messagePort == -1 {
+		if message.Type != LogMessage {
+			log.Warnln("[bridge] dropped push type=%s: no message port attached", message.Type)
+		}
 		return
 	}
 	result := ActionResult{
