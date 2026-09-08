@@ -168,6 +168,25 @@ class RunTime extends _$RunTime with AutoDisposeNotifierMixin {
 
   @override
   void onUpdate(int? value) {
+    // `onUpdate` is only reached when AutoDisposeNotifierMixin's
+    // updateShouldNotify was true, so an equal-value write never logs. Only
+    // the null/not-null flip is printed on top of that: while connected,
+    // ConnectService.updateRunTime writes a fresh millisecond delta on every
+    // 2s beat, and every one of those IS a real change. Logging each would
+    // emit ~30 lines/min of `set -> set` and evict the 150-entry in-app log
+    // buffer roughly every five minutes, destroying the very evidence this
+    // instrumentation exists to collect.
+    //
+    // `globalState.appState.runTime` is read before the copyWith below, and
+    // this method is the only writer of that field in lib/, so it is the
+    // previous value.
+    final previous = globalState.appState.runTime;
+    if ((previous == null) != (value == null)) {
+      commonPrint.log(
+        '[runtime] ${previous == null ? 'null' : 'set'} -> '
+        '${value == null ? 'null' : 'set'}',
+      );
+    }
     globalState.appState = globalState.appState.copyWith(
       runTime: value,
     );

@@ -129,6 +129,26 @@ class GlobalState {
   /// require threading a token through Go/Kotlin (out of scope for this fix).
   void completeTunAck(String? error) {
     final ack = _tunAck;
+    final String disposition;
+    if (ack == null) {
+      // No start transition in flight — a late/orphan ack. This is itself a
+      // symptom: the attempt that wanted it has already given up ([ack]
+      // timeout), or the native side acked a start Dart never armed.
+      disposition = 'IGNORED_NO_WAITER';
+    } else if (ack.isCompleted) {
+      disposition = 'IGNORED_ALREADY_COMPLETED';
+    } else {
+      disposition = 'delivered';
+    }
+    // `error` is quoted deliberately: commonPrint pipes every line through
+    // redactUrls, whose URL pattern runs to the next whitespace/quote, so an
+    // unquoted URL here would swallow the following separator and get its path
+    // redacted — the log would blind itself (see Task 1.6).
+    final outcome = error == null ? 'ready' : 'error="$error"';
+    commonPrint.log(
+      '[ack] complete outcome=$outcome hasWaiter=${ack != null} '
+      'disposition=$disposition',
+    );
     if (ack == null || ack.isCompleted) return;
     ack.complete(error);
   }
@@ -401,9 +421,24 @@ class GlobalState {
         return false;
       }
       if (needsTunAck) {
+        // Single source for both the wait and the log lines, so the printed
+        // budget can never drift from the one actually applied.
+        const tunAckTimeout = Duration(seconds: 15);
+        // From here Dart blocks on the native TUN ack. If Kotlin's
+        // handleStartService took its already-START early return it never
+        // called startTun, so no ack can arrive and the timeout below tears
+        // down a tunnel that is actually up. Read this line together with
+        // VpnPlugin's "handleStartService: already START" warning.
+        commonPrint.log('[ack] armed timeout=${tunAckTimeout.inSeconds}s');
         final ackError = await myAck!.future.timeout(
-          const Duration(seconds: 15),
-          onTimeout: () => 'tun start timeout',
+          tunAckTimeout,
+          onTimeout: () {
+            commonPrint.log(
+              '[ack] timeout ${tunAckTimeout.inSeconds}s '
+              'no native TUN ack; rolling back start',
+            );
+            return 'tun start timeout';
+          },
         );
         if (ackError != null) {
           // TUN failed to come up — roll back exactly like the started==false
