@@ -63,8 +63,13 @@ class Vpn {
         case "status":
           return clashLibHandler?.getRunTime() != null;
         case "networkChanged":
+          // lib/clash/lib.dart:399-403 and lib/clash/core.dart:23: clashLib and
+          // clashLibHandler are mutually exclusive, so ClashCore cannot be
+          // constructed in the service isolate. Derive clashLib availability
+          // from !isService to avoid invoking clashLib getter (which constructs
+          // ClashLib() and calls _initService() on the main isolate).
           commonPrint.log(
-            '[isolate] vpn-channel networkChanged isService=${globalState.isService} clashLibHandler=${clashLibHandler != null}',
+            '[isolate] vpn-channel networkChanged isService=${globalState.isService} clashLibAvailable=${!globalState.isService}',
           );
           try {
             // The native bearer tracker committed a real physical-bearer
