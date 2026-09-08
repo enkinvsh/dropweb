@@ -214,4 +214,23 @@ void main() {
           reason: 'changeProxy must wire an explicit onTimeout sentinel');
     });
   });
+
+  group('reads fail-closed on timeout', () {
+    test('getConfig surfaces a timeout as an error, not an empty config',
+        () async {
+      final handler = _CapturingHandler();
+      final result = await handler.getConfig('/tmp/dropweb-test/profile.yaml');
+
+      expect(result.isError, isTrue,
+          reason: 'a timed-out getConfig must NOT look like a successful read '
+              'of an empty config: ClashCore.getConfig returns res.data on '
+              'isSuccess, so the caller would apply a profile with no proxies '
+              'and no rules and never see an error');
+      expect(result.message, isNotEmpty,
+          reason: 'the error has to carry a cause the UI can show');
+      expect(handler.capturedMethod, ActionMethod.getConfig);
+      expect(handler.capturedOnTimeoutWasNull, isFalse,
+          reason: 'getConfig must wire an explicit onTimeout sentinel');
+    });
+  });
 }

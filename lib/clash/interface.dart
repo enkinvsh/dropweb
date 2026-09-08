@@ -271,9 +271,16 @@ abstract class ClashHandlerInterface with ClashInterface {
         method: ActionMethod.getConfig,
         data: path,
         timeout: const Duration(minutes: 2),
-        // Typed empty map: a bare `{}` is Map<dynamic,dynamic>, which then throws
-        // on the `res.data as Map<String,dynamic>` cast in ClashCore.getConfig.
-        defaultValue: Result.success(<String, dynamic>{}),
+        // A timed-out read must surface as an error, not as a successful read
+        // of an EMPTY config. ClashCore.getConfig returns `res.data` whenever
+        // `isSuccess`, so the old `Result.success(<String, dynamic>{})` handed
+        // callers a profile with no proxies and no rules, indistinguishable
+        // from a real one. Fail closed.
+        //
+        // Result.error routes the timeout into the SAME `throw res.message`
+        // branch that a core-side `code = -1` already takes, so no caller gains
+        // a failure mode it does not already handle.
+        onTimeout: () => Result.error('error: core call timed out (getConfig)'),
       );
 
   @override
