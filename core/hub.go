@@ -251,17 +251,30 @@ func handleResetTraffic() {
 func handleAsyncTestDelay(paramsString string, fn func(string)) {
 	mBatch.Go(paramsString, func() (bool, error) {
 		var params = &TestDelayParams{}
+		// Dart keys its delay map by the (url, name) pair it asked for, so every
+		// reply has to echo that pair back: one that drops either field is stored
+		// under a foreign key and the badge that requested it never sees the
+		// measurement. testUrl is declared HERE, above the recover, because a
+		// closure cannot capture a variable declared below itself — the panic
+		// reply needs it too.
+		testUrl := constant.DefaultTestURL
 		// Dart parses this reply as Delay.fromJson(json.decode(data)); a raw panic
 		// string would throw. Deliver a well-formed Delay{Value:-1} so the completer
 		// resolves to a normal "unreachable" result instead of hanging.
 		defer recoverGoFn("handleAsyncTestDelay", func(string) {
-			data, _ := json.Marshal(&Delay{Name: params.ProxyName, Value: -1})
+			data, _ := json.Marshal(&Delay{Name: params.ProxyName, Url: testUrl, Value: -1})
 			fn(string(data))
 		})
 		err := json.Unmarshal([]byte(paramsString), params)
 		if err != nil {
 			fn("")
 			return false, nil
+		}
+
+		// Resolved immediately after the unmarshal so a panic anywhere below is
+		// still attributed to the URL the caller actually asked for.
+		if params.TestUrl != "" {
+			testUrl = params.TestUrl
 		}
 
 		expectedStatus, err := utils.NewUnsignedRanges[uint16]("")
@@ -278,6 +291,7 @@ func handleAsyncTestDelay(paramsString string, fn func(string)) {
 
 		delayData := &Delay{
 			Name: params.ProxyName,
+			Url:  testUrl,
 		}
 
 		if proxy == nil {
@@ -286,13 +300,6 @@ func handleAsyncTestDelay(paramsString string, fn func(string)) {
 			fn(string(data))
 			return false, nil
 		}
-
-		testUrl := constant.DefaultTestURL
-
-		if params.TestUrl != "" {
-			testUrl = params.TestUrl
-		}
-		delayData.Url = testUrl
 
 		delay, err := proxy.URLTest(ctx, testUrl, expectedStatus)
 		if err != nil || delay == 0 {
