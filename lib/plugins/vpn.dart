@@ -19,14 +19,29 @@ abstract mixin class VpnListener {
 /// re-dial cannot reuse an old bearer's pooled resolver connection. Delay
 /// measurements from the previous bearer are invalidated last — they are
 /// fiction on the new one.
+///
+/// [invalidateDelayData] is nullable because the delay map lives on
+/// `AppController`, which only the UI isolate ever builds. `networkChanged` is
+/// delivered to the VPN SERVICE isolate, where there is no controller to call
+/// — and resolving one there used to throw and abort the whole reset before it
+/// finished (the DNS pools stayed on the dead bearer). The core reset is the
+/// part that must always run; a missing invalidator degrades loudly instead.
 @visibleForTesting
 Future<void> handleUnderlyingNetworkChanged({
   required FutureOr<Object?> Function() resetConnections,
   required FutureOr<Object?> Function() closeConnections,
-  required void Function() invalidateDelayData,
+  required void Function()? invalidateDelayData,
 }) async {
   await Future.sync(resetConnections);
   await Future.sync(closeConnections);
+  if (invalidateDelayData == null) {
+    commonPrint.log(
+      "[VPN] delay data not invalidated: no AppController in this isolate "
+      "(isService=${globalState.isService}) — core reset completed, stale "
+      "delay badges clear on the next URLTest cycle",
+    );
+    return;
+  }
   invalidateDelayData();
 }
 
@@ -80,17 +95,34 @@ class Vpn {
             // then wipe delay data: measurements from the previous bearer are
             // FICTION on the new one — badges flip to «не замерено» instead of
             // showing stale green numbers; URLTest cycles repopulate honest
-            // values. Safe here: networkChanged only fires under a LIVE tunnel,
-            // so appController is already initialized — no null-init window.
+            // values.
             final details = call.arguments;
             commonPrint.log(
               "[VPN] BEARER_CHANGE $details — resetting DNS pools and core connections",
             );
+            // Both dependencies are isolate-scoped and this event lands in the
+            // SERVICE isolate, where neither of the UI-isolate ones exists:
+            //   * clashCore constructs ClashCore, whose _internal() derefs
+            //     clashLib! — null by construction here (lib/clash/lib.dart
+            //     :399-403 make clashLib and clashLibHandler mutually
+            //     exclusive), so merely READING clashCore throws;
+            //   * globalState.appController is `_appController!` on a field
+            //     only lib/application.dart sets, i.e. only the UI isolate.
+            // Both used to be resolved eagerly as arguments, so every real
+            // bearer change threw before the reset ran. Pick the core wrapper
+            // that exists in THIS isolate (the ternaries are lazy — the losing
+            // side is never evaluated) and let the invalidator be absent.
+            final serviceCore = clashLibHandler;
             await handleUnderlyingNetworkChanged(
-              resetConnections: clashCore.resetConnections,
-              closeConnections: clashCore.closeConnections,
-              invalidateDelayData:
-                  globalState.appController.invalidateDelayData,
+              resetConnections: serviceCore != null
+                  ? serviceCore.resetConnections
+                  : clashCore.resetConnections,
+              closeConnections: serviceCore != null
+                  ? serviceCore.closeConnections
+                  : clashCore.closeConnections,
+              invalidateDelayData: globalState.isInit
+                  ? globalState.appController.invalidateDelayData
+                  : null,
             );
           } catch (e, st) {
             commonPrint.log(

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dropweb/plugins/vpn.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/fake_path_provider.dart';
@@ -86,6 +87,54 @@ void main() {
       close.complete(true);
       await done;
       expect(calls, ['reset', 'close', 'invalidate']);
+    });
+
+    // V2: `networkChanged` is delivered to the VPN SERVICE isolate, which has
+    // no AppController at all (`globalState._appController` is only ever set
+    // from lib/application.dart, i.e. by the UI isolate). Resolving the
+    // invalidator eagerly threw `Null check operator used on a null value`
+    // and aborted the whole reset — the core kept the previous bearer's DNS
+    // pools and flows. The reset MUST still complete without it.
+    test('network change without an AppController still resets the core',
+        () async {
+      final calls = <String>[];
+
+      await handleUnderlyingNetworkChanged(
+        resetConnections: () {
+          calls.add('reset');
+          return true;
+        },
+        closeConnections: () {
+          calls.add('close');
+          return true;
+        },
+        invalidateDelayData: null,
+      );
+
+      expect(calls, ['reset', 'close'],
+          reason: 'a missing delay invalidator must not abort the core reset');
+    });
+
+    test('skipped delay invalidation is reported, never silent', () async {
+      final logs = <String>[];
+      // Snapshot debugPrint INSIDE the body: the test binding swaps it after
+      // top-level main() runs, and restoring a stale snapshot trips
+      // debugAssertAllFoundationVarsUnset.
+      final previousDebugPrint = debugPrint;
+      debugPrint = (message, {wrapWidth}) => logs.add(message ?? '');
+      addTearDown(() => debugPrint = previousDebugPrint);
+
+      await handleUnderlyingNetworkChanged(
+        resetConnections: () => true,
+        closeConnections: () => true,
+        invalidateDelayData: null,
+      );
+
+      expect(
+        logs.where((line) => line.contains('delay data not invalidated')),
+        isNotEmpty,
+        reason: 'the degraded path must be visible in the log, not silent',
+      );
     });
   });
 

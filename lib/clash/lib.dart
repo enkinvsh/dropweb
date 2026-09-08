@@ -290,6 +290,37 @@ class ClashLibHandler {
     malloc.free(dnsChar);
   }
 
+  /// Drops every tracked flow. Service-isolate twin of
+  /// `ClashCore.closeConnections`.
+  Future<String> closeConnections() =>
+      _invokeCoreAction(ActionMethod.closeConnections);
+
+  /// Resets the resolver's connection pools. Service-isolate twin of
+  /// `ClashCore.resetConnections`.
+  Future<String> resetConnections() =>
+      _invokeCoreAction(ActionMethod.resetConnections);
+
+  /// Issues a core action from INSIDE the service isolate.
+  ///
+  /// The UI isolate reaches the core through `ClashCore` ->
+  /// `ClashHandlerInterface.invoke` -> SendPort -> this isolate's
+  /// `_handleMainIpc`, which then calls [invokeAction] with exactly this JSON.
+  /// The service isolate cannot take that route at all: `ClashCore` is
+  /// unconstructible here because `ClashCore._internal` does
+  /// `clashInterface = clashLib!` and [clashLib] is null by construction
+  /// whenever [clashLibHandler] is not (see the getters at the bottom of this
+  /// file). So it skips the IPC hop and posts the same action straight to the
+  /// core. Awaiting the reply is what keeps an ordered reset ordered.
+  Future<String> _invokeCoreAction(ActionMethod method) => invokeAction(
+        json.encode(
+          Action(
+            id: "${method.name}#${utils.id}",
+            method: method,
+            data: null,
+          ),
+        ),
+      );
+
   void setState(CoreState state) {
     final stateChar = json.encode(state).toNativeUtf8().cast<Char>();
     clashFFI.setState(stateChar);
