@@ -108,6 +108,31 @@ abstract class ClashHandlerInterface with ClashInterface {
           completer?.complete(result.toResult);
           return;
         default:
+          // The core reports its failures as `code = -1` with the cause in
+          // `data`: a recovered panic in handleAction (reachable from EVERY
+          // method), an unsupported method, invalid setState params, a
+          // startListener marshal failure. Completing with `data` regardless of
+          // `code` handed that cause to the caller AS THE PAYLOAD — every
+          // `invoke<String>` method returned the error text as its value, so
+          // getCountryCode answered "panic: ..." and it was rendered as a
+          // country code.
+          //
+          // A bare String is the error object on purpose: it is what the rest
+          // of this boundary already throws (`throw res.message` in
+          // ClashCore.getConfig, `throw message` in AppController), and
+          // GlobalState.safeRun feeds `e.toString()` to ErrorMapper, which
+          // pattern-matches the raw core text. A wrapper type would have to
+          // reproduce that text verbatim anyway.
+          //
+          // `message` and `getConfig` are excluded structurally — they have
+          // their own switch arms above. `message` carries no code, and
+          // `getConfig` already reports `code` honestly through `toResult`.
+          if (result.code != ResultType.success) {
+            completer?.completeError(
+              result.data is String ? result.data as String : '${result.data}',
+            );
+            return;
+          }
           completer?.complete(result.data);
           return;
       }
