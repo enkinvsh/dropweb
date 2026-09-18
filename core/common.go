@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"strings"
 	"sync"
 
 	"github.com/metacubex/mihomo/adapter"
@@ -53,6 +54,21 @@ func recoverGoFn(name string, fn func(string)) {
 		log.Errorln("[panic] %s recovered: %v\n%s", name, r, debug.Stack())
 		fn(fmt.Sprintf("panic: %s: %v", name, r))
 	}
+}
+
+// runGuarded runs fn and reports whether it finished without panicking.
+// Synchronous handlers whose CALLER owes Dart a reply must propagate this
+// result instead of answering unconditional success: a swallowed panic
+// reported as success hides a real failure from the app.
+func runGuarded(name string, fn func()) (ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorln("[panic] %s recovered: %v\n%s", name, r, debug.Stack())
+			ok = false
+		}
+	}()
+	fn()
+	return true
 }
 
 type ExternalProviders []ExternalProvider
@@ -184,6 +200,30 @@ func startListenerResult(requested, effective bool, tunError string) StartListen
 		cause = tunStartFallbackError
 	}
 	return StartListenerResult{Ok: false, TunError: &cause}
+}
+
+// tunPanicFallbackCause is the deterministic, non-empty cause reported when a
+// panic escaped a tun op without a renderable message. Same boundary rule as
+// tunStartFallbackError: a blank tun error must never reach Dart.
+const tunPanicFallbackCause = "tun worker panic (no cause reported)"
+
+// tunPanicRepair is the pure predicate behind the tun worker's recover: it maps
+// (op kind, rendered panic cause) onto what must be repaired before the worker
+// takes the next op.
+//   - a START panics AFTER runTime is set and BEFORE any TunMessage is sent, so
+//     a dead session still answers getRunTime() and connect_service's reconciler
+//     adopts it as running (heal_running). The marker must be cleared and the
+//     failure announced, verbatim or via the deterministic fallback.
+//   - a STOP clears runTime as its first action, so a panic there has nothing to
+//     undo and nothing to announce.
+func tunPanicRepair(isStart bool, cause string) (repair bool, message string) {
+	if !isStart {
+		return false, ""
+	}
+	if strings.TrimSpace(cause) == "" {
+		return true, tunPanicFallbackCause
+	}
+	return true, cause
 }
 
 // proxiesWithProviders merges tunnel proxies with provider proxies.

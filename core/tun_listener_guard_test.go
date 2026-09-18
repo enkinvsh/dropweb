@@ -104,3 +104,56 @@ func equalOptionalString(left, right *string) bool {
 	}
 	return *left == *right
 }
+
+func TestTunPanicRepair(t *testing.T) {
+	tests := []struct {
+		name        string
+		isStart     bool
+		cause       string
+		wantRepair  bool
+		wantMessage string
+	}{
+		{
+			name:        "start panic clears the marker and reports the cause",
+			isStart:     true,
+			cause:       "panic: tunWorker: runtime error: invalid memory address",
+			wantRepair:  true,
+			wantMessage: "panic: tunWorker: runtime error: invalid memory address",
+		},
+		{
+			name:        "start panic with no cause uses the deterministic fallback",
+			isStart:     true,
+			cause:       "",
+			wantRepair:  true,
+			wantMessage: tunPanicFallbackCause,
+		},
+		{
+			name:        "start panic with blank cause uses the deterministic fallback",
+			isStart:     true,
+			cause:       "   ",
+			wantRepair:  true,
+			wantMessage: tunPanicFallbackCause,
+		},
+		{
+			name:       "stop panic has nothing to undo",
+			isStart:    false,
+			cause:      "panic: tunWorker: boom",
+			wantRepair: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			repair, message := tunPanicRepair(test.isStart, test.cause)
+			if repair != test.wantRepair {
+				t.Fatalf("tunPanicRepair() repair = %v, want %v", repair, test.wantRepair)
+			}
+			if repair && message == "" {
+				t.Fatal("repair requested but message is empty; Dart would get a blank tun error")
+			}
+			if test.wantRepair && message != test.wantMessage {
+				t.Fatalf("tunPanicRepair() message = %q, want %q", message, test.wantMessage)
+			}
+		})
+	}
+}

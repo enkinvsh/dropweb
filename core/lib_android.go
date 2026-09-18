@@ -120,7 +120,25 @@ func init() {
 	go func() {
 		for op := range tunOps {
 			func() {
-				defer recoverGo("tunWorker")
+				// A panic inside handleStartTun escapes AFTER runTime was set and
+				// BEFORE any TunMessage was sent, so the dead session still answers
+				// getRunTime() and connect_service's reconciler adopts it as a live
+				// one (heal_running) over a dead tunnel. handleStartTun's own
+				// `defer tunLock.Unlock()` has already run by the time this recover
+				// fires, so re-taking the lock here is safe.
+				defer recoverGoFn("tunWorker", func(cause string) {
+					repair, message := tunPanicRepair(op.start, cause)
+					if !repair {
+						return
+					}
+					tunLock.Lock()
+					runTime = nil
+					tunLock.Unlock()
+					sendMessage(Message{Type: TunMessage, Data: map[string]any{
+						"status":  "error",
+						"message": message,
+					}})
+				})
 				if op.start {
 					handleStartTun(op.fd, op.callback)
 				} else {
@@ -254,14 +272,17 @@ func handleGetAndroidVpnOptions() string {
 // is deterministic. Do not restore the old goroutine. These operations are
 // small; parseDNSPayload also fixes the ""->[""] garbage-slice bug of the
 // previous strings.Split path.
-func handleUpdateDns(value string) {
-	defer recoverGo("updateDns")
+// It reports whether it completed. A panic here used to be swallowed while
+// nextHandle still answered success, so Dart treated a failed DNS update as
+// a good one; callers that owe Dart a reply MUST propagate this bool.
+func handleUpdateDns(value string) bool {
+	return runGuarded("updateDns", func() {
+		addresses := parseDNSPayload(value)
+		log.Infoln("[DNS] updateDns count=%d value=%s", len(addresses), value)
 
-	addresses := parseDNSPayload(value)
-	log.Infoln("[DNS] updateDns count=%d value=%s", len(addresses), value)
-
-	dns.UpdateSystemDNS(addresses)
-	dns.FlushCacheWithDefaultResolver()
+		dns.UpdateSystemDNS(addresses)
+		dns.FlushCacheWithDefaultResolver()
+	})
 }
 
 func handleGetCurrentProfileName() string {
@@ -279,8 +300,7 @@ func nextHandle(action *Action, result ActionResult) bool {
 		return true
 	case updateDnsMethod:
 		data := action.Data.(string)
-		handleUpdateDns(data)
-		result.success(true)
+		result.success(handleUpdateDns(data))
 		return true
 	case getRunTimeMethod:
 		result.success(handleGetRunTime())
@@ -299,7 +319,13 @@ func quickStart(initParamsChar *C.char, paramsChar *C.char, stateParamsChar *C.c
 	bytes := []byte(C.GoString(paramsChar))
 	stateParams := C.GoString(stateParamsChar)
 	go func() {
-		defer recoverGo("quickStart")
+		// This goroutine OWNS Dart port i and must always answer on it.
+		// recoverGo would swallow a panic and reply nothing, leaving the
+		// Dart completer (lib/clash/lib.dart quickStart) waiting forever --
+		// the tile-start hang.
+		defer recoverGoFn("quickStart", func(msg string) {
+			bridge.SendToPort(i, msg)
+		})
 		res := handleInitClash(paramsString)
 		if res == false {
 			bridge.SendToPort(i, "init error")
@@ -345,5 +371,7 @@ func setState(s *C.char) {
 //export updateDns
 func updateDns(s *C.char) {
 	dnsList := C.GoString(s)
-	handleUpdateDns(dnsList)
+	// Fire-and-forget entry point: no Dart port to answer, the guard inside
+	// handleUpdateDns has already logged any panic.
+	_ = handleUpdateDns(dnsList)
 }

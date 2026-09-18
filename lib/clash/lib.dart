@@ -395,6 +395,14 @@ class ClashLibHandler {
     return config;
   }
 
+  /// Bound for the core's quickStart reply. The Go side owns this port and
+  /// now always answers even on panic (recoverGoFn in core/lib_android.go),
+  /// but a wedged core or a lost port would still hang the Quick-Settings
+  /// tile start forever — an unbounded completer has no other way out.
+  /// A non-empty result is the caller's failure signal (see lib/main.dart),
+  /// so the timeout reports through the existing error path.
+  static const _quickStartTimeout = Duration(seconds: 30);
+
   Future<String> quickStart(
     InitParams initParams,
     SetupParams setupParams,
@@ -423,7 +431,13 @@ class ClashLibHandler {
     malloc.free(initParamsChar);
     malloc.free(paramsChar);
     malloc.free(stateParamsChar);
-    return completer.future;
+    return completer.future.timeout(
+      _quickStartTimeout,
+      onTimeout: () {
+        receiver.close();
+        return "quickStart timed out after ${_quickStartTimeout.inSeconds}s";
+      },
+    );
   }
 }
 
