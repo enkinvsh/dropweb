@@ -24,6 +24,23 @@ import kotlinx.coroutines.launch
 
 
 class DropwebVpnService : VpnService(), BaseServiceInterface {
+    companion object {
+        /**
+         * MTU of the TUN interface, in bytes.
+         *
+         * MUST stay at the mobile link value. 9000 is the FlClashX desktop
+         * inheritance (it targets gigabit links) and forces fragmentation on a
+         * mobile bearer — it was one of the root-cause layers behind slow
+         * Telegram uploads. The correction to 1500 was made once and written up
+         * in CHANGELOG, then silently reverted by the rebase conflict resolution
+         * in commit 9e7d946 (2026-05-26), and went unnoticed for four months
+         * because nothing asserted it.
+         *
+         * TunMtuTest now locks this value. Do not inline it back into a literal.
+         */
+        const val TUN_MTU = 1500
+    }
+
     override fun onCreate() {
         super.onCreate()
         GlobalState.initServiceEngine()
@@ -89,7 +106,7 @@ class DropwebVpnService : VpnService(), BaseServiceInterface {
                 )
             }
             addDnsServer(options.dnsServerAddress)
-            setMtu(9000)
+            setMtu(TUN_MTU)
             val include = options.includePackage.orEmpty()
             val exclude = options.excludePackage.orEmpty()
             when {
