@@ -834,7 +834,19 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             // start() returns a detached fd (service uses establish()?.detachFd()).
             // If startTun throws we own that fd and must close it, else it leaks and
             // runState would stay START with no live tun.
-            val fd = dropwebService?.start(options!!)
+            val fd = try {
+                dropwebService?.start(options!!)
+            } catch (e: Exception) {
+                // DropwebVpnService.start() throws when establish() returns null:
+                // consent revoked, or another VPN app owns the interface. This call
+                // used to sit OUTSIDE the try below, so the throw escaped
+                // handleStartService entirely and left runState at START with no
+                // tun -- the exact state the Core.startTun catch below resets.
+                Log.e(TAG, "VpnService.start failed", e)
+                stopBearerTracking()
+                GlobalState.runState.value = RunState.STOP
+                return
+            }
             try {
                 Core.startTun(
                     fd = fd ?: 0,
