@@ -133,6 +133,11 @@ UpdateParams updateParams(Ref ref) {
       (state) => state.routeMode,
     ),
   );
+  // Toggling logging changes these params, so the new core level is applied
+  // live through updateClashConfig — same rule as the setup path.
+  final openLogs = ref.watch(
+    appSettingProvider.select((state) => state.openLogs),
+  );
   return ref.watch(
     patchClashConfigProvider.select(
       (state) => UpdateParams(
@@ -140,7 +145,7 @@ UpdateParams updateParams(Ref ref) {
         allowLan: state.allowLan,
         findProcessMode: state.findProcessMode,
         mode: state.mode,
-        logLevel: state.logLevel,
+        logLevel: coreLogLevel(openLogs: openLogs, requested: state.logLevel),
         ipv6: state.ipv6,
         tcpConcurrent: state.tcpConcurrent,
         externalController: state.externalController,

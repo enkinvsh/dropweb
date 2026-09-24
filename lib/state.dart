@@ -836,6 +836,12 @@ class GlobalState {
     // Original three modes — direct passthrough to mihomo:
     // Mode.rule → "rule", Mode.direct → "direct", Mode.global → "global".
     rawConfig["mode"] = realPatchConfig.mode.name;
+    // App-owned (see coreLogLevel): a subscription's `log-level: info` would
+    // push a line per connection to Dart even with logging off.
+    rawConfig["log-level"] = coreLogLevel(
+      openLogs: config.appSetting.openLogs,
+      requested: realPatchConfig.logLevel,
+    ).name;
 
     // Set network settings: use patchConfig if overriding, otherwise keep provider values
     if (config.appSetting.overrideNetworkSettings) {

@@ -877,6 +877,7 @@ class AppController {
   ///     mixed-port + tun.stack override branches.
   ///   * routeMode — feeds `tun.getRealTun(...)`.
   ///   * overrideDns — gates the DNS override branch.
+  ///   * openLogs — picks the core log-level (`coreLogLevel`).
   ///   * scriptId / scriptContent — `handleEvaluate` runs the current script;
   ///     editing it (same id, new content) changes the patched output.
   /// selectedMap is deliberately excluded (applied via changeProxy).
@@ -905,6 +906,8 @@ class AppController {
       'overrideNetworkSettings': config.appSetting.overrideNetworkSettings,
       'routeMode': config.networkProps.routeMode.name,
       'overrideDns': config.overrideDns,
+      // Feeds the core log-level (coreLogLevel).
+      'openLogs': config.appSetting.openLogs,
       'scriptId': currentScript?.id,
       'scriptContent': currentScript?.content,
       // Work mode lives on Profile in config JSON (NOT the profile file), and

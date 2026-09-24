@@ -102,6 +102,18 @@ enum LogLevel {
   app,
 }
 
+/// Level the mihomo core runs at. The app owns it, not the subscription: the
+/// core pushes every line at or above it through FFI to Dart, and at `info`
+/// that is one push per connection.
+/// * Logging off (default): `error` — all the app keeps then
+///   (`shouldWriteCoreLog`), and what surfaces as error notifications.
+/// * Logging on («Журналирование»): `info`, or `debug` when the developer
+///   log-level setting ([requested]) asks for it.
+LogLevel coreLogLevel({required bool openLogs, required LogLevel requested}) {
+  if (!openLogs) return LogLevel.error;
+  return requested == LogLevel.debug ? LogLevel.debug : LogLevel.info;
+}
+
 enum TransportProtocol { udp, tcp }
 
 enum TrafficUnit { B, KB, MB, GB, TB }

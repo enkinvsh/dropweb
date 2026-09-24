@@ -22,7 +22,6 @@
 // lib/enum/enum.dart, lib/common/preferences.dart (quarantine wrapper).
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
@@ -253,16 +252,5 @@ void main() {
     expect(localJson, isNot(contains('tls-fragment')));
     expect(localJson, isNot(contains('tls-fragment-size')));
     expect(localJson, isNot(contains('tls-fragment-delay')));
-  });
-
-  test('patchRawConfig preserves provider log-level', () {
-    final source = File('lib/state.dart').readAsStringSync();
-
-    expect(
-      source,
-      isNot(contains(
-        'rawConfig["log-level"] = realPatchConfig.logLevel.name;',
-      )),
-    );
   });
 }
