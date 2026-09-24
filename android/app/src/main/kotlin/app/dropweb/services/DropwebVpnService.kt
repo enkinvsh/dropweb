@@ -167,6 +167,7 @@ class DropwebVpnService : VpnService(), BaseServiceInterface {
     }
 
     override fun stop() {
+        foregroundPosted = false
         stopSelf()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -197,15 +198,22 @@ class DropwebVpnService : VpnService(), BaseServiceInterface {
         return cachedBuilder!!
     }
 
+    // True once this foreground session has posted via Service.startForeground;
+    // later content updates go through NotificationManager.notify instead.
+    private var foregroundPosted = false
+
     @SuppressLint("ForegroundServiceType")
     override suspend fun startForeground(title: String, server: String?, content: String) {
-        startForeground(
-            notificationBuilder()
-                .setContentTitle(title)
-                .setContentText(content)
-                .setSubText(server ?: "")
-                .build()
-        )
+        val notification = notificationBuilder()
+            .setContentTitle(title)
+            .setContentText(content)
+            .setSubText(server ?: "")
+            .build()
+        if (foregroundPosted) {
+            updateForegroundNotification(notification)
+        } else {
+            foregroundPosted = startForeground(notification)
+        }
     }
 
     override fun onTrimMemory(level: Int) {

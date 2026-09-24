@@ -18,14 +18,15 @@ import app.dropweb.models.Metadata
 import app.dropweb.models.VpnOptions
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.ByteArrayOutputStream
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 suspend fun Drawable.getBase64(): String {
     val drawable = this
@@ -162,25 +163,38 @@ private fun numericToTextFormat(address: Inet6Address): String {
     return sb.toString()
 }
 
+const val AWAIT_RESULT_TIMEOUT_MS = 5_000L
+
+/**
+ * Invokes [method] on the Dart side and suspends until it replies.
+ *
+ * Never hangs forever: if the target isolate is dead (its engine was
+ * destroyed while the channel was still referenced) the reply never comes, so
+ * after [timeoutMillis] this returns null. A late reply after the timeout is
+ * ignored (continuation already cancelled) instead of crashing.
+ */
 suspend fun <T> MethodChannel.awaitResult(
     method: String,
-    arguments: Any? = null
+    arguments: Any? = null,
+    timeoutMillis: Long = AWAIT_RESULT_TIMEOUT_MS,
 ): T? = withContext(Dispatchers.Main) { // Switch to main thread
-    suspendCoroutine { continuation ->
-        invokeMethod(method, arguments, object : MethodChannel.Result {
-            override fun success(result: Any?) {
-                @Suppress("UNCHECKED_CAST")
-                continuation.resume(result as T)
-            }
+    withTimeoutOrNull(timeoutMillis) {
+        suspendCancellableCoroutine<T?> { continuation ->
+            invokeMethod(method, arguments, object : MethodChannel.Result {
+                override fun success(result: Any?) {
+                    @Suppress("UNCHECKED_CAST")
+                    if (continuation.isActive) continuation.resume(result as T?)
+                }
 
-            override fun error(code: String, message: String?, details: Any?) {
-                continuation.resume(null)
-            }
+                override fun error(code: String, message: String?, details: Any?) {
+                    if (continuation.isActive) continuation.resume(null)
+                }
 
-            override fun notImplemented() {
-                continuation.resume(null)
-            }
-        })
+                override fun notImplemented() {
+                    if (continuation.isActive) continuation.resume(null)
+                }
+            })
+        }
     }
 }
 

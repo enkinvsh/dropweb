@@ -21,6 +21,7 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
 import android.os.ParcelFileDescriptor
+import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.getSystemService
@@ -37,6 +38,7 @@ import app.dropweb.services.DropwebService
 import app.dropweb.services.DropwebVpnService
 import com.google.gson.Gson
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
@@ -52,7 +54,12 @@ import kotlin.concurrent.withLock
 data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private const val TAG = "VpnPlugin"
 
-    private lateinit var flutterMethodChannel: MethodChannel
+    // One "vpn" channel per attached engine (keyed by its BinaryMessenger).
+    // Outbound calls go to the SERVICE engine's channel whenever it is attached
+    // (only the service isolate owns VpnListener / real foreground params /
+    // clashLibHandler); a destroyed engine's channel is removed on detach so it
+    // is never invoked. See EngineChannelRegistry.
+    private val channels = EngineChannelRegistry<BinaryMessenger, MethodChannel>()
     private var dropwebService: BaseServiceInterface? = null
     private var options: VpnOptions? = null
     private var isBind: Boolean = false
@@ -65,6 +72,9 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     // that fan-in; ConcurrentHashMap gives lock-free reads and atomic writes.
     private val uidPageNameMap = java.util.concurrent.ConcurrentHashMap<Int, String>()
     private var screenReceiverRegistered: Boolean = false
+    // Notification ticker screen gating (main thread only).
+    private var tickerWanted: Boolean = false
+    private var tickerScreenReceiverRegistered: Boolean = false
     private var startRequested: Boolean = false
     private var attachCount = 0
 
@@ -143,13 +153,22 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             bearerThread = HandlerThread("dropweb-bearer").also { it.start() }
             bearerHandler = Handler(bearerThread.looper)
         }
-        // Channel assignment stays last-wins by design: the service engine attaches
-        // later and is the correct receiver for VPN logic (service isolate runs it).
-        flutterMethodChannel = MethodChannel(flutterPluginBinding.binaryMessenger, "vpn")
-        flutterMethodChannel.setMethodCallHandler(this)
+        // Inbound handler is registered on every engine's channel; outbound
+        // selection (service engine preferred) lives in the registry.
+        val messenger = flutterPluginBinding.binaryMessenger
+        val channel = MethodChannel(messenger, "vpn")
+        channel.setMethodCallHandler(this)
+        @Suppress("DEPRECATION")
+        val isService = GlobalState.isServiceEngine(flutterPluginBinding.flutterEngine)
+        channels.attach(messenger, channel, isService)?.setMethodCallHandler(null)
+        Log.d(TAG, "attach engine service=$isService engines=${channels.size}")
     }
 
     override fun onDetachedFromEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+        // Drop this engine's channel immediately so a destroyed engine is never
+        // used for outbound calls (its replies would never arrive).
+        channels.detach(flutterPluginBinding.binaryMessenger)?.setMethodCallHandler(null)
+        Log.d(TAG, "detach engine remaining=${channels.size}")
         attachCount--
         // Only tear down once the last engine detaches; otherwise the surviving
         // engine keeps its handler and the bearer tracking stays live.
@@ -163,8 +182,22 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 bearerHandler.removeCallbacksAndMessages(null)
                 bearerThread.quitSafely()
             }
-            flutterMethodChannel.setMethodCallHandler(null)
         }
+    }
+
+    // Main thread only (MethodChannel.invokeMethod requirement).
+    private fun invokeDart(method: String, arguments: Any?) {
+        val channel = channels.current()
+        if (channel == null) {
+            Log.w(TAG, "invokeDart($method) skipped: no engine attached")
+            return
+        }
+        channel.invokeMethod(method, arguments)
+    }
+
+    private suspend fun <T> awaitDart(method: String, arguments: Any? = null): T? {
+        val channel = channels.current() ?: return null
+        return channel.awaitResult<T>(method, arguments)
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -214,7 +247,7 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     }
 
     fun requestGc() {
-        flutterMethodChannel.invokeMethod("gc", null)
+        invokeDart("gc", null)
     }
 
     // -----------------------------------------------------------------
@@ -482,10 +515,10 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         scope.launch {
             withContext(Dispatchers.Main) {
                 dnsPayload?.let {
-                    flutterMethodChannel.invokeMethod("dnsChanged", it)
+                    invokeDart("dnsChanged", it)
                 }
                 if (transition.notifyCore) {
-                    flutterMethodChannel.invokeMethod("networkChanged", details)
+                    invokeDart("networkChanged", details)
                 }
             }
         }
@@ -509,7 +542,7 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         if (dnsPayload != null) {
             scope.launch {
                 withContext(Dispatchers.Main) {
-                    flutterMethodChannel.invokeMethod("dnsChanged", dnsPayload)
+                    invokeDart("dnsChanged", dnsPayload)
                 }
             }
         }
@@ -611,7 +644,7 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         )
         scope.launch {
             withContext(Dispatchers.Main) {
-                flutterMethodChannel.invokeMethod("dnsChanged", payload)
+                invokeDart("dnsChanged", payload)
             }
         }
     }
@@ -770,15 +803,21 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     }
 
     private suspend fun startForeground() {
+        if (GlobalState.runState.value != RunState.START) return
+        // The Dart round-trip runs WITHOUT runLock: holding the lock across a
+        // suspending call to a possibly-dead isolate froze every start/stop path.
+        val data = awaitDart<String>("getStartForegroundParams")
+        val startForegroundParams = if (data != null) Gson().fromJson(
+            data, StartForegroundParams::class.java
+        ) else StartForegroundParams(
+            title = "", server = "", content = ""
+        )
+        // Explicit lock/finally (withLock forbids the suspending apply). The
+        // ticker runs on the single Main thread, so lock and unlock happen on
+        // the same thread across the (bounded) notification-builder suspension.
         GlobalState.runLock.lock()
         try {
             if (GlobalState.runState.value != RunState.START) return
-            val data = flutterMethodChannel.awaitResult<String>("getStartForegroundParams")
-            val startForegroundParams = if (data != null) Gson().fromJson(
-                data, StartForegroundParams::class.java
-            ) else StartForegroundParams(
-                title = "", server = "", content = ""
-            )
             if (lastStartForegroundParams != startForegroundParams) {
                 lastStartForegroundParams = startForegroundParams
                 dropwebService?.startForeground(
@@ -792,25 +831,97 @@ data object VpnPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         }
     }
 
-    private fun startForegroundJob() {
-        stopForegroundJob()
+    // -----------------------------------------------------------------
+    // 1 Hz notification ticker. Paused while the screen is off (nobody can
+    // see the speed text; each tick is a Dart round-trip + FFI calls) and
+    // resumed with an immediate tick on screen-on. Main thread only.
+    // Deliberately separate from screenReceiver (routing reassertion ONLY).
+    // -----------------------------------------------------------------
+
+    private val tickerScreenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                Intent.ACTION_SCREEN_OFF -> pauseTicker()
+                Intent.ACTION_SCREEN_ON -> resumeTicker()
+            }
+        }
+    }
+
+    private fun isScreenInteractive(): Boolean =
+        DropwebApplication.getAppContext().getSystemService<PowerManager>()?.isInteractive ?: true
+
+    private fun launchTicker() {
+        timerJob?.cancel()
         timerJob = CoroutineScope(Dispatchers.Main).launch {
             while (isActive) {
                 startForeground()
+                // Always tick at least once (first foreground post / fresh
+                // content), then stop spinning if the screen is already off.
+                if (!isScreenInteractive()) break
                 delay(1000)
             }
         }
     }
 
-    private fun stopForegroundJob() {
+    private fun pauseTicker() {
         timerJob?.cancel()
         timerJob = null
+    }
+
+    private fun resumeTicker() {
+        if (!tickerWanted) return
+        if (GlobalState.runState.value != RunState.START) return
+        if (timerJob?.isActive == true) return
+        launchTicker()
+    }
+
+    private fun registerTickerScreenReceiver() {
+        if (tickerScreenReceiverRegistered) return
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                DropwebApplication.getAppContext().registerReceiver(
+                    tickerScreenReceiver, filter, Context.RECEIVER_NOT_EXPORTED
+                )
+            } else {
+                DropwebApplication.getAppContext().registerReceiver(tickerScreenReceiver, filter)
+            }
+            tickerScreenReceiverRegistered = true
+        } catch (e: Exception) {
+            Log.e(TAG, "ticker screen receiver registration failed", e)
+        }
+    }
+
+    private fun unregisterTickerScreenReceiver() {
+        if (!tickerScreenReceiverRegistered) return
+        try {
+            DropwebApplication.getAppContext().unregisterReceiver(tickerScreenReceiver)
+        } catch (_: Exception) {}
+        tickerScreenReceiverRegistered = false
+    }
+
+    private fun startForegroundJob() {
+        stopForegroundJob()
+        tickerWanted = true
+        // New foreground session: force the first tick to post.
+        lastStartForegroundParams = null
+        registerTickerScreenReceiver()
+        launchTicker()
+    }
+
+    private fun stopForegroundJob() {
+        tickerWanted = false
+        unregisterTickerScreenReceiver()
+        pauseTicker()
     }
 
 
     suspend fun getStatus(): Boolean? {
         return withContext(Dispatchers.Default) {
-            flutterMethodChannel.awaitResult<Boolean>("status", null)
+            awaitDart<Boolean>("status", null)
         }
     }
 

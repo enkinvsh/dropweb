@@ -52,7 +52,8 @@ object GlobalState {
             // START is set/cleared ONLY by handleStart/handleStop/onRevoke. We do
             // NOT downgrade START -> STOP from here: with the service engine now
             // surviving an app reopen, the "status" round-trip may be answered by
-            // the MAIN isolate (the "vpn" channel is last-wins), which cannot see
+            // the MAIN isolate (VpnPlugin prefers the service engine's channel,
+            // but falls back to main when no service engine is attached), which cannot see
             // the core session and always replies false. Honoring that false used
             // to clobber a live START, turning handleStop() into a no-op (its STOP
             // idempotency gate) so the user could not disconnect. runState is
@@ -96,6 +97,9 @@ object GlobalState {
         val currentEngine = if (flutterEngine != null) flutterEngine else serviceEngine
         return currentEngine?.plugins?.get(TilePlugin::class.java) as TilePlugin?
     }
+
+    fun isServiceEngine(engine: FlutterEngine?): Boolean =
+        engine != null && engine === serviceEngine
 
     fun getCurrentVPNPlugin(): VpnPlugin? {
         return serviceEngine?.plugins?.get(VpnPlugin::class.java) as VpnPlugin?

@@ -12,6 +12,7 @@ import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
 import android.net.VpnService
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import app.dropweb.GlobalState
 import app.dropweb.MainActivity
@@ -71,8 +72,23 @@ fun Service.createDropwebNotificationBuilder(): Deferred<NotificationCompat.Buil
         }
     }
 
+/**
+ * Content-only refresh of the already-foreground notification. Re-calling
+ * startForeground every tick makes Android re-run FGS policy each time
+ * ("FGS logic changed" log storm); notify() with the same id just updates it.
+ */
+fun Service.updateForegroundNotification(notification: Notification) {
+    try {
+        getSystemService(NotificationManager::class.java)
+            ?.notify(GlobalState.NOTIFICATION_ID, notification)
+    } catch (e: Exception) {
+        Log.w("BaseServiceInterface", "notification update failed", e)
+    }
+}
+
+/** Returns true when the service was put in the foreground. Never throws. */
 @SuppressLint("ForegroundServiceType")
-fun Service.startForeground(notification: Notification) {
+fun Service.startForeground(notification: Notification): Boolean {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         val manager = getSystemService(NotificationManager::class.java)
         var channel = manager?.getNotificationChannel(GlobalState.NOTIFICATION_CHANNEL)
@@ -98,10 +114,16 @@ fun Service.startForeground(notification: Notification) {
         }
         try {
             startForeground(GlobalState.NOTIFICATION_ID, notification, fgsType)
-        } catch (_: Exception) {
-            startForeground(GlobalState.NOTIFICATION_ID, notification)
+            return true
+        } catch (e: Exception) {
+            Log.w("BaseServiceInterface", "typed startForeground failed, retrying untyped", e)
         }
-    } else {
+    }
+    return try {
         startForeground(GlobalState.NOTIFICATION_ID, notification)
+        true
+    } catch (e: Exception) {
+        Log.e("BaseServiceInterface", "startForeground failed", e)
+        false
     }
 }
