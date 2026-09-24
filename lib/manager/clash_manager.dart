@@ -74,6 +74,10 @@ class _ClashContainerState extends ConsumerState<ClashManager>
     super.onDelay(delay);
     final appController = globalState.appController;
     appController.setDelay(delay);
+    // The group refresh re-serializes every proxy in the core and json-decodes
+    // it on the UI isolate — pure waste while nobody can see it. Groups are
+    // refreshed on resume (resumeGroupsPolling) and by the 20s poll anyway.
+    if (!globalState.isForeground.value) return;
     debouncer.call(
       FunctionTag.updateDelay,
       () async {

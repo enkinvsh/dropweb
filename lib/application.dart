@@ -90,13 +90,18 @@ class ApplicationState extends ConsumerState<Application> {
       return;
     }
     _autoUpdateGroupTaskTimer = Timer(const Duration(milliseconds: 20000), () {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_groupPollPaused) {
-          return;
-        }
-        globalState.appController.updateGroupsDebounce();
-        _autoUpdateGroupTask();
-      });
+      WidgetsBinding.instance
+        ..addPostFrameCallback((_) {
+          if (_groupPollPaused) {
+            return;
+          }
+          globalState.appController.updateGroupsDebounce();
+          _autoUpdateGroupTask();
+        })
+        // A post-frame callback does not request a frame by itself. With an
+        // idle UI (static mesh, reduce-motion) no other frame may ever come,
+        // which silently stalled this poll — request the one frame it needs.
+        ..scheduleFrame();
     });
   }
 

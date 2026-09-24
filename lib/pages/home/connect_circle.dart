@@ -251,6 +251,7 @@ class _ConnectCircleState extends ConsumerState<ConnectCircle>
     // Connect state amplifies the perimeter halo and inner edge glow.
     final isRunning =
         ref.watch(runTimeProvider.select((state) => state != null));
+    final startButton = StartButton(iconSize: iconSize);
 
     return ValueListenableBuilder<bool>(
       valueListenable: globalState.isConnecting,
@@ -266,7 +267,10 @@ class _ConnectCircleState extends ConsumerState<ConnectCircle>
           curve: Curves.easeOutCubic,
           builder: (_, pressT, __) => AnimatedBuilder(
             animation: Listenable.merge([_irisController, _auraController]),
-            builder: (_, __) {
+            // Built once per outer build and handed through, so the aura's
+            // per-frame builder never rebuilds the glyph stack.
+            child: startButton,
+            builder: (_, glyph) {
               final irisT = _irisController.value;
               final auraT = _auraController.value;
               // Connecting heartbeat for the perimeter glow.
@@ -321,7 +325,7 @@ class _ConnectCircleState extends ConsumerState<ConnectCircle>
                           orbSecondary: orbSecondary,
                         ),
                       ),
-                      StartButton(iconSize: iconSize),
+                      glyph!,
                     ],
                   ),
                 ),
