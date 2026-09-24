@@ -17,6 +17,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/fake_path_provider.dart';
+
 const _customUrl = 'https://example.com/generate_204';
 
 class _FakeController implements AppController {
@@ -49,6 +51,7 @@ class _FakeController implements AppController {
 }
 
 void main() {
+  useFakePathProvider();
   testWidgets('opening a url-test group pings all its members on its testUrl',
       (tester) async {
     await AppLocalizations.load(const Locale('en'));

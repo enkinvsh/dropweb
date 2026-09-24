@@ -14,6 +14,8 @@ import 'package:dropweb/views/subscription/profiles_content.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/fake_path_provider.dart';
+
 class _FakeController implements AppController {
   final Map<String, Profile> store = {};
   late Future<void> Function(Profile) onUpdate;
@@ -54,6 +56,7 @@ Future<BuildContext> _unmountedContext(WidgetTester tester) async {
 }
 
 void main() {
+  useFakePathProvider();
   const original = Profile(
     id: 'p1',
     label: 'sub',
