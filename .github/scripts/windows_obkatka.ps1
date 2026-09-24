@@ -258,11 +258,26 @@ function Write-ObkatkaNetworkSnapshot {
   return $snapshot
 }
 
+# The production panel template is direct-by-default (final rule MATCH -> DIRECT)
+# and sends only its IP-checker set (apps_ipcheck) through the VPN. api.ipify.org
+# is outside that set, so it reports the runner's own address even while the
+# tunnel works. Probe only checkers the template routes through the VPN.
+$script:ObkatkaEgressProbeUrls = @('https://ipinfo.io/ip', 'https://ifconfig.me/ip')
+
 function Get-ObkatkaEgressIp {
   param([int]$TimeoutSeconds = 20)
 
-  $response = Invoke-WebRequest -Uri 'https://api.ipify.org' -NoProxy -TimeoutSec $TimeoutSeconds -ErrorAction Stop
-  return ([string]$response.Content).Trim()
+  $lastError = $null
+  foreach ($url in $script:ObkatkaEgressProbeUrls) {
+    try {
+      $response = Invoke-WebRequest -Uri $url -NoProxy -TimeoutSec $TimeoutSeconds -ErrorAction Stop
+      $ip = ([string]$response.Content).Trim()
+      if ($ip) { return $ip }
+    } catch {
+      $lastError = $_
+    }
+  }
+  throw "egress probe failed on every checker: $lastError"
 }
 
 function ConvertTo-ObkatkaMaskedIp {
