@@ -17,6 +17,15 @@ bool shouldWriteCoreLog(LogLevel level, {required bool openLogs}) =>
 
 bool shouldFeedCoreLogProvider({required bool openLogs}) => openLogs;
 
+final _icmpRelayError = RegExp('icmp', caseSensitive: false);
+
+/// Core errors from the TUN ICMP relay (e.g. "receive ICMP echo reply:
+/// i/o timeout") are caused by the user's own ping traffic, not by the VPN
+/// server. They stay in the log but must not pop a "server is not
+/// responding" notifier.
+bool shouldNotifyCoreError(String payload) =>
+    !_icmpRelayError.hasMatch(payload);
+
 class ClashManager extends ConsumerStatefulWidget {
   const ClashManager({
     super.key,
@@ -116,7 +125,8 @@ class _ClashContainerState extends ConsumerState<ClashManager>
       );
     }
 
-    if (log.logLevel == LogLevel.error) {
+    if (log.logLevel == LogLevel.error &&
+        shouldNotifyCoreError(log.payload)) {
       // Run pattern matching against the original payload so existing
       // regexes (e.g. `DioException.*connection error`) still match;
       // fall back to the REDACTED payload, never the raw one, so a

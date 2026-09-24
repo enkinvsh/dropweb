@@ -27,4 +27,20 @@ void main() {
     }
     expect(shouldFeedCoreLogProvider(openLogs: true), isTrue);
   });
+
+  test('ICMP relay errors from user ping traffic never notify', () {
+    expect(
+      shouldNotifyCoreError('receive ICMP echo reply: i/o timeout'),
+      isFalse,
+    );
+    expect(shouldNotifyCoreError('write ICMP echo reply: EOF'), isFalse);
+    expect(
+      shouldNotifyCoreError('dial tcp 1.2.3.4:443: i/o timeout'),
+      isTrue,
+    );
+    expect(
+      shouldNotifyCoreError('[TUN] default interface lost by monitor'),
+      isTrue,
+    );
+  });
 }
