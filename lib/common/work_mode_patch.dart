@@ -579,3 +579,76 @@ Map _withCollapsedMembership(Map group, String member) =>
     Map<String, dynamic>.from(group.cast<String, dynamic>())
       ..['proxies'] = <dynamic>[member]
       ..removeWhere((k, _) => _autoMembershipKeys.contains(k));
+
+/// Outbounds the core resolves without a `proxies:` entry (Clash.Meta
+/// `config/config.go` parseProxies built-ins).
+const _builtinOutbounds = <String>{
+  'DIRECT',
+  'REJECT',
+  'REJECT-DROP',
+  'COMPATIBLE',
+  'PASS',
+  'PASS-RULE',
+};
+
+/// Drops proxy-group members that name no top-level proxy, no group and no
+/// built-in outbound. The core rejects the WHOLE config on the first such
+/// member (`proxy group[3]: ⚡ Авто: '⚪ White' not found`), so one per-user
+/// host missing from a panel template means no VPN at all (panel incident
+/// 2026-09-16; windows-e2e CI account 2026-09-24).
+///
+/// Fail-closed: a group keeps its original list when pruning would leave it
+/// with nothing but built-ins and it has no `use` / `include-all` source — a
+/// VPN group must never silently degrade to DIRECT; the core error stands.
+///
+/// PURE. Returns [rawConfig] itself when nothing is dropped, otherwise a new
+/// top-level map; `dropped` lists `group → member` pairs for the log.
+({Map<String, dynamic> config, List<String> dropped}) pruneDanglingGroupMembers(
+  Map<String, dynamic> rawConfig,
+) {
+  final groups = rawConfig['proxy-groups'];
+  if (groups is! List) return (config: rawConfig, dropped: const []);
+  final known = <String>{..._builtinOutbounds};
+  for (final entry in [
+    ...?(rawConfig['proxies'] as List?),
+    ...groups,
+  ]) {
+    if (entry is Map && entry['name'] is String) known.add(entry['name']);
+  }
+  final dropped = <String>[];
+  final newGroups = <dynamic>[];
+  for (final group in groups) {
+    final members = group is Map ? group['proxies'] : null;
+    if (group is! Map || members is! List) {
+      newGroups.add(group);
+      continue;
+    }
+    final missing =
+        members.whereType<String>().where((m) => !known.contains(m)).toList();
+    if (missing.isEmpty) {
+      newGroups.add(group);
+      continue;
+    }
+    final kept = members.where((m) => !missing.contains(m)).toList();
+    final use = group['use'];
+    final autoFilled = (use is List && use.isNotEmpty) ||
+        group['include-all'] == true ||
+        group['include-all-proxies'] == true;
+    final hasRealMember =
+        kept.any((m) => m is! String || !_builtinOutbounds.contains(m));
+    if (!autoFilled && !hasRealMember) {
+      newGroups.add(group);
+      continue;
+    }
+    dropped.addAll(missing.map((m) => '${group['name']} → $m'));
+    newGroups.add(
+      Map<String, dynamic>.from(group.cast<String, dynamic>())
+        ..['proxies'] = kept,
+    );
+  }
+  if (dropped.isEmpty) return (config: rawConfig, dropped: const []);
+  return (
+    config: Map<String, dynamic>.from(rawConfig)..['proxy-groups'] = newGroups,
+    dropped: dropped,
+  );
+}

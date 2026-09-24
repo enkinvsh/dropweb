@@ -10,10 +10,30 @@ import 'package:flutter_test/flutter_test.dart';
 Map<String, dynamic> buildConfig() => <String, dynamic>{
       'mixed-port': 7890,
       'proxies': <Map<String, dynamic>>[
-        {'name': '🇩🇪 Frankfurt 01', 'type': 'vless', 'server': 'de1', 'port': 443},
-        {'name': '🇩🇪 Frankfurt 02', 'type': 'vless', 'server': 'de2', 'port': 443},
-        {'name': '🇸🇪 Stockholm 01', 'type': 'vless', 'server': 'se1', 'port': 443},
-        {'name': '🇷🇺 Moscow 01', 'type': 'vless', 'server': 'ru1', 'port': 443},
+        {
+          'name': '🇩🇪 Frankfurt 01',
+          'type': 'vless',
+          'server': 'de1',
+          'port': 443
+        },
+        {
+          'name': '🇩🇪 Frankfurt 02',
+          'type': 'vless',
+          'server': 'de2',
+          'port': 443
+        },
+        {
+          'name': '🇸🇪 Stockholm 01',
+          'type': 'vless',
+          'server': 'se1',
+          'port': 443
+        },
+        {
+          'name': '🇷🇺 Moscow 01',
+          'type': 'vless',
+          'server': 'ru1',
+          'port': 443
+        },
       ],
       'proxy-groups': <Map<String, dynamic>>[
         {
@@ -54,7 +74,12 @@ Map<String, dynamic> buildSmartTemplate() {
     'proxies': <Map<String, dynamic>>[
       {'name': '🇩🇪 Германия', 'type': 'vless', 'server': 'de', 'port': 443},
       {'name': '🇳🇱 Нидерланды', 'type': 'vless', 'server': 'nl', 'port': 443},
-      {'name': '🇪🇺 ✨ Умный режим', 'type': 'vless', 'server': 'eu', 'port': 443},
+      {
+        'name': '🇪🇺 ✨ Умный режим',
+        'type': 'vless',
+        'server': 'eu',
+        'port': 443
+      },
       // SOS-like emergency nodes (disconeko pool) — top-level proxies that are
       // NOT members of the primary router. They must NEVER end up in «Умный».
       {'name': '🇩🇪 Germany', 'type': 'vless', 'server': 'sos1', 'port': 443},
@@ -124,9 +149,24 @@ Map<String, dynamic> buildProdTemplate() {
       // exclusion is structural (membership), not by flag/name regex.
       {'name': '🇫🇮 SOS1', 'type': 'vless', 'server': 'sos1', 'port': 443},
       {'name': '🇪🇪 SOS2', 'type': 'vless', 'server': 'sos2', 'port': 443},
-      {'name': '🇷🇺 SOS Moscow', 'type': 'vless', 'server': 'sos3', 'port': 443},
-      {'name': '🇬🇧 SOS London', 'type': 'vless', 'server': 'sos4', 'port': 443},
-      {'name': '🇩🇪 SOS Berlin', 'type': 'vless', 'server': 'sos5', 'port': 443},
+      {
+        'name': '🇷🇺 SOS Moscow',
+        'type': 'vless',
+        'server': 'sos3',
+        'port': 443
+      },
+      {
+        'name': '🇬🇧 SOS London',
+        'type': 'vless',
+        'server': 'sos4',
+        'port': 443
+      },
+      {
+        'name': '🇩🇪 SOS Berlin',
+        'type': 'vless',
+        'server': 'sos5',
+        'port': 443
+      },
     ],
     'proxy-groups': <Map<String, dynamic>>[
       {
@@ -329,7 +369,8 @@ void main() {
       expect(out, buildConfig());
     });
 
-    test('smart: «Умный».proxies == exactly the router leaf nodes; SOS absent; '
+    test(
+        'smart: «Умный».proxies == exactly the router leaf nodes; SOS absent; '
         'no include-all', () {
       final out =
           applyWorkModePatch(buildSmartTemplate(), workMode: WorkMode.smart);
@@ -347,7 +388,8 @@ void main() {
       expect(_members(smart), isNot(contains('🇫🇮 Finland')));
     });
 
-    test('smart: appends "Умный" ONLY to the primary router (MATCH target) '
+    test(
+        'smart: appends "Умный" ONLY to the primary router (MATCH target) '
         'once, idempotent', () {
       final out =
           applyWorkModePatch(buildSmartTemplate(), workMode: WorkMode.smart);
@@ -379,7 +421,8 @@ void main() {
       expect(_members(_group(out2, 'Умный')), _templateLeaves);
     });
 
-    test('smart: only the primary router gains "Умный"; every other group '
+    test(
+        'smart: only the primary router gains "Умный"; every other group '
         'byte-for-byte; rules untouched', () {
       final input = buildSmartTemplate();
       final original = buildSmartTemplate();
@@ -395,12 +438,12 @@ void main() {
         final origGroup = originalGroups[i] as Map;
         if (referenced.contains(origGroup['name'])) {
           // The sole permitted change: 'Умный' appended to the router members.
-          final expected = Map<String, dynamic>.from(
-              origGroup.cast<String, dynamic>())
-            ..['proxies'] = [
-              ...(origGroup['proxies'] as List).map((e) => e.toString()),
-              'Умный',
-            ];
+          final expected =
+              Map<String, dynamic>.from(origGroup.cast<String, dynamic>())
+                ..['proxies'] = [
+                  ...(origGroup['proxies'] as List).map((e) => e.toString()),
+                  'Умный',
+                ];
           expect(outGroups[i], expected);
         } else {
           expect(outGroups[i], origGroup);
@@ -521,7 +564,12 @@ void main() {
         () {
       final cfg = {
         'proxies': [
-          {'name': '🇩🇪 Berlin', 'type': 'ss', 'server': '1.2.3.4', 'port': 443},
+          {
+            'name': '🇩🇪 Berlin',
+            'type': 'ss',
+            'server': '1.2.3.4',
+            'port': 443
+          },
           {
             'name': '🇳🇱 Amsterdam',
             'type': 'ss',
@@ -541,45 +589,78 @@ void main() {
       final out = applyWorkModePatch(cfg,
           workMode: WorkMode.country, staticCountry: '🇩🇪 Berlin');
       final groups = out['proxy-groups'] as List;
-      expect(groups.map((g) => g['name']), isNot(contains('Страна 🇩🇪 Berlin')));
+      expect(
+          groups.map((g) => g['name']), isNot(contains('Страна 🇩🇪 Berlin')));
       expect(groups.length, 1, reason: 'никакой группы-обёртки при одном узле');
-      expect((groups.single as Map)['proxies'], ['🇩🇪 Berlin', '🇳🇱 Amsterdam'],
+      expect(
+          (groups.single as Map)['proxies'], ['🇩🇪 Berlin', '🇳🇱 Amsterdam'],
           reason: 'узел уже член роутера — append это no-op');
     });
 
-    test('country: multi-node key → «Страна» group injected AND appended to router',
+    test(
+        'country: multi-node key → «Страна» group injected AND appended to router',
         () {
       final cfg = {
         'proxies': [
-          {'name': '🇩🇪 Berlin', 'type': 'ss', 'server': '1.2.3.4', 'port': 443},
-          {'name': '🇩🇪 Munich', 'type': 'ss', 'server': '1.2.3.5', 'port': 443},
+          {
+            'name': '🇩🇪 Berlin',
+            'type': 'ss',
+            'server': '1.2.3.4',
+            'port': 443
+          },
+          {
+            'name': '🇩🇪 Munich',
+            'type': 'ss',
+            'server': '1.2.3.5',
+            'port': 443
+          },
         ],
         'proxy-groups': [
-          {'name': '🌍 VPN', 'type': 'select', 'proxies': ['🇩🇪 Berlin', '🇩🇪 Munich']},
+          {
+            'name': '🌍 VPN',
+            'type': 'select',
+            'proxies': ['🇩🇪 Berlin', '🇩🇪 Munich']
+          },
         ],
         'rules': ['MATCH,🌍 VPN'],
       };
       final out = applyWorkModePatch(cfg,
           workMode: WorkMode.country, staticCountry: '🇩🇪');
       final groups = out['proxy-groups'] as List;
-      final injected = groups.firstWhere((g) => g['name'] == 'Страна 🇩🇪') as Map;
+      final injected =
+          groups.firstWhere((g) => g['name'] == 'Страна 🇩🇪') as Map;
       expect(injected['type'], 'fallback');
       expect(injected['proxies'], ['🇩🇪 Berlin', '🇩🇪 Munich']);
       final router = groups.firstWhere((g) => g['name'] == '🌍 VPN') as Map;
       expect((router['proxies'] as List).last, 'Страна 🇩🇪');
     });
 
-    test('country: non-select router → membership collapsed, auto-keys stripped',
+    test(
+        'country: non-select router → membership collapsed, auto-keys stripped',
         () {
       final cfg = {
         'proxies': [
-          {'name': '🇩🇪 Berlin', 'type': 'ss', 'server': '1.2.3.4', 'port': 443},
-          {'name': '🇳🇱 Amsterdam', 'type': 'ss', 'server': '1.2.3.5', 'port': 443},
+          {
+            'name': '🇩🇪 Berlin',
+            'type': 'ss',
+            'server': '1.2.3.4',
+            'port': 443
+          },
+          {
+            'name': '🇳🇱 Amsterdam',
+            'type': 'ss',
+            'server': '1.2.3.5',
+            'port': 443
+          },
         ],
         'proxy-groups': [
-          {'name': 'AUTO', 'type': 'url-test', 'include-all': true,
-           'exclude-filter': '🇷🇺',
-           'proxies': ['🇩🇪 Berlin', '🇳🇱 Amsterdam']},
+          {
+            'name': 'AUTO',
+            'type': 'url-test',
+            'include-all': true,
+            'exclude-filter': '🇷🇺',
+            'proxies': ['🇩🇪 Berlin', '🇳🇱 Amsterdam']
+          },
         ],
         'rules': ['MATCH,AUTO'],
       };
@@ -592,19 +673,40 @@ void main() {
       expect(router['type'], 'url-test', reason: 'тип группы не меняем');
     });
 
-    test('country: per-service groups are left EXACTLY as the provider wrote them',
+    test(
+        'country: per-service groups are left EXACTLY as the provider wrote them',
         () {
       final cfg = {
         'proxies': [
-          {'name': '🇩🇪 Berlin', 'type': 'ss', 'server': '1.2.3.4', 'port': 443},
+          {
+            'name': '🇩🇪 Berlin',
+            'type': 'ss',
+            'server': '1.2.3.4',
+            'port': 443
+          },
         ],
         'proxy-groups': [
-          {'name': '🌍 VPN', 'type': 'select', 'proxies': ['🇩🇪 Berlin']},
-          {'name': '▶️ YouTube', 'type': 'fallback', 'proxies': ['🇩🇪 Berlin']},
-          {'name': '⚡ Fastest', 'type': 'url-test', 'proxies': ['🇩🇪 Berlin']},
+          {
+            'name': '🌍 VPN',
+            'type': 'select',
+            'proxies': ['🇩🇪 Berlin']
+          },
+          {
+            'name': '▶️ YouTube',
+            'type': 'fallback',
+            'proxies': ['🇩🇪 Berlin']
+          },
+          {
+            'name': '⚡ Fastest',
+            'type': 'url-test',
+            'proxies': ['🇩🇪 Berlin']
+          },
         ],
-        'rules': ['RULE-SET,youtube,▶️ YouTube', 'RULE-SET,tg,⚡ Fastest',
-                  'MATCH,🌍 VPN'],
+        'rules': [
+          'RULE-SET,youtube,▶️ YouTube',
+          'RULE-SET,tg,⚡ Fastest',
+          'MATCH,🌍 VPN'
+        ],
       };
       final before = cfg['proxy-groups'] as List;
       final out = applyWorkModePatch(cfg,
@@ -617,11 +719,25 @@ void main() {
     test('country: idempotent on re-apply (variant A)', () {
       final cfg = {
         'proxies': [
-          {'name': '🇩🇪 Berlin', 'type': 'ss', 'server': '1.2.3.4', 'port': 443},
-          {'name': '🇩🇪 Munich', 'type': 'ss', 'server': '1.2.3.5', 'port': 443},
+          {
+            'name': '🇩🇪 Berlin',
+            'type': 'ss',
+            'server': '1.2.3.4',
+            'port': 443
+          },
+          {
+            'name': '🇩🇪 Munich',
+            'type': 'ss',
+            'server': '1.2.3.5',
+            'port': 443
+          },
         ],
         'proxy-groups': [
-          {'name': '🌍 VPN', 'type': 'select', 'proxies': ['🇩🇪 Berlin', '🇩🇪 Munich']},
+          {
+            'name': '🌍 VPN',
+            'type': 'select',
+            'proxies': ['🇩🇪 Berlin', '🇩🇪 Munich']
+          },
         ],
         'rules': ['MATCH,🌍 VPN'],
       };
@@ -636,7 +752,8 @@ void main() {
     // orthogonal to the cancelled "bind every intercept group" design (they
     // assert no-op-ness and purity), pass unchanged under variant А, and are the
     // only purity coverage the patch has.
-    test('country: degenerate — no country nodes at all → patch is a no-op', () {
+    test('country: degenerate — no country nodes at all → patch is a no-op',
+        () {
       final input = buildProdTemplate();
       final snapshot = buildProdTemplate();
       final out = applyWorkModePatch(input,
@@ -648,7 +765,8 @@ void main() {
       }
     });
 
-    test('country: PURE — input never mutated; non-intercept groups + rules + '
+    test(
+        'country: PURE — input never mutated; non-intercept groups + rules + '
         'proxies deep-equal the input', () {
       final input = buildProdTemplate();
       final snapshot = buildProdTemplate();
@@ -659,8 +777,14 @@ void main() {
       final out = applyWorkModePatch(buildProdTemplate(),
           workMode: WorkMode.country, staticCountry: '🇩🇪');
       // Groups NOT in the intercept set stay deep-equal to the fresh fixture.
-      for (final g in ['🌀 Cascade', '♻️ DIRECT', '🧠 Smart', '📶 First Available']) {
-        expect(_group(out, g), _group(snapshot, g), reason: '$g must be untouched');
+      for (final g in [
+        '🌀 Cascade',
+        '♻️ DIRECT',
+        '🧠 Smart',
+        '📶 First Available'
+      ]) {
+        expect(_group(out, g), _group(snapshot, g),
+            reason: '$g must be untouched');
       }
       expect(out['rules'], snapshot['rules']);
       expect(out['proxies'], snapshot['proxies']);
@@ -749,13 +873,18 @@ void main() {
       expect(detectPrimaryRouter(buildConfig()), '🌍 VPN');
     });
 
-    test('falls back to first qualifying group when MATCH targets a builtin', () {
+    test('falls back to first qualifying group when MATCH targets a builtin',
+        () {
       final cfg = <String, dynamic>{
         'proxies': <Map<String, dynamic>>[
           {'name': '🇩🇪 A', 'type': 'vless', 'server': 'a', 'port': 443},
         ],
         'proxy-groups': <Map<String, dynamic>>[
-          {'name': 'Main', 'type': 'select', 'proxies': ['🇩🇪 A']},
+          {
+            'name': 'Main',
+            'type': 'select',
+            'proxies': ['🇩🇪 A']
+          },
         ],
         'rules': <String>['DOMAIN-SUFFIX,x.com,Main', 'MATCH,DIRECT'],
       };
@@ -768,8 +897,16 @@ void main() {
           {'name': '🇩🇪 A', 'type': 'vless', 'server': 'a', 'port': 443},
         ],
         'proxy-groups': <Map<String, dynamic>>[
-          {'name': 'Routable', 'type': 'select', 'proxies': ['🇩🇪 A']},
-          {'name': 'Dead', 'type': 'select', 'proxies': ['DIRECT']},
+          {
+            'name': 'Routable',
+            'type': 'select',
+            'proxies': ['🇩🇪 A']
+          },
+          {
+            'name': 'Dead',
+            'type': 'select',
+            'proxies': ['DIRECT']
+          },
         ],
         'rules': <String>['DOMAIN-SUFFIX,x.com,Routable', 'MATCH,Dead'],
       };
@@ -780,7 +917,11 @@ void main() {
       final cfg = <String, dynamic>{
         'proxies': <Map<String, dynamic>>[],
         'proxy-groups': <Map<String, dynamic>>[
-          {'name': 'Main', 'type': 'select', 'proxies': ['DIRECT']},
+          {
+            'name': 'Main',
+            'type': 'select',
+            'proxies': ['DIRECT']
+          },
         ],
         'rules': <String>['MATCH,DIRECT'],
       };
@@ -805,13 +946,15 @@ void main() {
           isNot(contains('♻️ DIRECT')));
     });
 
-    test('excludes a group reachable only via membership (🌀 Cascade), not '
+    test(
+        'excludes a group reachable only via membership (🌀 Cascade), not '
         'directly rule-referenced', () {
       expect(smartInterceptGroups(buildProdTemplate()),
           isNot(contains('🌀 Cascade')));
     });
 
-    test('resolves rules from the build-path "rule" key as well as "rules"', () {
+    test('resolves rules from the build-path "rule" key as well as "rules"',
+        () {
       final cfg = buildProdTemplate();
       cfg['rule'] = cfg.remove('rules');
       expect(smartInterceptGroups(cfg), _prodInterceptGroups);
@@ -828,7 +971,8 @@ void main() {
       );
     });
 
-    test('only the primary router (detectPrimaryRouter) is patched with «Умный»',
+    test(
+        'only the primary router (detectPrimaryRouter) is patched with «Умный»',
         () {
       final cfg = buildProdTemplate();
       final primary = detectPrimaryRouter(cfg);
@@ -842,7 +986,8 @@ void main() {
   });
 
   group('applyWorkModePatch — production template (primary-router only)', () {
-    test('appends «Умный» ONLY to 🌍 VPN (primary); YouTube/Discord/Fastest/'
+    test(
+        'appends «Умный» ONLY to 🌍 VPN (primary); YouTube/Discord/Fastest/'
         'Cascade/SOS/DIRECT untouched', () {
       final out =
           applyWorkModePatch(buildProdTemplate(), workMode: WorkMode.smart);
@@ -861,7 +1006,8 @@ void main() {
       expect(_group(out, '🧠 Smart')!['include-all'], true);
     });
 
-    test('«Умный» group rotates over the PRIMARY router leaves only; '
+    test(
+        '«Умный» group rotates over the PRIMARY router leaves only; '
         'SOS nodes absent', () {
       final out =
           applyWorkModePatch(buildProdTemplate(), workMode: WorkMode.smart);
@@ -900,8 +1046,8 @@ void main() {
             .length,
         1,
       );
-      expect(
-          _members(_group(out2, '🌍 VPN')).where((m) => m == 'Умный').length, 1);
+      expect(_members(_group(out2, '🌍 VPN')).where((m) => m == 'Умный').length,
+          1);
       expect(_members(_group(out2, 'Умный')), _prodRouterLeaves);
     });
 
@@ -925,7 +1071,8 @@ void main() {
 
   group('interceptLeafNodes / country — disconeko leak (D1 in country branch)',
       () {
-    test('interceptLeafNodes == the union of rule-group leaves; ALL SOS nodes '
+    test(
+        'interceptLeafNodes == the union of rule-group leaves; ALL SOS nodes '
         'structurally excluded', () {
       final leaves = interceptLeafNodes(buildProdTemplate());
       expect(leaves, _prodUnionLeaves);
@@ -942,9 +1089,11 @@ void main() {
       }
     });
 
-    test('country «Страна» candidates come ONLY from rule-group leaves '
+    test(
+        'country «Страна» candidates come ONLY from rule-group leaves '
         '(groupNodesByCountry over interceptLeafNodes)', () {
-      final byCountry = groupNodesByCountry(interceptLeafNodes(buildProdTemplate()));
+      final byCountry =
+          groupNodesByCountry(interceptLeafNodes(buildProdTemplate()));
       // Panel-curated flags present; SOS-only flags absent entirely.
       expect(byCountry.keys, containsAll(<String>['🇩🇪', '🇳🇱', '🇸🇪']));
       expect(byCountry.containsKey('🇷🇺'), isFalse);
@@ -955,7 +1104,8 @@ void main() {
       expect(byCountry['🇩🇪'], isNot(contains('🇩🇪 SOS Berlin')));
     });
 
-    test('applyWorkModePatch country 🇷🇺 (SOS-only flag) → injects NOTHING', () {
+    test('applyWorkModePatch country 🇷🇺 (SOS-only flag) → injects NOTHING',
+        () {
       final input = buildProdTemplate();
       final before = (input['proxy-groups'] as List).length;
       final out = applyWorkModePatch(input,
@@ -964,14 +1114,17 @@ void main() {
       expect((out['proxy-groups'] as List).length, before);
     });
 
-    test('applyWorkModePatch country 🇩🇪 → target is the curated leaf '
+    test(
+        'applyWorkModePatch country 🇩🇪 → target is the curated leaf '
         '(SOS 🇩🇪 Berlin excluded)', () {
       final cfg = buildProdTemplate();
       // Variant А: 🇩🇪 resolves to ONE curated node, so no «Страна» wrapper is
       // built — the router is pointed straight at that node.
-      expect(_group(applyWorkModePatch(cfg,
-              workMode: WorkMode.country, staticCountry: '🇩🇪'),
-          'Страна 🇩🇪'),
+      expect(
+          _group(
+              applyWorkModePatch(cfg,
+                  workMode: WorkMode.country, staticCountry: '🇩🇪'),
+              'Страна 🇩🇪'),
           isNull);
       final target = countryTargetName(cfg, '🇩🇪');
       expect(target, '🇩🇪 A');
@@ -981,7 +1134,8 @@ void main() {
       final out = applyWorkModePatch(cfg,
           workMode: WorkMode.country, staticCountry: '🇩🇪');
       expect(_members(_group(out, '🌍 VPN')), contains('🇩🇪 A'));
-      expect(_members(_group(out, '🌍 VPN')), isNot(contains('🇩🇪 SOS Berlin')));
+      expect(
+          _members(_group(out, '🌍 VPN')), isNot(contains('🇩🇪 SOS Berlin')));
     });
 
     test('countryTargetName: SOS-only flags null, curated flags resolve', () {
@@ -1009,8 +1163,18 @@ void main() {
       // pick exactly the two curated nodes, in order, never the SOS ones.
       final input = <String, dynamic>{
         'proxies': <Map<String, dynamic>>[
-          {'name': '🇷🇺 Panel 1', 'type': 'vless', 'server': 'p1', 'port': 443},
-          {'name': '🇷🇺 Panel 2', 'type': 'vless', 'server': 'p2', 'port': 443},
+          {
+            'name': '🇷🇺 Panel 1',
+            'type': 'vless',
+            'server': 'p1',
+            'port': 443
+          },
+          {
+            'name': '🇷🇺 Panel 2',
+            'type': 'vless',
+            'server': 'p2',
+            'port': 443
+          },
           {'name': '🇷🇺 SOS X', 'type': 'vless', 'server': 'x', 'port': 443},
           {'name': '🇷🇺 SOS Y', 'type': 'vless', 'server': 'y', 'port': 443},
         ],
@@ -1025,7 +1189,8 @@ void main() {
       };
       final out = applyWorkModePatch(input,
           workMode: WorkMode.country, staticCountry: '🇷🇺');
-      expect(_members(_group(out, 'Страна 🇷🇺')), ['🇷🇺 Panel 1', '🇷🇺 Panel 2']);
+      expect(_members(_group(out, 'Страна 🇷🇺')),
+          ['🇷🇺 Panel 1', '🇷🇺 Panel 2']);
     });
 
     test('build-path "rule" key still filters country candidates', () {
@@ -1043,8 +1208,8 @@ void main() {
       final outRu = applyWorkModePatch(cfg2,
           workMode: WorkMode.country, staticCountry: '🇷🇺');
       expect(_group(outRu, 'Страна 🇷🇺'), isNull);
-      expect(_members(_group(outRu, '🌍 VPN')),
-          isNot(contains('🇷🇺 SOS Moscow')),
+      expect(
+          _members(_group(outRu, '🌍 VPN')), isNot(contains('🇷🇺 SOS Moscow')),
           reason: 'SOS node must never become the router target');
     });
   });
@@ -1114,7 +1279,8 @@ void main() {
       final before = (input['proxy-groups'] as List).length;
       final out = applyWorkModePatch(input,
           workMode: WorkMode.country, staticCountry: '\u{1F1F8}\u{1F1F4}');
-      expect(_group(out, workModeCountryGroupName('\u{1F1F8}\u{1F1F4}')), isNull);
+      expect(
+          _group(out, workModeCountryGroupName('\u{1F1F8}\u{1F1F4}')), isNull);
       expect((out['proxy-groups'] as List).length, before);
     });
 
@@ -1126,7 +1292,8 @@ void main() {
           '\u{1F1E9}\u{1F1EA} Frankfurt 01');
       final out = applyWorkModePatch(cfg,
           workMode: WorkMode.country, staticCountry: '\u{1F1E9}\u{1F1EA}');
-      expect(_group(out, workModeCountryGroupName('\u{1F1E9}\u{1F1EA}')), isNull);
+      expect(
+          _group(out, workModeCountryGroupName('\u{1F1E9}\u{1F1EA}')), isNull);
       // The sentinels stay out of the resolved candidate set.
       expect(countryTargetName(cfg, '\u{1F1F8}\u{1F1F4}'), isNull);
     });
@@ -1161,7 +1328,10 @@ void main() {
           {
             'name': 'R',
             'type': 'select',
-            'proxies': ['\u{1F1EB}\u{1F1F7} Paris', '\u{1F1E9}\u{1F1EA} Berlin'],
+            'proxies': [
+              '\u{1F1EB}\u{1F1F7} Paris',
+              '\u{1F1E9}\u{1F1EA} Berlin'
+            ],
           },
         ],
         'rules': <String>['MATCH,R'],
@@ -1170,9 +1340,11 @@ void main() {
     });
   });
 
-  group('REGRESSION LOCK — smart output byte-identical after _injectBoundGroup '
+  group(
+      'REGRESSION LOCK — smart output byte-identical after _injectBoundGroup '
       'refactor', () {
-    test('prod template smart output deep-equals the known additive deltas', () {
+    test('prod template smart output deep-equals the known additive deltas',
+        () {
       final out =
           applyWorkModePatch(buildProdTemplate(), workMode: WorkMode.smart);
 
@@ -1197,7 +1369,8 @@ void main() {
       expect(out, expected);
     });
 
-    test('smart template smart output deep-equals the known additive deltas', () {
+    test('smart template smart output deep-equals the known additive deltas',
+        () {
       final out =
           applyWorkModePatch(buildSmartTemplate(), workMode: WorkMode.smart);
 
@@ -1231,7 +1404,8 @@ void main() {
       expect(detectPrimaryRouter(buildProdCountryTemplate()), '🌍 VPN');
     });
 
-    test('single-node country: target is the node, NO wrapper group, router '
+    test(
+        'single-node country: target is the node, NO wrapper group, router '
         'membership unchanged', () {
       final cfg = buildProdCountryTemplate();
       final routerMembersBefore = _members(_group(cfg, '🌍 VPN'));
@@ -1260,7 +1434,8 @@ void main() {
           reason: 'цель пина ОБЯЗАНА быть прямым членом роутера');
     });
 
-    test('per-service groups survive BY REFERENCE (variant А core promise)', () {
+    test('per-service groups survive BY REFERENCE (variant А core promise)',
+        () {
       // Offline equivalent of device step 2 («YouTube/Discord/Fastest keep the
       // provider's choice») AND of device step 5 (nothing is pinned into a
       // `fallback`, so fallback.go:117 — which destroys a pin on a failed
@@ -1297,7 +1472,8 @@ void main() {
           reason: 'append оказался no-op ⇒ и роутер уцелел по ссылке');
     });
 
-    test('🇪🇺 cascade node IS a legitimate country target (it is a router '
+    test(
+        '🇪🇺 cascade node IS a legitimate country target (it is a router '
         'member); the 🌀 Cascade GROUP never is', () {
       // HONEST value, derived from the code BEFORE asserting, then measured:
       //   smartInterceptGroups → [🌍 VPN, ▶️ YouTube, 💬 Discord, ⚡ Fastest]
@@ -1314,7 +1490,8 @@ void main() {
       expect(smartInterceptGroups(cfg),
           const <String>['🌍 VPN', '▶️ YouTube', '💬 Discord', '⚡ Fastest']);
       expect(smartInterceptGroups(cfg), isNot(contains('🌀 Cascade')),
-          reason: '🌀 Cascade не таргет ни одного правила ⇒ не перехватывается');
+          reason:
+              '🌀 Cascade не таргет ни одного правила ⇒ не перехватывается');
 
       expect(countryTargetName(cfg, '🇪🇺'), '🇪🇺 Каскад',
           reason: '🇪🇺 Каскад — член роутера, значит легальная цель');
@@ -1328,6 +1505,86 @@ void main() {
       }
       expect(countryTargetName(cfg, '🌀 Cascade'), isNull,
           reason: 'имя группы — не ключ страны');
+    });
+  });
+
+  group('pruneDanglingGroupMembers', () {
+    // Shape of the panel incident: ⚡ Авто names a per-user host the account
+    // does not have (windows-e2e 2026-09-24: `'⚪ White' not found`).
+    Map<String, dynamic> panel() => <String, dynamic>{
+          'proxies': <Map<String, dynamic>>[
+            {'name': '🇩🇪 DE', 'type': 'vless'},
+            {'name': '⚪ Whitelist', 'type': 'vless'},
+          ],
+          'proxy-groups': <Map<String, dynamic>>[
+            {
+              'name': '⚡ Fastest',
+              'type': 'url-test',
+              'proxies': ['🇩🇪 DE'],
+            },
+            {
+              'name': '⚡ Авто',
+              'type': 'fallback',
+              'proxies': ['⚡ Fastest', '⚪ White', '⚪ Whitelist'],
+            },
+            {
+              'name': '🌍 VPN',
+              'type': 'select',
+              'proxies': ['⚡ Авто', 'DIRECT', 'REJECT', 'PASS'],
+            },
+          ],
+        };
+
+    test('drops a missing member, keeps order, never mutates input', () {
+      final cfg = panel();
+      final result = pruneDanglingGroupMembers(cfg);
+      final groups = result.config['proxy-groups'] as List;
+      expect(groups[1]['proxies'], ['⚡ Fastest', '⚪ Whitelist']);
+      expect(result.dropped, ['⚡ Авто → ⚪ White']);
+      expect(groups[0], same((cfg['proxy-groups'] as List)[0]));
+      expect(groups[2], same((cfg['proxy-groups'] as List)[2]));
+      expect((cfg['proxy-groups'] as List)[1]['proxies'],
+          ['⚡ Fastest', '⚪ White', '⚪ Whitelist']);
+    });
+
+    test('returns the same map when every member resolves', () {
+      final cfg = panel();
+      ((cfg['proxy-groups'] as List)[1]['proxies'] as List).remove('⚪ White');
+      final result = pruneDanglingGroupMembers(cfg);
+      expect(result.config, same(cfg));
+      expect(result.dropped, isEmpty);
+    });
+
+    test('never degrades a group to built-ins only (fail-closed)', () {
+      final cfg = <String, dynamic>{
+        'proxies': <Map<String, dynamic>>[],
+        'proxy-groups': <Map<String, dynamic>>[
+          {
+            'name': '🌍 VPN',
+            'type': 'select',
+            'proxies': ['⚪ Missing', 'DIRECT'],
+          },
+        ],
+      };
+      final result = pruneDanglingGroupMembers(cfg);
+      expect(result.config, same(cfg));
+      expect(result.dropped, isEmpty);
+    });
+
+    test('a provider-fed group may lose its only explicit member', () {
+      final cfg = <String, dynamic>{
+        'proxy-groups': <Map<String, dynamic>>[
+          {
+            'name': 'Pool',
+            'type': 'url-test',
+            'use': ['sub'],
+            'proxies': ['⚪ Missing'],
+          },
+        ],
+      };
+      final result = pruneDanglingGroupMembers(cfg);
+      expect((result.config['proxy-groups'] as List)[0]['proxies'], isEmpty);
+      expect(result.dropped, ['Pool → ⚪ Missing']);
     });
   });
 }

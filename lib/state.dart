@@ -1016,6 +1016,12 @@ class GlobalState {
     }
     rawConfig["rule"] = rules;
 
+    final pruned = pruneDanglingGroupMembers(rawConfig);
+    if (pruned.dropped.isNotEmpty) {
+      commonPrint.log('config: dropped group members the core would reject: '
+          '${pruned.dropped.join(', ')}');
+    }
+
     // Additive work-mode group injection. Runs on EVERY setup over the parsed
     // config (the download-time `patchSmartPool` output is already baked into
     // the profile file, so its groups are present here). NEVER reshapes the
@@ -1029,14 +1035,14 @@ class GlobalState {
     // visible. The revalidation chokepoints are the primary fix; this is only a
     // cheap last-line warning.
     if (profile.workMode == WorkMode.country) {
-      final target = countryTargetName(rawConfig, profile.staticCountry);
+      final target = countryTargetName(pruned.config, profile.staticCountry);
       if (target == null) {
         commonPrint.log('country-mode: no target for ${profile.staticCountry} '
             '— patch is a no-op');
       }
     }
     return applyWorkModePatch(
-      rawConfig,
+      pruned.config,
       workMode: profile.workMode,
       staticCountry: profile.staticCountry,
     );
