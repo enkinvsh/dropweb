@@ -72,12 +72,14 @@ Future<void> showCardMenu(BuildContext context, WidgetRef ref) {
                 // would silently no-op. update() throws if there's truly no URL.
                 globalState.safeRun(silence: false, () async {
                   try {
-                    appController
-                        .setProfile(profile.copyWith(isUpdating: true));
+                    // By-id transform: never writes back the stale `profile`
+                    // snapshot nor resurrects a profile deleted meanwhile.
+                    appController.updateProfileById(
+                        profile.id, (p) => p.copyWith(isUpdating: true));
                     await appController.updateProfile(profile);
                   } catch (e) {
-                    appController
-                        .setProfile(profile.copyWith(isUpdating: false));
+                    appController.updateProfileById(
+                        profile.id, (p) => p.copyWith(isUpdating: false));
                     rethrow;
                   }
                 });

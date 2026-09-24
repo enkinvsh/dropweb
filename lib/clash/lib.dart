@@ -384,15 +384,22 @@ class ClashLibHandler {
   Future<Map<String, dynamic>> getConfig(String id) async {
     final path = await appPath.getProfilePath(id);
     final pathChar = path.toNativeUtf8().cast<Char>();
-    final configRaw = clashFFI.getConfig(pathChar);
-    final configString = configRaw.cast<Utf8>().toDartString();
-    if (configString.isEmpty) {
-      return {};
+    final String configString;
+    try {
+      final configRaw = clashFFI.getConfig(pathChar);
+      configString = configRaw.cast<Utf8>().toDartString();
+      clashFFI.freeCString(configRaw);
+    } finally {
+      malloc.free(pathChar);
     }
-    final config = json.decode(configString);
-    malloc.free(pathChar);
-    clashFFI.freeCString(configRaw);
-    return config;
+    // The core answers "" when it cannot read/parse the profile. Returning {}
+    // here used to be fail-OPEN: quickStart would build a rule-less config and
+    // route every flow DIRECT. Fail closed, mirroring ClashCore.getConfig
+    // (main isolate), which throws the error message on the same condition.
+    if (configString.isEmpty) {
+      throw 'Failed to read profile config: $path';
+    }
+    return json.decode(configString) as Map<String, dynamic>;
   }
 
   /// Bound for the core's quickStart reply. The Go side owns this port and

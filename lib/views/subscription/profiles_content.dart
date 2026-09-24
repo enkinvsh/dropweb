@@ -37,12 +37,18 @@ Future<void> refreshProfiles(BuildContext context, [Profile? current]) async {
   // `playUiSound` never throws, and we must not block the network work.
   unawaited(App().playUiSound(DropwebSoundCue.subscriptionRefresh));
   if (current != null) {
-    controller.setProfile(current.copyWith(isUpdating: true));
+    // isUpdating toggles go through updateProfileById: it transforms the
+    // CURRENT store value and never appends, so a failure can't write back
+    // the stale `current` snapshot over concurrent edits or resurrect a
+    // profile deleted during the fetch.
+    controller.updateProfileById(
+        current.id, (p) => p.copyWith(isUpdating: true));
     try {
       await controller.updateProfile(current);
     } catch (e) {
       commonPrint.log("$e");
-      controller.setProfile(current.copyWith(isUpdating: false));
+      controller.updateProfileById(
+          current.id, (p) => p.copyWith(isUpdating: false));
       if (context.mounted) {
         final message =
             ErrorMapper.mapError("$e") ?? appLocalizations.genericErrorMessage;
@@ -66,7 +72,8 @@ Future<void> refreshProfiles(BuildContext context, [Profile? current]) async {
   // subscription could leave the rest stuck in `isUpdating=true`.
   await Future.wait(
     profiles.map((profile) async {
-      controller.setProfile(profile.copyWith(isUpdating: true));
+      controller.updateProfileById(
+          profile.id, (p) => p.copyWith(isUpdating: true));
       try {
         await controller.updateProfile(profile);
       } catch (e) {
@@ -74,7 +81,8 @@ Future<void> refreshProfiles(BuildContext context, [Profile? current]) async {
         final message =
             ErrorMapper.mapError("$e") ?? appLocalizations.genericErrorMessage;
         messages.add("«${profile.label ?? profile.id}»: $message \n");
-        controller.setProfile(profile.copyWith(isUpdating: false));
+        controller.updateProfileById(
+            profile.id, (p) => p.copyWith(isUpdating: false));
       }
     }),
     eagerError: false,

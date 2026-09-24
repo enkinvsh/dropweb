@@ -118,17 +118,17 @@ class _ProfileItemState extends State<ProfileItem> {
     // update() throws and safeRun surfaces it.
     await globalState.safeRun(silence: false, () async {
       try {
-        appController.setProfile(
-          widget.profile.copyWith(
-            isUpdating: true,
-          ),
+        // By-id transform: never writes back the stale `widget.profile`
+        // snapshot nor resurrects a profile deleted meanwhile.
+        appController.updateProfileById(
+          widget.profile.id,
+          (p) => p.copyWith(isUpdating: true),
         );
         await appController.updateProfile(widget.profile);
       } catch (e) {
-        appController.setProfile(
-          widget.profile.copyWith(
-            isUpdating: false,
-          ),
+        appController.updateProfileById(
+          widget.profile.id,
+          (p) => p.copyWith(isUpdating: false),
         );
         rethrow;
       }

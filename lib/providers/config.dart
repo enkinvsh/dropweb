@@ -143,12 +143,16 @@ class Profiles extends _$Profiles with AutoDisposeNotifierMixin {
     state = profilesTemp;
   }
 
+  /// Updates an EXISTING profile in place from its CURRENT store value. A
+  /// no-op when [profileId] is absent — never appends (unlike [setProfile]),
+  /// so a late write can't resurrect a profile deleted meanwhile.
   void updateProfile(String profileId, Profile Function(Profile profile) builder) {
-    final profilesTemp = List<Profile>.from(state);
-    final index = profilesTemp.indexWhere((element) => element.id == profileId);
-    if (index != -1) {
-      profilesTemp[index] = builder(profilesTemp[index]);
+    final index = state.indexWhere((element) => element.id == profileId);
+    if (index == -1) {
+      return;
     }
+    final profilesTemp = List<Profile>.from(state);
+    profilesTemp[index] = builder(profilesTemp[index]);
     state = profilesTemp;
   }
 

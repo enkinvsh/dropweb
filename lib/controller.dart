@@ -106,8 +106,68 @@ bool shouldRunAutoUpdateCheck({
   return autoCheckUpdate;
 }
 
+/// Merges the result of a subscription fetch (`Profile.update`) onto the
+/// [fresh] store copy of the same profile, taken AFTER the fetch completed.
+///
+/// `Profile.update` is a network round-trip (seconds). Anything the user did
+/// meanwhile — work mode / country / strict-node pick, `selectedMap`, label or
+/// auto-update edits — lives only in the store, so the fetched copy (built from
+/// the pre-fetch snapshot) must NOT be written wholesale. Only the fields
+/// `Profile.update` / `Profile.saveFile` own are taken from [fetched]:
+/// `label` (only when the profile has none — mirrors `label ?? disposition`),
+/// `subscriptionInfo`, `providerHeaders`, `lastUpdateDate`, and — when the
+/// response carried the matching header — `autoUpdateDuration`
+/// (`profile-update-interval`) and `fallbackUrl` (`fallback-url`). The derived
+/// header values are re-parsed exactly as `Profile.update` does, so a user edit
+/// of those fields during the fetch survives when the header is absent.
+/// `isUpdating` is cleared.
+Profile applyFetchedProfileFields({
+  required Profile fresh,
+  required Profile fetched,
+}) {
+  final headers = fetched.providerHeaders;
+  final intervalHours = int.tryParse(headers['profile-update-interval'] ?? '');
+  final headerFallbackUrl = headers['fallback-url'];
+  return fresh.copyWith(
+    label: fresh.label ?? fetched.label,
+    subscriptionInfo: fetched.subscriptionInfo,
+    providerHeaders: headers,
+    lastUpdateDate: fetched.lastUpdateDate,
+    autoUpdateDuration: intervalHours != null && intervalHours > 0
+        ? Duration(hours: intervalHours)
+        : fresh.autoUpdateDuration,
+    fallbackUrl: headerFallbackUrl ?? fresh.fallbackUrl,
+    isUpdating: false,
+  );
+}
+
+/// Per-key debouncer: a call only cancels the pending call for the SAME key.
+///
+/// The global [debouncer] keys by [FunctionTag] only, so sharing one tag across
+/// independent targets (e.g. two proxy groups) makes a pick in group B cancel
+/// the still-pending core write for group A. Keying by the target keeps each
+/// target's debounce independent.
+class KeyedDebouncer {
+  final Map<Object, Timer> _timers = {};
+
+  void call(
+    Object key,
+    void Function() func, {
+    Duration duration = const Duration(milliseconds: 600),
+  }) {
+    _timers.remove(key)?.cancel();
+    _timers[key] = Timer(duration, () {
+      _timers.remove(key);
+      func();
+    });
+  }
+}
+
 class AppController {
   AppController(this.context, WidgetRef ref) : _ref = ref;
+
+  /// Per-group debounce for [changeProxyDebounce] — see [KeyedDebouncer].
+  final KeyedDebouncer _changeProxyDebouncer = KeyedDebouncer();
   int? lastProfileModified;
 
   /// In-memory hash of the last *effective* config that was successfully pushed
@@ -227,17 +287,29 @@ class AppController {
   }
 
   void changeProxyDebounce(String groupName, String proxyName) {
-    debouncer.call(FunctionTag.changeProxy,
-        (String groupName, String proxyName) async {
-      await changeProxy(
-        groupName: groupName,
-        proxyName: proxyName,
-      );
-      await updateGroups();
-      // Update cached server name for foreground notification
-      _updateForegroundServerName(groupName, proxyName);
-    }, args: [groupName, proxyName]);
+    // Debounced PER GROUP: a pick in another group within the window must not
+    // cancel this group's pending core write (the selectedMap entry is already
+    // persisted by the caller, so a dropped write leaves UI ≠ core).
+    _changeProxyDebouncer.call(
+      (FunctionTag.changeProxy, groupName),
+      () async {
+        await changeProxy(
+          groupName: groupName,
+          proxyName: proxyName,
+        );
+        await updateGroups();
+        // Update cached server name for foreground notification
+        _updateForegroundServerName(groupName, proxyName);
+      },
+    );
   }
+
+  /// Updates an EXISTING profile in place via [builder]; a no-op when [id] is
+  /// no longer in the store (never appends — unlike [setProfile], so a stale
+  /// write can't resurrect a profile deleted meanwhile). Use it for transient
+  /// flags such as `isUpdating` so they never write back a stale snapshot.
+  void updateProfileById(String id, Profile Function(Profile profile) builder) =>
+      _ref.read(profilesProvider.notifier).updateProfile(id, builder);
 
   /// Delegates to [ConnectService.updateForegroundServerName].
   void _updateForegroundServerName(String groupName, String serverName) =>
@@ -319,16 +391,33 @@ class AppController {
         _ref.read(profilesProvider).getProfile(profile.id) ?? profile;
     final prefs = await SharedPreferences.getInstance();
     final shouldSend = prefs.getBool('sendDeviceHeaders') ?? true;
-    final newProfile = await latest.update(
+    final fetched = await latest.update(
       shouldSendHeaders: shouldSend,
     );
+
+    // The fetch took seconds. Re-read AGAIN: the profile may have been edited
+    // (work mode, country, selectedMap, label…) or deleted meanwhile. A deleted
+    // profile must stay deleted — setProfile appends a missing id, so writing
+    // here would resurrect it. Edits must survive — only fetch-owned fields are
+    // taken from [fetched] (see [applyFetchedProfileFields]).
+    final fresh = _ref.read(profilesProvider).getProfile(profile.id);
+    if (fresh == null) {
+      commonPrint.log(
+          '[profile] ${profile.id} deleted during update, dropping result');
+      return;
+    }
+    final newProfile = applyFetchedProfileFields(fresh: fresh, fetched: fetched);
 
     final headers = newProfile.providerHeaders;
 
     _handleHwidHeaders(newProfile);
 
-    final finalProfile =
-        await _revalidateWorkMode(newProfile.copyWith(isUpdating: false));
+    final finalProfile = await _revalidateWorkMode(newProfile);
+    // _revalidateWorkMode may await a config read; don't resurrect a profile
+    // deleted during it (synchronous check + write, no gap).
+    if (_ref.read(profilesProvider).getProfile(profile.id) == null) {
+      return;
+    }
     _ref.read(profilesProvider.notifier).setProfile(finalProfile);
 
     if (profile.id == _ref.read(currentProfileIdProvider)) {
