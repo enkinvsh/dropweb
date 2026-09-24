@@ -116,7 +116,10 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
   // protocol / TG noise. Dedup collisions (against each other AND existing
   // top-level names) with a numeric suffix. Fall back to `🌐 Node N` when no
   // flag/country can be parsed.
-  final usedNames = <String>{...existingProxyNames};
+  // Proxy AND proxy-group names share one namespace in mihomo: a derived name
+  // colliding with a group (e.g. a panel group literally called `🇩🇪 Германия`)
+  // makes the core reject the whole config as a duplicate.
+  final usedNames = <String>{...existingProxyNames, ...groupMembers.keys};
   final renamedSos = <Map<String, Object>>[];
   final smartMembers = <String>[];
   var nodeIndex = 0;
@@ -135,6 +138,12 @@ String patchSmartPool(String mihomoYaml, List<Map<String, Object>> sosProxies) {
     'type': 'smart',
     'uselightgbm': false,
     'include-all': true,
+    // Explicit, slow health-check. Without `interval` the core defaults to
+    // 300 s, and the smart group's own background tasks touch it so `lazy`
+    // never idles: ~69 members × 12/h × 2 (unified-delay) ≈ 1656 HEAD/h even
+    // with the screen off. 1800 s cuts that 6× (≈276 HEAD/h worst case).
+    'interval': 1800,
+    'lazy': true,
     // NOTE: intentionally NOT `hidden: true`. A config-level hidden flag makes
     // the core deprioritize the group and stops reporting its delay, which
     // broke the `📶 First Available` availability badge (and its selection

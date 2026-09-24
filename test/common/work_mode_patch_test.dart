@@ -1189,6 +1189,8 @@ void main() {
         'name': 'Умный',
         'type': 'smart',
         'collectdata': false,
+        'interval': 600,
+        'lazy': true,
         'proxies': ['🇩🇪 A', '🇳🇱 B'],
       });
 
@@ -1209,6 +1211,8 @@ void main() {
         'name': 'Умный',
         'type': 'smart',
         'collectdata': false,
+        'interval': 600,
+        'lazy': true,
         'proxies': List<String>.from(_templateLeaves),
       });
 

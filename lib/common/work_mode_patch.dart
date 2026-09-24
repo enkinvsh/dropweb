@@ -86,6 +86,11 @@ Map<String, dynamic> applyWorkModePatch(
           'name': workModeSmartGroupName,
           'type': 'smart',
           'collectdata': false,
+          // Explicit health-check cadence: without it the core defaults to
+          // 300 s, and smart's self-touching background tasks keep `lazy`
+          // from ever idling (12 members → 288 HEAD/h; 600 s halves it).
+          'interval': 600,
+          'lazy': true,
           'proxies': List<String>.from(leaves),
         },
       );
