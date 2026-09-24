@@ -1,7 +1,6 @@
 import 'package:dropweb/common/proxy.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/state.dart';
-import 'package:dropweb/state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,15 +14,13 @@ class ProxyManager extends ConsumerStatefulWidget {
 
 class _ProxyManagerState extends ConsumerState<ProxyManager> {
   Future<void> _updateProxy(ProxyState proxyState) async {
-    final isStart = proxyState.isStart;
-    final systemProxy = proxyState.systemProxy;
-    // Use actual random port from globalState instead of configured port
-    // This ensures system proxy points to the correct mihomo listener
-    final port = globalState.currentProxyCredentials.port;
-    if (isStart && systemProxy) {
-      proxy?.startProxy(port, proxyState.bassDomain);
+    if (proxyState.isStart && proxyState.systemProxy) {
+      // The core's mixed-port. On desktop patchRawConfig keeps the patched /
+      // provider mixed-port; the random credentials port is the MOBILE
+      // listener only — nothing listens on it here.
+      await systemProxyOwner.apply(proxyState.port, proxyState.bassDomain);
     } else {
-      proxy?.stopProxy();
+      await systemProxyOwner.clear(userEnabled: proxyState.systemProxy);
     }
   }
 

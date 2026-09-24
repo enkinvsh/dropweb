@@ -210,8 +210,18 @@ class AppDelegate: FlutterAppDelegate {
     }
     
     override func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Dart's handleExit restores DNS / the system proxy, stops the core and
+        // then exits the process itself. Defer instead of cancel: returning
+        // .terminateCancel made dropweb abort every logout, restart and
+        // shutdown. Flutter's platform runner is scheduled in the common run
+        // loop modes, so the channel keeps working while AppKit waits. The
+        // fallback reply lets the session continue if the Dart side is wedged
+        // (its own watchdog exits after 5 s).
         WindowExtPlugin.instance?.handleShouldTerminate()
-        return .terminateCancel
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     override func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {

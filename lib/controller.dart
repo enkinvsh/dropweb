@@ -1191,7 +1191,9 @@ class AppController {
     await guarded(() async => window?.hide());
     await guarded(savePreferences);
     await guarded(() => system.setMacOSDns(true));
-    await guarded(() async => proxy?.stopProxy());
+    await guarded(() => systemProxyOwner.clear(
+          userEnabled: _ref.read(networkSettingProvider).systemProxy,
+        ));
     await guarded(clashCore.shutdown);
     await guarded(() async => clashService?.destroy());
     await system.exit();
