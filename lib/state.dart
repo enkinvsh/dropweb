@@ -1042,7 +1042,7 @@ class GlobalState {
       }
     }
     return applyWorkModePatch(
-      pruned.config,
+      profile.fullTunnel ? applyFullTunnel(pruned.config) : pruned.config,
       workMode: profile.workMode,
       staticCountry: profile.staticCountry,
     );

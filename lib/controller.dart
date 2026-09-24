@@ -308,7 +308,8 @@ class AppController {
   /// no longer in the store (never appends — unlike [setProfile], so a stale
   /// write can't resurrect a profile deleted meanwhile). Use it for transient
   /// flags such as `isUpdating` so they never write back a stale snapshot.
-  void updateProfileById(String id, Profile Function(Profile profile) builder) =>
+  void updateProfileById(
+          String id, Profile Function(Profile profile) builder) =>
       _ref.read(profilesProvider.notifier).updateProfile(id, builder);
 
   /// Delegates to [ConnectService.updateForegroundServerName].
@@ -406,7 +407,8 @@ class AppController {
           '[profile] ${profile.id} deleted during update, dropping result');
       return;
     }
-    final newProfile = applyFetchedProfileFields(fresh: fresh, fetched: fetched);
+    final newProfile =
+        applyFetchedProfileFields(fresh: fresh, fetched: fetched);
 
     final headers = newProfile.providerHeaders;
 
@@ -916,6 +918,8 @@ class AppController {
       // the config (Block A cache would short-circuit it). CRITICAL.
       'workMode': profile.workMode.name,
       'staticCountry': profile.staticCountry,
+      // Rewrites the catch-all MATCH (applyFullTunnel) — same reason.
+      'fullTunnel': profile.fullTunnel,
     };
 
     return computeSetupHash(
@@ -1964,6 +1968,25 @@ class AppController {
       await applyProfile();
     } catch (e) {
       commonPrint.log('applyWorkMode failed, rolling back work mode: $e');
+      _ref.read(profilesProvider.notifier).setProfile(currentProfile);
+      _lastSetupHash = null;
+    }
+  }
+
+  /// Switches full tunnel (`applyFullTunnel`) for the current profile and
+  /// re-sets up the core. Rolls back like [applyWorkMode]: applyProfile shows
+  /// its own error, so nothing is rethrown.
+  Future<void> setFullTunnel({required bool enabled}) async {
+    final currentProfile = _ref.read(currentProfileProvider);
+    if (currentProfile == null || currentProfile.fullTunnel == enabled) return;
+    try {
+      _ref
+          .read(profilesProvider.notifier)
+          .setProfile(currentProfile.copyWith(fullTunnel: enabled));
+      _lastSetupHash = null;
+      await applyProfile();
+    } catch (e) {
+      commonPrint.log('setFullTunnel failed, rolling back: $e');
       _ref.read(profilesProvider.notifier).setProfile(currentProfile);
       _lastSetupHash = null;
     }

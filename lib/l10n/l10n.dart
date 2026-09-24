@@ -1,6 +1,7 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import 'intl/messages_all.dart';
 
 // **************************************************************************
@@ -4149,6 +4150,56 @@ class AppLocalizations {
     return Intl.message(
       'https://… — your provider\'s subscription link',
       name: 'importFromUrlHint',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Traffic`
+  String get trafficScope {
+    return Intl.message('Traffic', name: 'trafficScope', desc: '', args: []);
+  }
+
+  /// `Selective`
+  String get trafficScopeSelective {
+    return Intl.message(
+      'Selective',
+      name: 'trafficScopeSelective',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `All`
+  String get trafficScopeAll {
+    return Intl.message('All', name: 'trafficScopeAll', desc: '', args: []);
+  }
+
+  /// `Only services listed by your provider use the VPN.`
+  String get trafficScopeSelectiveDesc {
+    return Intl.message(
+      'Only services listed by your provider use the VPN.',
+      name: 'trafficScopeSelectiveDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `All traffic uses the VPN, except the local network and provider exceptions.`
+  String get trafficScopeAllDesc {
+    return Intl.message(
+      'All traffic uses the VPN, except the local network and provider exceptions.',
+      name: 'trafficScopeAllDesc',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `If an app or site fails to load, try the other mode.`
+  String get trafficScopeHint {
+    return Intl.message(
+      'If an app or site fails to load, try the other mode.',
+      name: 'trafficScopeHint',
       desc: '',
       args: [],
     );

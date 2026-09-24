@@ -527,5 +527,11 @@
   "onboardingImported": "サブスクリプションを追加しました。タップして接続",
   "dashboardEmptyTitle": "サブスクリプションを追加",
   "dashboardEmptyHint": "リンクを貼り付けるか、QRコードをスキャンしてください",
-  "importFromUrlHint": "https://… — プロバイダーのサブスクリプションリンク"
+  "importFromUrlHint": "https://… — プロバイダーのサブスクリプションリンク",
+  "trafficScope": "トラフィック",
+  "trafficScopeSelective": "リストのみ",
+  "trafficScopeAll": "すべて",
+  "trafficScopeSelectiveDesc": "プロバイダのリストにあるサービスのみVPNを経由します。",
+  "trafficScopeAllDesc": "ローカルネットワークとプロバイダの例外を除き、すべての通信がVPNを経由します。",
+  "trafficScopeHint": "アプリやサイトが開かない場合は、モードを切り替えてください。"
 }

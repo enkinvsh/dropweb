@@ -534,5 +534,11 @@
   "onboardingImported": "Подписка добавлена. Нажмите, чтобы подключиться",
   "dashboardEmptyTitle": "Добавьте подписку",
   "dashboardEmptyHint": "Вставьте ссылку или отсканируйте QR-код",
-  "importFromUrlHint": "https://… — ссылка подписки вашего провайдера"
+  "importFromUrlHint": "https://… — ссылка подписки вашего провайдера",
+  "trafficScope": "Трафик",
+  "trafficScopeSelective": "По списку",
+  "trafficScopeAll": "Весь",
+  "trafficScopeSelectiveDesc": "Через VPN идут только сервисы из списка провайдера.",
+  "trafficScopeAllDesc": "Весь трафик идёт через VPN, кроме локальной сети и исключений провайдера.",
+  "trafficScopeHint": "Если сайт или приложение не работает, переключите режим."
 }

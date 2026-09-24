@@ -534,5 +534,11 @@
   "onboardingImported": "Subscription added. Tap to connect",
   "dashboardEmptyTitle": "Add a subscription",
   "dashboardEmptyHint": "Paste a link or scan a QR code",
-  "importFromUrlHint": "https://… — your provider's subscription link"
+  "importFromUrlHint": "https://… — your provider's subscription link",
+  "trafficScope": "Traffic",
+  "trafficScopeSelective": "Selective",
+  "trafficScopeAll": "All",
+  "trafficScopeSelectiveDesc": "Only services listed by your provider use the VPN.",
+  "trafficScopeAllDesc": "All traffic uses the VPN, except the local network and provider exceptions.",
+  "trafficScopeHint": "If an app or site fails to load, try the other mode."
 }

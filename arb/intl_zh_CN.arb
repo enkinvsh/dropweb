@@ -527,5 +527,11 @@
   "onboardingImported": "订阅已添加，点按以连接",
   "dashboardEmptyTitle": "添加订阅",
   "dashboardEmptyHint": "粘贴链接或扫描二维码",
-  "importFromUrlHint": "https://… — 您的提供商的订阅链接"
+  "importFromUrlHint": "https://… — 您的提供商的订阅链接",
+  "trafficScope": "流量",
+  "trafficScopeSelective": "按列表",
+  "trafficScopeAll": "全部",
+  "trafficScopeSelectiveDesc": "仅服务商列表中的服务通过 VPN。",
+  "trafficScopeAllDesc": "除本地网络和服务商例外外，所有流量均通过 VPN。",
+  "trafficScopeHint": "若应用或网站无法打开，请切换模式。"
 }

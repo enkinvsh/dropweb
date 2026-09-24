@@ -103,6 +103,9 @@ class Profile with _$Profile {
     @Default(WorkMode.standard)
     WorkMode workMode,
     String? staticCountry,
+    // Send everything the provider's rules do not name through the VPN
+    // (`applyFullTunnel`). Independent of [workMode].
+    @Default(false) bool fullTunnel,
   }) = _Profile;
 
   factory Profile.fromJson(Map<String, Object?> json) =>

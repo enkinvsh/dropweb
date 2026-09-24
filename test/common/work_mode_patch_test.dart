@@ -1587,4 +1587,97 @@ void main() {
       expect(result.dropped, ['Pool → ⚪ Missing']);
     });
   });
+
+  group('full tunnel', () {
+    // Direct-by-default template: named services via 🌍 VPN, the rest DIRECT.
+    Map<String, dynamic> directByDefault({
+      String rulesKey = 'rule',
+      String? match = 'MATCH,♻️ DIRECT',
+    }) =>
+        <String, dynamic>{
+          'proxies': <Map<String, dynamic>>[
+            {'name': '🇩🇪 Германия', 'type': 'vless'},
+            {'name': '🇸🇪 Швеция', 'type': 'vless'},
+          ],
+          'proxy-groups': <Map<String, dynamic>>[
+            {
+              'name': '🌍 VPN',
+              'type': 'select',
+              'proxies': ['🇩🇪 Германия', '🇸🇪 Швеция'],
+            },
+            {
+              'name': '♻️ DIRECT',
+              'type': 'select',
+              'proxies': ['DIRECT'],
+            },
+          ],
+          rulesKey: <String>[
+            'RULE-SET,private,DIRECT',
+            'DOMAIN-SUFFIX,youtube.com,🌍 VPN',
+            'IP-CIDR,17.0.0.0/8,♻️ DIRECT',
+            'AND,((NETWORK,udp),(DST-PORT,443)),REJECT',
+            if (match != null) match,
+          ],
+        };
+
+    test('catch-all goes through the primary router, explicit rules stay', () {
+      final cfg = directByDefault();
+      expect(fullTunnelAvailable(cfg), isTrue);
+      final out = applyFullTunnel(cfg);
+      expect(out['rule'], [
+        'RULE-SET,private,DIRECT',
+        'DOMAIN-SUFFIX,youtube.com,🌍 VPN',
+        'IP-CIDR,17.0.0.0/8,♻️ DIRECT',
+        'AND,((NETWORK,udp),(DST-PORT,443)),REJECT',
+        'MATCH,🌍 VPN',
+      ]);
+      expect(out.containsKey('rules'), isFalse);
+      expect((cfg['rule'] as List).last, 'MATCH,♻️ DIRECT');
+    });
+
+    test('works on the getProfileConfig shape (`rules` key)', () {
+      final cfg = directByDefault(rulesKey: 'rules');
+      expect(fullTunnelAvailable(cfg), isTrue);
+      expect((applyFullTunnel(cfg)['rules'] as List).last, 'MATCH,🌍 VPN');
+    });
+
+    test('config without MATCH gets one', () {
+      final out = applyFullTunnel(directByDefault(match: null));
+      expect((out['rule'] as List).last, 'MATCH,🌍 VPN');
+    });
+
+    test('unavailable and a no-op when MATCH already reaches the VPN', () {
+      final cfg = directByDefault(match: 'MATCH,🌍 VPN');
+      expect(fullTunnelAvailable(cfg), isFalse);
+      expect(applyFullTunnel(cfg), same(cfg));
+    });
+
+    test('unavailable and a no-op without a routable group', () {
+      final cfg = <String, dynamic>{
+        'proxy-groups': <Map<String, dynamic>>[
+          {
+            'name': '♻️ DIRECT',
+            'type': 'select',
+            'proxies': ['DIRECT'],
+          },
+        ],
+        'rule': <String>['MATCH,♻️ DIRECT'],
+      };
+      expect(fullTunnelAvailable(cfg), isFalse);
+      expect(applyFullTunnel(cfg), same(cfg));
+    });
+
+    test('composes with Country: the catch-all follows the chosen country', () {
+      final out = applyWorkModePatch(
+        applyFullTunnel(directByDefault()),
+        workMode: WorkMode.country,
+        staticCountry: '🇸🇪',
+      );
+      expect((out['rule'] as List).last, 'MATCH,🌍 VPN');
+      final router = (out['proxy-groups'] as List)
+          .cast<Map>()
+          .firstWhere((g) => g['name'] == '🌍 VPN');
+      expect(router['proxies'], contains('🇸🇪 Швеция'));
+    });
+  });
 }

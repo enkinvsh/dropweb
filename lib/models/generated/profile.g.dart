@@ -60,6 +60,7 @@ _$ProfileImpl _$$ProfileImplFromJson(Map<String, dynamic> json) =>
               unknownValue: WorkMode.standard) ??
           WorkMode.standard,
       staticCountry: json['staticCountry'] as String?,
+      fullTunnel: json['fullTunnel'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$$ProfileImplToJson(_$ProfileImpl instance) =>
@@ -79,6 +80,7 @@ Map<String, dynamic> _$$ProfileImplToJson(_$ProfileImpl instance) =>
       'fallbackUrl': instance.fallbackUrl,
       'workMode': _$WorkModeEnumMap[instance.workMode]!,
       'staticCountry': instance.staticCountry,
+      'fullTunnel': instance.fullTunnel,
     };
 
 const _$WorkModeEnumMap = {

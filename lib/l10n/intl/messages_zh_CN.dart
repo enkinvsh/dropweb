@@ -596,6 +596,18 @@ class MessageLookup extends MessageLookupByLibrary {
     "topUpTraffic": MessageLookupByLibrary.simpleMessage("购买流量"),
     "tproxyPort": MessageLookupByLibrary.simpleMessage("Tproxy端口"),
     "traffic": MessageLookupByLibrary.simpleMessage("流量"),
+    "trafficScope": MessageLookupByLibrary.simpleMessage("流量"),
+    "trafficScopeAll": MessageLookupByLibrary.simpleMessage("全部"),
+    "trafficScopeAllDesc": MessageLookupByLibrary.simpleMessage(
+      "除本地网络和服务商例外外，所有流量均通过 VPN。",
+    ),
+    "trafficScopeHint": MessageLookupByLibrary.simpleMessage(
+      "若应用或网站无法打开，请切换模式。",
+    ),
+    "trafficScopeSelective": MessageLookupByLibrary.simpleMessage("按列表"),
+    "trafficScopeSelectiveDesc": MessageLookupByLibrary.simpleMessage(
+      "仅服务商列表中的服务通过 VPN。",
+    ),
     "trafficUnlimited": MessageLookupByLibrary.simpleMessage("不限流量"),
     "trafficUsage": MessageLookupByLibrary.simpleMessage("流量统计"),
     "tun": MessageLookupByLibrary.simpleMessage("虚拟网卡"),

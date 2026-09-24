@@ -852,6 +852,18 @@ class MessageLookup extends MessageLookupByLibrary {
     "topUpTraffic": MessageLookupByLibrary.simpleMessage("Top up traffic"),
     "tproxyPort": MessageLookupByLibrary.simpleMessage("Tproxy Port"),
     "traffic": MessageLookupByLibrary.simpleMessage("Traffic"),
+    "trafficScope": MessageLookupByLibrary.simpleMessage("Traffic"),
+    "trafficScopeAll": MessageLookupByLibrary.simpleMessage("All"),
+    "trafficScopeAllDesc": MessageLookupByLibrary.simpleMessage(
+      "All traffic uses the VPN, except the local network and provider exceptions.",
+    ),
+    "trafficScopeHint": MessageLookupByLibrary.simpleMessage(
+      "If an app or site fails to load, try the other mode.",
+    ),
+    "trafficScopeSelective": MessageLookupByLibrary.simpleMessage("Selective"),
+    "trafficScopeSelectiveDesc": MessageLookupByLibrary.simpleMessage(
+      "Only services listed by your provider use the VPN.",
+    ),
     "trafficUnlimited": MessageLookupByLibrary.simpleMessage(
       "Unlimited Traffic",
     ),

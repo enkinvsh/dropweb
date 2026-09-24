@@ -113,6 +113,69 @@ class _ModesContentState extends ConsumerState<ModesContent>
     }
   }
 
+  Future<void> _setFullTunnel(bool enabled) async {
+    setState(() => _applying = true);
+    try {
+      await globalState.appController.setFullTunnel(enabled: enabled);
+    } finally {
+      if (mounted) setState(() => _applying = false);
+    }
+  }
+
+  /// The «ⓘ» next to «Трафик»: both choices and the escape hatch, nothing more.
+  Future<void> _showTrafficScopeInfo() async {
+    final textTheme = context.textTheme;
+    final colorScheme = context.colorScheme;
+    Widget entry(String title, String body) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(
+              body,
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        );
+    await globalState.showCommonDialog(
+      child: CommonDialog(
+        title: appLocalizations.trafficScope,
+        actions: [
+          Builder(
+            builder: (dialogContext) => TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(appLocalizations.ok),
+            ),
+          ),
+        ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            entry(
+              appLocalizations.trafficScopeSelective,
+              appLocalizations.trafficScopeSelectiveDesc,
+            ),
+            const SizedBox(height: 16),
+            entry(
+              appLocalizations.trafficScopeAll,
+              appLocalizations.trafficScopeAllDesc,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              appLocalizations.trafficScopeHint,
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Deep screen for «Стандарт»: the existing proxies/groups UI
   /// ([RulesProxiesView]) in a sheet — reuses the exact wiring the old
   /// bottom row used.
@@ -245,9 +308,10 @@ class _ModesContentState extends ConsumerState<ModesContent>
       // the old nullProfileDesc lie (same class of lie the country picker fix
       // removes). No redesign: still a plain NullStatus panel.
       error: (e, __) => NullStatus(
-        label: ErrorMapper.mapError('$e') ?? appLocalizations.genericErrorMessage,
+        label:
+            ErrorMapper.mapError('$e') ?? appLocalizations.genericErrorMessage,
       ),
-      data: (_) {
+      data: (data) {
         final stack = ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -281,6 +345,32 @@ class _ModesContentState extends ConsumerState<ModesContent>
               onTap: () => _openCountryDeep(profile),
               onChevronTap: () => _openCountryDeep(profile),
             ),
+            // «Трафик» — a second axis under the modes, independent of the
+            // server choice above. Only shown when it changes something: a
+            // provider whose catch-all already goes through the VPN has nothing
+            // to switch.
+            if (data.fullTunnelAvailable) ...[
+              ListHeader(
+                title: appLocalizations.trafficScope,
+                padding: const EdgeInsets.only(left: 8, top: 24),
+                actions: [
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: appLocalizations.trafficScope,
+                    onPressed: _showTrafficScopeInfo,
+                    icon: HugeIcon(
+                      icon: HugeIcons.strokeRoundedInformationCircle,
+                      size: 18,
+                      color: context.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              _TrafficScopeSegment(
+                fullTunnel: profile.fullTunnel,
+                onChanged: _setFullTunnel,
+              ),
+            ],
           ],
         );
 
@@ -291,6 +381,58 @@ class _ModesContentState extends ConsumerState<ModesContent>
       },
     );
   }
+}
+
+/// «По списку | Весь» in the same [GlassTabBar] pill as the page's own tabs.
+/// Owns only the [TabController]; the profile stays the source of truth, so a
+/// rolled-back apply slides the pill back.
+class _TrafficScopeSegment extends StatefulWidget {
+  const _TrafficScopeSegment({
+    required this.fullTunnel,
+    required this.onChanged,
+  });
+
+  final bool fullTunnel;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  State<_TrafficScopeSegment> createState() => _TrafficScopeSegmentState();
+}
+
+class _TrafficScopeSegmentState extends State<_TrafficScopeSegment>
+    with SingleTickerProviderStateMixin {
+  late final TabController _controller = TabController(
+    length: 2,
+    vsync: this,
+    initialIndex: widget.fullTunnel ? 1 : 0,
+  )..addListener(_onIndex);
+
+  void _onIndex() {
+    final all = _controller.index == 1;
+    if (all != widget.fullTunnel) widget.onChanged(all);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrafficScopeSegment oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final index = widget.fullTunnel ? 1 : 0;
+    if (_controller.index != index) _controller.animateTo(index);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => GlassTabBar(
+        controller: _controller,
+        tabs: [
+          appLocalizations.trafficScopeSelective,
+          appLocalizations.trafficScopeAll,
+        ],
+      );
 }
 
 /// A single work-mode card following the «case + deep» pattern. Composes

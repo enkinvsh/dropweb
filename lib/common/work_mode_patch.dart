@@ -652,3 +652,51 @@ const _builtinOutbounds = <String>{
     dropped: dropped,
   );
 }
+
+/// Target of the first `MATCH` rule — the one the core actually uses; later
+/// ones are unreachable. Null when the config has no `MATCH`.
+String? _firstMatchTarget(List rules) {
+  for (final rule in rules) {
+    final text = rule?.toString() ?? '';
+    if (text.split(',').first.trim() == 'MATCH') return ruleTarget(text);
+  }
+  return null;
+}
+
+/// Whether [applyFullTunnel] changes routing for [rawConfig]: a primary router
+/// exists and the catch-all does not already reach it. False for providers
+/// whose `MATCH` already goes through the VPN — the UI hides the choice there.
+bool fullTunnelAvailable(Map<String, dynamic> rawConfig) {
+  final router = detectPrimaryRouter(rawConfig);
+  final rules = _resolveRules(rawConfig);
+  if (router == null || rules is! List) return false;
+  return _firstMatchTarget(rules) != router;
+}
+
+/// Full tunnel: points the catch-all at the primary router
+/// ([detectPrimaryRouter]), so traffic the provider's rules do not name goes
+/// through the VPN instead of `DIRECT`. Only the first `MATCH` is rewritten
+/// (`MATCH,<router>` is appended when there is none); every explicit provider
+/// rule — local network, DIRECT exceptions, REJECTs — keeps its target.
+/// Composes with Country mode: that binds the same router.
+///
+/// PURE. Returns [rawConfig] itself when there is nothing to change.
+Map<String, dynamic> applyFullTunnel(Map<String, dynamic> rawConfig) {
+  final router = detectPrimaryRouter(rawConfig);
+  final key = rawConfig['rules'] != null ? 'rules' : 'rule';
+  final rules = rawConfig[key];
+  if (router == null || rules is! List) return rawConfig;
+  final index = rules.indexWhere(
+    (rule) => (rule?.toString() ?? '').split(',').first.trim() == 'MATCH',
+  );
+  if (index >= 0 && ruleTarget(rules[index].toString()) == router) {
+    return rawConfig;
+  }
+  final newRules = [...rules];
+  if (index < 0) {
+    newRules.add('MATCH,$router');
+  } else {
+    newRules[index] = 'MATCH,$router';
+  }
+  return Map<String, dynamic>.from(rawConfig)..[key] = newRules;
+}

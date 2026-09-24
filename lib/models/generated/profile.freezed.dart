@@ -245,7 +245,10 @@ mixin _$Profile {
   String? get fallbackUrl => throw _privateConstructorUsedError;
   @JsonKey(unknownEnumValue: WorkMode.standard)
   WorkMode get workMode => throw _privateConstructorUsedError;
-  String? get staticCountry => throw _privateConstructorUsedError;
+  String? get staticCountry =>
+      throw _privateConstructorUsedError; // Send everything the provider's rules do not name through the VPN
+// (`applyFullTunnel`). Independent of [workMode].
+  bool get fullTunnel => throw _privateConstructorUsedError;
 
   /// Serializes this Profile to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -277,7 +280,8 @@ abstract class $ProfileCopyWith<$Res> {
       Map<String, String> providerHeaders,
       String? fallbackUrl,
       @JsonKey(unknownEnumValue: WorkMode.standard) WorkMode workMode,
-      String? staticCountry});
+      String? staticCountry,
+      bool fullTunnel});
 
   $SubscriptionInfoCopyWith<$Res>? get subscriptionInfo;
   $OverrideDataCopyWith<$Res> get overrideData;
@@ -314,6 +318,7 @@ class _$ProfileCopyWithImpl<$Res, $Val extends Profile>
     Object? fallbackUrl = freezed,
     Object? workMode = null,
     Object? staticCountry = freezed,
+    Object? fullTunnel = null,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -380,6 +385,10 @@ class _$ProfileCopyWithImpl<$Res, $Val extends Profile>
           ? _value.staticCountry
           : staticCountry // ignore: cast_nullable_to_non_nullable
               as String?,
+      fullTunnel: null == fullTunnel
+          ? _value.fullTunnel
+          : fullTunnel // ignore: cast_nullable_to_non_nullable
+              as bool,
     ) as $Val);
   }
 
@@ -431,7 +440,8 @@ abstract class _$$ProfileImplCopyWith<$Res> implements $ProfileCopyWith<$Res> {
       Map<String, String> providerHeaders,
       String? fallbackUrl,
       @JsonKey(unknownEnumValue: WorkMode.standard) WorkMode workMode,
-      String? staticCountry});
+      String? staticCountry,
+      bool fullTunnel});
 
   @override
   $SubscriptionInfoCopyWith<$Res>? get subscriptionInfo;
@@ -468,6 +478,7 @@ class __$$ProfileImplCopyWithImpl<$Res>
     Object? fallbackUrl = freezed,
     Object? workMode = null,
     Object? staticCountry = freezed,
+    Object? fullTunnel = null,
   }) {
     return _then(_$ProfileImpl(
       id: null == id
@@ -534,6 +545,10 @@ class __$$ProfileImplCopyWithImpl<$Res>
           ? _value.staticCountry
           : staticCountry // ignore: cast_nullable_to_non_nullable
               as String?,
+      fullTunnel: null == fullTunnel
+          ? _value.fullTunnel
+          : fullTunnel // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 }
@@ -559,7 +574,8 @@ class _$ProfileImpl implements _Profile {
       this.fallbackUrl,
       @JsonKey(unknownEnumValue: WorkMode.standard)
       this.workMode = WorkMode.standard,
-      this.staticCountry})
+      this.staticCountry,
+      this.fullTunnel = false})
       : _selectedMap = selectedMap,
         _unfoldSet = unfoldSet,
         _providerHeaders = providerHeaders;
@@ -625,10 +641,15 @@ class _$ProfileImpl implements _Profile {
   final WorkMode workMode;
   @override
   final String? staticCountry;
+// Send everything the provider's rules do not name through the VPN
+// (`applyFullTunnel`). Independent of [workMode].
+  @override
+  @JsonKey()
+  final bool fullTunnel;
 
   @override
   String toString() {
-    return 'Profile(id: $id, label: $label, currentGroupName: $currentGroupName, url: $url, lastUpdateDate: $lastUpdateDate, autoUpdateDuration: $autoUpdateDuration, subscriptionInfo: $subscriptionInfo, autoUpdate: $autoUpdate, selectedMap: $selectedMap, unfoldSet: $unfoldSet, overrideData: $overrideData, isUpdating: $isUpdating, providerHeaders: $providerHeaders, fallbackUrl: $fallbackUrl, workMode: $workMode, staticCountry: $staticCountry)';
+    return 'Profile(id: $id, label: $label, currentGroupName: $currentGroupName, url: $url, lastUpdateDate: $lastUpdateDate, autoUpdateDuration: $autoUpdateDuration, subscriptionInfo: $subscriptionInfo, autoUpdate: $autoUpdate, selectedMap: $selectedMap, unfoldSet: $unfoldSet, overrideData: $overrideData, isUpdating: $isUpdating, providerHeaders: $providerHeaders, fallbackUrl: $fallbackUrl, workMode: $workMode, staticCountry: $staticCountry, fullTunnel: $fullTunnel)';
   }
 
   @override
@@ -664,7 +685,9 @@ class _$ProfileImpl implements _Profile {
             (identical(other.workMode, workMode) ||
                 other.workMode == workMode) &&
             (identical(other.staticCountry, staticCountry) ||
-                other.staticCountry == staticCountry));
+                other.staticCountry == staticCountry) &&
+            (identical(other.fullTunnel, fullTunnel) ||
+                other.fullTunnel == fullTunnel));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -686,7 +709,8 @@ class _$ProfileImpl implements _Profile {
       const DeepCollectionEquality().hash(_providerHeaders),
       fallbackUrl,
       workMode,
-      staticCountry);
+      staticCountry,
+      fullTunnel);
 
   /// Create a copy of Profile
   /// with the given fields replaced by the non-null parameter values.
@@ -722,7 +746,8 @@ abstract class _Profile implements Profile {
       final Map<String, String> providerHeaders,
       final String? fallbackUrl,
       @JsonKey(unknownEnumValue: WorkMode.standard) final WorkMode workMode,
-      final String? staticCountry}) = _$ProfileImpl;
+      final String? staticCountry,
+      final bool fullTunnel}) = _$ProfileImpl;
 
   factory _Profile.fromJson(Map<String, dynamic> json) = _$ProfileImpl.fromJson;
 
@@ -759,7 +784,11 @@ abstract class _Profile implements Profile {
   @JsonKey(unknownEnumValue: WorkMode.standard)
   WorkMode get workMode;
   @override
-  String? get staticCountry;
+  String?
+      get staticCountry; // Send everything the provider's rules do not name through the VPN
+// (`applyFullTunnel`). Independent of [workMode].
+  @override
+  bool get fullTunnel;
 
   /// Create a copy of Profile
   /// with the given fields replaced by the non-null parameter values.

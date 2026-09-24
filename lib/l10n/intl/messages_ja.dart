@@ -688,6 +688,18 @@ class MessageLookup extends MessageLookupByLibrary {
     "topUpTraffic": MessageLookupByLibrary.simpleMessage("トラフィックを追加"),
     "tproxyPort": MessageLookupByLibrary.simpleMessage("Tproxyポート"),
     "traffic": MessageLookupByLibrary.simpleMessage("トラフィック"),
+    "trafficScope": MessageLookupByLibrary.simpleMessage("トラフィック"),
+    "trafficScopeAll": MessageLookupByLibrary.simpleMessage("すべて"),
+    "trafficScopeAllDesc": MessageLookupByLibrary.simpleMessage(
+      "ローカルネットワークとプロバイダの例外を除き、すべての通信がVPNを経由します。",
+    ),
+    "trafficScopeHint": MessageLookupByLibrary.simpleMessage(
+      "アプリやサイトが開かない場合は、モードを切り替えてください。",
+    ),
+    "trafficScopeSelective": MessageLookupByLibrary.simpleMessage("リストのみ"),
+    "trafficScopeSelectiveDesc": MessageLookupByLibrary.simpleMessage(
+      "プロバイダのリストにあるサービスのみVPNを経由します。",
+    ),
     "trafficUnlimited": MessageLookupByLibrary.simpleMessage("無制限トラフィック"),
     "trafficUsage": MessageLookupByLibrary.simpleMessage("トラフィック使用量"),
     "tun": MessageLookupByLibrary.simpleMessage("TUN"),

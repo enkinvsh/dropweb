@@ -877,6 +877,18 @@ class MessageLookup extends MessageLookupByLibrary {
     "topUpTraffic": MessageLookupByLibrary.simpleMessage("Докупить трафик"),
     "tproxyPort": MessageLookupByLibrary.simpleMessage("Tproxy-порт"),
     "traffic": MessageLookupByLibrary.simpleMessage("Трафик"),
+    "trafficScope": MessageLookupByLibrary.simpleMessage("Трафик"),
+    "trafficScopeAll": MessageLookupByLibrary.simpleMessage("Весь"),
+    "trafficScopeAllDesc": MessageLookupByLibrary.simpleMessage(
+      "Весь трафик идёт через VPN, кроме локальной сети и исключений провайдера.",
+    ),
+    "trafficScopeHint": MessageLookupByLibrary.simpleMessage(
+      "Если сайт или приложение не работает, переключите режим.",
+    ),
+    "trafficScopeSelective": MessageLookupByLibrary.simpleMessage("По списку"),
+    "trafficScopeSelectiveDesc": MessageLookupByLibrary.simpleMessage(
+      "Через VPN идут только сервисы из списка провайдера.",
+    ),
     "trafficUnlimited": MessageLookupByLibrary.simpleMessage(
       "Безлимитный трафик",
     ),
