@@ -33,11 +33,15 @@ class SubscriptionInfo with _$SubscriptionInfo {
 
   factory SubscriptionInfo.formHString(String? info) {
     if (info == null) return const SubscriptionInfo();
-    final list = info.split(";");
     final map = <String, int?>{};
-    for (final i in list) {
-      final keyValue = i.trim().split("=");
-      map[keyValue[0]] = int.tryParse(keyValue[1]);
+    // Tolerate trailing ';', empty segments and malformed pairs: skip them
+    // instead of throwing (a RangeError here used to abort the whole update).
+    for (final segment in info.split(";")) {
+      final eq = segment.indexOf("=");
+      if (eq <= 0) continue;
+      final key = segment.substring(0, eq).trim();
+      if (key.isEmpty) continue;
+      map[key] = int.tryParse(segment.substring(eq + 1).trim());
     }
     return SubscriptionInfo(
       upload: map["upload"] ?? 0,
@@ -269,8 +273,12 @@ extension ProfileExtension on Profile {
       }
     }
 
-    final disposition = response.headers.value("content-disposition");
-    final userinfo = response.headers.value('subscription-userinfo');
+    // `headers.value()` THROWS when a header is repeated (e.g. a panel
+    // custom header duplicating `profile-title`); take the first value.
+    String? header(String name) => response.headers[name]?.first;
+
+    final disposition = header("content-disposition");
+    final userinfo = header('subscription-userinfo');
 
     final responseData = response.data;
     if (responseData == null) {
@@ -292,7 +300,7 @@ extension ProfileExtension on Profile {
     ];
 
     for (final headerName in headersToCollect) {
-      final value = response.headers.value(headerName);
+      final value = header(headerName);
       if (value != null && value.isNotEmpty) {
         providerHeaders[headerName] = value;
       }
@@ -332,6 +340,18 @@ extension ProfileExtension on Profile {
     final converted = convertShareLinkSubscriptionToMihomo(decoded);
     if (converted != null) {
       bytesToSave = Uint8List.fromList(utf8.encode(converted));
+    }
+
+    // Guard the stored profile: a blank body or a document without any
+    // proxy source (an HTML/JSON error page, `proxies: []`) would pass the
+    // core's syntax-only validation and overwrite the working config, after
+    // which every connection silently routes DIRECT. Reject it the same way a
+    // fetch failure is rejected so the existing file stays untouched.
+    final rejectReason = subscriptionBodyRejectReason(
+      converted ?? decoded,
+    );
+    if (rejectReason != null) {
+      throw Exception('Invalid subscription response: $rejectReason');
     }
 
     // SOS / disconeko emergency fallback. When the provider advertises a

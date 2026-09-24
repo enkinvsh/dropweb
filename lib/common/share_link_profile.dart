@@ -1,3 +1,4 @@
+import 'package:dropweb/common/print.dart';
 import 'package:yaml/yaml.dart';
 
 /// Smart converter for URL subscriptions whose HTTP body is a raw, newline-
@@ -20,6 +21,37 @@ String? convertShareLinkSubscriptionToMihomo(String content) {
   final proxies = _parseShareLinkProxies(content);
   if (proxies.isEmpty) return null;
   return _emitMihomoYaml(proxies);
+}
+
+/// Returns a human-readable reason when a REMOTE subscription body must not
+/// replace the stored profile, or `null` when it is acceptable.
+///
+/// Rejected: a blank body, or a YAML document that has neither a non-empty
+/// `proxies` list nor a non-empty `proxy-providers` map (typical for JSON/HTML
+/// error pages or a revoked subscription). The core's `validateConfig` is
+/// syntax-only and accepts such documents, which would overwrite a working
+/// config with one that routes everything DIRECT.
+///
+/// A body the Dart YAML parser cannot read is NOT rejected here — the Go core
+/// stays the authority on syntax (its parser differs in edge cases) and
+/// still validates it downstream.
+String? subscriptionBodyRejectReason(String body) {
+  if (body.trim().isEmpty) return 'empty body';
+  final Object? doc;
+  try {
+    doc = loadYaml(body);
+  } catch (_) {
+    return null;
+  }
+  if (doc is! Map) return 'not a proxy config';
+  final proxies = doc['proxies'];
+  final providers = doc['proxy-providers'];
+  final hasProxies = proxies is List && proxies.isNotEmpty;
+  final hasProviders = providers is Map && providers.isNotEmpty;
+  if (!hasProxies && !hasProviders) {
+    return 'no proxies or proxy-providers';
+  }
+  return null;
 }
 
 /// Extracts proxy maps from a subscription body for downstream merging.
@@ -56,6 +88,7 @@ List<Map<String, Object>> parseSubscriptionToProxies(String content) {
     if (entry is! Map) continue;
     final map = _yamlMapToObjectMap(entry);
     if (map['name'] is! String) continue;
+    if (!_isValidRealityOpts(map['reality-opts'])) continue;
     result.add(map);
   }
   return result;
@@ -66,22 +99,39 @@ List<Map<String, Object>> parseSubscriptionToProxies(String content) {
 /// share-link line is present (caller decides the fallback behavior).
 List<_ProxyEntry> _parseShareLinkProxies(String content) {
   final candidates = <String>[];
+  final skippedSchemes = <String, int>{};
   for (final raw in content.split('\n')) {
     final line = raw.trim();
     if (line.isEmpty) continue;
     if (line.startsWith('#')) continue;
     if (line.startsWith('vless://') || line.startsWith('trojan://')) {
       candidates.add(line);
+      continue;
     }
+    final scheme = _unsupportedShareLinkScheme(line);
+    if (scheme != null) {
+      skippedSchemes[scheme] = (skippedSchemes[scheme] ?? 0) + 1;
+    }
+  }
+  if (skippedSchemes.isNotEmpty) {
+    // Scheme + count only: the links themselves carry credentials.
+    final summary =
+        skippedSchemes.entries.map((e) => '${e.key}×${e.value}').join(', ');
+    commonPrint.log('share-link import: unsupported schemes skipped: $summary');
   }
   if (candidates.isEmpty) return [];
 
   final proxies = <_ProxyEntry>[];
   final nameCounts = <String, int>{};
+  var invalidReality = 0;
 
   for (final line in candidates) {
     final entry = _parseShareLink(line);
     if (entry == null) continue;
+    if (!_isValidRealityOpts(entry.data['reality-opts'])) {
+      invalidReality++;
+      continue;
+    }
     final base = entry.name;
     if (nameCounts.containsKey(base)) {
       final next = nameCounts[base]! + 1;
@@ -92,8 +142,99 @@ List<_ProxyEntry> _parseShareLinkProxies(String content) {
     }
     proxies.add(entry);
   }
+  if (invalidReality > 0) {
+    commonPrint.log(
+      'share-link import: dropped $invalidReality node(s) with invalid REALITY keys',
+    );
+  }
 
   return proxies;
+}
+
+final _realityPublicKeyRe = RegExp(r'^[A-Za-z0-9_-]{43}$');
+final _realityShortIdRe = RegExp(r'^(?:[0-9A-Fa-f]{2}){0,8}$');
+
+/// Mirrors the core's `RealityOptions.Parse`
+/// (core/Clash.Meta/adapter/outbound/reality.go): the public key must be
+/// unpadded URL-safe base64 of exactly 32 bytes, the short id even-length hex
+/// of at most 8 bytes. The core rejects anything else at `ParseProxy`, which
+/// fails the WHOLE config (config.go parseProxies), so a single bad node from
+/// an external pool would make the saved profile unloadable. No `public-key`
+/// means no REALITY, which the core accepts.
+bool _isValidRealityOpts(Object? opts) {
+  if (opts is! Map) return true;
+  final publicKey = opts['public-key']?.toString() ?? '';
+  if (publicKey.isEmpty) return true;
+  final shortId = opts['short-id']?.toString() ?? '';
+  return _realityPublicKeyRe.hasMatch(publicKey) &&
+      _realityShortIdRe.hasMatch(shortId);
+}
+
+/// Share-link schemes we recognise but do not convert yet. Only these are
+/// reported, so ordinary YAML/text lines never produce log noise.
+const _knownUnsupportedSchemes = {
+  'ss',
+  'ssr',
+  'vmess',
+  'hy2',
+  'hysteria',
+  'hysteria2',
+  'tuic',
+  'wireguard',
+  'wg',
+  'anytls',
+  'socks',
+  'socks5',
+  'snell',
+};
+
+String? _unsupportedShareLinkScheme(String line) {
+  final sep = line.indexOf('://');
+  if (sep <= 0) return null;
+  final scheme = line.substring(0, sep).toLowerCase();
+  return _knownUnsupportedSchemes.contains(scheme) ? scheme : null;
+}
+
+/// Adds mihomo transport options for [network] from share-link [params].
+/// Field names follow core/Clash.Meta/adapter/outbound/{vless,trojan,vmess}.go
+/// (`ws-opts` → WSOptions{path, headers}; `grpc-opts` →
+/// GrpcOptions{grpc-service-name}; `xhttp-opts` → XHTTPOptions{path, host,
+/// mode}, VLESS only). tcp/raw carry no options and stay untouched.
+void _applyTransportOptions(
+  Map<String, Object> data,
+  String network,
+  Map<String, String> params, {
+  required bool allowXhttp,
+}) {
+  String? param(String key) {
+    final v = params[key];
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
+  switch (network) {
+    case 'ws':
+      final opts = <String, Object>{};
+      final path = param('path');
+      if (path != null) opts['path'] = path;
+      final host = param('host');
+      if (host != null) opts['headers'] = <String, Object>{'Host': host};
+      if (opts.isNotEmpty) data['ws-opts'] = opts;
+    case 'grpc':
+      final serviceName = param('serviceName');
+      if (serviceName != null) {
+        data['grpc-opts'] = <String, Object>{'grpc-service-name': serviceName};
+      }
+    case 'xhttp':
+      if (!allowXhttp) return;
+      final opts = <String, Object>{};
+      final path = param('path');
+      if (path != null) opts['path'] = path;
+      final host = param('host');
+      if (host != null) opts['host'] = host;
+      final mode = param('mode');
+      if (mode != null) opts['mode'] = mode;
+      if (opts.isNotEmpty) data['xhttp-opts'] = opts;
+  }
 }
 
 /// Recursively converts a parsed YAML node into plain Dart `Object` values,
@@ -160,6 +301,7 @@ _ProxyEntry? _parseShareLink(String line) {
   if (uri.scheme == 'vless') {
     data['uuid'] = _decode(uri.userInfo);
     data['network'] = network;
+    _applyTransportOptions(data, network, params, allowXhttp: true);
     final flow = params['flow'];
     if (flow != null && flow.isNotEmpty) {
       data['flow'] = flow;
@@ -191,6 +333,7 @@ _ProxyEntry? _parseShareLink(String line) {
   if (uri.scheme == 'trojan') {
     data['password'] = _decode(uri.userInfo);
     data['network'] = network;
+    _applyTransportOptions(data, network, params, allowXhttp: false);
     final sni = params['sni'];
     if (sni != null && sni.isNotEmpty) {
       data['sni'] = sni;

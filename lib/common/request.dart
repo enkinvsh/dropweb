@@ -224,6 +224,10 @@ class Request {
   /// SECURITY: cap on subscription payload size — prevents OOM from rogue providers.
   static const int _maxProfileBytes = 50 * 1024 * 1024; // 50 MiB
 
+  /// Redirect budget for subscription fetches (after the initial hop).
+  static const int _maxRedirects = 6;
+  static const Set<int> _redirectStatuses = {301, 302, 303, 307, 308};
+
   Future<Response<Uint8List>> getFileResponseForUrl(
     String url, {
     Map<String, dynamic>? headers,
@@ -231,40 +235,51 @@ class Request {
     final requestHeaders = headers ?? {};
     requestHeaders['User-Agent'] = globalState.ua;
 
-    final firstResponse = await _dio.get<Uint8List>(
-      url,
-      options: Options(
-        responseType: ResponseType.bytes,
-        headers: requestHeaders,
-        followRedirects: false,
-        validateStatus: (status) => status != null && status < 400,
-      ),
-    );
-
-    Response<Uint8List> response = firstResponse;
-    if (firstResponse.isRedirect == true) {
-      final newUrl = firstResponse.headers.value('location');
-      if (newUrl == null) {
-        throw Exception('Redirect detected, but no location header was found.');
-      }
-
-      // SECURITY: don't log redirect URLs — subscription tokens leak through them.
-      if (kDebugMode) {
-        debugPrint('Subscription redirect followed (length=${newUrl.length})');
-      }
-      response = await _dio.get<Uint8List>(
-        newUrl,
+    // Every hop is fetched manually (followRedirects: false) so that:
+    //  - only a 2xx is ever accepted as the final subscription body — a
+    //    404/403 error page served AFTER a redirect must fail the update
+    //    instead of overwriting the stored profile with garbage;
+    //  - a relative `Location` (RFC 7231 §7.1.2) is resolved against the
+    //    URL of the hop that returned it.
+    // Budget: the initial hop + up to [_maxRedirects] redirects (matches the
+    // former one-manual-hop-then-Dio-maxRedirects:5 chain).
+    var currentUri = Uri.parse(url);
+    var redirects = 0;
+    Response<Uint8List> response;
+    while (true) {
+      response = await _dio.getUri<Uint8List>(
+        currentUri,
         options: Options(
           responseType: ResponseType.bytes,
           headers: requestHeaders,
-          followRedirects: true,
-          maxRedirects: 5,
-          validateStatus: (status) => status != null && status < 500,
+          followRedirects: false,
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 400,
         ),
       );
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) break;
+
+      // 3xx from here on.
+      if (!_redirectStatuses.contains(status)) {
+        throw Exception('Unexpected HTTP $status for subscription request.');
+      }
+      final location = response.headers['location']?.first;
+      if (location == null || location.isEmpty) {
+        throw Exception('Redirect detected, but no location header was found.');
+      }
+      if (redirects >= _maxRedirects) {
+        throw Exception('Too many redirects (max $_maxRedirects).');
+      }
+      redirects++;
+      currentUri = currentUri.resolve(location);
+      // SECURITY: don't log redirect URLs — subscription tokens leak through them.
+      if (kDebugMode) {
+        debugPrint('Subscription redirect followed (hop=$redirects)');
+      }
     }
 
-    final contentLengthHeader = response.headers.value('content-length');
+    final contentLengthHeader = response.headers['content-length']?.first;
     final contentLength = int.tryParse(contentLengthHeader ?? '');
     if (contentLength != null && contentLength > _maxProfileBytes) {
       throw Exception(
