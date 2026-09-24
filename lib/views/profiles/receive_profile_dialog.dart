@@ -176,7 +176,15 @@ class _ReceiveProfileDialogState extends State<ReceiveProfileDialog> {
           }
         });
 
-      _server = await shelf_io.serve(router.call, ip, port);
+      final server = await shelf_io.serve(router.call, ip, port);
+      // Dialog cancelled while the bind was pending: dispose() already ran
+      // and saw no server, so this one would stay bound on 8899 for the life
+      // of the process (and block the next «Add from phone»). Close it here.
+      if (!mounted) {
+        await server.close(force: true);
+        return;
+      }
+      _server = server;
 
       setState(() {
         _qrData = jsonEncode({
@@ -206,6 +214,7 @@ class _ReceiveProfileDialogState extends State<ReceiveProfileDialog> {
   @override
   void dispose() {
     _server?.close(force: true);
+    _server = null;
     if (kDebugMode) {
       debugPrint('ReceiveProfile server stopped');
     }

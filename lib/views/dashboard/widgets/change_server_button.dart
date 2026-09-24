@@ -3,7 +3,7 @@ import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/common.dart';
 import 'package:dropweb/providers/providers.dart';
-import 'package:dropweb/state.dart';
+import 'package:dropweb/views/subscription/rules_proxies_view.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +21,27 @@ class ChangeServerButton extends ConsumerWidget {
     } catch (e) {
       return value;
     }
+  }
+
+  /// Opens the same «Серверы и группы» sheet the modes screen opens. There is
+  /// no proxies page in the navigation (only dashboard + tools), so the old
+  /// `toPage(PageLabel.proxies)` was a dead tap that also left
+  /// `currentPageLabel` stuck off the dashboard, stalling its pollers.
+  void _openServersAndGroups(BuildContext context) {
+    showSheet(
+      context: context,
+      props: const SheetProps(isScrollControlled: true),
+      builder: (_, type) => AdaptiveSheetScaffold(
+        type: type,
+        title: appLocalizations.serversAndGroups,
+        body: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          child: const RulesProxiesView(),
+        ),
+      ),
+    );
   }
 
   @override
@@ -70,9 +91,7 @@ class ChangeServerButton extends ConsumerWidget {
     return SizedBox(
       height: getWidgetHeight(1),
       child: CommonCard(
-        onPressed: () {
-          globalState.appController.toPage(PageLabel.proxies);
-        },
+        onPressed: () => _openServersAndGroups(context),
         child: Container(
           padding: baseInfoEdgeInsets.copyWith(
             top: 6,
@@ -182,9 +201,7 @@ class ChangeServerButton extends ConsumerWidget {
   Widget _buildSimpleButton(BuildContext context) => SizedBox(
         height: getWidgetHeight(1),
         child: CommonCard(
-          onPressed: () {
-            globalState.appController.toPage(PageLabel.proxies);
-          },
+          onPressed: () => _openServersAndGroups(context),
           child: Container(
             padding: baseInfoEdgeInsets.copyWith(
               top: 6,

@@ -141,7 +141,11 @@ class _RulesGroupCard extends ConsumerWidget {
       builder: (_, type) => AdaptiveSheetScaffold(
         type: type,
         title: group.name,
-        body: ProxySelectorSheet(group: group),
+        // Test every member on open: after a network change wipes the delay
+        // map, the view's own on-open ping only re-tests each group's SELECTED
+        // member, so the rest of a url-test group with a non-default test URL
+        // would otherwise show blank latency until used.
+        body: ProxySelectorSheet(group: group, pingOnOpen: true),
       ),
     );
   }
