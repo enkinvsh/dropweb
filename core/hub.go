@@ -336,11 +336,10 @@ func handleCloseConnections() bool {
 }
 
 func closeConnections() {
+	// Close every tracker. A Close() error (e.g. close_notify on a dead bearer)
+	// must not stop the sweep, or the remaining connections stay open.
 	statistic.DefaultManager.Range(func(c statistic.Tracker) bool {
-		err := c.Close()
-		if err != nil {
-			return false
-		}
+		_ = c.Close()
 		return true
 	})
 }
@@ -577,7 +576,15 @@ func handleSetupConfig(bytes []byte) string {
 	err := UnmarshalJson(bytes, params)
 	if err != nil {
 		log.Errorln("unmarshalRawConfig error %v", err)
-		_ = setupConfig(defaultSetupParams())
+		// Same policy as setupConfig: only the first setup of this process falls
+		// back to the inert default; mid-session a rejected payload must keep the
+		// WORKING config instead of replacing it with a rule-less one (DIRECT).
+		runLock.Lock()
+		firstSetup := currentConfig == nil
+		runLock.Unlock()
+		if firstSetup {
+			_ = setupConfig(defaultSetupParams())
+		}
 		return err.Error()
 	}
 	err = setupConfig(params)
