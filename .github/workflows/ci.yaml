@@ -44,7 +44,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24.0"
+          go-version: "1.26.8"
           cache-dependency-path: core/go.sum
 
       - uses: actions/setup-java@v4
