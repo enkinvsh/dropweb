@@ -1,3 +1,438 @@
+## v0.8.8
+
+- chore(release): prepare v0.8.8 stable
+
+- chore(core): update mihomo to 1.19.31
+
+- Track dropweb-core-1.19.31 and pin the rebased core at 48d89b6b. It brings
+- upstream's sniffer fix that keeps connections open after a first-byte
+- timeout, the xhttp uplink fix, sing-tun v0.4.24 with our darwin spin patch
+- re-applied, and go.yaml.in/yaml/v3 in the sing-box converter.
+
+## v0.8.8-pre.1
+
+- docs(release): add the traffic switch to v0.8.8-pre.1 notes
+
+- feat(modes): let the user send all traffic through the VPN
+
+- Providers ship direct-by-default configs: only listed services ride the
+- VPN and the final MATCH goes DIRECT. A per-profile "Traffic: Selective |
+- All" switch under the modes now rewrites only that final MATCH to the
+- primary router, so unmatched destinations use the VPN too. Every
+- explicit provider rule (local network, DIRECT exceptions, REJECTs)
+- keeps its target, and the switch composes with Country mode.
+
+- The switch is hidden when the provider's MATCH already routes to the
+- VPN. An info popup explains both modes (en/ru/ja/zh_CN).
+
+- chore(codegen): refresh riverpod debug hashes
+
+- docs(release): notes for v0.8.8-pre.1
+
+- chore(release): bump to 0.8.8+2050000015 for v0.8.8-pre.1
+
+- ci(windows-e2e): probe egress through a checker the panel routes via VPN
+
+- The panel template is direct-by-default (final MATCH -> DIRECT) and sends only its
+- IP-checker set (apps_ipcheck) through the tunnel. api.ipify.org is not in that set, so
+- the tun/proxy egress checks compared the runner's own address with itself and failed
+- on every run since the template switched, while the tunnel itself was up. Probe
+- ipinfo.io (fallback ifconfig.me), both in apps_ipcheck.
+
+- fix(config): drop group members the account does not have
+
+- A panel template that names a per-user host (⚡ Авто → ⚪ White) makes
+- the core reject the whole config for every account without that host:
+- "proxy group[3]: ⚡ Авто: '⚪ White' not found" — no VPN at all. The
+- shipped v0.8.7 fails the same way on the windows-e2e CI account.
+
+- patchRawConfig now drops members that resolve to no proxy, group or
+- built-in outbound. Fail-closed: a group that would be left with only
+- built-ins (e.g. DIRECT) and has no use/include-all source keeps its
+- list, so the core error stands instead of routing traffic direct.
+
+- test: install the fake path provider in two widget tests
+
+- Both tests reach FileLogger, whose appPath asks path_provider for the downloads directory; the default method-channel implementation throws on non-macOS hosts, so they failed on the Linux CI runner while passing on macOS.
+
+- fix(logs): do not show ICMP relay errors as server failures
+
+- A timed-out ping from any app through the tunnel logs an ICMP relay error in the core, which surfaced as the 'server not responding' toast. Those errors still go to the log file but no longer notify.
+
+- feat(logs): core log level follows the logging switch
+
+- The core ran at the provider's log level (info on the panel template), pushing a line per connection across FFI that the app then discarded. It now runs at error while logging is off and at info (debug when requested in developer settings) while it is on; toggling applies live, and runtime updates no longer disagree with the setup level. Supersedes c657329 by owner decision.
+
+- fix(desktop): point the system proxy at the core port and leave foreign proxy settings alone
+
+- The system proxy was set to the random local credentials port instead of the core's mixed-port, so enabling it on Windows/macOS broke browsing. Every launch and disconnect also cleared the OS proxy even when the app never set it, wiping the user's own PAC/manual proxy; the proxy is now cleared only when this process applied it or the user has it enabled, and start/stop are serialized. On macOS, quitting no longer cancels logout, restart and shutdown: termination is deferred to the exit handler with an 8 s fallback.
+
+- fix(ui): working change-server button, no leaked receive port, ping on open
+
+- The change-server button navigated to a page that is not in the navigation and did nothing; it now opens the servers sheet. Cancelling the receive-profile dialog while its server was starting left port 8899 bound. Rules group selectors now ping their members on open like the mode selector does.
+
+- fix(patch): slow lazy health-checks for injected groups and no SOS name clashes
+
+- The injected Smart group had no interval, so the core default of 300 s probed ~70 nodes around the clock, screen off included. It now checks every 1800 s lazily; the Smart work mode group every 600 s lazily. Derived SOS proxy names are deduplicated against proxy-group names too, not only proxy names.
+
+- perf(ui): render the idle home screen at 12.5 fps instead of every vsync
+
+- MeshBackground drove its 80 ms phase steps from a repeating AnimationController, which scheduled a frame on every vsync: the idle home screen composited at ~121 fps on a Pixel 10. A periodic timer now marks the painter dirty only when the phase changes and stops under TickerMode, reduced motion and hidden routes; measured 13 fps on the same device with identical visuals. The connect button is built once as the aura's AnimatedBuilder child, the 20 s group poll schedules its own frame, and delay results no longer refresh groups while the app is in the background.
+
+- fix(profiles): stop profile refreshes from reverting concurrent changes
+
+- updateProfile read the profile before the network fetch and wrote that stale copy back afterwards, reverting selections and work-mode changes made meanwhile and resurrecting a profile deleted during the fetch; the isUpdating toggles did the same through setProfile, which appends missing ids. The fetch result is now merged onto the latest stored profile, deleted profiles stay deleted, and in-place updates never append. Proxy switches are debounced per group, so picking two groups quickly no longer drops the first. The service isolate now fails closed when the profile config cannot be read instead of starting a rule-less all-DIRECT config.
+
+- fix(profiles): never replace a working subscription with an error page or an empty body
+
+- A 4xx after a redirect, a 204 or an empty body passed validation and overwrote the saved profile with a config without proxies, sending everything DIRECT. Redirect hops now accept only 2xx, relative Location headers are resolved, and a body without proxies or proxy-providers is rejected. Also: repeated or malformed subscription headers no longer abort the update, share links keep ws/grpc/xhttp transport options, and nodes with REALITY keys the core would reject are dropped instead of making the whole profile unloadable.
+
+- fix(android): route vpn events to a live engine and stop the notification ticker with the screen
+
+- VpnPlugin kept one MethodChannel owned by whichever engine attached last. After the UI was swiped away twice over a running VPN it pointed at a destroyed engine: dnsChanged and networkChanged were lost and awaitResult waited forever. Channels are now tracked per engine, the service engine is preferred, a detached engine is dropped, and awaitResult times out after 5 s. The 1 Hz notification refresh now pauses while the screen is off and updates through NotificationManager.notify instead of re-posting startForeground. Verified on a Pixel 10.
+
+- build(core): Go 1.26.8, x/net 0.56, x/text 0.39; macOS 12 minimum
+
+- CI built the core with Go 1.24.0: govulncheck reported 31 reachable vulnerabilities (stdlib plus x/net HTTP/2 loop, idna, proxy bypass and x/text loop). With Go 1.26.8 and the bumped x/ modules it reports 0. The new x/ modules need go 1.25, and Go 1.25+ requires macOS 12, so the macOS deployment target moves from 11.0 to 12.0.
+
+- fix(core): close every connection and keep the live config on a bad setup payload
+
+- closeConnections stopped at the first tracker whose Close() failed, leaving the rest open after a network change or proxy switch. A setup payload that failed to decode replaced the running config with the default one (all traffic DIRECT); the default is now used only when nothing is loaded yet. Both locked with regression tests.
+
+- docs: handoff — актуальное состояние репозитория и регрессия MTU
+
+- Раздел 2 расходился с фактом: в нём было «ahead 2, сабмодуль грязный»,
+- тогда как дерево и сабмодуль чистые, а ветка на 6 коммитов впереди и не
+- запушена. Перечислены сами коммиты — следующая сессия должна видеть, что
+- именно лежит незапушенным.
+
+- Добавлен 5.5a: регрессия MTU. В разделе 5 её не было вовсе, хотя это
+- единственная правка захода, доказанная на живом устройстве, и при этом
+- она не входила в задачу 3.4. Записана вместе с причиной, коммитом,
+- который её вернул, и правилом про константу без теста.
+
+- docs: handoff — вердикт по 3.4, четыре дефекта, состояние ядра
+
+- Раздел 5 переписан. Проверка четырьмя независимыми линиями показала, что
+- претензия G3 из первой редакции неверна: `fd <= 0` не может означать отказ,
+- и доказано это не комментарием в Go, а Kotlin-первоисточником —
+- DropwebService.start() возвращает 0 намеренно (proxy-only), а
+- DropwebVpnService при отказе establish() кидает, причём вызов стоит снаружи
+- try, так что в ядро управление не попадает вовсе.
+
+- Зато вскрылись три дефекта того же класса, которых в первой редакции не
+- было: паника в tunWorker оставляла runTime выставленным, runState на
+- Kotlin переживал отказ establish(), updateDns рапортовал успех при
+- падении. Вместе с G5 все четыре теперь исправлены — каждый с указанием
+- файла и того, чем именно проверен.
+
+- Добавлен раздел 12. Он снимает путаницу трёх разных ядер (наше
+- v1.19.29+16, чекер на 1.19.30, апстрим 1.19.31) и фиксирует, что фикс
+- XHTTP uplink-chunk-size проверен и выброшен: панель проставляет
+- uplink-chunk-size явно, поэтому поломанная ветка на боевых подписках не
+- вызывается. Там же — разбор форка ядра: апстрим НЕ удалял поддержку
+- Android, она жива под тегом cmfa, официальный CMFA собирается из стокового
+- mihomo, FlClash уже перешёл границу v1.19.18, а наш реально непереносимый
+- слой — около 216 строк. Путь на апстрим существует, срочности нет.
+
+- Приведены в соответствие места, которые после этого противоречили новому
+- статусу: таблица волн, состояние репозитория, аудит recoverGo и лид про
+- FGS-шторм.
+
+- fix(android): restore TUN MTU to 1500 and lock it with a test
+
+- The tunnel was handing 9000 to the TUN interface, confirmed live on a
+- Pixel 10: `InterfaceName: tun0 ... MTU: 9000`. 9000 is the FlClashX
+- desktop inheritance — it targets gigabit links and forces fragmentation
+- on a mobile bearer, and it was one of the root-cause layers behind the
+- slow Telegram uploads investigated on 2026-04-09.
+
+- This was a regression, not an oversight. CHANGELOG already claims the
+- correction to 1500 was made. It was: and then commit 9e7d946
+- ("fix(rebase): resolve release cleanup conflicts", 2026-05-26) put
+- setMtu(9000) back. `git log --all -S'setMtu(1500)'` finds nothing, so the
+- value never survived in the tree, and nothing asserted it for four
+- months.
+
+- So the fix is not the number. The number now lives in a named constant
+- carrying that history in its doc comment, and TunMtuTest asserts it. A
+- one-constant fix with no test does not survive a rebase — this repo has
+- the receipt.
+
+- Verified end to end, not just built: after installing, the live tunnel
+- reports `InterfaceName: tun0 ... MTU: 1500`, Android marks the network
+- IS_VALIDATED, and ping from the device is 2/2 with 0% loss.
+
+- fix(android): reset runState when the system refuses the VPN
+
+- handleStartService set runState = START, then called
+- dropwebService?.start(options!!) one line ABOVE the try block.
+- DropwebVpnService.start() throws when establish() returns null — consent
+- revoked, or a policy that forbids the tunnel — and that throw escaped
+- handleStartService entirely. None of its three callers (onServiceConnected,
+- the start path, the requestVpnPermission callback) wraps it, so runState
+- stayed START with no tun.
+
+- The adjacent catch on Core.startTun failure already treats this as the
+- correct behaviour: it resets runState to STOP. The start() call now sits
+- in its own try that does the same, plus stopBearerTracking() for the same
+- stray-delayed-task reason spelled out below it.
+
+- No unit test: this is control flow bound to the Android framework and
+- would need an instrumentation harness to reach. The gate here is that it
+- compiles and mirrors the proven catch beside it — do not record this as
+- covered by tests.
+
+- Note on reachability, measured on a Pixel 10: revoking VPN consent does
+- NOT reach this path, because prepare() then demands consent again and the
+- flow short-circuits before handleStartService. The guarded case is
+- narrower — consent granted and establish() still failing — so this is
+- defensive hardening, not a fix for a commonly hit bug.
+
+- fix(core): panicking bridge goroutines must report failure, not silence
+
+- recoverGo only logs. Three call sites used it where something downstream
+- was waiting for an answer, so a recovered panic became silence or, worse,
+- a success.
+
+- quickStart owns a Dart port. On panic it returned without ever calling
+- SendToPort, and the Dart completer had no timeout — starting the tunnel
+- from the Quick Settings tile hung forever. It now uses recoverGoFn and
+- answers on the port; lib/clash/lib.dart adds a 30s ceiling as the
+- backstop for a wedged core or a lost port. The timeout returns a
+- non-empty string on purpose: that is already the caller's failure signal
+- in lib/main.dart, which tips the user, stops the VPN and exits.
+
+- tunWorker is worse than a hang. handleStartTun sets runTime before it can
+- fail, and a panic escaped after that point without sending any
+- TunMessage. The dead session still answered getRunTime(), and
+- connect_service's reconciler adopts a non-null probe as a live one
+- (heal_running) — the UI healed into "connected" over a dead tunnel. The
+- worker now clears runTime under tunLock and emits status=error. Taking
+- the lock in the recover is safe: handleStartTun's own deferred Unlock
+- runs first.
+
+- handleUpdateDns swallowed its panic while nextHandle answered
+- success(true) unconditionally, so a failed DNS update was reported as a
+- good one. It now returns the real outcome and the caller forwards it.
+
+- New in common.go, which carries no build tags and is therefore testable
+- on a host: runGuarded reports whether a guarded call completed, and
+- tunPanicRepair decides what a panic in a tun op must undo. That split
+- matters because lib_android.go is behind `android && cgo` and is not
+- compiled by `CGO_ENABLED=0 go test ./...` at all — the same reason
+- parseDNSPayload and startListenerResult already live in untagged files.
+
+- Gates: go test 38 passed, go vet clean, make android_arm64_core builds,
+- flutter test 540/540, dart analyze --fatal-warnings exit 0.
+
+- docs: handoff — убрать утверждение о ненаблюдавшейся записи под пустым ключом
+
+- docs: handoff — итог цикла стабилизации, остаток и ловушки
+
+- fix(bridge): a core reply with code != 0 fails the call, not poses as payload
+
+- handleResult read `result.code` for exactly one method. getConfig went
+- through `toResult`; every other method fell into `default:` and was
+- completed with `result.data` no matter what `code` said.
+
+- The core sets `code = -1` and puts the cause in `data` on four paths: a
+- panic recovered by handleAction (reachable from any method whose handler
+- has no recoverGoFn of its own), an unsupported method, invalid setState
+- params, and a startListener marshal failure. So for every
+- `invoke<String>` method the error text came back AS THE VALUE —
+- getCountryCode answered "panic: runtime error: ..." and it was rendered
+- as a country code.
+
+- Typed completers did fail, but only by accident and only opaquely:
+- completing a Completer<bool> with a String threw a TypeError that the
+- existing catch turned into completeError(TypeError), losing the core's
+- message. Both now carry the real cause.
+
+- A bare String is the error object deliberately — it is what the rest of
+- this boundary already throws (`throw res.message`, `throw message`), and
+- safeRun feeds e.toString() to ErrorMapper, which pattern-matches raw
+- core text.
+
+- Call-site audit (no reachable site gains a new failure class):
+-   - updateConfig/setupConfig already `throw message` on an error string;
+-     setupConfig's comment already anticipates this completeError path.
+-   - getExternalProvider(s), getConnections, asyncTestDelay, getMemory
+-     json.decode the payload, so an error body already threw
+-     FormatException; they now get the core's message instead.
+-   - getCountryCode is already inside try/catch.
+-   - changeProxy, updateGeoData, sideLoadExternalProvider run under their
+-     own recoverGoFn, which replies through result.success — their panics
+-     never carry code = -1 in the first place.
+
+- fix(bridge): a getConfig timeout is an error, not an empty config
+
+- getConfig was the last core read still resolving its timeout to a
+- success-shaped value: `defaultValue: Result.success(<String, dynamic>{})`.
+
+- ClashCore.getConfig returns `res.data` whenever `isSuccess`, so a core
+- that never answered produced `{}` — a profile with no proxies and no
+- rules — and every caller of getProfileConfig went on to apply it. No
+- exception, no toast, nothing in the log.
+
+- Every other call at this boundary already fails closed on timeout
+- (updateConfig, setupConfig, validateConfig, changeProxy return an
+- `error:` sentinel; startListener and the strict variants throw).
+- getConfig now matches: Result.error routes the timeout into the same
+- `throw res.message` branch a core-side `code = -1` already takes, so no
+- caller gains a failure mode it does not already handle.
+
+- fix(core): asyncTestDelay always echoes the requested url/name
+
+- Dart keys its delay map by the (url, name) pair it asked for, but two
+- reply paths in handleAsyncTestDelay left `url` empty:
+
+-   - the nil-proxy branch built its Delay before `testUrl` was resolved,
+-     so an unknown proxy answered `{"url":"","name":"X","value":-1}`;
+-   - the recoverGoFn panic reply never set `url` at all, and could not:
+-     `testUrl` was declared below the closure.
+
+- Both replies therefore landed in the ("", "") bucket and the badge that
+- requested the measurement never saw it.
+
+- `testUrl` is now declared above the recover and resolved immediately
+- after the unmarshal, so every reply — success, unreachable, nil-proxy
+- and panic — carries the pair the caller asked for.
+
+- The two `fn("")` paths are deliberately left alone: the request has not
+- been parsed at that point, so there is nothing to attribute. They are a
+- different defect (a malformed reply, not a misattributed one).
+
+- fix(vpn): run the bearer-change core reset in the isolate that receives it
+
+- networkChanged is delivered to the VPN service isolate, but the handler
+- resolved both of its dependencies from the UI isolate, so every real
+- Wi-Fi<->LTE switch under a live tunnel threw before the reset ran:
+
+-   * clashCore constructs ClashCore, whose _internal() derefs clashLib! —
+-     null by construction in the service isolate, where clashLib and
+-     clashLibHandler are mutually exclusive (lib/clash/lib.dart:399-403);
+-   * globalState.appController is _appController! on a field only
+-     lib/application.dart sets, i.e. only the UI isolate.
+
+- Both were argument expressions, so the throw landed between the
+- "resetting DNS pools" log and any effect: DNS pools and tracked flows
+- stayed on the dead bearer until their own long timeouts. Reproduced
+- twice on a Pixel 10 (docs/plans/2026-09-03-device-evidence.md, V2).
+
+- ClashLibHandler gains resetConnections/closeConnections over the
+- invokeAction it already exposes — the same wire format _handleMainIpc
+- forwards for the UI isolate, minus the IPC hop. The handler now picks
+- whichever core wrapper exists in its isolate, and a missing
+- AppController degrades to a log line instead of aborting the reset.
+
+- The [isolate-violation] try/catch stays so a future regression is still
+- visible.
+
+- diag(vpn): report clashLib availability instead of restating isService
+
+- docs: W1 device evidence — V2 root cause confirmed on Pixel 10
+
+- diag(connect): log tun-ack arm/complete/timeout and runTime transitions
+
+- diag(delay): DELAY_DIAG write/read keys (handoff §4)
+
+- fix(diag): stop AppController.init() from downgrading the global error handlers; keep stack traces in safeRun
+
+- diag(vpn): probe the real clash lib handle instead of restating isService
+
+- fix(privacy): redact single-segment subscription tokens and auth/cookie headers
+
+- diag(core): log dropped pushes instead of discarding them
+
+- diag(android): log the already-running early return in handleStartService
+
+- diag(vpn): log which isolate owns the vpn channel on networkChanged
+
+- test: make path-provider dependent tests hermetic on Linux (6 files deadlocked or threw on a non-macOS host)
+
+
+
+- ci: gate releases on flutter test / analyze / go test / gradle unit (was: zero tests in release pipeline)
+
+
+
+- chore: ignore the .omo orchestrator notepad directory
+
+
+
+- test: track the full suite (25 files were gitignored, incl. work_mode_patch 59 cases and config_roundtrip)
+
+
+
+- refactor(ui): share the subscription tab bar instead of keeping it private
+
+- The subscription page built its own glass tab bar inline. It is the piece
+- of chrome this app uses for a top-level choice — a glass pill at 48, the
+- Lumina.radiusLg squircle, a ripple-free indicator — and the next screen
+- that wanted one had to either reach into another page's private widget or
+- grow a second bar that drifts from it.
+
+- Moved to lib/widgets/glass_tab_bar.dart with no behavioural change, so
+- both callers share one file and a change to the shape lands once. A page
+- arriving from another must not read as a different app, and two copies is
+- how that starts.
+
+- Extracted from the meowzic branch, where the second caller appeared and
+- the move was made.
+
+- feat(ui): give CommonChip a corner and a selected state
+
+- The atom had neither, and both gaps were being worked around at the call
+- site. Material's chip corner is 8, so a chip placed under any of this
+- app's cards read as borrowed from somewhere else; and with no selected
+- state, a row of chips that needed to show a choice marked it with a tick
+- glued into the avatar slot — the only tick of its kind in the app, and a
+- third way of saying "chosen" on a screen whose tab bar already says it by
+- filling a pill.
+
+- Both are opt-in. `radius` left null keeps Material's own shape, which is
+- what every existing caller draws and what the delete chips in the profile
+- lists still expect; changing the default would restyle every chip at once,
+- which is a bigger change than any one screen is entitled to make. New
+- callers should pass Lumina.radiusLg.
+
+- `isSelected` draws an accent border and nothing else. It leaves the chip
+- the same size either way, so a row does not reflow as you tap along it.
+
+- Extracted from the meowzic branch, where both were written. Neither has
+- anything to do with music, and leaving them there would have made every
+- future merge of a shared widget more expensive for no reason.
+
+- fix(ui): stop a transparent app bar painting a slab when content scrolls
+
+- CommonScaffold hands every dark screen's app bar Colors.transparent and
+- elevation 0, so the Lumina mesh shows through it. Material 3 overrides
+- both the moment anything scrolls underneath: scrolledUnderElevation
+- defaults to 3 and wins over the explicit 0, and surfaceTintColor resolves
+- to the scheme's accent rather than to the transparent the bar was handed.
+- Material then blends the accent in at that elevation, so a bar declared
+- invisible paints a translucent slab in front of a moving gradient.
+
+- Measured on a phone rather than inferred: after a scroll the app bar strip
+- read rgb(21,22,21) against rgb(2,2,4) — Lumina.void_ — directly beneath
+- it, a flat lighter band the exact height of the bar. Reading the SDK
+- source alone exonerates the bar, because _AppBarDefaultsM3 claims
+- surfaceTintColor is transparent; only the measurement showed otherwise.
+
+- Set beside the two properties that were already there, not in the app
+- theme: this is the one widget that builds every app bar in the app, and
+- the intent it expresses is already written on the two lines above. A
+- transparent app bar has four knobs, not two.
+
+- Update changelog
+
+- docs: retake the README screenshots
+
+- The country sheet was captured with the selected node mid-probe, so the
+- one row the eye lands on was the only one without a latency chip. Retaken
+- with every row measured.
+
 ## v0.8.7
 
 - chore(release): prepare v0.8.7 stable
