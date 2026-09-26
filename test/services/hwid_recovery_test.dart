@@ -11,6 +11,7 @@ void main() {
   HwidRecoveryService build({
     required List<String> calls,
     bool Function()? isForeground,
+    bool Function(String)? isCurrentProfile,
     Future<void> Function(String)? retry,
   }) =>
       HwidRecoveryService(
@@ -19,6 +20,7 @@ void main() {
               calls.add(id);
             },
         isForeground: isForeground ?? () => true,
+        isCurrentProfile: isCurrentProfile,
         pollInterval: interval,
         episodeCap: cap,
       );
@@ -119,6 +121,43 @@ void main() {
       async.elapse(const Duration(seconds: 16)); // ticks at 5/10/15
       expect(maxInFlight, 1);
       expect(total, lessThanOrEqualTo(2));
+    });
+  });
+
+  test('a background (non-active) profile never opens an episode or dialog',
+      () {
+    fakeAsync((async) {
+      final calls = <String>[];
+      final svc = build(calls: calls, isCurrentProfile: (id) => id == 'active');
+
+      // Auto-update of another subscription hit ITS device limit — must not
+      // pop a dialog over the active profile nor poll the background one.
+      expect(svc.onHwidLimit('background'), isFalse);
+      expect(svc.isActive, isFalse);
+
+      // …and must not hijack an episode already running for the active one.
+      expect(svc.onHwidLimit('active'), isTrue);
+      expect(svc.onHwidLimit('background'), isFalse);
+      async.elapse(const Duration(seconds: 6));
+      expect(calls, ['active']);
+    });
+  });
+
+  test('switching away from the flagged profile ends the episode silently', () {
+    fakeAsync((async) {
+      final calls = <String>[];
+      var current = 'p1';
+      final svc = build(calls: calls, isCurrentProfile: (id) => id == current)
+        ..onHwidLimit('p1');
+
+      current = 'p2';
+      async.elapse(const Duration(seconds: 6)); // next tick sees the switch
+      expect(calls, isEmpty);
+      expect(svc.isActive, isFalse);
+
+      svc.onAppResumed();
+      async.flushMicrotasks();
+      expect(calls, isEmpty);
     });
   });
 }

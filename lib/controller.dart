@@ -454,6 +454,8 @@ class AppController {
   /// channels: foreground poll, app-resume, and the dialog's manual button.
   late final HwidRecoveryService _hwidRecovery = HwidRecoveryService(
     retryProfileUpdate: _retryHwidProfile,
+    isCurrentProfile: (profileId) =>
+        profileId == _ref.read(currentProfileIdProvider),
   );
 
   Future<void> _retryHwidProfile(String profileId) async {
