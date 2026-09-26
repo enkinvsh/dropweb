@@ -4,9 +4,8 @@ import 'country.dart';
 import 'mihomo_yaml_splice.dart'
     show isRoutableProxy, mihomoBuiltinTargets, ruleTarget;
 
-/// Name of the additive smart auto-selecting group injected for [WorkMode.smart].
-/// Distinct from `smart_pool_patch.dart`'s `🧠 Smart` (emergency-pool surface):
-/// this is the user-facing "Умный" work mode the primary router is pointed at.
+/// Name of the additive smart auto-selecting group injected for [WorkMode.smart]:
+/// the user-facing "Умный" work mode the primary router is pointed at.
 const workModeSmartGroupName = 'Умный';
 
 /// Prefix for the additive per-country `fallback` group injected for
@@ -27,11 +26,11 @@ String workModeCountryGroupName(String flag) =>
 ///
 /// Semantics:
 ///   * [WorkMode.standard] — no-op (returns a shallow copy).
-///   * [WorkMode.smart] — ensures an additive `Умный` group (`type: smart`,
-///     `collectdata: false`) whose `proxies` are the LEAF nodes of the detected
+///   * [WorkMode.smart] — ensures an additive `Умный` group (`type: url-test`,
+///     `tolerance: 100`) whose `proxies` are the LEAF nodes of the detected
 ///     primary router (see [_smartLeafNodes]); NEVER `include-all` (that would
-///     enumerate the disconeko emergency pool `patchSmartPool` appends to
-///     top-level `proxies`, leaking SOS nodes into normal routing — D1). It also
+///     enumerate every top-level proxy, including ones no rule-referenced group
+///     contains, leaking them into normal routing — D1). It also
 ///     APPENDS `Умный` as the last member of that primary router so the core's
 ///     forced selection actually binds (`fast()`/selector honor a forced
 ///     `selected` ONLY among a group's own members — D2). When no router is
@@ -41,7 +40,7 @@ String workModeCountryGroupName(String flag) =>
 ///     the chosen country, and ONLY that router. Candidates come from
 ///     [interceptLeafNodes] resolved for [staticCountry] (a flag-emoji key or an
 ///     exact node name — the rule-group leaves, NOT the raw `proxies`, which
-///     carry the SOS pool). With exactly ONE candidate the target is that node
+///     may hold nodes no rule-referenced group contains). With exactly ONE candidate the target is that node
 ///     itself (a one-member wrapper group buys nothing but a health-check timer
 ///     and an extra hop); with ≥2 an additive `Страна <flag>` `fallback` group is
 ///     injected and becomes the target. Per-service groups (YouTube / Discord /
@@ -84,13 +83,15 @@ Map<String, dynamic> applyWorkModePatch(
         workModeSmartGroupName,
         () => <String, dynamic>{
           'name': workModeSmartGroupName,
-          'type': 'smart',
-          'collectdata': false,
-          // Explicit health-check cadence: without it the core defaults to
-          // 300 s, and smart's self-touching background tasks keep `lazy`
-          // from ever idling (12 members → 288 HEAD/h; 600 s halves it).
+          // url-test instead of smart — the smart engine (per-group timer
+          // tasks, bbolt writes, per-connection scoring) costs battery;
+          // tolerance 100 ms keeps mobile RTT jitter from flipping the server
+          // every check.
+          'type': 'url-test',
+          'url': 'https://cp.cloudflare.com/generate_204',
           'interval': 600,
           'lazy': true,
+          'tolerance': 100,
           'proxies': List<String>.from(leaves),
         },
       );
@@ -154,14 +155,13 @@ bool smartGroupWillInject(Map<String, dynamic> rawConfig) {
   return _smartLeafNodes(rawConfig, primaryRouter).isNotEmpty;
 }
 
-/// Group names the `Умный` work mode must NEVER intercept: the emergency-pool
-/// surface (`patchSmartPool`'s `🧠 Smart` smart group and its `📶 First
-/// Available` fallback wrapper) and the injected `Умный` group itself. These
-/// are excluded BY CONSTRUCTION (the SOS chain is never rule-referenced) — this
-/// set is a belt-and-suspenders hard-exclude so a future template that DOES
-/// rule-reference them still cannot leak SOS nodes into normal routing.
+/// Group names the `Умный` work mode must NEVER intercept: `📶 First Available`
+/// — the panel template's opt-in fallback group (a member of `⚡ Авто`, never a
+/// primary route) — and the injected `Умный` group itself. Neither is
+/// rule-referenced in the template; this set is a belt-and-suspenders
+/// hard-exclude so a template that DOES rule-reference them still cannot turn
+/// them into an intercept target.
 const _smartHardExcludedGroups = <String>{
-  '🧠 Smart',
   '📶 First Available',
   workModeSmartGroupName,
 };
@@ -185,15 +185,14 @@ Object? _resolveRules(Map<String, dynamic> rawConfig) =>
 /// (ИТЕРАЦИЯ 2). Returned in `proxy-groups` declaration order for determinism.
 ///
 /// A group QUALIFIES iff:
-///   * it is NOT in [_smartHardExcludedGroups] (the SOS chain / `Умный` itself);
+///   * it is NOT in [_smartHardExcludedGroups] (`📶 First Available` / `Умный`);
 ///   * it is the TARGET of ≥1 rule (resolved via [ruleTarget]; builtin targets
 ///     like DIRECT/REJECT are ignored);
 ///   * its `type` is one of [_smartInterceptableTypes];
 ///   * it carries ≥1 member that is not a mihomo builtin (so it can route).
 ///
-/// The SOS chain (`🧠 Smart` / `📶 First Available`) is excluded both because
-/// it is never rule-referenced and via the explicit hard-exclude. Groups that
-/// are only reachable as a MEMBER of another group (e.g. `🌀 Cascade`) are NOT
+/// `📶 First Available` is excluded both because it is never rule-referenced
+/// and via the explicit hard-exclude. Groups that are only reachable as a MEMBER of another group (e.g. `🌀 Cascade`) are NOT
 /// intercepted, but their leaf nodes still flow into the Country candidate pool
 /// via [interceptLeafNodes]'s one-level resolution.
 List<String> smartInterceptGroups(Map<String, dynamic> rawConfig) {
@@ -278,16 +277,15 @@ String? detectPrimaryRouter(Map<String, dynamic> rawConfig) {
 /// rule-referenced intercept group of [rawConfig] (see [smartInterceptGroups] /
 /// [_smartLeafNodes]), in first-seen order.
 ///
-/// This is the structurally-SOS-free candidate set Country mode draws from
+/// This is the candidate set Country mode draws from
 /// (the node pool `groupNodesByCountry` buckets per flag). Smart mode no longer
 /// uses this union — it sources its `Умный` membership from the primary router
 /// alone (see [detectPrimaryRouter] / [_smartLeafNodes]).
 ///
-/// disconeko / emergency-pool nodes that `patchSmartPool` appends to top-level
-/// `proxies` are NEVER members of a rule-referenced group, so they are excluded
-/// here by construction — closing the leak in which Country mode would otherwise
-/// source candidates from the raw `proxies` list (which includes the SOS pool).
-/// No name/flag regex is used (SOS names collide with real country names).
+/// Top-level proxies that no rule-referenced group contains are excluded here
+/// by construction — Country mode never sources candidates from the raw
+/// `proxies` list, so such nodes never leak into «Страна». No name/flag regex is
+/// used (stray node names may collide with real country names).
 List<String> interceptLeafNodes(Map<String, dynamic> rawConfig) =>
     _unionLeafNodes(rawConfig, smartInterceptGroups(rawConfig));
 
@@ -320,10 +318,9 @@ List<String> _unionLeafNodes(
 ///     dropped). Total resolution depth is capped at 2.
 ///   * De-duplicates while preserving first-seen order.
 ///
-/// SOS / emergency-pool nodes that `patchSmartPool` appends to top-level
-/// `proxies` are NEVER router members, so they are structurally excluded — no
-/// name-regex filter (which is unreliable: SOS names collide with panel country
-/// names) is needed.
+/// Top-level proxies that are not router members are structurally excluded, so
+/// they never leak into «Умный» — no name-regex filter (unreliable: stray node
+/// names may collide with panel country names) is needed.
 List<String> _smartLeafNodes(
   Map<String, dynamic> rawConfig,
   String primaryRouter,
@@ -463,11 +460,9 @@ Map _withAppendedMember(Map group, String member) {
 ///
 /// Candidates are drawn from [interceptLeafNodes] — the nodes actually routed
 /// through the rule-referenced groups — NOT from the raw top-level `proxies`
-/// list. This is the structural fix for the disconeko leak: `patchSmartPool`
-/// bakes ~57 SOS emergency nodes (with real country flags like 🇷🇺/🇬🇧) into
-/// top-level `proxies`, so a raw-`proxies` source would let Country mode route
-/// all traffic through the emergency pool. Those SOS nodes are never members of
-/// a rule-referenced group, so this excludes them by construction.
+/// list: top-level proxies that no rule-referenced group contains (even with
+/// real country flags like 🇷🇺/🇬🇧) are excluded by construction, so they never
+/// leak into «Страна».
 /// [flag] may also be an exact node name (the picker offers same-flag servers
 /// individually) — [resolveCountryKeyNodes] handles both key kinds.
 List<String> _countryNodes(Map<String, dynamic> rawConfig, String flag) =>
@@ -650,6 +645,43 @@ const _builtinOutbounds = <String>{
   return (
     config: Map<String, dynamic>.from(rawConfig)..['proxy-groups'] = newGroups,
     dropped: dropped,
+  );
+}
+
+/// Rewrites every `type: smart` proxy-group to `url-test` — same auto-select
+/// semantics, without the smart engine's battery cost (per-group timer tasks,
+/// bbolt disk commits, per-connection scoring). The app no longer emits smart,
+/// but profiles baked by older versions and provider configs may still carry
+/// it, so this runs at config-setup time.
+///
+/// Only `type` changes, plus `tolerance: 100` when the group has none; every
+/// other key is kept (the core's group decoder ignores smart-only ones).
+///
+/// PURE. Returns [rawConfig] itself when nothing is demoted, otherwise a new
+/// top-level map; `demoted` lists the rewritten group names for the log.
+({Map<String, dynamic> config, List<String> demoted}) demoteSmartGroups(
+  Map<String, dynamic> rawConfig,
+) {
+  final groups = rawConfig['proxy-groups'];
+  if (groups is! List) return (config: rawConfig, demoted: const []);
+  final demoted = <String>[];
+  final newGroups = <dynamic>[];
+  for (final group in groups) {
+    if (group is! Map ||
+        group['type']?.toString().trim().toLowerCase() != 'smart') {
+      newGroups.add(group);
+      continue;
+    }
+    final copy = Map<String, dynamic>.from(group.cast<String, dynamic>())
+      ..['type'] = 'url-test'
+      ..putIfAbsent('tolerance', () => 100);
+    demoted.add('${group['name']}');
+    newGroups.add(copy);
+  }
+  if (demoted.isEmpty) return (config: rawConfig, demoted: const []);
+  return (
+    config: Map<String, dynamic>.from(rawConfig)..['proxy-groups'] = newGroups,
+    demoted: demoted,
   );
 }
 

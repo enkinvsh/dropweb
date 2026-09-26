@@ -112,6 +112,18 @@ void main() {
           .keys;
       expect(names, ['keep']);
     });
+
+    test('no 🧠 Smart / smart group; ⚡ Fastest leads 🌍 VPN', () {
+      final yaml = convertShareLinkSubscriptionToMihomo(
+        'vless://$_uuid@a.example.com:443?security=tls#keep',
+      )!;
+      expect(yaml, isNot(contains('🧠 Smart')));
+      expect(yaml, isNot(contains('type: smart')));
+      final vpn = ((loadYaml(yaml) as Map)['proxy-groups'] as List)
+          .cast<Map>()
+          .firstWhere((g) => g['name'] == '🌍 VPN');
+      expect(vpn['proxies'], ['⚡ Fastest', 'keep', 'DIRECT']);
+    });
   });
 
   group('SubscriptionInfo.formHString', () {
@@ -163,7 +175,7 @@ void main() {
   });
 
   // A node the core's RealityOptions.Parse rejects fails the WHOLE config, so
-  // one malformed SOS-pool link must not reach the saved profile.
+  // one malformed share link must not reach the saved profile.
   group('REALITY keys the core would reject are dropped', () {
     String link(String name, {String pbk = _pbk, String? sid}) =>
         'vless://$_uuid@$name.example.net:443?security=reality&pbk=$pbk'

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:dropweb/common/common.dart';
-import 'package:dropweb/common/smart_pool_patch.dart';
 import 'package:dropweb/models/models.dart' hide Action;
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/views/proxies/common.dart';
@@ -13,8 +12,8 @@ import 'package:hugeicons/hugeicons.dart';
 
 Future<void> _pingAllProxies(WidgetRef ref) async {
   // Use the RAW groups (not currentGroupsState, which drops hidden:true groups)
-  // so the disconeko 🧠 Smart pool is still delay-tested — otherwise the
-  // 📶 First Available row (now = 🧠 Smart) loses its availability badge.
+  // so members reachable only through a hidden group are still delay-tested —
+  // otherwise a visible row selecting that group loses its availability badge.
   final groups = ref.read(groupsProvider);
   final allProxies = <Proxy>[];
   final seenNames = <String>{};
@@ -37,9 +36,9 @@ Future<void> _pingAllProxies(WidgetRef ref) async {
 /// under the SAME key the badge displays from is what makes «не замерено» flip
 /// back to an honest fresh ms. Testing everything under the default URL (as
 /// pull-to-refresh does) would MISS any badge whose group carries a custom
-/// testUrl. The selected member may itself be a group («Fastest»/«Умный»/the
-/// 🧠 Smart pool behind 📶 First Available) — mihomo delay-tests a group node
-/// fine, so probe it as-is WITHOUT recursing into its children.
+/// testUrl. The selected member may itself be a group («Fastest»/«Умный») —
+/// mihomo delay-tests a group node fine, so probe it as-is WITHOUT recursing
+/// into its children.
 ///
 /// Fire-and-forget, one [delayTest] batch per distinct testUrl (null = core
 /// default URL): no UI blocking, badges stream back through the delay providers.
@@ -82,15 +81,7 @@ class _RulesProxiesViewState extends ConsumerState<RulesProxiesView> {
 
   @override
   Widget build(BuildContext context) {
-    // Filter the disconeko 🧠 Smart pool out of the LIST (UI-only, by name) so
-    // it is never a standalone selectable row — while it stays a real,
-    // health-checked group in the config so 📶 First Available (which
-    // references it) still auto-selects and shows its availability badge.
-    final groups = ref
-        .watch(currentGroupsStateProvider)
-        .value
-        .where((g) => g.name != disconekoSmartGroupName)
-        .toList();
+    final groups = ref.watch(currentGroupsStateProvider).value;
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -103,7 +94,7 @@ class _RulesProxiesViewState extends ConsumerState<RulesProxiesView> {
     // that group's own testUrl, so after a network flap (controller wiped
     // delayDataSource) every displayed badge repopulates with an honest fresh
     // measurement under the exact key it reads. Pull-to-refresh (below) still
-    // re-tests EVERY node incl. the hidden 🧠 Smart pool.
+    // re-tests EVERY node incl. those of hidden groups.
     if (!_pingTriggered) {
       _pingTriggered = true;
       WidgetsBinding.instance

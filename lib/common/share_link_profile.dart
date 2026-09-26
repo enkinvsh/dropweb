@@ -385,7 +385,6 @@ String _normalizeNetwork(String? type) {
 String _emitMihomoYaml(List<_ProxyEntry> proxies) {
   const vpnGroup = '🌍 VPN';
   const fastestGroup = '⚡ Fastest';
-  const smartGroup = '🧠 Smart';
 
   final buf = StringBuffer()
     ..writeln('mixed-port: 7890')
@@ -401,7 +400,6 @@ String _emitMihomoYaml(List<_ProxyEntry> proxies) {
     ..writeln('  - name: ${_yamlScalar(vpnGroup)}')
     ..writeln('    type: select')
     ..writeln('    proxies:')
-    ..writeln('      - ${_yamlScalar(smartGroup)}')
     ..writeln('      - ${_yamlScalar(fastestGroup)}');
   for (final p in proxies) {
     buf.writeln('      - ${_yamlScalar(p.name)}');
@@ -413,14 +411,6 @@ String _emitMihomoYaml(List<_ProxyEntry> proxies) {
     ..writeln('    url: ${_yamlScalar('http://www.gstatic.com/generate_204')}')
     ..writeln('    interval: 300')
     ..writeln('    tolerance: 50')
-    ..writeln('    proxies:');
-  for (final p in proxies) {
-    buf.writeln('      - ${_yamlScalar(p.name)}');
-  }
-  buf
-    ..writeln('  - name: ${_yamlScalar(smartGroup)}')
-    ..writeln('    type: smart')
-    ..writeln('    uselightgbm: false')
     ..writeln('    proxies:');
   for (final p in proxies) {
     buf.writeln('      - ${_yamlScalar(p.name)}');

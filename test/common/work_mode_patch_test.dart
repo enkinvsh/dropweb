@@ -55,8 +55,7 @@ Map<String, dynamic> buildConfig() => <String, dynamic>{
 
 /// Builds a fixture mirroring the PRODUCTION subscription template shape:
 ///   * top-level `proxies` = the 3 leaf nodes the panel router routes through,
-///     plus SOS-like emergency nodes that `patchSmartPool` appends at download
-///     time (top-level proxies, but NOT members of any router);
+///     plus unreferenced top-level proxies (NOT members of any router);
 ///   * `⚡ Fastest` (url-test) is the primary router — most rule refs (~25) —
 ///     and its members are exactly the 3 leaf nodes (one of which, the
 ///     `🇪🇺 ✨ Умный режим` leaf, even carries the `✨`/`Умный` tokens the
@@ -80,10 +79,20 @@ Map<String, dynamic> buildSmartTemplate() {
         'server': 'eu',
         'port': 443
       },
-      // SOS-like emergency nodes (disconeko pool) — top-level proxies that are
-      // NOT members of the primary router. They must NEVER end up in «Умный».
-      {'name': '🇩🇪 Germany', 'type': 'vless', 'server': 'sos1', 'port': 443},
-      {'name': '🇫🇮 Finland', 'type': 'vless', 'server': 'sos2', 'port': 443},
+      // Unreferenced top-level proxies — NOT members of the primary router.
+      // They must NEVER end up in «Умный».
+      {
+        'name': '🇩🇪 Germany',
+        'type': 'vless',
+        'server': 'stray1',
+        'port': 443
+      },
+      {
+        'name': '🇫🇮 Finland',
+        'type': 'vless',
+        'server': 'stray2',
+        'port': 443
+      },
     ],
     'proxy-groups': <Map<String, dynamic>>[
       {
@@ -100,7 +109,7 @@ Map<String, dynamic> buildSmartTemplate() {
       {
         'name': '📶 First Available',
         'type': 'fallback',
-        'proxies': ['🧠 Smart'],
+        'proxies': ['🇩🇪 Германия', '🇳🇱 Нидерланды', '🇪🇺 ✨ Умный режим'],
       },
     ],
     'rules': rules,
@@ -122,10 +131,9 @@ const _templateLeaves = <String>[
 ///   * `🌀 Cascade` (url-test) — its own leaf [🇸🇪 C] (NOT directly
 ///     rule-referenced; reachable only as a member of YouTube/Discord)
 ///   * `♻️ DIRECT` (select, hidden) → [DIRECT] (builtin-only → never qualifies)
-///   * `📶 First Available` (fallback) → [🧠 Smart] (SOS surface — NOT
-///     rule-referenced; hard-excluded)
-///   * `🧠 Smart` (smart, include-all) — the SOS pool (hard-excluded)
-/// `proxies` carries the 3 leaf nodes + 2 SOS-like emergency nodes.
+///   * `📶 First Available` (fallback) → [🇩🇪 A, 🇳🇱 B] (panel opt-in
+///     fallback — NOT rule-referenced; hard-excluded)
+/// `proxies` carries the 3 leaf nodes + 5 unreferenced top-level proxies.
 /// Rules target VPN / Fastest / YouTube / Discord; MATCH → VPN.
 /// A new instance is returned on every call so mutation tests stay isolated.
 Map<String, dynamic> buildProdTemplate() {
@@ -142,29 +150,29 @@ Map<String, dynamic> buildProdTemplate() {
       {'name': '🇩🇪 A', 'type': 'vless', 'server': 'de', 'port': 443},
       {'name': '🇳🇱 B', 'type': 'vless', 'server': 'nl', 'port': 443},
       {'name': '🇸🇪 C', 'type': 'vless', 'server': 'se', 'port': 443},
-      // SOS-like emergency nodes (disconeko pool) — top-level proxies NOT in
-      // any rule-referenced group. They must NEVER end up in «Умный» NOR in a
-      // «Страна <flag>» group. 🇷🇺/🇬🇧 are flags the panel sub never carries;
-      // 🇩🇪 SOS Berlin deliberately COLLIDES with the curated 🇩🇪 A to prove
+      // Unreferenced top-level proxies — NOT in any rule-referenced group.
+      // They must NEVER end up in «Умный» NOR in a «Страна <flag>» group.
+      // 🇷🇺/🇬🇧 are flags the panel sub never carries;
+      // 🇩🇪 Stray Berlin deliberately COLLIDES with the curated 🇩🇪 A to prove
       // exclusion is structural (membership), not by flag/name regex.
-      {'name': '🇫🇮 SOS1', 'type': 'vless', 'server': 'sos1', 'port': 443},
-      {'name': '🇪🇪 SOS2', 'type': 'vless', 'server': 'sos2', 'port': 443},
+      {'name': '🇫🇮 Stray1', 'type': 'vless', 'server': 'stray1', 'port': 443},
+      {'name': '🇪🇪 Stray2', 'type': 'vless', 'server': 'stray2', 'port': 443},
       {
-        'name': '🇷🇺 SOS Moscow',
+        'name': '🇷🇺 Stray Moscow',
         'type': 'vless',
-        'server': 'sos3',
+        'server': 'stray3',
         'port': 443
       },
       {
-        'name': '🇬🇧 SOS London',
+        'name': '🇬🇧 Stray London',
         'type': 'vless',
-        'server': 'sos4',
+        'server': 'stray4',
         'port': 443
       },
       {
-        'name': '🇩🇪 SOS Berlin',
+        'name': '🇩🇪 Stray Berlin',
         'type': 'vless',
-        'server': 'sos5',
+        'server': 'stray5',
         'port': 443
       },
     ],
@@ -202,12 +210,7 @@ Map<String, dynamic> buildProdTemplate() {
       {
         'name': '📶 First Available',
         'type': 'fallback',
-        'proxies': ['🧠 Smart'],
-      },
-      {
-        'name': '🧠 Smart',
-        'type': 'smart',
-        'include-all': true,
+        'proxies': ['🇩🇪 A', '🇳🇱 B'],
       },
     ],
     'rules': rules,
@@ -229,8 +232,8 @@ const _prodUnionLeaves = <String>['🇩🇪 A', '🇳🇱 B', '🇸🇪 C'];
 
 /// Leaf nodes «Умный» rotates over for [buildProdTemplate] now that Smart binds
 /// ONLY the primary router: 🌍 VPN → ⚡ Fastest [🇩🇪 A, 🇳🇱 B]; the
-/// 📶 First Available → 🧠 Smart member is a group (not a top-level proxy) and is
-/// dropped. 🇸🇪 C is reachable only via Cascade (YouTube/Discord), not the VPN
+/// 📶 First Available member resolves to the same two leaves (de-duplicated).
+/// 🇸🇪 C is reachable only via Cascade (YouTube/Discord), not the VPN
 /// router, so it is excluded.
 const _prodRouterLeaves = <String>['🇩🇪 A', '🇳🇱 B'];
 
@@ -370,20 +373,22 @@ void main() {
     });
 
     test(
-        'smart: «Умный».proxies == exactly the router leaf nodes; SOS absent; '
+        'smart: «Умный».proxies == exactly the router leaf nodes; '
+        'unreferenced top-level proxies absent; '
         'no include-all', () {
       final out =
           applyWorkModePatch(buildSmartTemplate(), workMode: WorkMode.smart);
 
       final smart = _group(out, 'Умный');
       expect(smart, isNotNull);
-      expect(smart!['type'], 'smart');
-      expect(smart['collectdata'], false);
+      expect(smart!['type'], 'url-test');
+      expect(smart['tolerance'], 100);
+      expect(smart['url'], 'https://cp.cloudflare.com/generate_204');
       // D1 fix: explicit leaf membership, NEVER include-all.
       expect(smart.containsKey('include-all'), isFalse);
       expect(_members(smart), _templateLeaves);
 
-      // SOS / emergency-pool node names never leak into «Умный».
+      // Unreferenced top-level proxies never leak into «Умный».
       expect(_members(smart), isNot(contains('🇩🇪 Germany')));
       expect(_members(smart), isNot(contains('🇫🇮 Finland')));
     });
@@ -396,7 +401,7 @@ void main() {
 
       // buildSmartTemplate is rule-referenced on BOTH ⚡ Fastest (×25) and
       // 🌍 VPN (MATCH). «Умный» is appended at the END of each, existing
-      // members preserved in order; 📶 First Available (SOS) is untouched.
+      // members preserved in order; 📶 First Available is untouched.
       // ⚡ Fastest is rule-referenced (×25) but NOT the MATCH target → it must
       // NOT gain «Умный» (only the primary router is bound now).
       expect(_members(_group(out, '⚡ Fastest')), _templateLeaves);
@@ -405,8 +410,8 @@ void main() {
       expect(_members(vpn), ['⚡ Fastest', '📶 First Available', 'Умный']);
       expect(_members(vpn).where((m) => m == 'Умный').length, 1);
 
-      // SOS surface must NOT gain «Умный».
-      expect(_members(_group(out, '📶 First Available')), ['🧠 Smart']);
+      // 📶 First Available must NOT gain «Умный».
+      expect(_members(_group(out, '📶 First Available')), _templateLeaves);
 
       // Re-apply must NOT duplicate the group nor any appended member.
       final out2 = applyWorkModePatch(out, workMode: WorkMode.smart);
@@ -777,12 +782,7 @@ void main() {
       final out = applyWorkModePatch(buildProdTemplate(),
           workMode: WorkMode.country, staticCountry: '🇩🇪');
       // Groups NOT in the intercept set stay deep-equal to the fresh fixture.
-      for (final g in [
-        '🌀 Cascade',
-        '♻️ DIRECT',
-        '🧠 Smart',
-        '📶 First Available'
-      ]) {
+      for (final g in ['🌀 Cascade', '♻️ DIRECT', '📶 First Available']) {
         expect(_group(out, g), _group(snapshot, g),
             reason: '$g must be untouched');
       }
@@ -843,7 +843,7 @@ void main() {
         'proxy-groups': <Map<String, dynamic>>[
           {
             'name': 'Умный',
-            'type': 'smart',
+            'type': 'url-test',
             'proxies': <String>[],
           },
         ],
@@ -935,9 +935,8 @@ void main() {
       expect(smartInterceptGroups(buildProdTemplate()), _prodInterceptGroups);
     });
 
-    test('excludes the SOS chain (🧠 Smart / 📶 First Available)', () {
+    test('excludes 📶 First Available', () {
       final got = smartInterceptGroups(buildProdTemplate());
-      expect(got, isNot(contains('🧠 Smart')));
       expect(got, isNot(contains('📶 First Available')));
     });
 
@@ -988,7 +987,7 @@ void main() {
   group('applyWorkModePatch — production template (primary-router only)', () {
     test(
         'appends «Умный» ONLY to 🌍 VPN (primary); YouTube/Discord/Fastest/'
-        'Cascade/SOS/DIRECT untouched', () {
+        'Cascade/First Available/DIRECT untouched', () {
       final out =
           applyWorkModePatch(buildProdTemplate(), workMode: WorkMode.smart);
 
@@ -1002,27 +1001,27 @@ void main() {
       // Non-intercepted groups stay byte-for-byte.
       expect(_members(_group(out, '🌀 Cascade')), ['🇸🇪 C']);
       expect(_members(_group(out, '♻️ DIRECT')), ['DIRECT']);
-      expect(_members(_group(out, '📶 First Available')), ['🧠 Smart']);
-      expect(_group(out, '🧠 Smart')!['include-all'], true);
+      expect(_members(_group(out, '📶 First Available')), ['🇩🇪 A', '🇳🇱 B']);
     });
 
     test(
         '«Умный» group rotates over the PRIMARY router leaves only; '
-        'SOS nodes absent', () {
+        'unreferenced top-level proxies absent', () {
       final out =
           applyWorkModePatch(buildProdTemplate(), workMode: WorkMode.smart);
       final smart = _group(out, 'Умный');
       expect(smart, isNotNull);
-      expect(smart!['type'], 'smart');
-      expect(smart['collectdata'], false);
+      expect(smart!['type'], 'url-test');
+      expect(smart['tolerance'], 100);
+      expect(smart['url'], 'https://cp.cloudflare.com/generate_204');
       expect(smart.containsKey('include-all'), isFalse);
       expect(_members(smart), _prodRouterLeaves);
       // 🇸🇪 C is reachable only via Cascade (YouTube/Discord), not the VPN
       // router, so Smart never rotates over it.
       expect(_members(smart), isNot(contains('🇸🇪 C')));
-      // SOS pool never leaks into «Умный».
-      expect(_members(smart), isNot(contains('🇫🇮 SOS1')));
-      expect(_members(smart), isNot(contains('🇪🇪 SOS2')));
+      // Unreferenced top-level proxies never leak into «Умный».
+      expect(_members(smart), isNot(contains('🇫🇮 Stray1')));
+      expect(_members(smart), isNot(contains('🇪🇪 Stray2')));
     });
 
     test('build-path "rule" key still drives primary-router interception', () {
@@ -1069,23 +1068,25 @@ void main() {
     });
   });
 
-  group('interceptLeafNodes / country — disconeko leak (D1 in country branch)',
-      () {
+  group(
+      'interceptLeafNodes / country — unreferenced top-level proxies never '
+      'leak (D1)', () {
     test(
-        'interceptLeafNodes == the union of rule-group leaves; ALL SOS nodes '
-        'structurally excluded', () {
+        'interceptLeafNodes == the union of rule-group leaves; ALL '
+        'unreferenced top-level proxies structurally excluded', () {
       final leaves = interceptLeafNodes(buildProdTemplate());
       expect(leaves, _prodUnionLeaves);
-      // disconeko emergency nodes never appear — they are not members of any
-      // rule-referenced group.
-      for (final sos in [
-        '🇫🇮 SOS1',
-        '🇪🇪 SOS2',
-        '🇷🇺 SOS Moscow',
-        '🇬🇧 SOS London',
-        '🇩🇪 SOS Berlin',
+      // Unreferenced top-level proxies never appear — they are not members of
+      // any rule-referenced group.
+      for (final stray in [
+        '🇫🇮 Stray1',
+        '🇪🇪 Stray2',
+        '🇷🇺 Stray Moscow',
+        '🇬🇧 Stray London',
+        '🇩🇪 Stray Berlin',
       ]) {
-        expect(leaves, isNot(contains(sos)), reason: '$sos leaked into leaves');
+        expect(leaves, isNot(contains(stray)),
+            reason: '$stray leaked into leaves');
       }
     });
 
@@ -1094,17 +1095,17 @@ void main() {
         '(groupNodesByCountry over interceptLeafNodes)', () {
       final byCountry =
           groupNodesByCountry(interceptLeafNodes(buildProdTemplate()));
-      // Panel-curated flags present; SOS-only flags absent entirely.
+      // Panel-curated flags present; stray-only flags absent entirely.
       expect(byCountry.keys, containsAll(<String>['🇩🇪', '🇳🇱', '🇸🇪']));
       expect(byCountry.containsKey('🇷🇺'), isFalse);
       expect(byCountry.containsKey('🇬🇧'), isFalse);
       expect(byCountry.containsKey('🇫🇮'), isFalse);
-      // Same-flag collision: 🇩🇪 resolves to the curated leaf, NOT the SOS node.
+      // Same-flag collision: 🇩🇪 resolves to the curated leaf, NOT the stray.
       expect(byCountry['🇩🇪'], ['🇩🇪 A']);
-      expect(byCountry['🇩🇪'], isNot(contains('🇩🇪 SOS Berlin')));
+      expect(byCountry['🇩🇪'], isNot(contains('🇩🇪 Stray Berlin')));
     });
 
-    test('applyWorkModePatch country 🇷🇺 (SOS-only flag) → injects NOTHING',
+    test('applyWorkModePatch country 🇷🇺 (stray-only flag) → injects NOTHING',
         () {
       final input = buildProdTemplate();
       final before = (input['proxy-groups'] as List).length;
@@ -1116,7 +1117,7 @@ void main() {
 
     test(
         'applyWorkModePatch country 🇩🇪 → target is the curated leaf '
-        '(SOS 🇩🇪 Berlin excluded)', () {
+        '(🇩🇪 Stray Berlin excluded)', () {
       final cfg = buildProdTemplate();
       // Variant А: 🇩🇪 resolves to ONE curated node, so no «Страна» wrapper is
       // built — the router is pointed straight at that node.
@@ -1128,23 +1129,23 @@ void main() {
           isNull);
       final target = countryTargetName(cfg, '🇩🇪');
       expect(target, '🇩🇪 A');
-      expect(target, isNot('🇩🇪 SOS Berlin'),
-          reason: 'the SOS node with the same flag must never be the target');
+      expect(target, isNot('🇩🇪 Stray Berlin'),
+          reason: 'the stray node with the same flag must never be the target');
       // And it is the router's binding: nothing else changed.
       final out = applyWorkModePatch(cfg,
           workMode: WorkMode.country, staticCountry: '🇩🇪');
       expect(_members(_group(out, '🌍 VPN')), contains('🇩🇪 A'));
-      expect(
-          _members(_group(out, '🌍 VPN')), isNot(contains('🇩🇪 SOS Berlin')));
+      expect(_members(_group(out, '🌍 VPN')),
+          isNot(contains('🇩🇪 Stray Berlin')));
     });
 
-    test('countryTargetName: SOS-only flags null, curated flags resolve', () {
+    test('countryTargetName: stray-only flags null, curated flags resolve', () {
       Map<String, dynamic> cfg() => buildProdTemplate();
-      for (final sos in ['🇷🇺', '🇬🇧', '🇫🇮']) {
+      for (final stray in ['🇷🇺', '🇬🇧', '🇫🇮']) {
         expect(
-          countryTargetName(cfg(), sos),
+          countryTargetName(cfg(), stray),
           isNull,
-          reason: '$sos is SOS-only → must resolve to no target',
+          reason: '$stray is stray-only → must resolve to no target',
         );
       }
       for (final ok in ['🇩🇪', '🇳🇱', '🇸🇪']) {
@@ -1156,11 +1157,12 @@ void main() {
       }
     });
 
-    test('multi-node country preserves order AND excludes same-flag SOS nodes',
-        () {
-      // Curated router routes through TWO 🇷🇺 panel nodes (in order); the SOS
-      // pool also carries 🇷🇺 nodes as bare top-level proxies. Country 🇷🇺 must
-      // pick exactly the two curated nodes, in order, never the SOS ones.
+    test(
+        'multi-node country preserves order AND excludes same-flag '
+        'unreferenced top-level proxies', () {
+      // Curated router routes through TWO 🇷🇺 panel nodes (in order); two more
+      // 🇷🇺 nodes are bare unreferenced top-level proxies. Country 🇷🇺 must
+      // pick exactly the two curated nodes, in order, never the stray ones.
       final input = <String, dynamic>{
         'proxies': <Map<String, dynamic>>[
           {
@@ -1175,8 +1177,8 @@ void main() {
             'server': 'p2',
             'port': 443
           },
-          {'name': '🇷🇺 SOS X', 'type': 'vless', 'server': 'x', 'port': 443},
-          {'name': '🇷🇺 SOS Y', 'type': 'vless', 'server': 'y', 'port': 443},
+          {'name': '🇷🇺 Stray X', 'type': 'vless', 'server': 'x', 'port': 443},
+          {'name': '🇷🇺 Stray Y', 'type': 'vless', 'server': 'y', 'port': 443},
         ],
         'proxy-groups': <Map<String, dynamic>>[
           {
@@ -1196,8 +1198,8 @@ void main() {
     test('build-path "rule" key still filters country candidates', () {
       final cfg = buildProdTemplate();
       cfg['rule'] = cfg.remove('rules');
-      // Curated 🇩🇪 resolves to its single curated leaf; SOS-only 🇷🇺 resolves to
-      // nothing — even via the renamed key.
+      // Curated 🇩🇪 resolves to its single curated leaf; stray-only 🇷🇺
+      // resolves to nothing — even via the renamed key.
       expect(countryTargetName(cfg, '🇩🇪'), '🇩🇪 A');
       final outDe = applyWorkModePatch(cfg,
           workMode: WorkMode.country, staticCountry: '🇩🇪');
@@ -1208,9 +1210,9 @@ void main() {
       final outRu = applyWorkModePatch(cfg2,
           workMode: WorkMode.country, staticCountry: '🇷🇺');
       expect(_group(outRu, 'Страна 🇷🇺'), isNull);
-      expect(
-          _members(_group(outRu, '🌍 VPN')), isNot(contains('🇷🇺 SOS Moscow')),
-          reason: 'SOS node must never become the router target');
+      expect(_members(_group(outRu, '🌍 VPN')),
+          isNot(contains('🇷🇺 Stray Moscow')),
+          reason: 'stray node must never become the router target');
     });
   });
 
@@ -1359,10 +1361,11 @@ void main() {
       }
       (expected['proxy-groups'] as List).add(<String, dynamic>{
         'name': 'Умный',
-        'type': 'smart',
-        'collectdata': false,
+        'type': 'url-test',
+        'url': 'https://cp.cloudflare.com/generate_204',
         'interval': 600,
         'lazy': true,
+        'tolerance': 100,
         'proxies': ['🇩🇪 A', '🇳🇱 B'],
       });
 
@@ -1382,10 +1385,11 @@ void main() {
       }
       (expected['proxy-groups'] as List).add(<String, dynamic>{
         'name': 'Умный',
-        'type': 'smart',
-        'collectdata': false,
+        'type': 'url-test',
+        'url': 'https://cp.cloudflare.com/generate_204',
         'interval': 600,
         'lazy': true,
+        'tolerance': 100,
         'proxies': List<String>.from(_templateLeaves),
       });
 
@@ -1482,9 +1486,10 @@ void main() {
       //   interceptLeafNodes → all three nodes, because 🌍 VPN (and ⚡ Fastest)
       //     carry 🇪🇺 Каскад in their `proxies` — Remnawave appended it and the
       //     app does not resolve `exclude-filter`.
-      // ⇒ 🇪🇺 Каскад resolves as a normal single-node country. This is NOT an
-      // SOS/disconeko leak: SOS nodes are never members of a rule-referenced
-      // group, whereas the cascade exit genuinely is one of the user's servers.
+      // ⇒ 🇪🇺 Каскад resolves as a normal single-node country. This is NOT a
+      // leak: unreferenced top-level proxies are never members of a
+      // rule-referenced group, whereas the cascade exit genuinely is one of
+      // the user's servers.
       final cfg = buildProdCountryTemplate();
 
       expect(smartInterceptGroups(cfg),
@@ -1585,6 +1590,111 @@ void main() {
       final result = pruneDanglingGroupMembers(cfg);
       expect((result.config['proxy-groups'] as List)[0]['proxies'], isEmpty);
       expect(result.dropped, ['Pool → ⚪ Missing']);
+    });
+  });
+
+  group('demoteSmartGroups', () {
+    // Shape of a profile baked before the url-test switch: the legacy SOS
+    // pool's 🧠 Smart plus a provider-sent smart group with its own tolerance.
+    Map<String, dynamic> baked() => <String, dynamic>{
+          'proxies': <Map<String, dynamic>>[
+            {'name': '🇩🇪 DE', 'type': 'vless'},
+          ],
+          'proxy-groups': <Map<String, dynamic>>[
+            {
+              'name': '🌍 VPN',
+              'type': 'select',
+              'proxies': ['🇩🇪 DE', '📶 First Available'],
+            },
+            {
+              'name': '📶 First Available',
+              'type': 'fallback',
+              'proxies': ['🧠 Smart'],
+            },
+            {
+              'name': '🧠 Smart',
+              'type': 'smart',
+              'url': 'https://cp.cloudflare.com/generate_204',
+              'include-all': true,
+              'interval': 1800,
+              'lazy': true,
+              'uselightgbm': false,
+            },
+            {
+              'name': 'Provider Auto',
+              'type': 'Smart',
+              'tolerance': 50,
+              'proxies': ['🇩🇪 DE'],
+            },
+          ],
+        };
+
+    List<Map> groupsOf(Map<String, dynamic> cfg) =>
+        (cfg['proxy-groups'] as List).cast<Map>();
+
+    test('smart → url-test, keeps every key, adds tolerance 100 when absent',
+        () {
+      final result = demoteSmartGroups(baked());
+      final smart = groupsOf(result.config)[2];
+      expect(smart['type'], 'url-test');
+      expect(smart['name'], '🧠 Smart');
+      expect(smart['url'], 'https://cp.cloudflare.com/generate_204');
+      expect(smart['include-all'], isTrue);
+      expect(smart['interval'], 1800);
+      expect(smart['lazy'], isTrue);
+      expect(smart['tolerance'], 100);
+      expect(smart['uselightgbm'], isFalse);
+    });
+
+    test('an existing tolerance is kept', () {
+      final result = demoteSmartGroups(baked());
+      final provider = groupsOf(result.config)[3];
+      expect(provider['type'], 'url-test');
+      expect(provider['tolerance'], 50);
+      expect(provider['proxies'], ['🇩🇪 DE']);
+    });
+
+    test('type match is case-insensitive and trimmed', () {
+      final cfg = <String, dynamic>{
+        'proxy-groups': <Map<String, dynamic>>[
+          {'name': 'A', 'type': ' SMART ', 'proxies': <String>[]},
+        ],
+      };
+      final result = demoteSmartGroups(cfg);
+      expect(groupsOf(result.config).single['type'], 'url-test');
+      expect(result.demoted, ['A']);
+    });
+
+    test('no smart group → the identical instance and nothing demoted', () {
+      final cfg = <String, dynamic>{
+        'proxy-groups': <Map<String, dynamic>>[
+          {'name': 'Pool', 'type': 'url-test', 'proxies': <String>[]},
+        ],
+      };
+      final result = demoteSmartGroups(cfg);
+      expect(result.config, same(cfg));
+      expect(result.demoted, isEmpty);
+
+      final noGroups = <String, dynamic>{'proxies': <Map>[]};
+      expect(demoteSmartGroups(noGroups).config, same(noGroups));
+    });
+
+    test('never mutates the input; non-smart groups kept by identity', () {
+      final cfg = baked();
+      final result = demoteSmartGroups(cfg);
+      final input = groupsOf(cfg);
+      expect(input[2]['type'], 'smart');
+      expect(input[2].containsKey('tolerance'), isFalse);
+      expect(input[3]['type'], 'Smart');
+      expect(result.config, isNot(same(cfg)));
+      expect(result.config['proxy-groups'], isNot(same(cfg['proxy-groups'])));
+      expect(groupsOf(result.config)[0], same(input[0]));
+      expect(groupsOf(result.config)[1], same(input[1]));
+      expect(result.config['proxies'], same(cfg['proxies']));
+    });
+
+    test('demoted lists the rewritten group names in order', () {
+      expect(demoteSmartGroups(baked()).demoted, ['🧠 Smart', 'Provider Auto']);
     });
   });
 

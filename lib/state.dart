@@ -1021,10 +1021,14 @@ class GlobalState {
       commonPrint.log('config: dropped group members the core would reject: '
           '${pruned.dropped.join(', ')}');
     }
+    final demoted = demoteSmartGroups(pruned.config);
+    if (demoted.demoted.isNotEmpty) {
+      commonPrint.log('config: smart groups demoted to url-test: '
+          '${demoted.demoted.join(', ')}');
+    }
 
     // Additive work-mode group injection. Runs on EVERY setup over the parsed
-    // config (the download-time `patchSmartPool` output is already baked into
-    // the profile file, so its groups are present here). NEVER reshapes the
+    // config. NEVER reshapes the
     // panel's existing groups/rules — only appends our `Умный` / `Страна <flag>`
     // group. Mode + selectedMap wiring lives in the controller, not here.
     //
@@ -1035,14 +1039,14 @@ class GlobalState {
     // visible. The revalidation chokepoints are the primary fix; this is only a
     // cheap last-line warning.
     if (profile.workMode == WorkMode.country) {
-      final target = countryTargetName(pruned.config, profile.staticCountry);
+      final target = countryTargetName(demoted.config, profile.staticCountry);
       if (target == null) {
         commonPrint.log('country-mode: no target for ${profile.staticCountry} '
             '— patch is a no-op');
       }
     }
     return applyWorkModePatch(
-      profile.fullTunnel ? applyFullTunnel(pruned.config) : pruned.config,
+      profile.fullTunnel ? applyFullTunnel(demoted.config) : demoted.config,
       workMode: profile.workMode,
       staticCountry: profile.staticCountry,
     );

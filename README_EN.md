@@ -145,7 +145,6 @@ Through `dropweb-*` headers an operator can set:
 - **Single-header theme** — accent color, two background-orb colors, a color-scheme filter and blur (`dropweb-theme`)
 - **Logo and service name** on the subscription card (`dropweb-logo`, `dropweb-servicename`)
 - **Account area and subscription management** — a cabinet link and contextual actions (`dropweb-cabinet`)
-- **An emergency fallback pool** of nodes for when the primary ones are unreachable (`dropweb-disconeko`)
 - **Announcements and service metadata** (`announce`, `support-url`)
 
 The user retains control of appearance: the **"Theme from subscription"** and **"Logo from subscription"** toggles (on by default) restore the default appearance at any time; operator-supplied values are not applied when these toggles are off.

@@ -1,10 +1,7 @@
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/error_mapper.dart';
-// ВНИМАНИЕ: `detectPrimaryRouter` определён ДВАЖДЫ. Нужен именно этот —
-// `work_mode_patch.dart:253`, `String? detectPrimaryRouter(Map<String, dynamic>)`,
-// тот же, что использует `applyWorkMode`. Одноимённая функция в
-// `smart_pool_patch.dart:267` берёт `(Object? proxyGroups, Object? rules)` и к
-// экрану «Страна» отношения не имеет — импортировать её сюда нельзя.
+// Даёт `detectPrimaryRouter(Map<String, dynamic>)` — тот же, что использует
+// `applyWorkMode`.
 import 'package:dropweb/common/work_mode_patch.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart' hide Action;
