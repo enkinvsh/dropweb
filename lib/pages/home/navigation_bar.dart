@@ -96,34 +96,38 @@ class CommonNavigationBar extends ConsumerWidget {
               final item = navigationItems[index];
               final isSelected = index == currentIndex;
               return Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    globalState.appController.toPage(item.label);
-                    if (item.label == PageLabel.tools) {
-                      _handleDevTap(context, ref);
-                    } else if (item.label == PageLabel.dashboard) {
-                      _resetDevTapCount();
-                    } else {
-                      _resetDevTapCount();
-                    }
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? colorScheme.primary.withValues(alpha: 0.15)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(Lumina.radiusXxl - 6),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        _navIcon(item.label, isSelected),
-                        size: 36,
+                child: Semantics(
+                  identifier: 'dw_nav_${item.label.name}',
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      globalState.appController.toPage(item.label);
+                      if (item.label == PageLabel.tools) {
+                        _handleDevTap(context, ref);
+                      } else if (item.label == PageLabel.dashboard) {
+                        _resetDevTapCount();
+                      } else {
+                        _resetDevTapCount();
+                      }
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      decoration: BoxDecoration(
                         color: isSelected
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
+                            ? colorScheme.primary.withValues(alpha: 0.15)
+                            : Colors.transparent,
+                        borderRadius:
+                            BorderRadius.circular(Lumina.radiusXxl - 6),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          _navIcon(item.label, isSelected),
+                          size: 36,
+                          color: isSelected
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ),
@@ -217,7 +221,10 @@ class CommonNavigationBar extends ConsumerWidget {
                     destinations: navigationItems
                         .map(
                           (e) => NavigationRailDestination(
-                            icon: e.icon,
+                            icon: Semantics(
+                              identifier: 'dw_nav_${e.label.name}',
+                              child: e.icon,
+                            ),
                             label: Text(
                               navigationLabel(e.label),
                             ),

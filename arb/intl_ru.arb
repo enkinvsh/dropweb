@@ -417,8 +417,6 @@
   "fruitSaladScheme": "Фруктовый микс",
   "developerMode": "Режим разработчика",
   "developerModeEnableTip": "Режим разработчика активирован.",
-  "messageTest": "Тестирование сообщения",
-  "messageTestTip": "Это сообщение.",
   "crashTest": "Тест на сбои",
   "clearData": "Очистить данные",
   "clearDataTip": "Это удалит все данные приложения и перезапустит его. Вы уверены?",
@@ -427,7 +425,6 @@
   "systemApp": "Системное приложение",
   "noNetworkApp": "Приложение без сети",
   "contactMe": "Свяжитесь со мной",
-  "logsTest": "Тест журналов",
   "emptyTip": "{label} не может быть пустым",
   "urlTip": "{label} должен быть URL",
   "numberTip": "{label} должно быть числом",
@@ -540,5 +537,14 @@
   "trafficScopeAll": "Весь",
   "trafficScopeSelectiveDesc": "Через VPN идут только сервисы из списка провайдера.",
   "trafficScopeAllDesc": "Весь трафик идёт через VPN, кроме локальной сети и исключений провайдера.",
-  "trafficScopeHint": "Если сайт или приложение не работает, переключите режим."
+  "trafficScopeHint": "Если сайт или приложение не работает, переключите режим.",
+  "devDiagnostics": "Диагностика",
+  "devTakeDiagnostics": "Снять диагностику",
+  "devDiagnosticsWritten": "Диагностика: {path}",
+  "devEffectiveConfig": "Итоговый конфиг",
+  "devEffectiveConfigEmpty": "Ядро ещё не запускалось — конфига пока нет",
+  "devSubscriptionHeaders": "Заголовки подписки",
+  "devCopyAll": "Копировать всё",
+  "devAdbRemote": "adb-пульт",
+  "devAdbRemoteReplies": "Ответы: adb logcat -s dropweb-dbg"
 }

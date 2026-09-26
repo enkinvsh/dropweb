@@ -410,8 +410,6 @@
   "fruitSaladScheme": "フルーツサラダ",
   "developerMode": "デベロッパーモード",
   "developerModeEnableTip": "デベロッパーモードが有効になりました。",
-  "messageTest": "メッセージテスト",
-  "messageTestTip": "これはメッセージです。",
   "crashTest": "クラッシュテスト",
   "clearData": "データを消去",
   "clearDataTip": "これによりすべてのアプリデータが削除され、アプリケーションが再起動されます。よろしいですか？",
@@ -420,7 +418,6 @@
   "systemApp": "システムアプリ",
   "noNetworkApp": "ネットワークなしアプリ",
   "contactMe": "連絡する",
-  "logsTest": "ログテスト",
   "emptyTip": "{label}は空欄にできません",
   "urlTip": "{label}はURLである必要があります",
   "numberTip": "{label}は数字でなければなりません",
@@ -533,5 +530,14 @@
   "trafficScopeAll": "すべて",
   "trafficScopeSelectiveDesc": "プロバイダのリストにあるサービスのみVPNを経由します。",
   "trafficScopeAllDesc": "ローカルネットワークとプロバイダの例外を除き、すべての通信がVPNを経由します。",
-  "trafficScopeHint": "アプリやサイトが開かない場合は、モードを切り替えてください。"
+  "trafficScopeHint": "アプリやサイトが開かない場合は、モードを切り替えてください。",
+  "devDiagnostics": "診断",
+  "devTakeDiagnostics": "診断情報を取得",
+  "devDiagnosticsWritten": "診断: {path}",
+  "devEffectiveConfig": "最終設定",
+  "devEffectiveConfigEmpty": "コアはまだ起動していません — 設定なし",
+  "devSubscriptionHeaders": "サブスクリプションヘッダー",
+  "devCopyAll": "すべてコピー",
+  "devAdbRemote": "adb リモート",
+  "devAdbRemoteReplies": "応答: adb logcat -s dropweb-dbg"
 }

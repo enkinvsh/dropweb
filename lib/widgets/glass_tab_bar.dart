@@ -14,10 +14,23 @@ class GlassTabBar extends StatelessWidget {
     super.key,
     required this.controller,
     required this.tabs,
+    this.tabIdentifiers,
   });
 
   final TabController controller;
   final List<String> tabs;
+
+  /// Optional `Semantics.identifier` per tab (same order as [tabs]) — surfaces
+  /// as the uiautomator resource-id for adb-driven QA. No other semantics
+  /// change.
+  final List<String>? tabIdentifiers;
+
+  Widget _tab(int index) {
+    final tab = Tab(text: tabs[index]);
+    final ids = tabIdentifiers;
+    if (ids == null || index >= ids.length) return tab;
+    return Semantics(identifier: ids[index], child: tab);
+  }
 
   Widget _buildContent(BuildContext context) {
     final colorScheme = context.colorScheme;
@@ -59,7 +72,7 @@ class GlassTabBar extends StatelessWidget {
         labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         unselectedLabelStyle:
             const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
-        tabs: [for (final label in tabs) Tab(text: label)],
+        tabs: [for (var i = 0; i < tabs.length; i++) _tab(i)],
       ),
     );
   }

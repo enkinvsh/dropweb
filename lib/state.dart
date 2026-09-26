@@ -163,6 +163,12 @@ class GlobalState {
 
   bool profileCommitInProgress = false;
 
+  /// Last config map handed to the core by [getSetupParams] (unredacted, in
+  /// memory only) and when. Diagnostics read it through
+  /// `redactConfigForDiagnostics`; null until the first setup.
+  Map<String, dynamic>? lastSetupConfig;
+  DateTime? lastSetupAt;
+
   AppController? _appController;
   GlobalKey<CommonScaffoldState> homeScaffoldKey = GlobalKey();
   bool isInit = false;
@@ -735,6 +741,11 @@ class GlobalState {
     final clashConfig = await patchRawConfig(
       patchConfig: pathConfig,
     );
+    // Snapshot of exactly what goes to the core, for the developer screen's
+    // «Итоговый конфиг» and the adb remote's `config`/`diag` dumps. Held in
+    // memory only; always redacted (lib/common/diagnostics.dart) before shown.
+    lastSetupConfig = clashConfig;
+    lastSetupAt = DateTime.now();
     final params = SetupParams(
       config: clashConfig,
       selectedMap: config.currentProfile?.selectedMap ?? {},

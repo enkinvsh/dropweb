@@ -8,6 +8,7 @@ import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/app.dart';
 import 'package:dropweb/providers/config.dart';
 import 'package:dropweb/providers/state.dart';
+import 'package:dropweb/services/debug_remote.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -124,6 +125,9 @@ class _ClashContainerState extends ConsumerState<ClashManager>
         "[${log.logLevel.name.toUpperCase()}] $redactedPayload",
       );
     }
+    // adb remote `loglevel` mirror (runtime-only, off by default). Receives
+    // the redacted payload only.
+    DebugRemote.mirrorCoreLog(log.logLevel, redactedPayload);
 
     if (log.logLevel == LogLevel.error &&
         shouldNotifyCoreError(log.payload)) {

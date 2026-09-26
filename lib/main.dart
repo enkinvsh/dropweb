@@ -10,6 +10,7 @@ import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/plugins/tile.dart';
 import 'package:dropweb/plugins/vpn.dart';
 import 'package:dropweb/services/ci_e2e_plan.dart';
+import 'package:dropweb/services/debug_remote.dart';
 import 'package:dropweb/services/deep_link_handler.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter/foundation.dart';
@@ -111,6 +112,9 @@ Future<void> main(List<String> arguments) async {
 
   if (Platform.isAndroid) {
     unawaited(DeepLinkHandler.init());
+    // adb remote: inert unless developer mode is on and this is not the Play
+    // build (the gate lives in DebugRemote.handle, not here).
+    unawaited(DebugRemote.init());
   }
 }
 

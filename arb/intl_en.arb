@@ -417,8 +417,6 @@
   "fruitSaladScheme": "FruitSalad",
   "developerMode": "Developer mode",
   "developerModeEnableTip": "Developer mode is enabled.",
-  "messageTest": "Message test",
-  "messageTestTip": "This is a message.",
   "crashTest": "Crash test",
   "clearData": "Clear Data",
   "clearDataTip": "This will delete all app data and restart the application. Are you sure?",
@@ -427,7 +425,6 @@
   "systemApp": "System APP",
   "noNetworkApp": "No network APP",
   "contactMe": "Contact me",
-  "logsTest": "Logs test",
   "emptyTip": "{label} cannot be empty",
   "urlTip": "{label} must be a url",
   "numberTip": "{label} must be a number",
@@ -540,5 +537,14 @@
   "trafficScopeAll": "All",
   "trafficScopeSelectiveDesc": "Only services listed by your provider use the VPN.",
   "trafficScopeAllDesc": "All traffic uses the VPN, except the local network and provider exceptions.",
-  "trafficScopeHint": "If an app or site fails to load, try the other mode."
+  "trafficScopeHint": "If an app or site fails to load, try the other mode.",
+  "devDiagnostics": "Diagnostics",
+  "devTakeDiagnostics": "Capture diagnostics",
+  "devDiagnosticsWritten": "Diagnostics: {path}",
+  "devEffectiveConfig": "Effective config",
+  "devEffectiveConfigEmpty": "The core has not been set up yet — no config",
+  "devSubscriptionHeaders": "Subscription headers",
+  "devCopyAll": "Copy all",
+  "devAdbRemote": "adb remote",
+  "devAdbRemoteReplies": "Replies: adb logcat -s dropweb-dbg"
 }

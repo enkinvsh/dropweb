@@ -165,10 +165,14 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       backgroundColor: page ? Colors.transparent : backgroundColor,
       elevation: page ? 0 : null,
       title: widget.onTitleTap != null
-          ? GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: widget.onTitleTap,
-              child: Text(title),
+          // Only the Settings sheet passes onTitleTap (5-tap developer unlock).
+          ? Semantics(
+              identifier: 'dw_settings_title',
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: widget.onTitleTap,
+                child: Text(title),
+              ),
             )
           : Text(title),
       actions: genActions([

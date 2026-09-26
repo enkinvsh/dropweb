@@ -5,8 +5,11 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import app.dropweb.plugins.AppPlugin
 import app.dropweb.plugins.ServicePlugin
@@ -24,6 +27,8 @@ class MainActivity : FlutterActivity() {
     // [navigationSink] in [onNewIntent].
     private var initialRoute: String? = null
     private var navigationSink: EventChannel.EventSink? = null
+    // This instance's adb-remote sink (see companion debugSink).
+    private var ownDebugSink: EventChannel.EventSink? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         applyAppTheme()
@@ -128,6 +133,29 @@ class MainActivity : FlutterActivity() {
                 }
             })
 
+        // adb remote (DebugReceiver): commands in, replies out to logcat.
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, "app.dropweb/debug/events")
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
+                    ownDebugSink = events
+                    attachDebugSink(events)
+                }
+                override fun onCancel(arguments: Any?) {
+                    ownDebugSink?.let { detachDebugSink(it) }
+                    ownDebugSink = null
+                }
+            })
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.dropweb/debug")
+            .setMethodCallHandler { call, result ->
+                if (call.method == "reply") {
+                    logDebugReply(call.arguments as? String ?: "")
+                    result.success(null)
+                } else {
+                    result.notImplemented()
+                }
+            }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.dropweb/device_id")
             .setMethodCallHandler { call, result ->
                 if (call.method == "getAndroidId") {
@@ -156,6 +184,11 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        // This activity's engine goes away with it; later adb commands queue
+        // until the next engine subscribes. Identity-checked: a late onDestroy
+        // of an old instance must not detach a newer instance's sink.
+        ownDebugSink?.let { detachDebugSink(it) }
+        ownDebugSink = null
         GlobalState.flutterEngine = null
         // Don't reset runState here - VPN might still be running via serviceEngine
         // The runState is managed by VpnPlugin.handleStart/handleStop
@@ -196,6 +229,58 @@ class MainActivity : FlutterActivity() {
 
     companion object {
         private const val EXTRA_ROUTE = "route"
+
+        // ── adb remote holder (see DebugReceiver) ────────────────────────────
+        // Process-wide so the receiver can reach the UI engine's Dart side.
+        // Touched only on the main looper.
+        private const val DEBUG_QUEUE_CAP = 20
+        private const val DEBUG_CHUNK = 3500
+        private val mainHandler = Handler(Looper.getMainLooper())
+        private var debugSink: EventChannel.EventSink? = null
+        private val debugPending = ArrayList<String>()
+
+        private fun attachDebugSink(sink: EventChannel.EventSink) {
+            mainHandler.post {
+                debugSink = sink
+                val queued = debugPending.toList()
+                debugPending.clear()
+                queued.forEach { sink.success(it) }
+            }
+        }
+
+        private fun detachDebugSink(sink: EventChannel.EventSink) {
+            mainHandler.post { if (debugSink === sink) debugSink = null }
+        }
+
+        /** Called by [DebugReceiver]; never starts an activity itself. */
+        fun deliverDebugCommand(packageName: String, json: String) {
+            mainHandler.post {
+                val sink = debugSink
+                if (sink != null) {
+                    sink.success(json)
+                    return@post
+                }
+                if (debugPending.size >= DEBUG_QUEUE_CAP) debugPending.removeAt(0)
+                debugPending.add(json)
+                Log.i(
+                    DebugReceiver.TAG,
+                    "queued: UI engine not running; start it: " +
+                        "am start -n $packageName/app.dropweb.MainActivity"
+                )
+            }
+        }
+
+        /** Dart replies, chunked so logcat never truncates them. */
+        fun logDebugReply(text: String) {
+            if (text.length <= DEBUG_CHUNK) {
+                Log.i(DebugReceiver.TAG, text)
+                return
+            }
+            val chunks = text.chunked(DEBUG_CHUNK)
+            chunks.forEachIndexed { i, chunk ->
+                Log.i(DebugReceiver.TAG, "[${i + 1}/${chunks.size}] $chunk")
+            }
+        }
     }
 
     private fun applyAppTheme() {

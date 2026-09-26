@@ -26,21 +26,23 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m2(label) => "确定删除当前${label}吗？";
 
-  static String m3(label) => "${label}不能为空";
+  static String m3(path) => "诊断：${path}";
 
-  static String m4(label) => "${label}当前已存在";
+  static String m4(label) => "${label}不能为空";
 
-  static String m5(label) => "暂无${label}";
+  static String m5(label) => "${label}当前已存在";
 
-  static String m6(label) => "${label}必须为数字";
+  static String m6(label) => "暂无${label}";
 
-  static String m7(label) => "${label} 必须在 1024 到 49151 之间";
+  static String m7(label) => "${label}必须为数字";
 
-  static String m8(count) => "已选择 ${count} 项";
+  static String m8(label) => "${label} 必须在 1024 到 49151 之间";
 
-  static String m9(days) => "您的订阅将在${days}天后到期";
+  static String m9(count) => "已选择 ${count} 项";
 
-  static String m10(label) => "${label}必须为URL";
+  static String m10(days) => "您的订阅将在${days}天后到期";
+
+  static String m11(label) => "${label}必须为URL";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
@@ -187,6 +189,19 @@ class MessageLookup extends MessageLookupByLibrary {
     "deleteTip": m2,
     "desc": MessageLookupByLibrary.simpleMessage("Dropweb — 简洁高速的加速器。开源，无广告。"),
     "detectionTip": MessageLookupByLibrary.simpleMessage("依赖第三方api，仅供参考"),
+    "devAdbRemote": MessageLookupByLibrary.simpleMessage("adb 遥控"),
+    "devAdbRemoteReplies": MessageLookupByLibrary.simpleMessage(
+      "回复：adb logcat -s dropweb-dbg",
+    ),
+    "devCopyAll": MessageLookupByLibrary.simpleMessage("全部复制"),
+    "devDiagnostics": MessageLookupByLibrary.simpleMessage("诊断"),
+    "devDiagnosticsWritten": m3,
+    "devEffectiveConfig": MessageLookupByLibrary.simpleMessage("最终配置"),
+    "devEffectiveConfigEmpty": MessageLookupByLibrary.simpleMessage(
+      "内核尚未启动 — 暂无配置",
+    ),
+    "devSubscriptionHeaders": MessageLookupByLibrary.simpleMessage("订阅响应头"),
+    "devTakeDiagnostics": MessageLookupByLibrary.simpleMessage("采集诊断信息"),
     "developerMode": MessageLookupByLibrary.simpleMessage("开发者模式"),
     "developerModeEnableTip": MessageLookupByLibrary.simpleMessage("开发者模式已启用。"),
     "direct": MessageLookupByLibrary.simpleMessage("直连"),
@@ -203,14 +218,14 @@ class MessageLookup extends MessageLookupByLibrary {
     "domain": MessageLookupByLibrary.simpleMessage("域名"),
     "download": MessageLookupByLibrary.simpleMessage("下载"),
     "edit": MessageLookupByLibrary.simpleMessage("编辑"),
-    "emptyTip": m3,
+    "emptyTip": m4,
     "en": MessageLookupByLibrary.simpleMessage("英语"),
     "enableOverride": MessageLookupByLibrary.simpleMessage("启用覆写"),
     "entries": MessageLookupByLibrary.simpleMessage("个条目"),
     "errorTitle": MessageLookupByLibrary.simpleMessage("错误"),
     "exclude": MessageLookupByLibrary.simpleMessage("从最近任务中隐藏"),
     "excludeDesc": MessageLookupByLibrary.simpleMessage("应用在后台时,从最近任务中隐藏应用"),
-    "existsTip": m4,
+    "existsTip": m5,
     "exit": MessageLookupByLibrary.simpleMessage("退出"),
     "expand": MessageLookupByLibrary.simpleMessage("标准"),
     "expirationTime": MessageLookupByLibrary.simpleMessage("到期时间"),
@@ -306,7 +321,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "logs": MessageLookupByLibrary.simpleMessage("日志"),
     "logsCopied": MessageLookupByLibrary.simpleMessage("日志已复制"),
     "logsDesc": MessageLookupByLibrary.simpleMessage("日志捕获记录"),
-    "logsTest": MessageLookupByLibrary.simpleMessage("日志测试"),
     "loopback": MessageLookupByLibrary.simpleMessage("回环解锁工具"),
     "loopbackDesc": MessageLookupByLibrary.simpleMessage("用于UWP回环解锁"),
     "loose": MessageLookupByLibrary.simpleMessage("宽松"),
@@ -316,8 +330,6 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("内存信息"),
     "menu": MessageLookupByLibrary.simpleMessage("菜单"),
-    "messageTest": MessageLookupByLibrary.simpleMessage("消息测试"),
-    "messageTestTip": MessageLookupByLibrary.simpleMessage("这是一条消息。"),
     "min": MessageLookupByLibrary.simpleMessage("最小"),
     "minimizeOnExit": MessageLookupByLibrary.simpleMessage("退出时最小化"),
     "minimizeOnExitDesc": MessageLookupByLibrary.simpleMessage("修改系统默认退出事件"),
@@ -352,8 +364,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "notSelectedTip": MessageLookupByLibrary.simpleMessage("当前代理组无法选中"),
     "nullProfileDesc": MessageLookupByLibrary.simpleMessage("没有配置文件,请先添加配置文件"),
     "nullScriptTip": MessageLookupByLibrary.simpleMessage("暂无脚本"),
-    "nullTip": m5,
-    "numberTip": m6,
+    "nullTip": m6,
+    "numberTip": m7,
     "ok": MessageLookupByLibrary.simpleMessage("OK"),
     "onboardingAddHint": MessageLookupByLibrary.simpleMessage("点按以添加订阅"),
     "onboardingClipboardImport": MessageLookupByLibrary.simpleMessage(
@@ -411,7 +423,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "port": MessageLookupByLibrary.simpleMessage("端口"),
     "portConflictTip": MessageLookupByLibrary.simpleMessage("请输入不同的端口"),
-    "portTip": m7,
+    "portTip": m8,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage("优先使用DOH的http/3"),
     "presetAmber": MessageLookupByLibrary.simpleMessage("琥珀"),
     "presetAmethyst": MessageLookupByLibrary.simpleMessage("紫晶"),
@@ -511,7 +523,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("全选"),
     "selectProfile": MessageLookupByLibrary.simpleMessage("选择配置"),
     "selected": MessageLookupByLibrary.simpleMessage("已选择"),
-    "selectedCountTitle": m8,
+    "selectedCountTitle": m9,
     "sendToTv": MessageLookupByLibrary.simpleMessage("发送到电视"),
     "sendToTvTitle": MessageLookupByLibrary.simpleMessage("发送到电视"),
     "sentSuccessfullyMessage": MessageLookupByLibrary.simpleMessage("发送成功"),
@@ -555,7 +567,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscription": MessageLookupByLibrary.simpleMessage("订阅"),
     "subscriptionEternal": MessageLookupByLibrary.simpleMessage("永久订阅"),
     "subscriptionExpired": MessageLookupByLibrary.simpleMessage("您的订阅已过期"),
-    "subscriptionExpiresInDays": m9,
+    "subscriptionExpiresInDays": m10,
     "subscriptionExpiresSoon": MessageLookupByLibrary.simpleMessage("订阅即将到期"),
     "subscriptionExpiresToday": MessageLookupByLibrary.simpleMessage(
       "您的订阅今天到期",
@@ -628,7 +640,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "upload": MessageLookupByLibrary.simpleMessage("上传"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
     "urlDesc": MessageLookupByLibrary.simpleMessage("通过URL获取配置文件"),
-    "urlTip": m10,
+    "urlTip": m11,
     "useHosts": MessageLookupByLibrary.simpleMessage("使用Hosts"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("使用系统Hosts"),
     "value": MessageLookupByLibrary.simpleMessage("值"),

@@ -26,21 +26,23 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m2(label) => "現在の${label}を削除してもよろしいですか？";
 
-  static String m3(label) => "${label}は空欄にできません";
+  static String m3(path) => "診断: ${path}";
 
-  static String m4(label) => "現在の${label}は既に存在しています";
+  static String m4(label) => "${label}は空欄にできません";
 
-  static String m5(label) => "現在${label}はありません";
+  static String m5(label) => "現在の${label}は既に存在しています";
 
-  static String m6(label) => "${label}は数字でなければなりません";
+  static String m6(label) => "現在${label}はありません";
 
-  static String m7(label) => "${label} は 1024 から 49151 の間でなければなりません";
+  static String m7(label) => "${label}は数字でなければなりません";
 
-  static String m8(count) => "${count} 項目が選択されています";
+  static String m8(label) => "${label} は 1024 から 49151 の間でなければなりません";
 
-  static String m9(days) => "サブスクリプションは${days}日後に期限切れになります";
+  static String m9(count) => "${count} 項目が選択されています";
 
-  static String m10(label) => "${label}はURLである必要があります";
+  static String m10(days) => "サブスクリプションは${days}日後に期限切れになります";
+
+  static String m11(label) => "${label}はURLである必要があります";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
@@ -209,6 +211,21 @@ class MessageLookup extends MessageLookupByLibrary {
       "Dropweb — シンプルで高速な VPN クライアント。オープンソース、広告なし。",
     ),
     "detectionTip": MessageLookupByLibrary.simpleMessage("サードパーティAPIに依存（参考値）"),
+    "devAdbRemote": MessageLookupByLibrary.simpleMessage("adb リモート"),
+    "devAdbRemoteReplies": MessageLookupByLibrary.simpleMessage(
+      "応答: adb logcat -s dropweb-dbg",
+    ),
+    "devCopyAll": MessageLookupByLibrary.simpleMessage("すべてコピー"),
+    "devDiagnostics": MessageLookupByLibrary.simpleMessage("診断"),
+    "devDiagnosticsWritten": m3,
+    "devEffectiveConfig": MessageLookupByLibrary.simpleMessage("最終設定"),
+    "devEffectiveConfigEmpty": MessageLookupByLibrary.simpleMessage(
+      "コアはまだ起動していません — 設定なし",
+    ),
+    "devSubscriptionHeaders": MessageLookupByLibrary.simpleMessage(
+      "サブスクリプションヘッダー",
+    ),
+    "devTakeDiagnostics": MessageLookupByLibrary.simpleMessage("診断情報を取得"),
     "developerMode": MessageLookupByLibrary.simpleMessage("デベロッパーモード"),
     "developerModeEnableTip": MessageLookupByLibrary.simpleMessage(
       "デベロッパーモードが有効になりました。",
@@ -229,7 +246,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "domain": MessageLookupByLibrary.simpleMessage("ドメイン"),
     "download": MessageLookupByLibrary.simpleMessage("ダウンロード"),
     "edit": MessageLookupByLibrary.simpleMessage("編集"),
-    "emptyTip": m3,
+    "emptyTip": m4,
     "en": MessageLookupByLibrary.simpleMessage("英語"),
     "enableOverride": MessageLookupByLibrary.simpleMessage("上書きを有効化"),
     "entries": MessageLookupByLibrary.simpleMessage(" エントリ"),
@@ -238,7 +255,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "excludeDesc": MessageLookupByLibrary.simpleMessage(
       "アプリがバックグラウンド時に最近のタスクから非表示",
     ),
-    "existsTip": m4,
+    "existsTip": m5,
     "exit": MessageLookupByLibrary.simpleMessage("終了"),
     "expand": MessageLookupByLibrary.simpleMessage("標準"),
     "expirationTime": MessageLookupByLibrary.simpleMessage("有効期限"),
@@ -350,7 +367,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "logs": MessageLookupByLibrary.simpleMessage("ログ"),
     "logsCopied": MessageLookupByLibrary.simpleMessage("ログをコピーしました"),
     "logsDesc": MessageLookupByLibrary.simpleMessage("ログキャプチャ記録"),
-    "logsTest": MessageLookupByLibrary.simpleMessage("ログテスト"),
     "loopback": MessageLookupByLibrary.simpleMessage("ループバック解除ツール"),
     "loopbackDesc": MessageLookupByLibrary.simpleMessage("UWPループバック解除用"),
     "loose": MessageLookupByLibrary.simpleMessage("疎"),
@@ -362,8 +378,6 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("メモリ情報"),
     "menu": MessageLookupByLibrary.simpleMessage("メニュー"),
-    "messageTest": MessageLookupByLibrary.simpleMessage("メッセージテスト"),
-    "messageTestTip": MessageLookupByLibrary.simpleMessage("これはメッセージです。"),
     "min": MessageLookupByLibrary.simpleMessage("最小化"),
     "minimizeOnExit": MessageLookupByLibrary.simpleMessage("終了時に最小化"),
     "minimizeOnExitDesc": MessageLookupByLibrary.simpleMessage(
@@ -408,8 +422,8 @@ class MessageLookup extends MessageLookupByLibrary {
       "プロファイルがありません。追加してください",
     ),
     "nullScriptTip": MessageLookupByLibrary.simpleMessage("スクリプトはありません"),
-    "nullTip": m5,
-    "numberTip": m6,
+    "nullTip": m6,
+    "numberTip": m7,
     "ok": MessageLookupByLibrary.simpleMessage("OK"),
     "onboardingAddHint": MessageLookupByLibrary.simpleMessage(
       "タップしてサブスクリプションを追加",
@@ -483,7 +497,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "port": MessageLookupByLibrary.simpleMessage("ポート"),
     "portConflictTip": MessageLookupByLibrary.simpleMessage("別のポートを入力してください"),
-    "portTip": m7,
+    "portTip": m8,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage("DOHのHTTP/3を優先使用"),
     "presetAmber": MessageLookupByLibrary.simpleMessage("アンバー"),
     "presetAmethyst": MessageLookupByLibrary.simpleMessage("アメジスト"),
@@ -591,7 +605,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("すべて選択"),
     "selectProfile": MessageLookupByLibrary.simpleMessage("プロファイルを選択"),
     "selected": MessageLookupByLibrary.simpleMessage("選択済み"),
-    "selectedCountTitle": m8,
+    "selectedCountTitle": m9,
     "sendToTv": MessageLookupByLibrary.simpleMessage("TVに送信"),
     "sendToTvTitle": MessageLookupByLibrary.simpleMessage("TVに送信"),
     "sentSuccessfullyMessage": MessageLookupByLibrary.simpleMessage("送信しました"),
@@ -639,7 +653,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscriptionExpired": MessageLookupByLibrary.simpleMessage(
       "サブスクリプションが期限切れになりました",
     ),
-    "subscriptionExpiresInDays": m9,
+    "subscriptionExpiresInDays": m10,
     "subscriptionExpiresSoon": MessageLookupByLibrary.simpleMessage(
       "サブスクリプションがまもなく期限切れ",
     ),
@@ -722,7 +736,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "upload": MessageLookupByLibrary.simpleMessage("アップロード"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
     "urlDesc": MessageLookupByLibrary.simpleMessage("URL経由でプロファイルを取得"),
-    "urlTip": m10,
+    "urlTip": m11,
     "useHosts": MessageLookupByLibrary.simpleMessage("ホストを使用"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("システムホストを使用"),
     "value": MessageLookupByLibrary.simpleMessage("値"),

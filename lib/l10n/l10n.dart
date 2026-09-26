@@ -3175,26 +3175,6 @@ class AppLocalizations {
     );
   }
 
-  /// `Message test`
-  String get messageTest {
-    return Intl.message(
-      'Message test',
-      name: 'messageTest',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `This is a message.`
-  String get messageTestTip {
-    return Intl.message(
-      'This is a message.',
-      name: 'messageTestTip',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `Crash test`
   String get crashTest {
     return Intl.message('Crash test', name: 'crashTest', desc: '', args: []);
@@ -3243,11 +3223,6 @@ class AppLocalizations {
   /// `Contact me`
   String get contactMe {
     return Intl.message('Contact me', name: 'contactMe', desc: '', args: []);
-  }
-
-  /// `Logs test`
-  String get logsTest {
-    return Intl.message('Logs test', name: 'logsTest', desc: '', args: []);
   }
 
   /// `{label} cannot be empty`
@@ -4200,6 +4175,86 @@ class AppLocalizations {
     return Intl.message(
       'If an app or site fails to load, try the other mode.',
       name: 'trafficScopeHint',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Diagnostics`
+  String get devDiagnostics {
+    return Intl.message(
+      'Diagnostics',
+      name: 'devDiagnostics',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Capture diagnostics`
+  String get devTakeDiagnostics {
+    return Intl.message(
+      'Capture diagnostics',
+      name: 'devTakeDiagnostics',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Diagnostics: {path}`
+  String devDiagnosticsWritten(Object path) {
+    return Intl.message(
+      'Diagnostics: $path',
+      name: 'devDiagnosticsWritten',
+      desc: '',
+      args: [path],
+    );
+  }
+
+  /// `Effective config`
+  String get devEffectiveConfig {
+    return Intl.message(
+      'Effective config',
+      name: 'devEffectiveConfig',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The core has not been set up yet — no config`
+  String get devEffectiveConfigEmpty {
+    return Intl.message(
+      'The core has not been set up yet — no config',
+      name: 'devEffectiveConfigEmpty',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Subscription headers`
+  String get devSubscriptionHeaders {
+    return Intl.message(
+      'Subscription headers',
+      name: 'devSubscriptionHeaders',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Copy all`
+  String get devCopyAll {
+    return Intl.message('Copy all', name: 'devCopyAll', desc: '', args: []);
+  }
+
+  /// `adb remote`
+  String get devAdbRemote {
+    return Intl.message('adb remote', name: 'devAdbRemote', desc: '', args: []);
+  }
+
+  /// `Replies: adb logcat -s dropweb-dbg`
+  String get devAdbRemoteReplies {
+    return Intl.message(
+      'Replies: adb logcat -s dropweb-dbg',
+      name: 'devAdbRemoteReplies',
       desc: '',
       args: [],
     );

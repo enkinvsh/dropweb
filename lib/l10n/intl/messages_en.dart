@@ -28,21 +28,23 @@ class MessageLookup extends MessageLookupByLibrary {
   static String m2(label) =>
       "Are you sure you want to delete the current ${label}?";
 
-  static String m3(label) => "${label} cannot be empty";
+  static String m3(path) => "Diagnostics: ${path}";
 
-  static String m4(label) => "Current ${label} already exists";
+  static String m4(label) => "${label} cannot be empty";
 
-  static String m5(label) => "No ${label} at the moment";
+  static String m5(label) => "Current ${label} already exists";
 
-  static String m6(label) => "${label} must be a number";
+  static String m6(label) => "No ${label} at the moment";
 
-  static String m7(label) => "${label} must be between 1024 and 49151";
+  static String m7(label) => "${label} must be a number";
 
-  static String m8(count) => "${count} items have been selected";
+  static String m8(label) => "${label} must be between 1024 and 49151";
 
-  static String m9(days) => "Your subscription expires in ${days} day(s)";
+  static String m9(count) => "${count} items have been selected";
 
-  static String m10(label) => "${label} must be a url";
+  static String m10(days) => "Your subscription expires in ${days} day(s)";
+
+  static String m11(label) => "${label} must be a url";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
@@ -263,6 +265,25 @@ class MessageLookup extends MessageLookupByLibrary {
     "detectionTip": MessageLookupByLibrary.simpleMessage(
       "Relying on third-party api is for reference only",
     ),
+    "devAdbRemote": MessageLookupByLibrary.simpleMessage("adb remote"),
+    "devAdbRemoteReplies": MessageLookupByLibrary.simpleMessage(
+      "Replies: adb logcat -s dropweb-dbg",
+    ),
+    "devCopyAll": MessageLookupByLibrary.simpleMessage("Copy all"),
+    "devDiagnostics": MessageLookupByLibrary.simpleMessage("Diagnostics"),
+    "devDiagnosticsWritten": m3,
+    "devEffectiveConfig": MessageLookupByLibrary.simpleMessage(
+      "Effective config",
+    ),
+    "devEffectiveConfigEmpty": MessageLookupByLibrary.simpleMessage(
+      "The core has not been set up yet — no config",
+    ),
+    "devSubscriptionHeaders": MessageLookupByLibrary.simpleMessage(
+      "Subscription headers",
+    ),
+    "devTakeDiagnostics": MessageLookupByLibrary.simpleMessage(
+      "Capture diagnostics",
+    ),
     "developerMode": MessageLookupByLibrary.simpleMessage("Developer mode"),
     "developerModeEnableTip": MessageLookupByLibrary.simpleMessage(
       "Developer mode is enabled.",
@@ -289,7 +310,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "domain": MessageLookupByLibrary.simpleMessage("Domain"),
     "download": MessageLookupByLibrary.simpleMessage("Download"),
     "edit": MessageLookupByLibrary.simpleMessage("Edit"),
-    "emptyTip": m3,
+    "emptyTip": m4,
     "en": MessageLookupByLibrary.simpleMessage("English"),
     "enableOverride": MessageLookupByLibrary.simpleMessage("Enable override"),
     "entries": MessageLookupByLibrary.simpleMessage(" entries"),
@@ -298,7 +319,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "excludeDesc": MessageLookupByLibrary.simpleMessage(
       "When the app is in the background, the app is hidden from the recent task",
     ),
-    "existsTip": m4,
+    "existsTip": m5,
     "exit": MessageLookupByLibrary.simpleMessage("Exit"),
     "expand": MessageLookupByLibrary.simpleMessage("Standard"),
     "expirationTime": MessageLookupByLibrary.simpleMessage("Expiration time"),
@@ -444,7 +465,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "logs": MessageLookupByLibrary.simpleMessage("Logs"),
     "logsCopied": MessageLookupByLibrary.simpleMessage("Logs copied"),
     "logsDesc": MessageLookupByLibrary.simpleMessage("Log capture records"),
-    "logsTest": MessageLookupByLibrary.simpleMessage("Logs test"),
     "loopback": MessageLookupByLibrary.simpleMessage("Loopback unlock tool"),
     "loopbackDesc": MessageLookupByLibrary.simpleMessage(
       "Used for UWP loopback unlocking",
@@ -458,10 +478,6 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("Memory info"),
     "menu": MessageLookupByLibrary.simpleMessage("MENU"),
-    "messageTest": MessageLookupByLibrary.simpleMessage("Message test"),
-    "messageTestTip": MessageLookupByLibrary.simpleMessage(
-      "This is a message.",
-    ),
     "min": MessageLookupByLibrary.simpleMessage("Min"),
     "minimizeOnExit": MessageLookupByLibrary.simpleMessage("Minimize on exit"),
     "minimizeOnExitDesc": MessageLookupByLibrary.simpleMessage(
@@ -512,8 +528,8 @@ class MessageLookup extends MessageLookupByLibrary {
       "No profile, Please add a profile",
     ),
     "nullScriptTip": MessageLookupByLibrary.simpleMessage("No scripts"),
-    "nullTip": m5,
-    "numberTip": m6,
+    "nullTip": m6,
+    "numberTip": m7,
     "ok": MessageLookupByLibrary.simpleMessage("OK"),
     "onboardingAddHint": MessageLookupByLibrary.simpleMessage(
       "Tap to add your subscription",
@@ -601,7 +617,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "portConflictTip": MessageLookupByLibrary.simpleMessage(
       "Please enter a different port",
     ),
-    "portTip": m7,
+    "portTip": m8,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage(
       "Prioritize the use of DOH\'s http/3",
     ),
@@ -731,7 +747,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("Select all"),
     "selectProfile": MessageLookupByLibrary.simpleMessage("Select Profile"),
     "selected": MessageLookupByLibrary.simpleMessage("Selected"),
-    "selectedCountTitle": m8,
+    "selectedCountTitle": m9,
     "sendToTv": MessageLookupByLibrary.simpleMessage("Send to TV"),
     "sendToTvTitle": MessageLookupByLibrary.simpleMessage("Send to TV"),
     "sentSuccessfullyMessage": MessageLookupByLibrary.simpleMessage(
@@ -791,7 +807,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscriptionExpired": MessageLookupByLibrary.simpleMessage(
       "Your subscription has expired",
     ),
-    "subscriptionExpiresInDays": m9,
+    "subscriptionExpiresInDays": m10,
     "subscriptionExpiresSoon": MessageLookupByLibrary.simpleMessage(
       "Subscription expires soon",
     ),
@@ -904,7 +920,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "urlDesc": MessageLookupByLibrary.simpleMessage(
       "Obtain profile through URL",
     ),
-    "urlTip": m10,
+    "urlTip": m11,
     "useHosts": MessageLookupByLibrary.simpleMessage("Use hosts"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("Use system hosts"),
     "value": MessageLookupByLibrary.simpleMessage("Value"),

@@ -410,8 +410,6 @@
   "fruitSaladScheme": "果缤纷",
   "developerMode": "开发者模式",
   "developerModeEnableTip": "开发者模式已启用。",
-  "messageTest": "消息测试",
-  "messageTestTip": "这是一条消息。",
   "crashTest": "崩溃测试",
   "clearData": "清除数据",
   "clearDataTip": "这将删除所有应用数据并重新启动应用程序。您确定吗？",
@@ -420,7 +418,6 @@
   "systemApp": "系统应用",
   "noNetworkApp": "无网络应用",
   "contactMe": "联系我",
-  "logsTest": "日志测试",
   "emptyTip": "{label}不能为空",
   "urlTip": "{label}必须为URL",
   "numberTip": "{label}必须为数字",
@@ -533,5 +530,14 @@
   "trafficScopeAll": "全部",
   "trafficScopeSelectiveDesc": "仅服务商列表中的服务通过 VPN。",
   "trafficScopeAllDesc": "除本地网络和服务商例外外，所有流量均通过 VPN。",
-  "trafficScopeHint": "若应用或网站无法打开，请切换模式。"
+  "trafficScopeHint": "若应用或网站无法打开，请切换模式。",
+  "devDiagnostics": "诊断",
+  "devTakeDiagnostics": "采集诊断信息",
+  "devDiagnosticsWritten": "诊断：{path}",
+  "devEffectiveConfig": "最终配置",
+  "devEffectiveConfigEmpty": "内核尚未启动 — 暂无配置",
+  "devSubscriptionHeaders": "订阅响应头",
+  "devCopyAll": "全部复制",
+  "devAdbRemote": "adb 遥控",
+  "devAdbRemoteReplies": "回复：adb logcat -s dropweb-dbg"
 }
