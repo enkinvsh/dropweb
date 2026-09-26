@@ -53,7 +53,9 @@ adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd help
 adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd status --es id 1
 
 # подключить / отключить / переключить (как кнопка на дашборде; согласие на VPN
-# должно быть уже принято в UI, иначе err vpn-consent-not-accepted)
+# должно быть уже принято в UI, иначе err vpn-consent-not-accepted; сразу после
+# запуска start ждёт до 30 с, пока приложение загрузит конфиг в ядро, иначе
+# err app-not-ready)
 adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd start
 adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd stop
 adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd toggle

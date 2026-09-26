@@ -208,6 +208,7 @@ class DebugRemote {
       return 'running=${c.read(runTimeProvider) != null}';
     }
     _profile(c);
+    await _awaitStartReady();
     // Same consent gate the dashboard button and the controller use. The
     // remote cannot show the disclosure dialog, so it refuses instead.
     if (!await vpnConsent.isAccepted()) {
@@ -218,6 +219,24 @@ class DebugRemote {
     ConnectTrace.start();
     await controller.updateStatus(true);
     return 'running=${c.read(runTimeProvider) != null}';
+  }
+
+  /// The dashboard hides the connect button until init has finished and the
+  /// core has loaded groups (startButtonSelectorState). A cold-start `start`
+  /// used to arrive before that and panic in getAndroidVpnOptions on a nil
+  /// core config, so the remote waits on the same condition.
+  static Future<void> _awaitStartReady() async {
+    bool ready() =>
+        globalState.appState.isInit && globalState.appState.groups.isNotEmpty;
+    for (var i = 0; i < 150 && !ready(); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    if (!ready()) {
+      throw _RemoteError(
+        'app-not-ready init=${globalState.appState.isInit} '
+        'groups=${globalState.appState.groups.length}',
+      );
+    }
   }
 
   // ── mode: mirrors ModesContent._apply / _openCountryDeep ──────────────────
