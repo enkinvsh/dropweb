@@ -283,20 +283,20 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
         onDelete: () => _deleteProfile(profile),
       ),
       const SizedBox(height: 12),
+      // Taps are held off while a mode/tunnel change applies, but the card is
+      // not dimmed: the switch or the exit row already shows the change, and
+      // a grey flash over the whole card read as a glitch.
       IgnorePointer(
         ignoring: _applying,
-        child: DisabledMask(
-          status: _applying,
-          child: _LiquidCard(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < rows.length; i++) ...[
-                  if (i > 0) const _Hairline(indent: _groupedDividerIndent),
-                  rows[i],
-                ],
+        child: _LiquidCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0) const _Hairline(indent: _groupedDividerIndent),
+                rows[i],
               ],
-            ),
+            ],
           ),
         ),
       ),
