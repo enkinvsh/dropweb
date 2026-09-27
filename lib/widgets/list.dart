@@ -2,20 +2,19 @@ import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/state.dart';
-import 'package:dropweb/widgets/open_container.dart';
 import 'package:flutter/material.dart';
 
 import 'card.dart';
 import 'input.dart';
 import 'scaffold.dart';
 import 'sheet.dart';
+import 'zoom_route.dart';
 
 class Delegate {
   const Delegate();
 }
 
 class RadioDelegate<T> extends Delegate {
-
   const RadioDelegate({
     required this.value,
     required this.groupValue,
@@ -27,7 +26,6 @@ class RadioDelegate<T> extends Delegate {
 }
 
 class SwitchDelegate<T> extends Delegate {
-
   const SwitchDelegate({
     required this.value,
     this.onChanged,
@@ -37,7 +35,6 @@ class SwitchDelegate<T> extends Delegate {
 }
 
 class CheckboxDelegate<T> extends Delegate {
-
   const CheckboxDelegate({
     this.value = false,
     this.onChanged,
@@ -47,7 +44,6 @@ class CheckboxDelegate<T> extends Delegate {
 }
 
 class OpenDelegate extends Delegate {
-
   const OpenDelegate({
     required this.title,
     required this.widget,
@@ -71,7 +67,6 @@ class OpenDelegate extends Delegate {
 }
 
 class NextDelegate extends Delegate {
-
   const NextDelegate({
     required this.title,
     required this.widget,
@@ -87,7 +82,6 @@ class NextDelegate extends Delegate {
 }
 
 class OptionsDelegate<T> extends Delegate {
-
   const OptionsDelegate({
     required this.title,
     required this.options,
@@ -107,7 +101,6 @@ class OptionsDelegate<T> extends Delegate {
 }
 
 class InputDelegate extends Delegate {
-
   const InputDelegate({
     required this.title,
     required this.value,
@@ -126,7 +119,6 @@ class InputDelegate extends Delegate {
 }
 
 class ListItem<T> extends StatelessWidget {
-
   const ListItem({
     super.key,
     required this.title,
@@ -263,21 +255,22 @@ class ListItem<T> extends StatelessWidget {
     void Function()? onTap,
     Widget? trailing,
     Widget? leading,
-  }) => ListTile(
-      key: key,
-      dense: dense,
-      titleTextStyle: titleTextStyle,
-      subtitleTextStyle: subtitleTextStyle,
-      leading: leading ?? this.leading,
-      horizontalTitleGap: horizontalTitleGap,
-      title: title,
-      minVerticalPadding: 12,
-      subtitle: subtitle,
-      titleAlignment: tileTitleAlignment,
-      onTap: onTap,
-      trailing: trailing ?? this.trailing,
-      contentPadding: padding,
-    );
+  }) =>
+      ListTile(
+        key: key,
+        dense: dense,
+        titleTextStyle: titleTextStyle,
+        subtitleTextStyle: subtitleTextStyle,
+        leading: leading ?? this.leading,
+        horizontalTitleGap: horizontalTitleGap,
+        title: title,
+        minVerticalPadding: 12,
+        subtitle: subtitle,
+        titleAlignment: tileTitleAlignment,
+        onTap: onTap,
+        trailing: trailing ?? this.trailing,
+        contentPadding: padding,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -286,47 +279,50 @@ class ListItem<T> extends StatelessWidget {
       final child = SafeArea(
         child: openDelegate.widget,
       );
-      return OpenContainer(
-        closedBuilder: (_, action) {
-          void openAction() {
-            final isMobile = globalState.appState.viewMode == ViewMode.mobile;
-            if (!isMobile) {
-              showExtend(
-                context,
-                props: ExtendProps(
-                  blur: openDelegate.blur,
-                  maxWidth: openDelegate.maxWidth,
-                ),
-                builder: (_, type) => AdaptiveSheetScaffold(
-                    actions: [
-                      if (openDelegate.action != null) openDelegate.action!,
-                    ],
-                    type: type,
-                    body: child,
-                    title: openDelegate.title,
-                    titleBuilder: openDelegate.titleBuilder,
-                  ),
-              );
-              return;
-            }
-            action();
-          }
-
-          return _buildListTile(
-            onTap: openAction,
+      void openAction() {
+        final isMobile = globalState.appState.viewMode == ViewMode.mobile;
+        if (!isMobile) {
+          showExtend(
+            context,
+            props: ExtendProps(
+              blur: openDelegate.blur,
+              maxWidth: openDelegate.maxWidth,
+            ),
+            builder: (_, type) => AdaptiveSheetScaffold(
+              actions: [
+                if (openDelegate.action != null) openDelegate.action!,
+              ],
+              type: type,
+              body: child,
+              title: openDelegate.title,
+              titleBuilder: openDelegate.titleBuilder,
+            ),
           );
-        },
-        openBuilder: (_, action) => CommonScaffold.open(
-            key: Key(openDelegate.title),
-            onBack: action,
-            title: openDelegate.title,
-            titleBuilder: openDelegate.titleBuilder,
-            body: child,
-            disableBackground: true,
-            actions: [
-              if (openDelegate.action != null) openDelegate.action!,
-            ],
+          return;
+        }
+        // The row zooms into its page: the page's app bar starts on the
+        // tapped row and the page shrinks back into it on close.
+        Navigator.of(context).push(
+          LiquidZoomRoute<void>(
+            source: () => zoomSourceRectOf(context),
+            anchor: (context) => Offset(0, MediaQuery.paddingOf(context).top),
+            builder: (routeContext) => CommonScaffold.open(
+              key: Key(openDelegate.title),
+              onBack: () => Navigator.of(routeContext).pop(),
+              title: openDelegate.title,
+              titleBuilder: openDelegate.titleBuilder,
+              body: child,
+              disableBackground: true,
+              actions: [
+                if (openDelegate.action != null) openDelegate.action!,
+              ],
+            ),
           ),
+        );
+      }
+
+      return _buildListTile(
+        onTap: openAction,
       );
     }
     if (delegate is NextDelegate) {
@@ -344,13 +340,13 @@ class ListItem<T> extends StatelessWidget {
               maxWidth: nextDelegate.maxWidth,
             ),
             builder: (_, type) => AdaptiveSheetScaffold(
-                actions: [
-                  if (nextDelegate.action != null) nextDelegate.action!,
-                ],
-                type: type,
-                body: child,
-                title: nextDelegate.title,
-              ),
+              actions: [
+                if (nextDelegate.action != null) nextDelegate.action!,
+              ],
+              type: type,
+              body: child,
+              title: nextDelegate.title,
+            ),
           );
         },
       );
@@ -443,7 +439,6 @@ class ListItem<T> extends StatelessWidget {
 }
 
 class ListHeader extends StatelessWidget {
-
   const ListHeader({
     super.key,
     required this.title,
@@ -460,55 +455,55 @@ class ListHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-      alignment: Alignment.centerLeft,
-      padding: padding ??
-          const EdgeInsets.only(
-            left: 16,
-            right: 8,
-            top: 24,
-            bottom: 8,
-          ),
-      child: Row(
-        mainAxisSize: MainAxisSize.max,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurfaceVariant
-                            .opacity80,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                if (subTitle != null)
+        alignment: Alignment.centerLeft,
+        padding: padding ??
+            const EdgeInsets.only(
+              left: 16,
+              right: 8,
+              top: 24,
+              bottom: 8,
+            ),
+        child: Row(
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    subTitle!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.outline,
+                    title,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant
+                              .opacity80,
+                          fontWeight: FontWeight.w600,
                         ),
                   ),
+                  if (subTitle != null)
+                    Text(
+                      subTitle!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                    ),
+                ],
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ...genActions(
+                  actions,
+                  space: space,
+                ),
               ],
             ),
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              ...genActions(
-                actions,
-                space: space,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
 }
 
 List<Widget> generateSection({
@@ -539,24 +534,25 @@ Widget generateSectionV2({
   required Iterable<Widget> items,
   List<Widget>? actions,
   bool separated = true,
-}) => Column(
-    children: [
-      if (items.isNotEmpty && title != null)
-        ListHeader(
-          title: title,
-          actions: actions,
-        ),
-      CommonCard(
-        radius: 18,
-        type: CommonCardType.filled,
-        child: Column(
-          children: [
-            ...items,
-          ],
-        ),
-      )
-    ],
-  );
+}) =>
+    Column(
+      children: [
+        if (items.isNotEmpty && title != null)
+          ListHeader(
+            title: title,
+            actions: actions,
+          ),
+        CommonCard(
+          radius: 18,
+          type: CommonCardType.filled,
+          child: Column(
+            children: [
+              ...items,
+            ],
+          ),
+        )
+      ],
+    );
 
 List<Widget> generateInfoSection({
   required Info info,
@@ -582,9 +578,9 @@ List<Widget> generateInfoSection({
 }
 
 Widget generateListView(List<Widget> items) => ListView.builder(
-    itemCount: items.length,
-    itemBuilder: (_, index) => items[index],
-    padding: const EdgeInsets.only(
-      bottom: 16,
-    ),
-  );
+      itemCount: items.length,
+      itemBuilder: (_, index) => items[index],
+      padding: const EdgeInsets.only(
+        bottom: 16,
+      ),
+    );

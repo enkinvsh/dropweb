@@ -115,7 +115,7 @@ class _DashboardGlassMenuState extends ConsumerState<DashboardGlassMenu> {
                       child: Text(
                         appLocalizations.menu,
                         style: theme.textTheme.labelLarge?.copyWith(
-                          color: colorScheme.primary,
+                          color: colorScheme.onSurface,
                           letterSpacing: 2,
                         ),
                       ),
@@ -173,9 +173,7 @@ class _DashboardGlassMenuState extends ConsumerState<DashboardGlassMenu> {
         item(
           icon: HugeIcons.strokeRoundedCreditCard,
           title: appLocalizations.subscription,
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const SubscriptionPage()),
-          ),
+          onTap: () => SubscriptionPage.open(context),
         ),
       if (cabinetUri != null)
         item(

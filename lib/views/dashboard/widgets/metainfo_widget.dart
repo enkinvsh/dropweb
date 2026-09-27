@@ -236,13 +236,7 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
             subscriptionInfo.total * 0.1;
 
     return _GlassSubscriptionCard(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const SubscriptionPage(),
-          ),
-        );
-      },
+      onTap: () => SubscriptionPage.open(context, source: context),
       child: Stack(
         children: [
           if (logoStyle == SubscriptionLogoStyle.watermark)

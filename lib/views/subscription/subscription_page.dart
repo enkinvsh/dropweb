@@ -70,6 +70,22 @@ Proxy? _findProxy(Group group, String name) {
 class SubscriptionPage extends ConsumerStatefulWidget {
   const SubscriptionPage({super.key});
 
+  /// Opens the page with the Liquid zoom. With [source] (the dashboard
+  /// subscription card) the page grows out of that card — its own header card
+  /// starts right on top of it — and shrinks back into it on close.
+  static Future<void> open(BuildContext context, {BuildContext? source}) =>
+      Navigator.of(context).push(
+        LiquidZoomRoute<void>(
+          source: source == null ? null : () => zoomSourceRectOf(source),
+          // Where the header card sits on this page (the ListView padding).
+          anchor: (context) => Offset(
+            16,
+            MediaQuery.paddingOf(context).top + kToolbarHeight + 8,
+          ),
+          builder: (_) => const SubscriptionPage(),
+        ),
+      );
+
   @override
   ConsumerState<SubscriptionPage> createState() => _SubscriptionPageState();
 }

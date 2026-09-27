@@ -457,8 +457,8 @@ class DebugRemote {
     if (page.toLowerCase() == 'developer') {
       final context = globalState.navigatorKey.currentContext;
       if (context == null) throw const _RemoteError('ui-not-ready');
-      // Same sheet route `_DeveloperItem` opens (ListItem.open → showExtend on
-      // the non-OpenContainer path).
+      // Same Developer page `_DeveloperItem` opens (ListItem.open); on mobile
+      // showExtend pushes it as a page too.
       unawaited(showExtend(
         context,
         builder: (_, type) => AdaptiveSheetScaffold(
