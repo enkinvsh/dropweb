@@ -1,3 +1,66 @@
+## v0.9.0
+
+- Merge pull request #3 from enkinvsh/dev
+
+- v0.9.0: Liquid Glass и страница «Подписка» на одном экране
+- docs: README for 0.9.0 — one-screen subscription, liquid glass, new screenshots
+
+- docs(release): v0.9.0 notes — glass toasts, no mobile titles, translations
+
+- fix(subscription): no grey flash over the card while a change applies
+
+- feat(l10n): fill ja/zh gaps, move hardcoded strings to arb, localized error texts
+
+- feat(ui): no page titles on mobile, liquid glass toasts you can swipe away
+
+- docs(release): v0.9.0 notes — zoom transitions, update indicator, new sounds
+
+- feat(sound): cyber synth UI sounds, own file for import error
+
+- feat(ui): liquid zoom page transitions on mobile, white MENU label
+
+- fix(subscription): one update path with a spinner everywhere, «Подписка» in MENU
+
+- docs(release): notes for v0.9.0
+
+- chore(release): bump to 0.9.0+2050000018 for v0.9.0
+
+- fix(ui): no back arrows in app bars on mobile
+
+- Android and iOS go back with the system gesture or button; desktop keeps the arrows.
+
+- feat(subscription): one-screen subscription page on a glass card
+
+- The subscription card sits on glass and opens a single page instead of the Modes/Profiles tabs: profile switcher and actions menu, the current exit with ping (picking a country sets the mode), full-tunnel switch, servers and groups. Country picker stays an opaque sheet: a glass sheet under a scrolling list dropped frames.
+
+- feat(ui): liquid glass connect button and MENU capsule
+
+- Adds liquid_glass_widgets. The connect button body is a glass lens with a spring lift and a touch glow; MENU is a glass capsule the menu morphs out of and back into. Glass tokens live in Lumina; overlays use the refracting pass only where Impeller supports shader filters.
+
+- Update changelog
+
+## v0.8.9-pre.1
+
+- docs(release): notes for v0.8.9-pre.1
+
+- chore(release): bump to 0.8.9+2050000017 for v0.8.9-pre.1
+
+- fix(developer): make the adb start command wait until the core has groups
+
+- perf(core): build without the tailscale, zerotier and easytier outbounds
+
+- fix(hwid): ignore device-limit replies of profiles that are not active
+
+- Background auto-update refreshes every profile, so a foreign subscription at its device limit raised the «Освободить лимит» dialog while another profile was selected, and then polled it for ten minutes. Only the active profile opens a recovery episode now; switching away ends it silently.
+
+- feat(developer): diagnostics snapshot and an adb remote for non-Play builds
+
+- The developer screen now saves a redacted diagnostics bundle (report, final core config, subscription headers) and shows the final config and headers. A DUMP-guarded broadcast receiver lets adb drive the app (status, start/stop, modes, tunnel, select, ping, update, diag, logs, nav) with replies in logcat tag dropweb-dbg; it answers only with developer mode on and is inert in the Play build. Key controls carry dw_* semantics ids for uiautomator. See docs/adb-remote.md.
+
+- refactor(config): drop the smart group engine and the SOS pool
+
+- Умный is now a lazy url-test group; any smart group a provider still ships is demoted to url-test on every setup (demoteSmartGroups), so the core never runs the smart engine. The dropweb-disconeko emergency pool and its 🧠 Smart group are gone from downloads and share-link profiles; the Whitelist mode covers that case.
+
 ## v0.8.8
 
 - chore(release): prepare v0.8.8 stable
