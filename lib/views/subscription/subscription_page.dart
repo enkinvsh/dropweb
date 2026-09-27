@@ -210,7 +210,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         automaticallyImplyLeading: system.isDesktop,
-        title: Text(appLocalizations.subscription),
+        title: system.isDesktop ? Text(appLocalizations.subscription) : null,
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),

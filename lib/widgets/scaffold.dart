@@ -303,13 +303,17 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
             hintText: appLocalizations.search,
           ),
         )
-      : Text(
-          !_isEdit
-              ? (widget.titleBuilder?.call(context) ?? widget.title!)
-              : appLocalizations.selectedCountTitle(
-                  "${_appBarState.value.editState?.editCount ?? 0}",
-                ),
-        );
+      : _isEdit
+          ? Text(
+              appLocalizations.selectedCountTitle(
+                "${_appBarState.value.editState?.editCount ?? 0}",
+              ),
+            )
+          // Page names only on desktop, next to the back arrow. On mobile
+          // the bar stays empty: that is where notifications appear.
+          : system.isDesktop
+              ? Text(widget.titleBuilder?.call(context) ?? widget.title!)
+              : const SizedBox.shrink();
 
   List<Widget> _buildActions(
     AppBarSearchState? searchState,

@@ -149,6 +149,9 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
     final bottomSheet = widget.type == SheetType.bottomSheet;
     final sideSheet = widget.type == SheetType.sideSheet;
     final page = widget.type == SheetType.page;
+    // Page names only on desktop (next to the back arrow) and on bottom
+    // sheets. A mobile page keeps its bar empty for notifications.
+    final showTitle = system.isDesktop || bottomSheet;
     final backgroundColor = colorScheme.surface.withValues(alpha: 0.92);
     // Page-mode (mobile push from showExtend) renders inside CommonScaffold's
     // dark void with the mesh background. Forcing an opaque surface tint on
@@ -165,15 +168,23 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
       elevation: page ? 0 : null,
       title: widget.onTitleTap != null
           // Only the Settings sheet passes onTitleTap (5-tap developer unlock).
+          // Without a visible title the whole empty bar stays the tap target.
           ? Semantics(
               identifier: 'dw_settings_title',
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: widget.onTitleTap,
-                child: Text(title),
+                child: showTitle
+                    ? Text(title)
+                    : const SizedBox(
+                        width: double.infinity,
+                        height: kToolbarHeight,
+                      ),
               ),
             )
-          : Text(title),
+          : showTitle
+              ? Text(title)
+              : null,
       actions: genActions([
         if (widget.actions.isEmpty && sideSheet) const CloseButton(),
         ...widget.actions,
