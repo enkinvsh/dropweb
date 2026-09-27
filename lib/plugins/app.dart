@@ -260,19 +260,15 @@ enum DropwebHapticCue {
 /// (power button, subscription import / refresh).
 ///
 /// String names (`.name`) are part of the public method-channel contract
-/// with `AppPlugin.kt` (`playUiSound`) and are covered by
-/// `test/plugins/app_sounds_test.dart`.
+/// with `AppPlugin.kt` (`playUiSound`).
 ///
-/// Mapping (native side picks the asset):
+/// Mapping (native side picks the asset; «cyber» pack — short
+/// bit-crushed square-wave synth cues, one file per cue):
 ///   - [powerOn]             → `assets/sounds/toggle_on.wav`
-///     (byte-copy of refresh_subscriptions.wav)
 ///   - [powerOff]            → `assets/sounds/toggle_off.wav`
-///     (byte-copy of the former import_error.wav)
 ///   - [subscriptionRefresh] → `assets/sounds/refresh_subscriptions.wav`
 ///   - [importSuccess]       → `assets/sounds/import_success.wav`
-///   - [importError]         → `assets/sounds/toggle_off.wav`
-///     (shares the powerOff asset; the standalone import_error.wav was
-///     removed during the SFX simplification pass).
+///   - [importError]         → `assets/sounds/import_error.wav`
 enum DropwebSoundCue {
   powerOn,
   powerOff,
