@@ -16,6 +16,8 @@ import 'package:dropweb/state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
+    show LiquidGlassWidgets;
 
 import 'application.dart';
 import 'clash/core.dart';
@@ -106,6 +108,9 @@ Future<void> main(List<String> arguments) async {
     vpn;
   }
   HttpOverrides.global = DropwebHttpOverrides();
+  // Liquid Glass (liquid_glass_widgets): pre-warm the glass shaders so the
+  // first MENU morph / card paint does not hitch on shader load.
+  await LiquidGlassWidgets.initialize();
   runApp(ProviderScope(
     child: Application(ciE2ePlanPath: ciE2ePlanPath),
   ));

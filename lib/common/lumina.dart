@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
+    show GlassQuality, LiquidGlassSettings;
 
 class Lumina {
   Lumina._();
@@ -72,6 +74,63 @@ class Lumina {
   // Animation
   static const Curve luminaCurve = Cubic(0.2, 0.8, 0.2, 1.0);
   static const Duration luminaDuration = Duration(milliseconds: 400);
+
+  // ── Liquid Glass (liquid_glass_widgets) ──
+  // Menu glass tint — void_ at ~55%: dims clear glass over the bright orbs so
+  // menu text stays legible (Apple HIG: dim clear glass over busy content).
+  static const Color liquidTintMenu = Color(0x8C030305);
+  // Card glass tint — void_ at ~30%: lighter dim for the subscription card.
+  static const Color liquidTintCard = Color(0x4D030305);
+  // Dashboard MENU panel glass. Blur stays on the house cap (heavy = 8).
+  static const LiquidGlassSettings liquidMenu = LiquidGlassSettings(
+    glassColor: liquidTintMenu,
+    thickness: 24,
+    blur: blurSigmaHeavy,
+    refractiveIndex: 1.25,
+    lightIntensity: 0.6,
+    saturation: 1.4,
+  );
+  // Subscription card substrate glass. Blur stays on the house cap (4).
+  static const LiquidGlassSettings liquidCard = LiquidGlassSettings(
+    glassColor: liquidTintCard,
+    thickness: 18,
+    blur: blurSigma,
+    refractiveIndex: 1.2,
+    lightIntensity: 0.5,
+    saturation: 1.5,
+  );
+  // Standalone glass button (dashboard MENU pill) — neutral dim glass with
+  // a bright specular rim, so it reads as a raised 3D capsule without
+  // competing with the accent-coloured connect button.
+  static const LiquidGlassSettings liquidButton = LiquidGlassSettings(
+    glassColor: liquidTintCard,
+    thickness: 22,
+    blur: blurSigma,
+    refractiveIndex: 1.2,
+    lightIntensity: 2.0,
+    ambientStrength: 0.4,
+    fresnelStrength: 1.5,
+    saturation: 1.6,
+  );
+  // Connect lens — the menu's dark veil (so the glyph keeps its contrast
+  // over bright orbs) with the thumb's bright rim. The accent glow and the
+  // connection effects are painted on top by the lens painter.
+  static const LiquidGlassSettings liquidLens = LiquidGlassSettings(
+    glassColor: liquidTintMenu,
+    thickness: 28,
+    blur: blurSigma,
+    refractiveIndex: 1.2,
+    lightIntensity: 2.0,
+    ambientStrength: 0.4,
+    fresnelStrength: 1.5,
+    saturation: 1.6,
+  );
+  // premium = real refraction via ImageFilter.shader (Impeller only); Skia
+  // desktop (Windows) throws on it, so fall back to standard.
+  static GlassQuality get liquidOverlayQuality =>
+      ImageFilter.isShaderFilterSupported
+          ? GlassQuality.premium
+          : GlassQuality.standard;
 
   // Glass decoration helper
   static BoxDecoration glass({

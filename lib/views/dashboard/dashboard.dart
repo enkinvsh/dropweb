@@ -243,7 +243,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
             ),
           ),
         ),
-        // Bottom swipe-up handle that opens the shared card menu. The accent
+        // Bottom swipe-up handle that opens the Liquid Glass menu. The accent
         // MENU label is pinned near the TOP of the hit band; the band stretches
         // down to the bottom edge so a natural bottom-up swipe (started below
         // the label) is still captured. Band height scales with viewport height
@@ -256,28 +256,7 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
           height: isMobileView
               ? (viewportHeight * 0.06).clamp(56.0, 150.0).toDouble()
               : 64.0,
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () => showCardMenu(context, ref),
-            onVerticalDragEnd: (details) {
-              if ((details.primaryVelocity ?? 0) < -250) {
-                showCardMenu(context, ref);
-              }
-            },
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  appLocalizations.menu,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        letterSpacing: 2,
-                      ),
-                ),
-              ),
-            ),
-          ),
+          child: const DashboardGlassMenu(),
         ),
       ],
     );
