@@ -51,12 +51,16 @@ class CommonScaffold extends ConsumerStatefulWidget {
           automaticallyImplyLeading: false,
           actions: actions,
           disableBackground: disableBackground,
-          leading: IconButton(
-            icon: const BackButtonIcon(),
-            onPressed: () {
-              onBack();
-            },
-          ),
+          // Mobile goes back with the system gesture; the arrow is a
+          // desktop-only affordance.
+          leading: system.isDesktop
+              ? IconButton(
+                  icon: const BackButtonIcon(),
+                  onPressed: () {
+                    onBack();
+                  },
+                )
+              : null,
         );
   final AppBar? appBar;
   final Widget body;
@@ -299,13 +303,17 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
             hintText: appLocalizations.search,
           ),
         )
-      : Text(
-          !_isEdit
-              ? (widget.titleBuilder?.call(context) ?? widget.title!)
-              : appLocalizations.selectedCountTitle(
-                  "${_appBarState.value.editState?.editCount ?? 0}",
-                ),
-        );
+      : _isEdit
+          ? Text(
+              appLocalizations.selectedCountTitle(
+                "${_appBarState.value.editState?.editCount ?? 0}",
+              ),
+            )
+          // Page names only on desktop, next to the back arrow. On mobile
+          // the bar stays empty: that is where notifications appear.
+          : system.isDesktop
+              ? Text(widget.titleBuilder?.call(context) ?? widget.title!)
+              : const SizedBox.shrink();
 
   List<Widget> _buildActions(
     AppBarSearchState? searchState,
@@ -432,8 +440,10 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
                       surfaceTintColor:
                           transparentAppBar ? Colors.transparent : null,
                       centerTitle: widget.centerTitle ?? false,
+                      // Back arrow on desktop only; mobile uses the system
+                      // back gesture.
                       automaticallyImplyLeading:
-                          widget.automaticallyImplyLeading,
+                          widget.automaticallyImplyLeading && system.isDesktop,
                       leading: _buildLeading(),
                       title: _buildTitle(state.searchState),
                       actions: _buildActions(
@@ -554,8 +564,8 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
     // that the mesh renders INSIDE the scaffold's body area — on top of
     // the opaque void fill, below the actual content.
     // ── Compose body layers ──
-      // Bottom nav bar is placed INSIDE the body Stack (not Scaffold.bottomNavigationBar)
-      // so it stays in the same compositing boundary as the mesh-backed body.
+    // Bottom nav bar is placed INSIDE the body Stack (not Scaffold.bottomNavigationBar)
+    // so it stays in the same compositing boundary as the mesh-backed body.
     final Widget bodyWithMesh;
     final hasBottomNav = widget.bottomNavigationBar != null;
     if (isDark && !widget.disableBackground) {

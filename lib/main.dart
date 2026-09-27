@@ -10,11 +10,14 @@ import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/plugins/tile.dart';
 import 'package:dropweb/plugins/vpn.dart';
 import 'package:dropweb/services/ci_e2e_plan.dart';
+import 'package:dropweb/services/debug_remote.dart';
 import 'package:dropweb/services/deep_link_handler.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
+    show LiquidGlassWidgets;
 
 import 'application.dart';
 import 'clash/core.dart';
@@ -105,12 +108,18 @@ Future<void> main(List<String> arguments) async {
     vpn;
   }
   HttpOverrides.global = DropwebHttpOverrides();
+  // Liquid Glass (liquid_glass_widgets): pre-warm the glass shaders so the
+  // first MENU morph / card paint does not hitch on shader load.
+  await LiquidGlassWidgets.initialize();
   runApp(ProviderScope(
     child: Application(ciE2ePlanPath: ciE2ePlanPath),
   ));
 
   if (Platform.isAndroid) {
     unawaited(DeepLinkHandler.init());
+    // adb remote: inert unless developer mode is on and this is not the Play
+    // build (the gate lives in DebugRemote.handle, not here).
+    unawaited(DebugRemote.init());
   }
 }
 

@@ -2,6 +2,7 @@ import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/dialog.dart';
+import 'package:dropweb/widgets/zoom_route.dart';
 import 'package:flutter/material.dart';
 
 class BaseNavigator {
@@ -14,7 +15,7 @@ class BaseNavigator {
       );
     }
     return Navigator.of(context).push<T>(
-      CommonRoute(
+      LiquidZoomRoute<T>(
         builder: (context) => child,
       ),
     );
@@ -29,7 +30,7 @@ class BaseNavigator {
       );
     }
     return Navigator.of(context).push<T>(
-      CommonRoute(
+      LiquidZoomRoute<T>(
         builder: (context) => child,
       ),
     );
@@ -37,7 +38,6 @@ class BaseNavigator {
 }
 
 class CommonDesktopRoute<T> extends PageRoute<T> {
-
   CommonDesktopRoute({
     required this.builder,
   });
@@ -76,18 +76,6 @@ class CommonDesktopRoute<T> extends PageRoute<T> {
   Duration get reverseTransitionDuration => const Duration(milliseconds: 200);
 }
 
-class CommonRoute<T> extends MaterialPageRoute<T> {
-  CommonRoute({
-    required super.builder,
-  });
-
-  @override
-  Duration get transitionDuration => const Duration(milliseconds: 250);
-
-  @override
-  Duration get reverseTransitionDuration => const Duration(milliseconds: 250);
-}
-
 final Animatable<Offset> _kRightMiddleTween = Tween<Offset>(
   begin: const Offset(1.0, 0.0),
   end: Offset.zero,
@@ -107,13 +95,14 @@ class CommonPageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
-  ) => CommonPageTransition(
-      context: context,
-      primaryRouteAnimation: animation,
-      secondaryRouteAnimation: secondaryAnimation,
-      linearTransition: false,
-      child: child,
-    );
+  ) =>
+      CommonPageTransition(
+        context: context,
+        primaryRouteAnimation: animation,
+        secondaryRouteAnimation: secondaryAnimation,
+        linearTransition: false,
+        child: child,
+      );
 }
 
 class CommonPageTransition extends StatefulWidget {
@@ -235,4 +224,3 @@ class _CommonPageTransitionState extends State<CommonPageTransition> {
     );
   }
 }
-

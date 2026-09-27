@@ -168,7 +168,10 @@ class Build {
     return "gcc";
   }
 
-  static get tags => "with_gvisor";
+  // Mesh-network outbounds (tailscale/zerotier/easytier) need per-user auth
+  // keys and never appear in provider subscriptions; they were ~24 MB of the
+  // 76 MB arm64 libclash.so. The upstream no_* tags swap in parse-error stubs.
+  static get tags => "with_gvisor,no_tailscale,no_zerotier,no_easytier";
 
   static Future<void> exec(
     List<String> executable, {

@@ -82,21 +82,15 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
     // preloaded once on engine attach so the very first tap is not silent.
     private val soundIdMap = mutableMapOf<String, Int>()
 
-    // Cue → asset mapping. Reduced set after the SFX simplification pass:
-    // power cues reuse the subscription-refresh / import-error timbres
-    // (toggle_on.wav is a byte copy of refresh_subscriptions.wav,
-    // toggle_off.wav is a byte copy of import_error.wav), and importError
-    // shares the toggle_off.wav asset because the standalone
-    // import_error.wav file was removed. Every entry is preloaded into
-    // SoundPool on engine attach. Cue names must match DropwebSoundCue.name
-    // on the Dart side; the contract is locked by
-    // test/plugins/app_sounds_test.dart.
+    // Cue → asset mapping («cyber» pack: one short synth file per cue).
+    // Every entry is preloaded into SoundPool on engine attach. Cue names
+    // must match DropwebSoundCue.name on the Dart side.
     private val cueAssets: Map<String, String> = mapOf(
         "powerOn" to "assets/sounds/toggle_on.wav",
         "powerOff" to "assets/sounds/toggle_off.wav",
         "subscriptionRefresh" to "assets/sounds/refresh_subscriptions.wav",
         "importSuccess" to "assets/sounds/import_success.wav",
-        "importError" to "assets/sounds/toggle_off.wav",
+        "importError" to "assets/sounds/import_error.wav",
     )
 
     private val skipPrefixList = listOf(

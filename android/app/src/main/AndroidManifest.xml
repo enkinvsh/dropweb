@@ -193,6 +193,21 @@
                 android:resource="@xml/vpn_widget_info" />
         </receiver>
 
+        <!-- SECURITY: adb remote («пульт», docs/adb-remote.md). Guarded by
+             android.permission.DUMP, which only the shell (adb) and the system
+             hold — third-party apps cannot obtain it, so no other app can send
+             these broadcasts. The app deliberately does NOT request DUMP. The
+             Dart dispatcher additionally refuses every command in the Play
+             build and while developer mode is off. -->
+        <receiver
+            android:name=".DebugReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="${applicationId}.DEBUG" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name=".FilesProvider"
             android:authorities="${applicationId}.files"

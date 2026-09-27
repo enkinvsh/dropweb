@@ -1,10 +1,7 @@
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/error_mapper.dart';
-// ВНИМАНИЕ: `detectPrimaryRouter` определён ДВАЖДЫ. Нужен именно этот —
-// `work_mode_patch.dart:253`, `String? detectPrimaryRouter(Map<String, dynamic>)`,
-// тот же, что использует `applyWorkMode`. Одноимённая функция в
-// `smart_pool_patch.dart:267` берёт `(Object? proxyGroups, Object? rules)` и к
-// экрану «Страна» отношения не имеет — импортировать её сюда нельзя.
+// Даёт `detectPrimaryRouter(Map<String, dynamic>)` — тот же, что использует
+// `applyWorkMode`.
 import 'package:dropweb/common/work_mode_patch.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart' hide Action;
@@ -253,13 +250,8 @@ class _ModesContentState extends ConsumerState<ModesContent>
                     label: appLocalizations.genericErrorMessage,
                   );
                 case CountryScreenStatus.noRouter:
-                  // Строка литералом: l10n здесь генерит IDE-плагин Flutter
-                  // Intl (pubspec `flutter_intl`), а не build_runner —
-                  // перегенерация 89-килобайтного `lib/l10n/l10n.dart` чужим
-                  // тулом несоразмерна одной строке.
-                  return const NullStatus(
-                    label: 'Не удалось определить основную группу '
-                        'маршрутизации подписки.',
+                  return NullStatus(
+                    label: appLocalizations.primaryRouterUndetected,
                   );
                 case CountryScreenStatus.routerLoading:
                   return const Center(child: CircularProgressIndicator());
@@ -317,18 +309,21 @@ class _ModesContentState extends ConsumerState<ModesContent>
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
             // «Стандарт»: tap applies standard; chevron → «Серверы и группы».
-            _ModeCard(
-              icon: HugeIcons.strokeRoundedShield01,
-              title: appLocalizations.workModeStandard,
-              description: appLocalizations.workModeStandardDesc,
-              isSelected: profile.workMode == WorkMode.standard,
-              onTap: () => _apply(WorkMode.standard),
-              // Открывается ВСЕГДА, в любом режиме — не только в «Стандарт».
-              // Это единственное место в UI, где видно, КУДА ядро реально
-              // маршрутизирует: в режиме «Страна» здесь и виден пин на выбранной
-              // стране, иначе состояние режима наблюдать нечем. Открытие листа
-              // `workMode` НЕ меняет — режим переключает только тап по карточке.
-              onChevronTap: _openServersAndGroups,
+            Semantics(
+              identifier: 'dw_mode_standard',
+              child: _ModeCard(
+                icon: HugeIcons.strokeRoundedShield01,
+                title: appLocalizations.workModeStandard,
+                description: appLocalizations.workModeStandardDesc,
+                isSelected: profile.workMode == WorkMode.standard,
+                onTap: () => _apply(WorkMode.standard),
+                // Открывается ВСЕГДА, в любом режиме — не только в «Стандарт».
+                // Это единственное место в UI, где видно, КУДА ядро реально
+                // маршрутизирует: в режиме «Страна» здесь и виден пин на выбранной
+                // стране, иначе состояние режима наблюдать нечем. Открытие листа
+                // `workMode` НЕ меняет — режим переключает только тап по карточке.
+                onChevronTap: _openServersAndGroups,
+              ),
             ),
             const SizedBox(height: 16),
             // «Умный» (Smart) is temporarily removed from the modes list and
@@ -337,13 +332,16 @@ class _ModesContentState extends ConsumerState<ModesContent>
             // the card is hidden for now.
             // «Страна»: selection requires a country → both card tap and
             // chevron open the deep country picker.
-            _ModeCard(
-              icon: HugeIcons.strokeRoundedGlobe02,
-              title: appLocalizations.workModeCountry,
-              description: appLocalizations.workModeCountryDesc,
-              isSelected: profile.workMode == WorkMode.country,
-              onTap: () => _openCountryDeep(profile),
-              onChevronTap: () => _openCountryDeep(profile),
+            Semantics(
+              identifier: 'dw_mode_country',
+              child: _ModeCard(
+                icon: HugeIcons.strokeRoundedGlobe02,
+                title: appLocalizations.workModeCountry,
+                description: appLocalizations.workModeCountryDesc,
+                isSelected: profile.workMode == WorkMode.country,
+                onTap: () => _openCountryDeep(profile),
+                onChevronTap: () => _openCountryDeep(profile),
+              ),
             ),
             // «Трафик» — a second axis under the modes, independent of the
             // server choice above. Only shown when it changes something: a
@@ -432,6 +430,7 @@ class _TrafficScopeSegmentState extends State<_TrafficScopeSegment>
           appLocalizations.trafficScopeSelective,
           appLocalizations.trafficScopeAll,
         ],
+        tabIdentifiers: const ['dw_tunnel_list', 'dw_tunnel_full'],
       );
 }
 

@@ -454,6 +454,8 @@ class AppController {
   /// channels: foreground poll, app-resume, and the dialog's manual button.
   late final HwidRecoveryService _hwidRecovery = HwidRecoveryService(
     retryProfileUpdate: _retryHwidProfile,
+    isCurrentProfile: (profileId) =>
+        profileId == _ref.read(currentProfileIdProvider),
   );
 
   Future<void> _retryHwidProfile(String profileId) async {
@@ -2028,9 +2030,9 @@ class AppController {
               'work-mode revalidation: config sections missing, preserving country');
           return profile;
         }
-        // Candidate nodes = rule-group leaves only (disconeko SOS pool in raw
-        // `proxies` is structurally excluded). Validate country presence
-        // against this set, never the raw proxies.
+        // Candidate nodes = rule-group leaves only (top-level proxies no
+        // rule-referenced group contains are structurally excluded). Validate
+        // country presence against this set, never the raw proxies.
         final names = interceptLeafNodes(cfg);
         final country = profile.staticCountry;
         final hasNodes = country != null &&

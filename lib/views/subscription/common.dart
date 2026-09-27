@@ -23,7 +23,7 @@ final modeProfileDataProvider =
     // (the family key) does NOT — without this watch the provider would keep a
     // stale (possibly mid-update empty) result, which is what made the country
     // list transiently vanish after a refresh. `lastUpdateDate` changes on every
-    // successful update; `providerHeaders` covers a disconeko-header flip.
+    // successful update; `providerHeaders` covers a provider-header flip.
     ref.watch(profilesProvider.select((profiles) {
       final p = profiles.getProfile(profileId);
       return (p?.lastUpdateDate, p?.providerHeaders.length);

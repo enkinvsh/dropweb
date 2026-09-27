@@ -7,7 +7,10 @@ import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/dashboard/widgets/start_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart' show SpringDescription, SpringSimulation;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
+    show GlassContainer, GlassQuality, LiquidOval;
 
 const double _connectBaseSize = 128.0;
 const double _connectTallScreenGrowth = 28.0;
@@ -28,8 +31,9 @@ double connectSizeFor(BuildContext context) {
 /// Connect button — glass lens. Reports its screen position via
 /// [connectButtonCenter] for any overlay that needs the button anchor.
 ///
-/// Material model: dark void body, Fresnel rim, top specular arc, concave
-/// inset, inner edge glow, and an outer perimeter halo. Accent color is
+/// Material model: real Liquid Glass body (dark-tinted, orbs show through),
+/// Fresnel rim, top specular arc, concave inset, inner edge glow, an outer
+/// perimeter halo, and a spring "jelly" press with a touch glow. Accent color is
 /// pulled live from `Theme.of(context).colorScheme.primary`, so the lens
 /// follows whichever theme is active.
 class ConnectCircle extends ConsumerStatefulWidget {
@@ -67,6 +71,23 @@ class _ConnectCircleState extends ConsumerState<ConnectCircle>
     vsync: this,
     duration: const Duration(seconds: 8),
   );
+
+  /// Liquid press: 0 = resting, 1 = lifted under the finger. Unbounded so the
+  /// release spring can overshoot below rest and wobble like a droplet.
+  late final AnimationController _jelly = AnimationController.unbounded(
+    vsync: this,
+  );
+
+  /// Finger position in lens-local coordinates — the touch glow follows it.
+  final ValueNotifier<Offset?> _touch = ValueNotifier<Offset?>(null);
+
+  // Liquid Glass lift springs (Telegram-iOS recreation): press settles fast
+  // with little overshoot (response 0.31s, damping 0.71), release is looser
+  // (response 0.41s, damping 0.52) so the lens visibly wobbles back.
+  static const SpringDescription _liftOn =
+      SpringDescription(mass: 1, stiffness: 410, damping: 29);
+  static const SpringDescription _liftOff =
+      SpringDescription(mass: 1, stiffness: 235, damping: 16);
 
   // Handshake spins continuously; on connect it does ONE graceful settle spin
   // and then freezes — no perpetual 60fps repaint while connected.
@@ -157,11 +178,25 @@ class _ConnectCircleState extends ConsumerState<ConnectCircle>
     setState(() {
       _isPressed = value;
     });
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _jelly.value = 0;
+      return;
+    }
+    _jelly.animateWith(
+      SpringSimulation(
+        value ? _liftOn : _liftOff,
+        _jelly.value,
+        value ? 1.0 : 0.0,
+        _jelly.velocity,
+      ),
+    );
   }
 
   @override
   void dispose() {
     globalState.isConnecting.removeListener(_syncAura);
+    _jelly.dispose();
+    _touch.dispose();
     _auraController.dispose();
     _irisController.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -252,91 +287,150 @@ class _ConnectCircleState extends ConsumerState<ConnectCircle>
     final isRunning =
         ref.watch(runTimeProvider.select((state) => state != null));
     final startButton = StartButton(iconSize: iconSize);
+    final reduced = MediaQuery.disableAnimationsOf(context);
 
     return ValueListenableBuilder<bool>(
       valueListenable: globalState.isConnecting,
       builder: (context, isConnecting, _) => RepaintBoundary(
-      key: _key,
-      child: Listener(
-        onPointerDown: (_) => _setPressed(true),
-        onPointerUp: (_) => _setPressed(false),
-        onPointerCancel: (_) => _setPressed(false),
-        child: TweenAnimationBuilder<double>(
-          tween: Tween<double>(end: _isPressed ? 1.0 : 0.0),
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          builder: (_, pressT, __) => AnimatedBuilder(
-            animation: Listenable.merge([_irisController, _auraController]),
-            // Built once per outer build and handed through, so the aura's
-            // per-frame builder never rebuilds the glyph stack.
-            child: startButton,
-            builder: (_, glyph) {
-              final irisT = _irisController.value;
-              final auraT = _auraController.value;
-              // Connecting heartbeat for the perimeter glow.
-              final pulse = 0.5 + 0.5 * math.sin(auraT * 2 * math.pi * 2);
-              // Smoothly ramp dormant→alive via iris (0.2→0.59); the perimeter
-              // pulses while connecting, and press always intensifies.
-              final haloAlpha = (0.2 +
-                      0.39 * irisT +
-                      (isConnecting ? pulse * 0.16 : 0.0) +
-                      pressT * 0.18)
-                  .clamp(0.0, 1.0);
-              final haloBlur =
-                  16.0 + pressT * 10.0 + (isConnecting ? pulse * 6.0 : 0.0);
-              final perimeterGlow = BoxShadow(
-                color: accent.withValues(alpha: haloAlpha),
-                blurRadius: haloBlur,
-                spreadRadius: -1.0,
-              );
+        key: _key,
+        child: Listener(
+          onPointerDown: (event) {
+            _touch.value = event.localPosition;
+            _setPressed(true);
+          },
+          onPointerMove: (event) => _touch.value = event.localPosition,
+          onPointerUp: (_) => _setPressed(false),
+          onPointerCancel: (_) => _setPressed(false),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(end: _isPressed ? 1.0 : 0.0),
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            builder: (_, pressT, __) => AnimatedBuilder(
+              animation: Listenable.merge(
+                [_irisController, _auraController, _jelly, _touch],
+              ),
+              // Built once per outer build and handed through, so the aura's
+              // per-frame builder never rebuilds the glyph stack.
+              child: startButton,
+              builder: (_, glyph) {
+                final irisT = _irisController.value;
+                final auraT = _auraController.value;
+                // Connecting heartbeat for the perimeter glow.
+                final pulse = 0.5 + 0.5 * math.sin(auraT * 2 * math.pi * 2);
+                // Smoothly ramp dormant→alive via iris (0.2→0.59); the perimeter
+                // pulses while connecting, and press always intensifies.
+                final haloAlpha = (0.2 +
+                        0.39 * irisT +
+                        (isConnecting ? pulse * 0.16 : 0.0) +
+                        pressT * 0.18)
+                    .clamp(0.0, 1.0);
+                final haloBlur =
+                    16.0 + pressT * 10.0 + (isConnecting ? pulse * 6.0 : 0.0);
+                final perimeterGlow = BoxShadow(
+                  color: accent.withValues(alpha: haloAlpha),
+                  blurRadius: haloBlur,
+                  spreadRadius: -1.0,
+                );
 
-              return SizedBox.square(
-                dimension: buttonSize,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      perimeterGlow,
-                      const BoxShadow(
-                        color: Lumina.scrimHeavy,
-                        blurRadius: 4,
-                        offset: Offset(0, 1),
-                      ),
-                      const BoxShadow(
-                        color: Lumina.scrimSoft,
-                        blurRadius: 26,
-                        spreadRadius: -6,
-                        offset: Offset(0, 14),
-                      ),
-                    ],
-                  ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CustomPaint(
-                        painter: _ConnectGlassPainter(
-                          pressT: pressT,
-                          isRunning: isRunning,
-                          accent: accent,
-                          irisT: irisT,
-                          auraT: auraT,
-                          isConnecting: isConnecting,
-                          orbPrimary: orbPrimary,
-                          orbSecondary: orbSecondary,
+                // Liquid press: the lens swells under the finger, and the
+                // spring's velocity squashes one axis while stretching the
+                // other (volume-preserving), so release reads as a settling
+                // droplet rather than a rigid scale.
+                final lift = reduced ? 0.0 : _jelly.value;
+                final wobble = reduced
+                    ? 0.0
+                    : (_jelly.velocity * 0.003).clamp(-0.04, 0.04);
+                final grow = 1.0 + 0.06 * lift;
+
+                return SizedBox.square(
+                  dimension: buttonSize,
+                  child: Transform.scale(
+                    scaleX: grow * (1 + wobble),
+                    scaleY: grow / (1 + wobble),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Halo + drop shadow, clipped to OUTSIDE the lens: the
+                        // glass body samples its backdrop, so shadow painted
+                        // under it would tint the lens (the old opaque body hid
+                        // it).
+                        ClipPath(
+                          clipper: const _OutsideCircleClipper(),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                perimeterGlow,
+                                const BoxShadow(
+                                  color: Lumina.scrimHeavy,
+                                  blurRadius: 4,
+                                  offset: Offset(0, 1),
+                                ),
+                                const BoxShadow(
+                                  color: Lumina.scrimSoft,
+                                  blurRadius: 26,
+                                  spreadRadius: -6,
+                                  offset: Offset(0, 14),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                      glyph!,
-                    ],
+                        // Real glass body — the orbs behind show through,
+                        // dimmed and lit at the rim. standard quality: the lens
+                        // slides with the dashboard PageView, and premium
+                        // mis-samples in moving contexts.
+                        const GlassContainer(
+                          useOwnLayer: true,
+                          quality: GlassQuality.standard,
+                          shape: LiquidOval(),
+                          settings: Lumina.liquidLens,
+                          child: SizedBox.expand(),
+                        ),
+                        CustomPaint(
+                          painter: _ConnectGlassPainter(
+                            pressT: pressT,
+                            isRunning: isRunning,
+                            accent: accent,
+                            irisT: irisT,
+                            auraT: auraT,
+                            isConnecting: isConnecting,
+                            orbPrimary: orbPrimary,
+                            orbSecondary: orbSecondary,
+                            touch: _touch.value,
+                          ),
+                        ),
+                        glyph!,
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),
-    ),
     );
   }
+}
+
+/// Clips to everything OUTSIDE the widget's inscribed circle (with generous
+/// room for blurred shadows), so a circular halo never paints under the lens.
+class _OutsideCircleClipper extends CustomClipper<Path> {
+  const _OutsideCircleClipper();
+
+  @override
+  Path getClip(Size size) {
+    final box = Offset.zero & size;
+    return Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(box.inflate(size.shortestSide))
+      ..addOval(box);
+  }
+
+  @override
+  bool shouldReclip(covariant _OutsideCircleClipper oldClipper) => false;
 }
 
 /// Paints the connect lens. Seven layers, in order:
@@ -370,9 +464,13 @@ class _ConnectGlassPainter extends CustomPainter {
     required this.isConnecting,
     required this.orbPrimary,
     required this.orbSecondary,
+    this.touch,
   });
 
   final double pressT;
+
+  /// Finger position (lens-local) for the press glow; null before first touch.
+  final Offset? touch;
   final bool isRunning;
   final Color accent;
 
@@ -407,14 +505,15 @@ class _ConnectGlassPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final rect = Rect.fromCircle(center: center, radius: r);
 
-    // 1. Body. Lifted off the void surface (#030305) so the lens reads
-    //    as glass-on-void instead of a black hole.
+    // 1. Body depth. The body itself is real glass (GlassContainer under
+    //    this painter); only the edge darkens, so the lens reads thick at the
+    //    rim and clear through the middle.
     final bodyPaint = Paint()
-      ..shader = const RadialGradient(
-        center: Alignment(0, 0.25),
+      ..shader = RadialGradient(
+        center: const Alignment(0, 0.25),
         radius: 0.8,
-        colors: [Lumina.lensBody, Lumina.lensDeep],
-        stops: [0.55, 1.0],
+        colors: [Lumina.lensBody.opacity0, Lumina.lensDeep.opacity50],
+        stops: const [0.55, 1.0],
       ).createShader(rect);
     canvas.drawCircle(center, r, bodyPaint);
 
@@ -538,8 +637,7 @@ class _ConnectGlassPainter extends CustomPainter {
       // Triangular overshoot: 0 → +(peak-settled) at t=0.5 → 0 at t=1.
       final overshoot =
           (_irisPeakAlpha - _irisSettledAlpha) * 4 * irisT * (1 - irisT);
-      final irisAlpha =
-          (_irisSettledAlpha * irisT + overshoot).clamp(0.0, 1.0);
+      final irisAlpha = (_irisSettledAlpha * irisT + overshoot).clamp(0.0, 1.0);
       if (irisAlpha > 0.001) {
         final irisPaint = Paint()
           ..shader = RadialGradient(
@@ -556,6 +654,30 @@ class _ConnectGlassPainter extends CustomPainter {
           ..drawCircle(center, r, irisPaint)
           ..restore();
       }
+    }
+
+    // 5c. Touch glow — light gathers under the finger while pressed and
+    //     follows it (Liquid Glass interactive illumination).
+    final touchPoint = touch;
+    if (touchPoint != null && pressT > 0.01) {
+      final glowRect = Rect.fromCircle(center: touchPoint, radius: r * 0.9);
+      canvas
+        ..save()
+        ..clipPath(Path()..addOval(rect))
+        ..drawCircle(
+          touchPoint,
+          r * 0.9,
+          Paint()
+            ..shader = RadialGradient(
+              colors: [
+                Lumina.lensHighlight.withValues(alpha: 0.16 * pressT),
+                accent.withValues(alpha: 0.10 * pressT),
+                accent.withValues(alpha: 0.0),
+              ],
+              stops: const [0.0, 0.45, 1.0],
+            ).createShader(glowRect),
+        )
+        ..restore();
     }
 
     // 6. Fresnel rim. Bright top → mid sides → dark bottom → back to top.
@@ -630,6 +752,7 @@ class _ConnectGlassPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ConnectGlassPainter old) =>
       old.pressT != pressT ||
+      old.touch != touch ||
       old.isRunning != isRunning ||
       old.accent != accent ||
       old.irisT != irisT ||

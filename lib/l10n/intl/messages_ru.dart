@@ -27,21 +27,25 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m2(label) => "Вы уверены, что хотите удалить текущий ${label}?";
 
-  static String m3(label) => "${label} не может быть пустым";
+  static String m3(path) => "Диагностика: ${path}";
 
-  static String m4(label) => "Текущий ${label} уже существует";
+  static String m4(label) => "${label} не может быть пустым";
 
-  static String m5(label) => "Сейчас ${label} нет";
+  static String m5(label) => "Текущий ${label} уже существует";
 
-  static String m6(label) => "${label} должно быть числом";
+  static String m6(label) => "Сейчас ${label} нет";
 
-  static String m7(label) => "${label} должен быть числом от 1024 до 49151";
+  static String m7(label) => "${label} должно быть числом";
 
-  static String m8(count) => "Выбрано ${count} элементов";
+  static String m8(label) => "${label} должен быть числом от 1024 до 49151";
 
-  static String m9(days) => "Ваша подписка истекает через ${days} дн.";
+  static String m9(count) => "Выбрано ${count} элементов";
 
-  static String m10(label) => "${label} должен быть URL";
+  static String m10(days) => "Ваша подписка истекает через ${days} дн.";
+
+  static String m11(label) => "${label} должен быть URL";
+
+  static String m12(date) => "до ${date}";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
@@ -161,6 +165,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "bypassDomainDesc": MessageLookupByLibrary.simpleMessage(
       "Действует только при включенном системном прокси",
     ),
+    "cabinet": MessageLookupByLibrary.simpleMessage("Кабинет"),
     "cacheCorrupt": MessageLookupByLibrary.simpleMessage(
       "Кэш повреждён. Очистить его?",
     ),
@@ -270,6 +275,25 @@ class MessageLookup extends MessageLookupByLibrary {
     "detectionTip": MessageLookupByLibrary.simpleMessage(
       "Использует сторонний API. Только для справки",
     ),
+    "devAdbRemote": MessageLookupByLibrary.simpleMessage("adb-пульт"),
+    "devAdbRemoteReplies": MessageLookupByLibrary.simpleMessage(
+      "Ответы: adb logcat -s dropweb-dbg",
+    ),
+    "devCopyAll": MessageLookupByLibrary.simpleMessage("Копировать всё"),
+    "devDiagnostics": MessageLookupByLibrary.simpleMessage("Диагностика"),
+    "devDiagnosticsWritten": m3,
+    "devEffectiveConfig": MessageLookupByLibrary.simpleMessage(
+      "Итоговый конфиг",
+    ),
+    "devEffectiveConfigEmpty": MessageLookupByLibrary.simpleMessage(
+      "Ядро ещё не запускалось — конфига пока нет",
+    ),
+    "devSubscriptionHeaders": MessageLookupByLibrary.simpleMessage(
+      "Заголовки подписки",
+    ),
+    "devTakeDiagnostics": MessageLookupByLibrary.simpleMessage(
+      "Снять диагностику",
+    ),
     "developerMode": MessageLookupByLibrary.simpleMessage("Режим разработчика"),
     "developerModeEnableTip": MessageLookupByLibrary.simpleMessage(
       "Режим разработчика активирован.",
@@ -298,7 +322,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "domain": MessageLookupByLibrary.simpleMessage("Домен"),
     "download": MessageLookupByLibrary.simpleMessage("Загрузка"),
     "edit": MessageLookupByLibrary.simpleMessage("Редактировать"),
-    "emptyTip": m3,
+    "emptyTip": m4,
     "en": MessageLookupByLibrary.simpleMessage("Английский"),
     "enableOverride": MessageLookupByLibrary.simpleMessage(
       "Включить переопределение",
@@ -309,7 +333,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "excludeDesc": MessageLookupByLibrary.simpleMessage(
       "Скрывать приложение из списка последних задач в фоновом режиме",
     ),
-    "existsTip": m4,
+    "existsTip": m5,
     "exit": MessageLookupByLibrary.simpleMessage("Выход"),
     "expand": MessageLookupByLibrary.simpleMessage("Стандартный"),
     "expirationTime": MessageLookupByLibrary.simpleMessage("Время истечения"),
@@ -357,6 +381,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "fontFamily": MessageLookupByLibrary.simpleMessage("Семейство шрифтов"),
     "fourColumns": MessageLookupByLibrary.simpleMessage("Четыре столбца"),
     "fruitSaladScheme": MessageLookupByLibrary.simpleMessage("Фруктовый микс"),
+    "fullTunnelTitle": MessageLookupByLibrary.simpleMessage(
+      "Весь трафик через VPN",
+    ),
     "general": MessageLookupByLibrary.simpleMessage("Общие"),
     "generalDesc": MessageLookupByLibrary.simpleMessage(
       "Изменение общих настроек",
@@ -450,6 +477,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "light": MessageLookupByLibrary.simpleMessage("Светлый"),
     "list": MessageLookupByLibrary.simpleMessage("Список"),
     "listen": MessageLookupByLibrary.simpleMessage("Слушать"),
+    "loadingEllipsis": MessageLookupByLibrary.simpleMessage("Загрузка…"),
     "local": MessageLookupByLibrary.simpleMessage("Локальный"),
     "logLevel": MessageLookupByLibrary.simpleMessage("Уровень логов"),
     "logcat": MessageLookupByLibrary.simpleMessage("Журналирование"),
@@ -459,7 +487,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "logs": MessageLookupByLibrary.simpleMessage("Логи"),
     "logsCopied": MessageLookupByLibrary.simpleMessage("Логи скопированы"),
     "logsDesc": MessageLookupByLibrary.simpleMessage("Записи журнала событий"),
-    "logsTest": MessageLookupByLibrary.simpleMessage("Тест журналов"),
     "loopback": MessageLookupByLibrary.simpleMessage("Разблокировка Loopback"),
     "loopbackDesc": MessageLookupByLibrary.simpleMessage(
       "Разблокировать Loopback для UWP-приложений",
@@ -473,10 +500,6 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("Информация о памяти"),
     "menu": MessageLookupByLibrary.simpleMessage("MENU"),
-    "messageTest": MessageLookupByLibrary.simpleMessage(
-      "Тестирование сообщения",
-    ),
-    "messageTestTip": MessageLookupByLibrary.simpleMessage("Это сообщение."),
     "min": MessageLookupByLibrary.simpleMessage("Мин"),
     "minimizeOnExit": MessageLookupByLibrary.simpleMessage(
       "Сворачивать при выходе",
@@ -533,8 +556,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "nullScriptTip": MessageLookupByLibrary.simpleMessage(
       "Скрипты отсутствуют",
     ),
-    "nullTip": m5,
-    "numberTip": m6,
+    "nullTip": m6,
+    "numberTip": m7,
     "ok": MessageLookupByLibrary.simpleMessage("OK"),
     "onboardingAddHint": MessageLookupByLibrary.simpleMessage(
       "Нажмите, чтобы добавить подписку",
@@ -626,7 +649,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "portConflictTip": MessageLookupByLibrary.simpleMessage(
       "Введите другой порт",
     ),
-    "portTip": m7,
+    "portTip": m8,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage(
       "Использовать HTTP/3 для DOH (если доступно)",
     ),
@@ -639,6 +662,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "presetStealth": MessageLookupByLibrary.simpleMessage("Стелс"),
     "pressKeyboard": MessageLookupByLibrary.simpleMessage("Нажмите клавишу"),
     "preview": MessageLookupByLibrary.simpleMessage("Предпросмотр"),
+    "primaryRouterUndetected": MessageLookupByLibrary.simpleMessage(
+      "Не удалось определить основную группу маршрутизации подписки.",
+    ),
     "privacyPolicy": MessageLookupByLibrary.simpleMessage(
       "Политика конфиденциальности",
     ),
@@ -735,6 +761,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "routeMode_config": MessageLookupByLibrary.simpleMessage(
       "Использовать конфигурацию",
     ),
+    "routeUndetected": MessageLookupByLibrary.simpleMessage(
+      "Не удалось определить маршрут",
+    ),
     "ru": MessageLookupByLibrary.simpleMessage("Русский"),
     "rule": MessageLookupByLibrary.simpleMessage("По правилам"),
     "ruleName": MessageLookupByLibrary.simpleMessage("Название правила"),
@@ -758,7 +787,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("Выбрать все"),
     "selectProfile": MessageLookupByLibrary.simpleMessage("Выбрать профиль"),
     "selected": MessageLookupByLibrary.simpleMessage("Выбрано"),
-    "selectedCountTitle": m8,
+    "selectedCountTitle": m9,
     "sendToTv": MessageLookupByLibrary.simpleMessage("Отправить на ТВ"),
     "sendToTvTitle": MessageLookupByLibrary.simpleMessage("Отправить на ТВ"),
     "sentSuccessfullyMessage": MessageLookupByLibrary.simpleMessage(
@@ -818,7 +847,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscriptionExpired": MessageLookupByLibrary.simpleMessage(
       "Ваша подписка истекла",
     ),
-    "subscriptionExpiresInDays": m9,
+    "subscriptionExpiresInDays": m10,
     "subscriptionExpiresSoon": MessageLookupByLibrary.simpleMessage(
       "Подписка скоро истекает",
     ),
@@ -931,11 +960,12 @@ class MessageLookup extends MessageLookupByLibrary {
     "upload": MessageLookupByLibrary.simpleMessage("Отправка"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
     "urlDesc": MessageLookupByLibrary.simpleMessage("Загрузить профиль по URL"),
-    "urlTip": m10,
+    "urlTip": m11,
     "useHosts": MessageLookupByLibrary.simpleMessage("Использовать hosts"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage(
       "Использовать системные hosts",
     ),
+    "validUntil": m12,
     "value": MessageLookupByLibrary.simpleMessage("Значение"),
     "vibrantScheme": MessageLookupByLibrary.simpleMessage("Яркие"),
     "view": MessageLookupByLibrary.simpleMessage("Просмотр"),

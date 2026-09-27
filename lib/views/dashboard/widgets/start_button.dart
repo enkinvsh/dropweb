@@ -234,84 +234,87 @@ class _StartButtonState extends ConsumerState<StartButton>
     const motionDuration = Duration(milliseconds: 180);
     const motionCurve = Curves.easeOutCubic;
 
-    return AnimatedBuilder(
-      animation: _pressController,
-      builder: (_, child) => Transform.scale(
-        scale: _scaleAnimation.value,
-        child: child,
-      ),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        // Ignore press feedback + taps while connecting (or while core init is
-        // pending) so a second tap can't race the in-flight start transition.
-        onTapDown: isPending ? null : (_) => _handleTapDown(),
-        onTapUp: isPending ? null : (_) => _pressController.reverse(),
-        onTapCancel: isPending ? null : () => _pressController.reverse(),
-        onTap: isPending
-            ? null
-            : (hasProfile ? handleSwitchStart : _handleAddProfile),
-        child: SizedBox.expand(
-          child: Center(
-            child: RepaintBoundary(
-              child: AnimatedScale(
-                scale: isInactive ? 0.94 : 1.0,
-                duration: motionDuration,
-                curve: motionCurve,
-                child: TweenAnimationBuilder<Color?>(
-                  tween: ColorTween(end: iconColor),
+    // `dw_connect`: stable uiautomator resource-id for adb-driven QA.
+    return Semantics(
+      identifier: 'dw_connect',
+      child: AnimatedBuilder(
+        animation: _pressController,
+        builder: (_, child) => Transform.scale(
+          scale: _scaleAnimation.value,
+          child: child,
+        ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          // Ignore press feedback + taps while connecting (or while core init is
+          // pending) so a second tap can't race the in-flight start transition.
+          onTapDown: isPending ? null : (_) => _handleTapDown(),
+          onTapUp: isPending ? null : (_) => _pressController.reverse(),
+          onTapCancel: isPending ? null : () => _pressController.reverse(),
+          onTap: isPending
+              ? null
+              : (hasProfile ? handleSwitchStart : _handleAddProfile),
+          child: SizedBox.expand(
+            child: Center(
+              child: RepaintBoundary(
+                child: AnimatedScale(
+                  scale: isInactive ? 0.94 : 1.0,
                   duration: motionDuration,
                   curve: motionCurve,
-                  builder: (_, color, __) => AnimatedBuilder(
-                    animation: _pressController,
-                    builder: (_, __) {
-                      final iconData = !hasProfile
-                          ? HugeIcons.strokeRoundedAddCircleHalfDot
-                          : HugeIcons.strokeRoundedPower;
-                      final strokeWidth =
-                          _pressController.value > 0 ? 3.0 : 1.7;
-                      final accent =
-                          Theme.of(context).colorScheme.primary;
-                      final connected = isStart;
-                      final rimAmount =
-                          connected ? _glyphRimConnected : _glyphRimIdle;
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Outline/glow: the same glyph, dark + blurred,
-                          // painted UNDER the main icon. Mirrors the tuner's
-                          // drawGlyphPaths(..., rgba(#000,0.72), blur 5.5) pass
-                          // since HugeIcon (SVG) doesn't accept shadows.
-                          ImageFiltered(
-                            imageFilter: ui.ImageFilter.blur(
-                              sigmaX: _iconShadowBlur,
-                              sigmaY: _iconShadowBlur,
+                  child: TweenAnimationBuilder<Color?>(
+                    tween: ColorTween(end: iconColor),
+                    duration: motionDuration,
+                    curve: motionCurve,
+                    builder: (_, color, __) => AnimatedBuilder(
+                      animation: _pressController,
+                      builder: (_, __) {
+                        final iconData = !hasProfile
+                            ? HugeIcons.strokeRoundedAddCircleHalfDot
+                            : HugeIcons.strokeRoundedPower;
+                        final strokeWidth =
+                            _pressController.value > 0 ? 3.0 : 1.7;
+                        final accent = Theme.of(context).colorScheme.primary;
+                        final connected = isStart;
+                        final rimAmount =
+                            connected ? _glyphRimConnected : _glyphRimIdle;
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Outline/glow: the same glyph, dark + blurred,
+                            // painted UNDER the main icon. Mirrors the tuner's
+                            // drawGlyphPaths(..., rgba(#000,0.72), blur 5.5) pass
+                            // since HugeIcon (SVG) doesn't accept shadows.
+                            ImageFiltered(
+                              imageFilter: ui.ImageFilter.blur(
+                                sigmaX: _iconShadowBlur,
+                                sigmaY: _iconShadowBlur,
+                              ),
+                              child: HugeIcon(
+                                icon: iconData,
+                                size: widget.iconSize,
+                                strokeWidth: strokeWidth,
+                                color: Lumina.lensShadow
+                                    .withValues(alpha: _iconShadowAlpha),
+                              ),
                             ),
-                            child: HugeIcon(
+                            // body
+                            HugeIcon(
                               icon: iconData,
                               size: widget.iconSize,
                               strokeWidth: strokeWidth,
-                              color: Lumina.lensShadow
-                                  .withValues(alpha: _iconShadowAlpha),
+                              color: color ?? iconColor,
                             ),
-                          ),
-                          // body
-                          HugeIcon(
-                            icon: iconData,
-                            size: widget.iconSize,
-                            strokeWidth: strokeWidth,
-                            color: color ?? iconColor,
-                          ),
-                          // rim внутри: conic Fresnel painted over the glyph.
-                          if (rimAmount > 0)
-                            _rimGlyph(
-                              iconData,
-                              strokeWidth,
-                              accent,
-                              rimAmount,
-                            ),
-                        ],
-                      );
-                    },
+                            // rim внутри: conic Fresnel painted over the glyph.
+                            if (rimAmount > 0)
+                              _rimGlyph(
+                                iconData,
+                                strokeWidth,
+                                accent,
+                                rimAmount,
+                              ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
