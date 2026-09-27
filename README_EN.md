@@ -43,8 +43,8 @@ The dropweb team follows open-source principles, privacy by default, and predict
 <table>
   <tr>
     <td><img src="docs/screenshots/connected.png" alt="dropweb dashboard with an active connection" width="240" /></td>
-    <td><img src="docs/screenshots/modes.png" alt="Work modes and country selection" width="240" /></td>
-    <td><img src="docs/screenshots/menu.png" alt="Account menu on the dashboard" width="240" /></td>
+    <td><img src="docs/screenshots/subscription.png" alt="Subscription page: current server, full-tunnel switch, servers and groups" width="240" /></td>
+    <td><img src="docs/screenshots/menu.png" alt="Glass menu on the dashboard" width="240" /></td>
   </tr>
 </table>
 
@@ -56,9 +56,9 @@ The dropweb team follows open-source principles, privacy by default, and predict
 
 Most clients keep an open local proxy port that any app on the same device can reach — a potential channel for leaking your IP. On mobile, dropweb closes it by default: a random port on every launch, mandatory proxy authentication, and routing through the TUN interface only, with no separate listeners. The local proxy is not reachable by other apps on the device.
 
-### <img src="docs/icons/ai.svg" width="20" alt="" /> Intelligent route selection
+### <img src="docs/icons/features.svg" width="20" alt="" /> One-tap country
 
-The **Smart** mode relies on the core's ML model (LightGBM): it predicts the best node from real connection metrics instead of constant probe pings. This reduces background polling; node selection requires no manual tuning.
+The **Subscription** page fits on one screen: the subscription card, the current server with its ping, and an **All traffic through VPN** switch. Pick a country and the route goes through it; pick **Auto** and the app keeps the fastest server on its own, without hopping between servers over small speed differences. No separate modes, tabs or YAML editing needed.
 
 ### <img src="docs/icons/fingerprint.svg" width="20" alt="" /> Modern TLS profiles
 
@@ -81,8 +81,7 @@ The indicator becomes active only when the tunnel is established: the core confi
 | On-device privacy (local proxy isolation) | <img src="docs/icons/yes.svg" width="15" alt="yes" /> by default | <img src="docs/icons/partial.svg" width="15" alt="partial" /> rare / optional | <img src="docs/icons/partial.svg" width="15" alt="partial" /> rare |
 | TLS connection resilience (ClientHello fragmentation) | <img src="docs/icons/yes.svg" width="15" alt="yes" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> | <img src="docs/icons/partial.svg" width="15" alt="partial" /> in the core, usually manual JSON only |
 | Modern TLS profiles (Firefox 148 / Safari 26, post-quantum) | <img src="docs/icons/yes.svg" width="15" alt="yes" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> uTLS presets only | <img src="docs/icons/partial.svg" width="15" alt="partial" /> often incompatible |
-| Intelligent route selection (ML, LightGBM) | <img src="docs/icons/yes.svg" width="15" alt="yes" /> Smart mode | <img src="docs/icons/partial.svg" width="15" alt="partial" /> YAML only | <img src="docs/icons/no.svg" width="15" alt="no" /> |
-| One-tap modes (Standard / Smart / Country) | <img src="docs/icons/yes.svg" width="15" alt="yes" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> |
+| One-tap country selection (the mode follows) | <img src="docs/icons/yes.svg" width="15" alt="yes" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> |
 | Accurate connection state (UI waits for the real tunnel) | <img src="docs/icons/yes.svg" width="15" alt="yes" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> |
 | Android + Windows + macOS + Linux from one codebase | <img src="docs/icons/yes.svg" width="15" alt="yes" /> | partial | rare |
 
@@ -94,8 +93,9 @@ The indicator becomes active only when the tunnel is established: the core confi
 
 **Connectivity**
 - Subscription import via URL and QR code, background auto-update
-- One-tap work modes: **Standard**, **Smart** (ML), **Country** (route all traffic through a chosen country)
-- Cascade routes and a fallback pool of nodes
+- One-tap country selection: **Auto** keeps the fastest server, a chosen country carries the whole route
+- An **All traffic through VPN** switch when the subscription supports it
+- Cascade routes; under mobile internet restrictions, the whitelist from the subscription
 - Core protocols: VLESS (Reality / Vision / XHTTP), VMess, Trojan, Hysteria2, TUIC, ShadowTLS, AnyTLS, WireGuard
 - sing-box config import
 
@@ -104,10 +104,13 @@ The indicator becomes active only when the tunnel is established: the core confi
 - Modern TLS profiles with post-quantum key exchange
 - Optional TLS fragmentation for connection resilience
 - Rule-based routing, geosite/geoip, per-app split tunneling
-- mihomo (Clash.Meta) core with up-to-date security fixes (DoS/OOB) from mihomo v1.19.27
+- mihomo (Clash.Meta) core v1.19.31 with up-to-date security fixes
 
 **Interface**
-- Dark **Lumina** theme; rendering performance is maintained on mid-range hardware
+- Dark **Lumina** theme with liquid glass: a glass connect button, MENU and swipe-to-dismiss notifications; pages open with a liquid zoom
+- Rendering performance is maintained on mid-range hardware
+- One-screen Subscription page: switching, updating, support and deleting subscriptions live in one menu
+- Russian, English, Japanese and Chinese
 - Native system tray on Windows/Linux and status bar on macOS
 - Independent update delivery
 
@@ -121,7 +124,7 @@ dropweb uses less battery and memory than comparable clients built on the same c
 - Proxy-group polling stops when the app is backgrounded, eliminating the 20-second wakeup cycle
 - UI rendering is paused in the background
 - The network is refreshed only when the screen turns on — fewer radio and CPU wakeups
-- Smart mode doesn't fire constant probe pings across servers
+- Heavy smart groups from a subscription are switched to plain fastest-server selection — no constant probing and no private database
 - The battery-optimization exemption is requested contextually — only after the first successful connection
 
 **Memory & stability**
@@ -129,6 +132,7 @@ dropweb uses less battery and memory than comparable clients built on the same c
 - Core panic protection: a failure in one goroutine doesn't take down the VPN process
 - Config caching — instant switching with no core re-initialization
 - Atomic profile writes and lazy geodata loading
+- A third smaller core: Tailscale, ZeroTier and EasyTier are removed — mesh protocols that VPN provider subscriptions never use
 
 **Built for modern Android**
 - 16 KB memory page alignment — compatible with new devices and Google Play requirements
