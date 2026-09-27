@@ -156,11 +156,10 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
     // from the dashboard. Let the mesh bleed through instead.
     final appBar = AppBar(
       forceMaterialTransparency: bottomSheet || page,
-      automaticallyImplyLeading: bottomSheet
-          ? false
-          : widget.actions.isEmpty && sideSheet
-              ? false
-              : true,
+      // Back arrow on desktop only; mobile uses the system back gesture.
+      automaticallyImplyLeading: system.isDesktop &&
+          !bottomSheet &&
+          !(widget.actions.isEmpty && sideSheet),
       centerTitle: bottomSheet,
       backgroundColor: page ? Colors.transparent : backgroundColor,
       elevation: page ? 0 : null,

@@ -165,6 +165,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
       child: CommonScaffold(
         disableBackground: true,
         appBar: AppBar(
+          automaticallyImplyLeading: system.isDesktop,
           title: TextField(
             enabled: widget.titleEditable,
             controller: _titleController,
