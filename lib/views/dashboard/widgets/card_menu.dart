@@ -5,6 +5,9 @@ import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/cabinet/cabinet_browser_entry.dart';
+import 'package:dropweb/views/subscription/profiles_content.dart'
+    show refreshProfiles;
+import 'package:dropweb/views/subscription/subscription_page.dart';
 import 'package:dropweb/views/tools.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -30,8 +33,8 @@ final DevUnlockCounter _devUnlockCounter = DevUnlockCounter();
 /// Dashboard MENU: the label condenses into a Liquid Glass panel (iOS-26
 /// GlassMenu morph) that grows upward from it, and collapses back into the
 /// label on outside tap / item select. Tap anywhere on the strip or swipe up
-/// to open. Rows are conditional on the active profile: Личный кабинет,
-/// Поддержка, Обновить подписку, Настройки.
+/// to open. Rows are conditional on the active profile: Подписка, Личный
+/// кабинет, Поддержка, Обновить подписку, Настройки.
 class DashboardGlassMenu extends ConsumerStatefulWidget {
   const DashboardGlassMenu({super.key});
 
@@ -166,6 +169,14 @@ class _DashboardGlassMenuState extends ConsumerState<DashboardGlassMenu> {
         );
 
     return [
+      if (currentProfile != null)
+        item(
+          icon: HugeIcons.strokeRoundedCreditCard,
+          title: appLocalizations.subscription,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const SubscriptionPage()),
+          ),
+        ),
       if (cabinetUri != null)
         item(
           icon: HugeIcons.strokeRoundedUserCircle,
@@ -181,29 +192,27 @@ class _DashboardGlassMenuState extends ConsumerState<DashboardGlassMenu> {
           onTap: () => globalState.openUrl(supportUrl),
         ),
       if (currentProfile != null)
-        item(
-          icon: HugeIcons.strokeRoundedRefresh,
+        GlassMenuItem(
           title: appLocalizations.updateSubscription,
-          onTap: () {
-            final appController = globalState.appController;
-            final profile = currentProfile;
-            // No `profile.type` guard (see profiles.dart updateProfile):
-            // post-migration `type` reports `file` for URL subs, which
-            // would silently no-op. update() throws if there's truly no URL.
-            globalState.safeRun(silence: false, () async {
-              try {
-                // By-id transform: never writes back the stale `profile`
-                // snapshot nor resurrects a profile deleted meanwhile.
-                appController.updateProfileById(
-                    profile.id, (p) => p.copyWith(isUpdating: true));
-                await appController.updateProfile(profile);
-              } catch (e) {
-                appController.updateProfileById(
-                    profile.id, (p) => p.copyWith(isUpdating: false));
-                rethrow;
-              }
-            });
-          },
+          icon: HugeIcon(
+            icon: HugeIcons.strokeRoundedRefresh,
+            size: 20,
+            color: colorScheme.onSurface,
+          ),
+          iconColor: colorScheme.onSurface,
+          titleStyle: theme.textTheme.bodyLarge?.copyWith(
+            color: colorScheme.onSurface,
+          ),
+          // An update already running (from any entry point) shows here too.
+          enabled: !currentProfile.isUpdating,
+          trailing: currentProfile.isUpdating
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : null,
+          // Same path as the dashboard pull-to-refresh and «⋯ → Обновить».
+          onTap: () => refreshProfiles(context, currentProfile),
         ),
       item(
         icon: HugeIcons.strokeRoundedSettings02,

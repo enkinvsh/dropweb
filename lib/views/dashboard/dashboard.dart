@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:defer_pointer/defer_pointer.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
-import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
-import 'package:dropweb/state.dart';
 import 'package:dropweb/views/dashboard/widgets/card_menu.dart';
+import 'package:dropweb/views/subscription/profiles_content.dart'
+    show refreshProfiles;
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -180,15 +180,13 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
           .map((item) => item.widget)
           .toList();
     });
+    // Same path as MENU «Обновить подписку» and «⋯ → Обновить» on the
+    // subscription page: sound cue, isUpdating (spinner on the card) and a
+    // mapped error dialog on failure.
     Future<void> handleRefresh() async {
       final profile = currentProfile;
       if (profile == null) return;
-      unawaited(App().playUiSound(DropwebSoundCue.subscriptionRefresh));
-      try {
-        await globalState.appController.updateProfile(profile);
-      } catch (e, st) {
-        debugPrint('Dashboard pull-to-refresh failed: $e\n$st');
-      }
+      await refreshProfiles(context, profile);
     }
 
     return Stack(

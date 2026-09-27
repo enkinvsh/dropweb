@@ -267,6 +267,15 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    // Update in progress, whichever entry point started it
+                    // (pull-to-refresh, MENU, «⋯» on the subscription page).
+                    if (currentProfile.isUpdating) ...[
+                      const SizedBox(width: 12),
+                      const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 12),

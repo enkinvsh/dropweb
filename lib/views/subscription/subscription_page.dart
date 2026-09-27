@@ -9,6 +9,8 @@ import 'package:dropweb/state.dart';
 import 'package:dropweb/views/dashboard/widgets/corner_badge.dart';
 import 'package:dropweb/views/profiles/add_profile.dart';
 import 'package:dropweb/views/proxies/common.dart';
+import 'package:dropweb/views/subscription/profiles_content.dart'
+    show refreshProfiles;
 import 'package:dropweb/views/subscription/proxy_selector_sheet.dart';
 import 'package:dropweb/views/subscription/rules_proxies_view.dart';
 import 'package:dropweb/widgets/mesh_background.dart';
@@ -118,33 +120,6 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
     );
   }
 
-  Future<void> _updateProfile(Profile profile) async {
-    final appController = globalState.appController;
-    // Do NOT guard on `profile.type`: after the URL-encryption migration the
-    // `type` getter reports `file` for every URL subscription (url is '' in
-    // memory, resolved lazily by Profile.update()), so an `if file return`
-    // guard silently no-ops the three-dots Update — the same bug already
-    // fixed for pull-to-refresh. If the profile truly has no URL, update()
-    // throws and safeRun surfaces it.
-    await globalState.safeRun(silence: false, () async {
-      try {
-        // By-id transform: never writes back a stale `profile` snapshot nor
-        // resurrects a profile deleted meanwhile.
-        appController.updateProfileById(
-          profile.id,
-          (p) => p.copyWith(isUpdating: true),
-        );
-        await appController.updateProfile(profile);
-      } catch (e) {
-        appController.updateProfileById(
-          profile.id,
-          (p) => p.copyWith(isUpdating: false),
-        );
-        rethrow;
-      }
-    });
-  }
-
   Future<void> _deleteProfile(Profile profile) async {
     final res = await globalState.showMessage(
       title: appLocalizations.tip,
@@ -229,14 +204,19 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
           if (profile == null)
             NullStatus(label: appLocalizations.nullProfileDesc)
           else
-            ListView(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                padding.top + kToolbarHeight + 8,
-                16,
-                32 + padding.bottom,
+            RefreshIndicator(
+              edgeOffset: padding.top + kToolbarHeight,
+              onRefresh: () => refreshProfiles(context, profile),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  padding.top + kToolbarHeight + 8,
+                  16,
+                  32 + padding.bottom,
+                ),
+                children: _buildSections(profile, profiles),
               ),
-              children: _buildSections(profile, profiles),
             ),
         ],
       ),
@@ -281,7 +261,9 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
         onSelectProfile: (id) =>
             ref.read(currentProfileIdProvider.notifier).value = id,
         onAdd: _showAddProfile,
-        onUpdate: () => _updateProfile(profile),
+        // Same path as the dashboard pull-to-refresh and MENU «Обновить
+        // подписку»: sound cue, isUpdating spinner, mapped error dialog.
+        onUpdate: () => refreshProfiles(context, profile),
         onDelete: () => _deleteProfile(profile),
       ),
       const SizedBox(height: 12),
@@ -458,10 +440,16 @@ class _Hero extends StatelessWidget {
                         ),
                       ),
                     ),
-                    _ActionsMenu(
-                      profile: profile,
-                      onUpdate: onUpdate,
-                      onDelete: onDelete,
+                    // While the subscription updates (from any entry point)
+                    // «⋯» turns into a spinner, like the old profile card.
+                    FadeThroughBox(
+                      child: profile.isUpdating
+                          ? const _UpdatingIndicator()
+                          : _ActionsMenu(
+                              profile: profile,
+                              onUpdate: onUpdate,
+                              onDelete: onDelete,
+                            ),
                     ),
                   ],
                 ),
@@ -585,6 +573,36 @@ class _ProfileSwitcher extends StatelessWidget {
       glowColor: colorScheme.primary,
     );
   }
+}
+
+/// Stand-in for «⋯» while the subscription updates: the same 32px circle
+/// with a spinner, so the hero doesn't jump.
+class _UpdatingIndicator extends StatelessWidget {
+  const _UpdatingIndicator();
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+        dimension: 40,
+        child: Center(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Lumina.surface5.opacity60,
+              border: Border.all(
+                color: context.colorScheme.outlineVariant.opacity50,
+                width: 0.5,
+              ),
+            ),
+            child: const SizedBox.square(
+              dimension: 32,
+              child: Padding(
+                padding: EdgeInsets.all(8),
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 /// «⋯» actions of the shown subscription: update, provider support, delete.
