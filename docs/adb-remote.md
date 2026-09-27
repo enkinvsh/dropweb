@@ -126,4 +126,4 @@ adb pull /sdcard/Android/data/app.dropweb/files/diag/ ./diag
 
 ## uiautomator
 
-Ключевые контролы имеют стабильные `Semantics(identifier:)` → `resource-id` в `adb shell uiautomator dump`: `dw_connect`, `dw_nav_<pageLabel>`, `dw_mode_standard`, `dw_mode_country`, `dw_tunnel_list`, `dw_tunnel_full`, `dw_settings_title`, `dw_dev_diag`, `dw_dev_config`, `dw_dev_headers`, `dw_dev_adb`, `dw_dev_crash`, `dw_dev_clear`.
+Ключевые контролы имеют стабильные `Semantics(identifier:)` → `resource-id` в `adb shell uiautomator dump`: `dw_connect`, `dw_nav_<pageLabel>`, `dw_exit` (строка выхода на странице «Подписка», открывает выбор страны), `dw_tunnel` (строка «Весь трафик через VPN»), `dw_settings_title`, `dw_dev_diag`, `dw_dev_config`, `dw_dev_headers`, `dw_dev_adb`, `dw_dev_crash`, `dw_dev_clear`.

@@ -5,13 +5,15 @@ import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/dashboard/widgets/corner_badge.dart';
-import 'package:dropweb/views/subscription.dart';
+import 'package:dropweb/views/subscription/subscription_page.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
+    show GlassCard, GlassQuality, LiquidRoundedSuperellipse;
 
 class MetainfoWidget extends ConsumerStatefulWidget {
   const MetainfoWidget({super.key});
@@ -233,9 +235,8 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
         (subscriptionInfo.total - usedTrafficTotal) <
             subscriptionInfo.total * 0.1;
 
-    return CommonCard(
-      radius: Lumina.radiusLg,
-      onPressed: () {
+    return _GlassSubscriptionCard(
+      onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => const SubscriptionPage(),
@@ -435,6 +436,62 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Row(children: children),
+    );
+  }
+}
+
+/// Subscription card substrate: Liquid Glass. Uses [GlassQuality.standard]
+/// because the card lives in the dashboard scroll view, where the premium
+/// refraction pass is unsupported. Glass is the substrate only — the card's
+/// text and buttons render crisp on top. Press response: a short scale-down
+/// on the house curve (skipped when the platform asks to reduce motion).
+class _GlassSubscriptionCard extends StatefulWidget {
+  const _GlassSubscriptionCard({required this.onTap, required this.child});
+
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  State<_GlassSubscriptionCard> createState() => _GlassSubscriptionCardState();
+}
+
+class _GlassSubscriptionCardState extends State<_GlassSubscriptionCard> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    final shape = RoundedSuperellipseBorder(
+      borderRadius: BorderRadius.circular(Lumina.radiusLg),
+    );
+    return AnimatedScale(
+      scale: _pressed && !reduceMotion ? 0.98 : 1.0,
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
+      curve: Lumina.luminaCurve,
+      child: GlassCard(
+        useOwnLayer: true,
+        quality: GlassQuality.standard,
+        padding: EdgeInsets.zero,
+        shape: const LiquidRoundedSuperellipse(borderRadius: Lumina.radiusLg),
+        settings: Lumina.liquidCard,
+        child: Material(
+          type: MaterialType.transparency,
+          shape: shape,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            customBorder: shape,
+            onTap: widget.onTap,
+            onHighlightChanged: _setPressed,
+            child: widget.child,
+          ),
+        ),
+      ),
     );
   }
 }
