@@ -250,13 +250,8 @@ class _ModesContentState extends ConsumerState<ModesContent>
                     label: appLocalizations.genericErrorMessage,
                   );
                 case CountryScreenStatus.noRouter:
-                  // Строка литералом: l10n здесь генерит IDE-плагин Flutter
-                  // Intl (pubspec `flutter_intl`), а не build_runner —
-                  // перегенерация 89-килобайтного `lib/l10n/l10n.dart` чужим
-                  // тулом несоразмерна одной строке.
-                  return const NullStatus(
-                    label: 'Не удалось определить основную группу '
-                        'маршрутизации подписки.',
+                  return NullStatus(
+                    label: appLocalizations.primaryRouterUndetected,
                   );
                 case CountryScreenStatus.routerLoading:
                   return const Center(child: CircularProgressIndicator());

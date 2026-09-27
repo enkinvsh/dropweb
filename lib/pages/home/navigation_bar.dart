@@ -13,7 +13,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
 String navigationLabel(PageLabel label) => switch (label) {
-      PageLabel.cabinet => 'Кабинет',
+      PageLabel.cabinet => appLocalizations.cabinet,
       _ => Intl.message(label.name),
     };
 

@@ -45,6 +45,8 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m11(label) => "${label} должен быть URL";
 
+  static String m12(date) => "до ${date}";
+
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
     "about": MessageLookupByLibrary.simpleMessage("О программе"),
@@ -163,6 +165,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "bypassDomainDesc": MessageLookupByLibrary.simpleMessage(
       "Действует только при включенном системном прокси",
     ),
+    "cabinet": MessageLookupByLibrary.simpleMessage("Кабинет"),
     "cacheCorrupt": MessageLookupByLibrary.simpleMessage(
       "Кэш повреждён. Очистить его?",
     ),
@@ -378,6 +381,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "fontFamily": MessageLookupByLibrary.simpleMessage("Семейство шрифтов"),
     "fourColumns": MessageLookupByLibrary.simpleMessage("Четыре столбца"),
     "fruitSaladScheme": MessageLookupByLibrary.simpleMessage("Фруктовый микс"),
+    "fullTunnelTitle": MessageLookupByLibrary.simpleMessage(
+      "Весь трафик через VPN",
+    ),
     "general": MessageLookupByLibrary.simpleMessage("Общие"),
     "generalDesc": MessageLookupByLibrary.simpleMessage(
       "Изменение общих настроек",
@@ -471,6 +477,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "light": MessageLookupByLibrary.simpleMessage("Светлый"),
     "list": MessageLookupByLibrary.simpleMessage("Список"),
     "listen": MessageLookupByLibrary.simpleMessage("Слушать"),
+    "loadingEllipsis": MessageLookupByLibrary.simpleMessage("Загрузка…"),
     "local": MessageLookupByLibrary.simpleMessage("Локальный"),
     "logLevel": MessageLookupByLibrary.simpleMessage("Уровень логов"),
     "logcat": MessageLookupByLibrary.simpleMessage("Журналирование"),
@@ -655,6 +662,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "presetStealth": MessageLookupByLibrary.simpleMessage("Стелс"),
     "pressKeyboard": MessageLookupByLibrary.simpleMessage("Нажмите клавишу"),
     "preview": MessageLookupByLibrary.simpleMessage("Предпросмотр"),
+    "primaryRouterUndetected": MessageLookupByLibrary.simpleMessage(
+      "Не удалось определить основную группу маршрутизации подписки.",
+    ),
     "privacyPolicy": MessageLookupByLibrary.simpleMessage(
       "Политика конфиденциальности",
     ),
@@ -750,6 +760,9 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "routeMode_config": MessageLookupByLibrary.simpleMessage(
       "Использовать конфигурацию",
+    ),
+    "routeUndetected": MessageLookupByLibrary.simpleMessage(
+      "Не удалось определить маршрут",
     ),
     "ru": MessageLookupByLibrary.simpleMessage("Русский"),
     "rule": MessageLookupByLibrary.simpleMessage("По правилам"),
@@ -952,6 +965,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "useSystemHosts": MessageLookupByLibrary.simpleMessage(
       "Использовать системные hosts",
     ),
+    "validUntil": m12,
     "value": MessageLookupByLibrary.simpleMessage("Значение"),
     "vibrantScheme": MessageLookupByLibrary.simpleMessage("Яркие"),
     "view": MessageLookupByLibrary.simpleMessage("Просмотр"),

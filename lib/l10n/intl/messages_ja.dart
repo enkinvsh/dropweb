@@ -44,6 +44,8 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m11(label) => "${label}はURLである必要があります";
 
+  static String m12(date) => "${date}まで";
+
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
     "about": MessageLookupByLibrary.simpleMessage("について"),
@@ -122,6 +124,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "blacklistMode": MessageLookupByLibrary.simpleMessage("ブラックリストモード"),
     "bypassDomain": MessageLookupByLibrary.simpleMessage("バイパスドメイン"),
     "bypassDomainDesc": MessageLookupByLibrary.simpleMessage("システムプロキシ有効時のみ適用"),
+    "cabinet": MessageLookupByLibrary.simpleMessage("マイページ"),
     "cacheCorrupt": MessageLookupByLibrary.simpleMessage(
       "キャッシュが破損しています。クリアしますか？",
     ),
@@ -289,6 +292,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "fontFamily": MessageLookupByLibrary.simpleMessage("フォントファミリー"),
     "fourColumns": MessageLookupByLibrary.simpleMessage("4列"),
     "fruitSaladScheme": MessageLookupByLibrary.simpleMessage("フルーツサラダ"),
+    "fullTunnelTitle": MessageLookupByLibrary.simpleMessage("すべての通信をVPN経由"),
     "general": MessageLookupByLibrary.simpleMessage("一般"),
     "generalDesc": MessageLookupByLibrary.simpleMessage("一般設定を変更"),
     "genericErrorMessage": MessageLookupByLibrary.simpleMessage(
@@ -360,6 +364,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "light": MessageLookupByLibrary.simpleMessage("ライト"),
     "list": MessageLookupByLibrary.simpleMessage("リスト"),
     "listen": MessageLookupByLibrary.simpleMessage("リスン"),
+    "loadingEllipsis": MessageLookupByLibrary.simpleMessage("読み込み中…"),
     "local": MessageLookupByLibrary.simpleMessage("ローカル"),
     "logLevel": MessageLookupByLibrary.simpleMessage("ログレベル"),
     "logcat": MessageLookupByLibrary.simpleMessage("ログキャット"),
@@ -508,6 +513,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "presetStealth": MessageLookupByLibrary.simpleMessage("ステルス"),
     "pressKeyboard": MessageLookupByLibrary.simpleMessage("キーボードを押してください"),
     "preview": MessageLookupByLibrary.simpleMessage("プレビュー"),
+    "primaryRouterUndetected": MessageLookupByLibrary.simpleMessage(
+      "サブスクリプションのメインルーティンググループを検出できません。",
+    ),
     "privacyPolicy": MessageLookupByLibrary.simpleMessage("プライバシーポリシー"),
     "profile": MessageLookupByLibrary.simpleMessage("プロファイル"),
     "profileAutoUpdateIntervalInvalidValidationDesc":
@@ -582,6 +590,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "プライベートルートをバイパス",
     ),
     "routeMode_config": MessageLookupByLibrary.simpleMessage("設定を使用"),
+    "routeUndetected": MessageLookupByLibrary.simpleMessage("ルートを検出できません"),
     "ru": MessageLookupByLibrary.simpleMessage("ロシア語"),
     "rule": MessageLookupByLibrary.simpleMessage("ルールに従って"),
     "ruleName": MessageLookupByLibrary.simpleMessage("ルール名"),
@@ -731,7 +740,17 @@ class MessageLookup extends MessageLookupByLibrary {
     "unnamed": MessageLookupByLibrary.simpleMessage("無題"),
     "update": MessageLookupByLibrary.simpleMessage("更新"),
     "updateAllGeoData": MessageLookupByLibrary.simpleMessage("すべての地理データを更新"),
+    "updateCancel": MessageLookupByLibrary.simpleMessage("キャンセル"),
+    "updateDownloading": MessageLookupByLibrary.simpleMessage("ダウンロード中…"),
+    "updateFailed": MessageLookupByLibrary.simpleMessage("更新に失敗しました"),
+    "updateInstall": MessageLookupByLibrary.simpleMessage("インストール"),
+    "updateLater": MessageLookupByLibrary.simpleMessage("後で"),
+    "updateMandatoryNote": MessageLookupByLibrary.simpleMessage(
+      "このアップデートを推奨します",
+    ),
+    "updateRetry": MessageLookupByLibrary.simpleMessage("再試行"),
     "updateSubscription": MessageLookupByLibrary.simpleMessage("更新"),
+    "updateVerifying": MessageLookupByLibrary.simpleMessage("検証中…"),
     "updated": MessageLookupByLibrary.simpleMessage("更新しました"),
     "upload": MessageLookupByLibrary.simpleMessage("アップロード"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
@@ -739,6 +758,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "urlTip": m11,
     "useHosts": MessageLookupByLibrary.simpleMessage("ホストを使用"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("システムホストを使用"),
+    "validUntil": m12,
     "value": MessageLookupByLibrary.simpleMessage("値"),
     "vibrantScheme": MessageLookupByLibrary.simpleMessage("ビブラント"),
     "view": MessageLookupByLibrary.simpleMessage("表示"),

@@ -44,6 +44,8 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m11(label) => "${label}必须为URL";
 
+  static String m12(date) => "至 ${date}";
+
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
     "about": MessageLookupByLibrary.simpleMessage("关于"),
@@ -112,6 +114,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "blacklistMode": MessageLookupByLibrary.simpleMessage("黑名单模式"),
     "bypassDomain": MessageLookupByLibrary.simpleMessage("排除域名"),
     "bypassDomainDesc": MessageLookupByLibrary.simpleMessage("仅在系统代理启用时生效"),
+    "cabinet": MessageLookupByLibrary.simpleMessage("个人中心"),
     "cacheCorrupt": MessageLookupByLibrary.simpleMessage("缓存已损坏，是否清空？"),
     "cameraPermissionDenied": MessageLookupByLibrary.simpleMessage("相机权限被拒绝"),
     "cancel": MessageLookupByLibrary.simpleMessage("取消"),
@@ -255,6 +258,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "fontFamily": MessageLookupByLibrary.simpleMessage("字体"),
     "fourColumns": MessageLookupByLibrary.simpleMessage("四列"),
     "fruitSaladScheme": MessageLookupByLibrary.simpleMessage("果缤纷"),
+    "fullTunnelTitle": MessageLookupByLibrary.simpleMessage("所有流量通过 VPN"),
     "general": MessageLookupByLibrary.simpleMessage("常规"),
     "generalDesc": MessageLookupByLibrary.simpleMessage("修改通用设置"),
     "genericErrorMessage": MessageLookupByLibrary.simpleMessage("出了点问题，请重试。"),
@@ -314,6 +318,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "light": MessageLookupByLibrary.simpleMessage("浅色"),
     "list": MessageLookupByLibrary.simpleMessage("列表"),
     "listen": MessageLookupByLibrary.simpleMessage("监听"),
+    "loadingEllipsis": MessageLookupByLibrary.simpleMessage("加载中…"),
     "local": MessageLookupByLibrary.simpleMessage("本地"),
     "logLevel": MessageLookupByLibrary.simpleMessage("日志等级"),
     "logcat": MessageLookupByLibrary.simpleMessage("日志捕获"),
@@ -434,6 +439,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "presetStealth": MessageLookupByLibrary.simpleMessage("隐影"),
     "pressKeyboard": MessageLookupByLibrary.simpleMessage("请按下按键"),
     "preview": MessageLookupByLibrary.simpleMessage("预览"),
+    "primaryRouterUndetected": MessageLookupByLibrary.simpleMessage(
+      "无法识别订阅的主路由组。",
+    ),
     "privacyPolicy": MessageLookupByLibrary.simpleMessage("隐私政策"),
     "profile": MessageLookupByLibrary.simpleMessage("配置"),
     "profileAutoUpdateIntervalInvalidValidationDesc":
@@ -500,6 +508,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "routeMode": MessageLookupByLibrary.simpleMessage("路由模式"),
     "routeMode_bypassPrivate": MessageLookupByLibrary.simpleMessage("绕过私有路由地址"),
     "routeMode_config": MessageLookupByLibrary.simpleMessage("使用配置"),
+    "routeUndetected": MessageLookupByLibrary.simpleMessage("无法识别路由"),
     "ru": MessageLookupByLibrary.simpleMessage("俄语"),
     "rule": MessageLookupByLibrary.simpleMessage("按规则"),
     "ruleName": MessageLookupByLibrary.simpleMessage("规则名称"),
@@ -635,7 +644,15 @@ class MessageLookup extends MessageLookupByLibrary {
     "unnamed": MessageLookupByLibrary.simpleMessage("未命名"),
     "update": MessageLookupByLibrary.simpleMessage("更新"),
     "updateAllGeoData": MessageLookupByLibrary.simpleMessage("更新所有地理数据"),
+    "updateCancel": MessageLookupByLibrary.simpleMessage("取消"),
+    "updateDownloading": MessageLookupByLibrary.simpleMessage("正在下载…"),
+    "updateFailed": MessageLookupByLibrary.simpleMessage("更新失败"),
+    "updateInstall": MessageLookupByLibrary.simpleMessage("安装"),
+    "updateLater": MessageLookupByLibrary.simpleMessage("稍后"),
+    "updateMandatoryNote": MessageLookupByLibrary.simpleMessage("建议更新到此版本"),
+    "updateRetry": MessageLookupByLibrary.simpleMessage("重试"),
     "updateSubscription": MessageLookupByLibrary.simpleMessage("更新"),
+    "updateVerifying": MessageLookupByLibrary.simpleMessage("正在校验…"),
     "updated": MessageLookupByLibrary.simpleMessage("已更新"),
     "upload": MessageLookupByLibrary.simpleMessage("上传"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
@@ -643,6 +660,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "urlTip": m11,
     "useHosts": MessageLookupByLibrary.simpleMessage("使用Hosts"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("使用系统Hosts"),
+    "validUntil": m12,
     "value": MessageLookupByLibrary.simpleMessage("值"),
     "vibrantScheme": MessageLookupByLibrary.simpleMessage("活力"),
     "view": MessageLookupByLibrary.simpleMessage("查看"),

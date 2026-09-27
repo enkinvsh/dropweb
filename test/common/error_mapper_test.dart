@@ -264,4 +264,37 @@ void main() {
       expect(ErrorMapper.generic, 'Что-то пошло не так. Попробуйте ещё раз.');
     });
   });
+
+  group('ErrorMapper — ja/zh locales', () {
+    const raw = 'dial tcp 1.2.3.4:443: connection refused';
+
+    test('maps patterns and getters to Japanese for ja locale', () {
+      Intl.defaultLocale = 'ja_JP';
+      expect(
+        ErrorMapper.mapError(raw),
+        'サーバーが接続を拒否しました。別のサーバーを試してください。',
+      );
+      expect(ErrorMapper.generic, '問題が発生しました。もう一度お試しください。');
+      expect(
+        ErrorMapper.mapError('status code of 418'),
+        'サーバーがエラー418を返しました。後でもう一度お試しください。',
+      );
+    });
+
+    test('maps patterns and getters to Simplified Chinese for zh locale', () {
+      Intl.defaultLocale = 'zh_CN';
+      expect(ErrorMapper.mapError(raw), '服务器拒绝了连接。请尝试其他服务器。');
+      expect(ErrorMapper.vpnPermissionDenied, '没有 VPN 权限。请在下次提示时允许连接。');
+    });
+
+    test('falls back to English for other locales', () {
+      Intl.defaultLocale = 'de';
+      expect(
+        ErrorMapper.mapError(raw),
+        'Server refused the connection. Try a different server.',
+      );
+      expect(ErrorMapper.vpnStartFailed,
+          'Failed to start VPN. Another VPN app may be active.');
+    });
+  });
 }

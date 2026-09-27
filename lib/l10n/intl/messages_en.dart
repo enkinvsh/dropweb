@@ -46,6 +46,8 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m11(label) => "${label} must be a url";
 
+  static String m12(date) => "until ${date}";
+
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
     "about": MessageLookupByLibrary.simpleMessage("About"),
@@ -162,6 +164,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "bypassDomainDesc": MessageLookupByLibrary.simpleMessage(
       "Only takes effect when the system proxy is enabled",
     ),
+    "cabinet": MessageLookupByLibrary.simpleMessage("Cabinet"),
     "cacheCorrupt": MessageLookupByLibrary.simpleMessage(
       "The cache is corrupt. Do you want to clear it?",
     ),
@@ -361,6 +364,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "fontFamily": MessageLookupByLibrary.simpleMessage("FontFamily"),
     "fourColumns": MessageLookupByLibrary.simpleMessage("Four columns"),
     "fruitSaladScheme": MessageLookupByLibrary.simpleMessage("FruitSalad"),
+    "fullTunnelTitle": MessageLookupByLibrary.simpleMessage(
+      "All traffic through VPN",
+    ),
     "general": MessageLookupByLibrary.simpleMessage("General"),
     "generalDesc": MessageLookupByLibrary.simpleMessage(
       "Modify general settings",
@@ -456,6 +462,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "light": MessageLookupByLibrary.simpleMessage("Light"),
     "list": MessageLookupByLibrary.simpleMessage("List"),
     "listen": MessageLookupByLibrary.simpleMessage("Listen"),
+    "loadingEllipsis": MessageLookupByLibrary.simpleMessage("Loading…"),
     "local": MessageLookupByLibrary.simpleMessage("Local"),
     "logLevel": MessageLookupByLibrary.simpleMessage("LogLevel"),
     "logcat": MessageLookupByLibrary.simpleMessage("Logcat"),
@@ -632,6 +639,9 @@ class MessageLookup extends MessageLookupByLibrary {
       "Please press the keyboard.",
     ),
     "preview": MessageLookupByLibrary.simpleMessage("Preview"),
+    "primaryRouterUndetected": MessageLookupByLibrary.simpleMessage(
+      "Couldn\'t detect the subscription\'s main routing group.",
+    ),
     "privacyPolicy": MessageLookupByLibrary.simpleMessage("Privacy Policy"),
     "profile": MessageLookupByLibrary.simpleMessage("Profile"),
     "profileAutoUpdateIntervalInvalidValidationDesc":
@@ -720,6 +730,9 @@ class MessageLookup extends MessageLookupByLibrary {
       "Bypass private route address",
     ),
     "routeMode_config": MessageLookupByLibrary.simpleMessage("Use config"),
+    "routeUndetected": MessageLookupByLibrary.simpleMessage(
+      "Couldn\'t detect the route",
+    ),
     "ru": MessageLookupByLibrary.simpleMessage("Russian"),
     "rule": MessageLookupByLibrary.simpleMessage("By rule"),
     "ruleName": MessageLookupByLibrary.simpleMessage("Rule name"),
@@ -923,6 +936,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "urlTip": m11,
     "useHosts": MessageLookupByLibrary.simpleMessage("Use hosts"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("Use system hosts"),
+    "validUntil": m12,
     "value": MessageLookupByLibrary.simpleMessage("Value"),
     "vibrantScheme": MessageLookupByLibrary.simpleMessage("Vibrant"),
     "view": MessageLookupByLibrary.simpleMessage("View"),

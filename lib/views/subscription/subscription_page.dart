@@ -254,7 +254,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
           identifier: 'dw_tunnel',
           child: _LiquidTile(
             icon: HugeIcons.strokeRoundedSecurityCheck,
-            title: Text('Весь трафик через VPN', style: bodyLarge),
+            title: Text(appLocalizations.fullTunnelTitle, style: bodyLarge),
             trailing: Switch(
               value: profile.fullTunnel,
               onChanged: _setFullTunnel,
@@ -329,7 +329,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
     if (data != null && routerName == null) {
       return _LiquidTile(
         icon: HugeIcons.strokeRoundedGlobe02,
-        title: title('Не удалось определить маршрут'),
+        title: title(appLocalizations.routeUndetected),
       );
     }
     final group = routerName == null
@@ -338,7 +338,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
     if (group == null) {
       return _LiquidTile(
         icon: HugeIcons.strokeRoundedGlobe02,
-        title: title('Загрузка…'),
+        title: title(appLocalizations.loadingEllipsis),
         trailing: SizedBox.square(
           dimension: 16,
           child: CircularProgressIndicator(
@@ -414,7 +414,7 @@ class _Hero extends StatelessWidget {
     if (info == null) return null;
     final String traffic;
     if (info.total == 0) {
-      traffic = 'Безлимит';
+      traffic = appLocalizations.trafficUnlimited;
     } else {
       final used = TrafficValue(value: info.upload + info.download);
       final total = TrafficValue(value: info.total);
@@ -422,9 +422,11 @@ class _Hero extends StatelessWidget {
           '${total.showValue} ${total.showUnit}';
     }
     final expiry = info.expire > 0
-        ? 'до ${DateFormat('dd.MM.yyyy').format(
-            DateTime.fromMillisecondsSinceEpoch(info.expire * 1000),
-          )}'
+        ? appLocalizations.validUntil(
+            DateFormat('dd.MM.yyyy').format(
+              DateTime.fromMillisecondsSinceEpoch(info.expire * 1000),
+            ),
+          )
         : appLocalizations.subscriptionUnlimited;
     return '$traffic · $expiry';
   }
@@ -575,7 +577,7 @@ class _ProfileSwitcher extends StatelessWidget {
           ),
         _menuItem(
           context,
-          title: 'Добавить подписку',
+          title: appLocalizations.addSubscription,
           icon: HugeIcons.strokeRoundedAdd01,
           onTap: onAdd,
         ),

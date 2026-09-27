@@ -3465,6 +3465,61 @@ class AppLocalizations {
     );
   }
 
+  /// `All traffic through VPN`
+  String get fullTunnelTitle {
+    return Intl.message(
+      'All traffic through VPN',
+      name: 'fullTunnelTitle',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Couldn't detect the route`
+  String get routeUndetected {
+    return Intl.message(
+      'Couldn\'t detect the route',
+      name: 'routeUndetected',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Couldn't detect the subscription's main routing group.`
+  String get primaryRouterUndetected {
+    return Intl.message(
+      'Couldn\'t detect the subscription\'s main routing group.',
+      name: 'primaryRouterUndetected',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Loading…`
+  String get loadingEllipsis {
+    return Intl.message(
+      'Loading…',
+      name: 'loadingEllipsis',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `until {date}`
+  String validUntil(Object date) {
+    return Intl.message(
+      'until $date',
+      name: 'validUntil',
+      desc: '',
+      args: [date],
+    );
+  }
+
+  /// `Cabinet`
+  String get cabinet {
+    return Intl.message('Cabinet', name: 'cabinet', desc: '', args: []);
+  }
+
   /// `Lifetime Subscription`
   String get subscriptionEternal {
     return Intl.message(
