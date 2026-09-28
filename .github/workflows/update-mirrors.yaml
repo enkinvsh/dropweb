@@ -1,0 +1,61 @@
+# Roll out a new update-manifest mirror list to installed apps WITHOUT an app
+# release: rewrites ONLY the `mirrors` field of the live update.json from
+# .github/update-mirrors.json (single source of truth) and republishes the
+# manifest to YC and to the latest stable GitHub release. Installed apps learn
+# the list on their next successful update check (AppSettingProps.updateMirrors).
+
+name: update manifest mirrors
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mirrors:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build manifest with new mirrors
+        run: |
+          set -euo pipefail
+          curl --fail -sSL \
+            https://storage.yandexcloud.net/dropweb-downloads/update.json \
+            -o live.json
+          if ! jq -e 'type == "array" and length > 0 and all(.[]; type == "string" and startswith("https://"))' \
+            .github/update-mirrors.json >/dev/null; then
+            echo "::error::.github/update-mirrors.json must be a non-empty array of https URLs"
+            exit 1
+          fi
+          jq --argjson m "$(jq -c . .github/update-mirrors.json)" \
+            '.mirrors = $m' live.json > update.json
+          jq -S 'del(.mirrors)' live.json > manifest-before.json
+          jq -S 'del(.mirrors)' update.json > manifest-after.json
+          if ! cmp --silent manifest-before.json manifest-after.json; then
+            echo "::error::mirrors rollout changed fields other than mirrors"
+            exit 1
+          fi
+
+      - name: Upload manifest to YC
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_S3_SECRET }}
+          AWS_DEFAULT_REGION: ru-central1
+        run: |
+          set -euo pipefail
+          aws s3 cp update.json \
+            s3://dropweb-downloads/update.json \
+            --endpoint-url=https://storage.yandexcloud.net \
+            --content-type application/json \
+            --cache-control no-cache
+
+      - name: Upload manifest to the latest stable GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          gh release upload "$tag" update.json --clobber --repo "$GITHUB_REPOSITORY"

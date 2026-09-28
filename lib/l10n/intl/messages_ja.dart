@@ -140,6 +140,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "checkError": MessageLookupByLibrary.simpleMessage("確認エラー"),
     "checkUpdate": MessageLookupByLibrary.simpleMessage("更新を確認"),
     "checkUpdateError": MessageLookupByLibrary.simpleMessage("アプリは最新版です"),
+    "checkUpdateFailed": MessageLookupByLibrary.simpleMessage(
+      "アップデートを確認できませんでした。接続を確認して、もう一度お試しください",
+    ),
     "checking": MessageLookupByLibrary.simpleMessage("確認中..."),
     "clearData": MessageLookupByLibrary.simpleMessage("データを消去"),
     "clearDataTip": MessageLookupByLibrary.simpleMessage(

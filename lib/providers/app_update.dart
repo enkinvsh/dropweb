@@ -7,6 +7,7 @@ import 'package:dropweb/models/models.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/app.dart';
 import 'package:dropweb/providers/config.dart';
+import 'package:dropweb/providers/state.dart';
 import 'package:dropweb/services/android_app_updater.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter/foundation.dart';
@@ -26,9 +27,16 @@ class AppUpdate extends _$AppUpdate {
   @override
   AppUpdateState build() => const AppUpdateState();
 
-  /// Checks dropweb.org/update.json for a newer build. [manual] bypasses the
-  /// once/day cadence + the autoCheckUpdate setting; the Play gate is ALWAYS
-  /// honoured. Tunnel-aware: routes via the proxy when the core is running.
+  /// Checks for a newer build. Races every trusted update-manifest source —
+  /// [kUpdateManifestSeeds] plus the mirrors learned from an earlier manifest
+  /// (AppSettingProps.updateMirrors) — and takes the first valid answer. Only
+  /// when all of them fail is the provider-supplied [kUpdateUrlHeader] of the
+  /// current profile tried as a last resort (it never teaches mirrors). If
+  /// nothing answers the status becomes [AppUpdateStatus.checkFailed] (NOT
+  /// "up to date") and the once/day cadence is NOT consumed, so the next
+  /// launch retries. On Android the app's own TUN carries this traffic
+  /// automatically when connected. [manual] bypasses the cadence + the
+  /// autoCheckUpdate setting; the Play gate is ALWAYS honoured.
   Future<void> check({bool manual = false}) async {
     if (!Platform.isAndroid || kIsPlayBuild) return;
     final setting = ref.read(appSettingProvider);
@@ -47,18 +55,31 @@ class AppUpdate extends _$AppUpdate {
     }
 
     state = state.copyWith(status: AppUpdateStatus.checking, error: null);
-    final viaProxy = ref.read(runTimeProvider) != null;
-    // Tunnel up: try via the active node first (ТСПУ may block dropweb.org/YC),
-    // fall back to direct. Tunnel down: direct only.
-    final manifest = await request.fetchUpdateManifest(viaProxy: viaProxy) ??
-        (viaProxy ? await request.fetchUpdateManifest() : null);
-    ref.read(appSettingProvider.notifier).updateState(
-          (s) => s.copyWith(lastUpdateCheckMs: now.millisecondsSinceEpoch),
-        );
+    final trusted = await request.fetchFirstUpdateManifest(
+      trustedManifestSources(setting.updateMirrors),
+    );
+    var manifest = trusted;
     if (manifest == null) {
-      state = state.copyWith(status: AppUpdateStatus.upToDate);
+      final providerUrl = providerManifestSource(
+        ref.read(currentProfileProvider)?.providerHeaders[kUpdateUrlHeader],
+      );
+      if (providerUrl != null) {
+        manifest = await request.fetchFirstUpdateManifest([providerUrl]);
+      }
+    }
+    if (manifest == null) {
+      // Cadence deliberately not consumed: next launch retries.
+      state = state.copyWith(status: AppUpdateStatus.checkFailed);
       return;
     }
+    // Provider manifests never teach mirrors.
+    final learned = trusted == null ? null : parseManifestMirrors(trusted);
+    ref.read(appSettingProvider.notifier).updateState(
+          (s) => s.copyWith(
+            lastUpdateCheckMs: now.millisecondsSinceEpoch,
+            updateMirrors: learned ?? s.updateMirrors,
+          ),
+        );
     final info = resolveAndroidUpdate(
       manifest: manifest,
       localVersion: globalState.packageInfo.version,

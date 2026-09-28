@@ -317,6 +317,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_S3_SECRET }}
           AWS_DEFAULT_REGION: ru-central1
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           tag="${{ github.ref_name }}"; version="${tag#v}"
@@ -357,12 +358,15 @@ jobs:
           dmg_sha=$(sha dropweb-$version-macos-arm64.dmg)
           dmg_amd64_sha=$(sha dropweb-$version-macos-amd64.dmg)
           appimage_sha=$(sha dropweb-$version-linux-amd64.AppImage)
-          jq -n --arg version "$version" --argjson build "${build:-0}" --arg pubDate "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson notes "$notes_json" \
+          jq -n --arg version "$version" --argjson build "${build:-0}" --arg pubDate "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson notes "$notes_json" --argjson mirrors "$(jq -c . .github/update-mirrors.json)" \
             --arg apk "$base/dropweb-arm64-v8a.apk" --arg universal "$base/dropweb-universal.apk" --arg exe "$base/dropweb-amd64-setup.exe" --arg dmg "$base/dropweb-arm64.dmg" --arg dmgAmd "$base/dropweb-amd64.dmg" --arg appimage "$base/dropweb-amd64.AppImage" \
             --arg apkSha "$apk_sha" --arg universalSha "$universal_sha" --arg exeSha "$exe_sha" --arg dmgSha "$dmg_sha" --arg dmgAmdSha "$dmg_amd64_sha" --arg appimageSha "$appimage_sha" \
-            '{version:$version,build:$build,mandatory:false,minSupported:"0.7.0",pubDate:$pubDate,notes:$notes,platforms:{"android-arm64":{url:$apk,sha256:$apkSha},"android-universal":{url:$universal,sha256:$universalSha},"windows-amd64":{url:$exe,sha256:$exeSha},"windows-arm64":{url:"",sha256:""},"linux-amd64":{url:$appimage,sha256:$appimageSha},"linux-arm64":{url:"",sha256:""},"macos":{url:$dmg,sha256:$dmgSha},"macos-amd64":{url:$dmgAmd,sha256:$dmgAmdSha},"ios":{url:"",sha256:""}}}' > update.json
+            '{version:$version,build:$build,mandatory:false,minSupported:"0.7.0",pubDate:$pubDate,notes:$notes,mirrors:$mirrors,platforms:{"android-arm64":{url:$apk,sha256:$apkSha},"android-universal":{url:$universal,sha256:$universalSha},"windows-amd64":{url:$exe,sha256:$exeSha},"windows-arm64":{url:"",sha256:""},"linux-amd64":{url:$appimage,sha256:$appimageSha},"linux-arm64":{url:"",sha256:""},"macos":{url:$dmg,sha256:$dmgSha},"macos-amd64":{url:$dmgAmd,sha256:$dmgAmdSha},"ios":{url:"",sha256:""}}}' > update.json
           aws s3 cp update.json "$B/update.json" $ep --content-type application/json --cache-control no-cache
-          echo "Published v$version binaries + manifest to YC (dropweb-downloads)."
+          # GitHub mirror of the manifest (releases/latest/download/update.json),
+          # one of the app's built-in kUpdateManifestSeeds.
+          gh release upload "$tag" update.json --clobber
+          echo "Published v$version binaries + manifest to YC (dropweb-downloads) + GitHub release."
 
       # Rich Message release post (Bot API 10.1). Stable tags post to
       # TELEGRAM_CHAT_IDS; pre-release tags post to TELEGRAM_PRERELEASE_CHAT_IDS

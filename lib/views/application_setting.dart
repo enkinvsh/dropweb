@@ -476,7 +476,6 @@ class AutoCheckUpdateItem extends ConsumerWidget {
   }
 }
 
-
 class ApplicationSettingView extends StatelessWidget {
   const ApplicationSettingView({super.key});
 
@@ -502,9 +501,9 @@ class ApplicationSettingView extends StatelessWidget {
       OpenLogsItem(),
       CloseConnectionsItem(),
       UsageItem(),
-      // Android is the Google Play target: in-app GitHub update checks are
-      // disabled there (see `shouldRunAutoUpdateCheck`), so the setting
-      // would be a misleading no-op.
+      // Android never runs the legacy browser-dialog update check (see
+      // `shouldRunAutoUpdateCheck`): the sideload build uses the in-app
+      // updater and Play has no self-update, so the toggle is desktop-only.
       if (!Platform.isAndroid) AutoCheckUpdateItem(),
       if (system.isDesktop) ...[
         Padding(

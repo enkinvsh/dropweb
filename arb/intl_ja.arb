@@ -181,6 +181,7 @@
   "checkUpdate": "更新を確認",
   "discoverNewVersion": "新バージョンを発見",
   "checkUpdateError": "アプリは最新版です",
+  "checkUpdateFailed": "アップデートを確認できませんでした。接続を確認して、もう一度お試しください",
   "goDownload": "ダウンロードへ",
   "updateDownloading": "ダウンロード中…",
   "updateVerifying": "検証中…",

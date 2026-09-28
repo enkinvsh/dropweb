@@ -1,3 +1,4 @@
+import 'package:dropweb/common/constant.dart';
 import 'package:dropweb/common/update_resolver.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -241,6 +242,127 @@ void main() {
           localVersion: '0.8.1',
         ),
         isNull,
+      );
+    });
+  });
+
+  group('parseManifestMirrors', () {
+    test('absent key => null', () {
+      expect(parseManifestMirrors({'version': '1.0.0'}), isNull);
+    });
+
+    test('non-list value => null', () {
+      expect(parseManifestMirrors({'mirrors': 'https://a.example/u.json'}),
+          isNull);
+      expect(
+          parseManifestMirrors({
+            'mirrors': {'a': 1}
+          }),
+          isNull);
+    });
+
+    test('filters http, garbage, empty and non-strings; trims', () {
+      expect(
+        parseManifestMirrors({
+          'mirrors': [
+            'http://insecure.example/u.json',
+            'not a url',
+            '',
+            '   ',
+            42,
+            null,
+            'https://',
+            '  https://ok.example/u.json  ',
+          ],
+        }),
+        ['https://ok.example/u.json'],
+      );
+    });
+
+    test('dedupes keeping first-seen order', () {
+      expect(
+        parseManifestMirrors({
+          'mirrors': [
+            'https://b.example/u.json',
+            'https://a.example/u.json',
+            ' https://b.example/u.json',
+          ],
+        }),
+        ['https://b.example/u.json', 'https://a.example/u.json'],
+      );
+    });
+
+    test('caps at kMaxUpdateMirrors', () {
+      final many = [
+        for (var i = 0; i < kMaxUpdateMirrors + 5; i++)
+          'https://m$i.example/u.json',
+      ];
+      final parsed = parseManifestMirrors({'mirrors': many})!;
+      expect(parsed.length, kMaxUpdateMirrors);
+      expect(parsed, many.take(kMaxUpdateMirrors).toList());
+    });
+
+    test('empty list => [] (valid "clear the cache" answer)', () {
+      expect(parseManifestMirrors({'mirrors': <dynamic>[]}), isEmpty);
+      expect(parseManifestMirrors({'mirrors': <dynamic>[]}), isNotNull);
+    });
+  });
+
+  group('trustedManifestSources', () {
+    test('no cache => exactly the seeds, in order', () {
+      expect(trustedManifestSources(const []), kUpdateManifestSeeds);
+    });
+
+    test('seeds first, then cached mirrors appended', () {
+      expect(
+        trustedManifestSources(const ['https://new.example/u.json']),
+        [...kUpdateManifestSeeds, 'https://new.example/u.json'],
+      );
+    });
+
+    test('duplicates of seeds / each other and non-https are dropped', () {
+      expect(
+        trustedManifestSources([
+          kUpdateManifestSeeds.first,
+          'http://insecure.example/u.json',
+          'garbage',
+          'https://new.example/u.json',
+          'https://new.example/u.json',
+        ]),
+        [...kUpdateManifestSeeds, 'https://new.example/u.json'],
+      );
+    });
+
+    test('total capped at seeds + kMaxUpdateMirrors', () {
+      final many = [
+        for (var i = 0; i < kMaxUpdateMirrors + 5; i++)
+          'https://m$i.example/u.json',
+      ];
+      final sources = trustedManifestSources(many);
+      expect(sources.length, kUpdateManifestSeeds.length + kMaxUpdateMirrors);
+      expect(sources.take(kUpdateManifestSeeds.length), kUpdateManifestSeeds);
+    });
+  });
+
+  group('providerManifestSource', () {
+    test('null / empty / http / garbage => null', () {
+      expect(providerManifestSource(null), isNull);
+      expect(providerManifestSource(''), isNull);
+      expect(providerManifestSource('   '), isNull);
+      expect(providerManifestSource('http://panel.example/u.json'), isNull);
+      expect(providerManifestSource('not a url'), isNull);
+      expect(providerManifestSource('https://'), isNull);
+    });
+
+    test('a built-in seed => null (already raced)', () {
+      expect(providerManifestSource(kUpdateManifestSeeds.first), isNull);
+      expect(providerManifestSource(' ${kUpdateManifestSeeds.last} '), isNull);
+    });
+
+    test('valid https => trimmed value', () {
+      expect(
+        providerManifestSource('  https://panel.example.com/u.json '),
+        'https://panel.example.com/u.json',
       );
     });
   });

@@ -9,6 +9,7 @@ import 'package:dio/io.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
+import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/state.dart';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/cupertino.dart';
@@ -195,18 +196,154 @@ String encodeHelperStopRequest(HelperCoreIdentity identity) => jsonEncode({
       'runToken': identity.runToken,
     });
 
+/// One GET of a subscription URL WITHOUT following redirects.
+typedef SubscriptionHop = Future<Response<Uint8List>> Function(Uri uri);
+
+/// Walks a subscription fetch hop by hop through [hop] and returns the final
+/// 2xx response. Shared by the in-tunnel and the out-of-tunnel leg of
+/// [Request.getFileResponseForUrl] so both apply the same redirect and size
+/// rules.
+@visibleForTesting
+Future<Response<Uint8List>> followSubscriptionHops(
+  Uri start,
+  SubscriptionHop hop, {
+  int maxRedirects = 6,
+  int maxBytes = 50 * 1024 * 1024,
+}) async {
+  // Every hop is fetched manually (followRedirects: false) so that:
+  //  - only a 2xx is ever accepted as the final subscription body — a
+  //    404/403 error page served AFTER a redirect must fail the update
+  //    instead of overwriting the stored profile with garbage;
+  //  - a relative `Location` (RFC 7231 §7.1.2) is resolved against the
+  //    URL of the hop that returned it.
+  // Budget: the initial hop + up to [maxRedirects] redirects (matches the
+  // former one-manual-hop-then-Dio-maxRedirects:5 chain).
+  var currentUri = start;
+  var redirects = 0;
+  Response<Uint8List> response;
+  while (true) {
+    response = await hop(currentUri);
+    final status = response.statusCode ?? 0;
+    if (status >= 200 && status < 300) break;
+    if (status < 200 || status >= 400) {
+      throw Exception('Unexpected HTTP $status for subscription request.');
+    }
+
+    // 3xx from here on.
+    if (!Request._redirectStatuses.contains(status)) {
+      throw Exception('Unexpected HTTP $status for subscription request.');
+    }
+    final location = response.headers['location']?.first;
+    if (location == null || location.isEmpty) {
+      throw Exception('Redirect detected, but no location header was found.');
+    }
+    if (redirects >= maxRedirects) {
+      throw Exception('Too many redirects (max $maxRedirects).');
+    }
+    redirects++;
+    currentUri = currentUri.resolve(location);
+    // SECURITY: don't log redirect URLs — subscription tokens leak through them.
+    if (kDebugMode) {
+      debugPrint('Subscription redirect followed (hop=$redirects)');
+    }
+  }
+
+  final contentLengthHeader = response.headers['content-length']?.first;
+  final contentLength = int.tryParse(contentLengthHeader ?? '');
+  if (contentLength != null && contentLength > maxBytes) {
+    throw Exception(
+      'Subscription too large: $contentLength bytes (max $maxBytes)',
+    );
+  }
+  final actualLength = response.data?.length ?? 0;
+  if (actualLength > maxBytes) {
+    throw Exception(
+      'Subscription too large: $actualLength bytes (max $maxBytes)',
+    );
+  }
+  return response;
+}
+
+/// Staggered race: [primary] starts at once; [fallback] starts when [delay]
+/// elapses or [primary] fails, whichever comes first (at most once, never
+/// after [primary] already succeeded). The first success wins; a fallback win
+/// cancels the primary's [CancelToken]. When both fail, the PRIMARY error is
+/// reported — it is the path that works when the VPN is healthy, so its error
+/// is the meaningful one.
+@visibleForTesting
+Future<T> raceWithDelayedFallback<T>({
+  required Future<T> Function(CancelToken cancelToken) primary,
+  required Future<T> Function() fallback,
+  required Duration delay,
+}) {
+  final result = Completer<T>();
+  final primaryToken = CancelToken();
+  Timer? timer;
+  var fallbackStarted = false;
+  var fallbackFailed = false;
+  Object? primaryError;
+  StackTrace? primaryStack;
+
+  void startFallback() {
+    timer?.cancel();
+    if (fallbackStarted || result.isCompleted) return;
+    fallbackStarted = true;
+    unawaited(() async {
+      try {
+        final value = await Future.sync(fallback);
+        if (result.isCompleted) return; // primary already won; loser ignored
+        result.complete(value);
+        primaryToken.cancel('subscription fetched outside VPN');
+      } catch (_) {
+        // A fallback failure alone never decides the race: the primary error
+        // is reported if the primary fails too, otherwise the primary wins.
+        fallbackFailed = true;
+        if (primaryError != null && !result.isCompleted) {
+          result.completeError(primaryError!, primaryStack);
+        }
+      }
+    }());
+  }
+
+  unawaited(() async {
+    try {
+      final value = await Future.sync(() => primary(primaryToken));
+      timer?.cancel();
+      if (!result.isCompleted) result.complete(value);
+    } catch (e, s) {
+      // After a fallback win this is the cancellation we caused; ignore it.
+      if (result.isCompleted) return;
+      primaryError = e;
+      primaryStack = s;
+      if (fallbackFailed) {
+        result.completeError(e, s);
+      } else {
+        startFallback();
+      }
+    }
+  }());
+  timer = Timer(delay, startFallback);
+  return result.future;
+}
+
 class Request {
   Request() {
-    _dio = Dio(
-      BaseOptions(
-        headers: {
-          "User-Agent": browserUa,
-        },
-        connectTimeout: const Duration(seconds: 15),
-        sendTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 30),
-      ),
+    final baseOptions = BaseOptions(
+      headers: {
+        "User-Agent": browserUa,
+      },
+      connectTimeout: const Duration(seconds: 15),
+      sendTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
     );
+    _dio = Dio(baseOptions);
+    // Desktop out-of-tunnel leg for subscription fetches: same options, but
+    // never routed through the core's mixed port. HttpClient() still goes
+    // through DropwebHttpOverrides, so the strict certificate policy holds.
+    _directDio = Dio(baseOptions.copyWith())
+      ..httpClientAdapter = IOHttpClientAdapter(
+        createHttpClient: () => HttpClient()..findProxy = (_) => 'DIRECT',
+      );
     _clashDio = Dio();
     _clashDio.httpClientAdapter = IOHttpClientAdapter(createHttpClient: () {
       final client = HttpClient();
@@ -218,6 +355,7 @@ class Request {
     });
   }
   late final Dio _dio;
+  late final Dio _directDio;
   late final Dio _clashDio;
   String? userAgent;
 
@@ -228,71 +366,93 @@ class Request {
   static const int _maxRedirects = 6;
   static const Set<int> _redirectStatuses = {301, 302, 303, 307, 308};
 
+  /// Downloads a subscription. The normal leg (via [_dio]) is unchanged. On
+  /// Android our own TUN also carries the app's sockets, so with the VPN on
+  /// but its servers dead that leg can never succeed; while the VPN runs, a
+  /// second leg outside the tunnel (Android: native fetch over the physical
+  /// network; desktop: no core proxy) starts after [kSubscriptionBypassDelay]
+  /// or as soon as the normal leg fails. The first success wins.
   Future<Response<Uint8List>> getFileResponseForUrl(
     String url, {
     Map<String, dynamic>? headers,
   }) async {
     final requestHeaders = headers ?? {};
     requestHeaders['User-Agent'] = globalState.ua;
+    final uri = Uri.parse(url);
 
-    // Every hop is fetched manually (followRedirects: false) so that:
-    //  - only a 2xx is ever accepted as the final subscription body — a
-    //    404/403 error page served AFTER a redirect must fail the update
-    //    instead of overwriting the stored profile with garbage;
-    //  - a relative `Location` (RFC 7231 §7.1.2) is resolved against the
-    //    URL of the hop that returned it.
-    // Budget: the initial hop + up to [_maxRedirects] redirects (matches the
-    // former one-manual-hop-then-Dio-maxRedirects:5 chain).
-    var currentUri = Uri.parse(url);
-    var redirects = 0;
-    Response<Uint8List> response;
-    while (true) {
-      response = await _dio.getUri<Uint8List>(
-        currentUri,
-        options: Options(
-          responseType: ResponseType.bytes,
-          headers: requestHeaders,
-          followRedirects: false,
-          validateStatus: (status) =>
-              status != null && status >= 200 && status < 400,
-        ),
-      );
-      final status = response.statusCode ?? 0;
-      if (status >= 200 && status < 300) break;
+    Future<Response<Uint8List>> primary(CancelToken cancelToken) =>
+        followSubscriptionHops(
+          uri,
+          (u) => _dio.getUri<Uint8List>(
+            u,
+            options: _subscriptionHopOptions(requestHeaders),
+            cancelToken: cancelToken,
+          ),
+          maxRedirects: _maxRedirects,
+          maxBytes: _maxProfileBytes,
+        );
 
-      // 3xx from here on.
-      if (!_redirectStatuses.contains(status)) {
-        throw Exception('Unexpected HTTP $status for subscription request.');
-      }
-      final location = response.headers['location']?.first;
-      if (location == null || location.isEmpty) {
-        throw Exception('Redirect detected, but no location header was found.');
-      }
-      if (redirects >= _maxRedirects) {
-        throw Exception('Too many redirects (max $_maxRedirects).');
-      }
-      redirects++;
-      currentUri = currentUri.resolve(location);
-      // SECURITY: don't log redirect URLs — subscription tokens leak through them.
-      if (kDebugMode) {
-        debugPrint('Subscription redirect followed (hop=$redirects)');
-      }
-    }
+    final bypassHop = _bypassHop(requestHeaders);
+    if (bypassHop == null) return primary(CancelToken());
 
-    final contentLengthHeader = response.headers['content-length']?.first;
-    final contentLength = int.tryParse(contentLengthHeader ?? '');
-    if (contentLength != null && contentLength > _maxProfileBytes) {
-      throw Exception(
-        'Subscription too large: $contentLength bytes (max $_maxProfileBytes)',
-      );
-    }
-    final actualLength = response.data?.length ?? 0;
-    if (actualLength > _maxProfileBytes) {
-      throw Exception(
-        'Subscription too large: $actualLength bytes (max $_maxProfileBytes)',
-      );
+    Response<Uint8List>? bypassResponse;
+    final response = await raceWithDelayedFallback<Response<Uint8List>>(
+      primary: primary,
+      fallback: () async => bypassResponse = await followSubscriptionHops(
+        uri,
+        bypassHop,
+        maxRedirects: _maxRedirects,
+        maxBytes: _maxProfileBytes,
+      ),
+      delay: kSubscriptionBypassDelay,
+    );
+    // SECURITY: no URL here — subscription tokens live in it.
+    if (identical(response, bypassResponse)) {
+      commonPrint.log('subscription fetched outside VPN');
     }
     return response;
+  }
+
+  Options _subscriptionHopOptions(Map<String, dynamic> requestHeaders) =>
+      Options(
+        responseType: ResponseType.bytes,
+        headers: requestHeaders,
+        followRedirects: false,
+        validateStatus: (status) =>
+            status != null && status >= 200 && status < 400,
+      );
+
+  /// The out-of-tunnel hop, or null when there is nothing to bypass (VPN
+  /// off) or no way to bypass it on this platform. Sends the SAME headers as
+  /// the normal leg: the panel picks the config format from User-Agent and
+  /// identifies the device by its x-hwid/x-device-* headers.
+  SubscriptionHop? _bypassHop(Map<String, dynamic> requestHeaders) {
+    if (!globalState.isStart) return null;
+    if (Platform.isAndroid) {
+      final native = app;
+      if (native == null) return null;
+      final stringHeaders = requestHeaders.map((k, v) => MapEntry(k, '$v'));
+      return (u) async {
+        final r = await native.fetchBypassingVpn(
+          u,
+          stringHeaders,
+          maxBytes: _maxProfileBytes,
+        );
+        return Response<Uint8List>(
+          requestOptions: RequestOptions(path: u.toString()),
+          statusCode: r.status,
+          data: r.body,
+          headers: Headers.fromMap(r.headers),
+        );
+      };
+    }
+    if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+      return (u) => _directDio.getUri<Uint8List>(
+            u,
+            options: _subscriptionHopOptions(requestHeaders),
+          );
+    }
+    return null;
   }
 
   Future<Response> getTextResponseForUrl(String url) async {
@@ -331,26 +491,15 @@ class Request {
     return MemoryImage(data);
   }
 
-  /// Update check against our own update server (dropweb.org/update.json,
-  /// backed by YC Object Storage) instead of the GitHub API. РФ-reliable and
-  /// independent of GitHub. The manifest is adapted to the shape
+  /// Update check against our own update manifest (raced across
+  /// [kUpdateManifestSeeds] via [fetchFirstUpdateManifest]) instead of the
+  /// GitHub API. The manifest is adapted to the shape
   /// [Controller.checkUpdateResultHandle] expects (tag_name / body / html_url),
-  /// so downstream handling is unchanged. Absent manifest (404) => no update.
+  /// so downstream handling is unchanged. No mirror answered => no update.
   Future<Map<String, dynamic>?> checkForUpdate() async {
     try {
-      final response = await _dio.get(
-        kUpdateManifestUrl,
-        options: Options(
-          responseType: ResponseType.json,
-        ),
-      );
-      if (response.statusCode != 200) return null;
-      final raw = response.data;
-      final manifest = raw is Map<String, dynamic>
-          ? raw
-          : (raw is String
-              ? json.decode(raw) as Map<String, dynamic>
-              : <String, dynamic>{});
+      final manifest = await fetchFirstUpdateManifest(kUpdateManifestSeeds);
+      if (manifest == null) return null;
       final remoteVersion = (manifest['version']?.toString() ?? '').trim();
       if (remoteVersion.isEmpty) return null;
       final localVersion = globalState.packageInfo.version;
@@ -381,31 +530,65 @@ class Request {
     }
   }
 
-  /// Raw fetch of the update manifest (dropweb.org/update.json → Vercel → YC),
-  /// reused by the Android in-app updater. Returns the decoded JSON map, or null
-  /// on any non-200 / parse failure / network error.
-  ///
-  /// Tunnel-aware (the RU update path): when [viaProxy] is true — the caller
-  /// knows the tunnel is connected — the request goes through the proxy-routed
-  /// [_clashDio] so a ТСПУ block on dropweb.org/YC is bypassed via the active
-  /// node; otherwise it goes direct via [_dio]. The caller owns the tunnel-state
-  /// decision and the direct→proxy fallback ordering.
-  Future<Map<String, dynamic>?> fetchUpdateManifest(
-      {bool viaProxy = false}) async {
-    try {
-      final response = await (viaProxy ? _clashDio : _dio).get(
-        kUpdateManifestUrl,
-        options: Options(responseType: ResponseType.json),
-      );
-      if (response.statusCode != 200) return null;
-      final raw = response.data;
-      if (raw is Map<String, dynamic>) return raw;
-      if (raw is String) return json.decode(raw) as Map<String, dynamic>;
-      return null;
-    } catch (e) {
-      debugPrint('fetchUpdateManifest failed: $e');
-      return null;
+  /// Max accepted update-manifest body size; anything larger is a miss.
+  static const int _maxManifestBytes = 256 * 1024;
+
+  /// Races every url in [urls] in parallel (via [_dio]; on Android the app's
+  /// own TUN carries the traffic automatically when connected) and completes
+  /// with the FIRST valid update manifest — HTTP 200, body <= 256 KiB, a JSON
+  /// object with a non-empty `version` string. The winner cancels the shared
+  /// [CancelToken] so the losers stop. Any error/cancel for a url is a miss;
+  /// completes with null when every url misses (or [urls] is empty).
+  Future<Map<String, dynamic>?> fetchFirstUpdateManifest(
+      List<String> urls) async {
+    if (urls.isEmpty) return null;
+    final cancelToken = CancelToken();
+    final completer = Completer<Map<String, dynamic>?>();
+    var pending = urls.length;
+
+    void miss() {
+      pending--;
+      if (pending == 0 && !completer.isCompleted) completer.complete(null);
     }
+
+    for (final url in urls) {
+      unawaited(() async {
+        try {
+          final response = await _dio.get<String>(
+            url,
+            cancelToken: cancelToken,
+            options: Options(responseType: ResponseType.plain),
+          );
+          final body = response.data;
+          if (response.statusCode != 200 ||
+              body == null ||
+              body.length > _maxManifestBytes) {
+            miss();
+            return;
+          }
+          final decoded = json.decode(body);
+          if (decoded is! Map<String, dynamic>) {
+            miss();
+            return;
+          }
+          final version = decoded['version'];
+          if (version is! String || version.trim().isEmpty) {
+            miss();
+            return;
+          }
+          if (!completer.isCompleted) {
+            completer.complete(decoded);
+            cancelToken.cancel('update manifest race won');
+          }
+        } catch (e) {
+          debugPrint(
+            'update manifest miss: ${Uri.tryParse(url)?.host} (${e.runtimeType})',
+          );
+          miss();
+        }
+      }());
+    }
+    return completer.future;
   }
 
   /// Tunnel-aware APK download for the in-app updater. Streams [url] to

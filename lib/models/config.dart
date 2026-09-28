@@ -83,13 +83,20 @@ class AppSettingProps with _$AppSettingProps {
     @Default(true) bool closeConnections,
     @Default(defaultTestUrl) String testUrl,
     @Default(true) bool isAnimateToPage,
-    // Sideloaded RU build self-updates from dropweb.org/update.json by default;
+    // Sideloaded RU build self-updates from the update-manifest mirrors
+    // (kUpdateManifestSeeds + learned updateMirrors) by default;
     // Play build ignores this (gated by kIsPlayBuild). Desktop just opens the
     // release page on a newer version. See docs/plans/2026-06-25-auto-update.md.
     @Default(true) bool autoCheckUpdate,
+
     /// Epoch-ms of the last in-app update check; drives the once/day cadence of
     /// the Android updater (see shouldRunScheduledCheck). 0 = never checked.
     @Default(0) int lastUpdateCheckMs,
+
+    /// Update-manifest mirrors learned from the last update.json served by a
+    /// trusted source (built-in seed or an earlier learned mirror). Raced with
+    /// kUpdateManifestSeeds so new hosts roll out without an app release.
+    @Default(<String>[]) List<String> updateMirrors,
     @Default(false) bool showLabel,
     @Default(false) bool disclaimerAccepted,
     @Default(true) bool minimizeOnExit,

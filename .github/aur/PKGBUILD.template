@@ -8,7 +8,13 @@ url="https://github.com/enkinvsh/dropweb"
 license=('GPL-3.0-only')
 conflicts=('dropweb')
 provides=("dropweb=${pkgver}")
-depends=('libayatana-appindicator' 'libkeybinder3')
+# libtray_manager_plugin.so links the indicator and ido libraries directly;
+# Arch's libayatana-appindicator no longer pulls them in.
+depends=('gtk3' 'libayatana-appindicator' 'libayatana-indicator' 'ayatana-ido'
+         'libdbusmenu-glib' 'libkeybinder3' 'libsecret')
+makedepends=('patchelf')
+# Prebuilt Flutter binaries: stripping can break the Dart AOT snapshot (libapp.so).
+options=('!strip' '!debug')
 source=("dropweb.sh")
 source_x86_64=("dropweb-@PKGVER@-x86_64.deb::${url}/releases/download/v@PKGVER@/dropweb-@PKGVER@-linux-amd64.deb")
 sha256sums=('@SH_SHA@')
@@ -23,6 +29,15 @@ package() {
 
   install -dm755 "${pkgdir}/usr/lib/dropweb"
   cp -a "${srcdir}/usr/share/dropweb/." "${pkgdir}/usr/lib/dropweb/"
+
+  # Flutter plugins keep RUNPATHs from the CI build machine; the app finds
+  # them through its own $ORIGIN/lib, so drop the stale ones.
+  local _lib
+  for _lib in "${pkgdir}/usr/lib/dropweb/lib/"*.so; do
+    if readelf -d "${_lib}" | grep -qE 'R(UN)?PATH.*(/home/runner|/usr/lib/jvm)'; then
+      patchelf --remove-rpath "${_lib}"
+    fi
+  done
 
   install -Dm644 "${srcdir}/usr/share/applications/dropweb.desktop" \
     "${pkgdir}/usr/share/applications/dropweb.desktop"

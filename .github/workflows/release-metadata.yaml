@@ -101,6 +101,8 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.YC_S3_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_S3_SECRET }}
           AWS_DEFAULT_REGION: ru-central1
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
           aws s3 cp update.repaired.json \
@@ -108,3 +110,6 @@ jobs:
             --endpoint-url=https://storage.yandexcloud.net \
             --content-type application/json \
             --cache-control no-cache
+          # Keep the GitHub manifest mirror (releases/latest/download/update.json)
+          # in sync with YC.
+          cp update.repaired.json update.json && gh release upload "$TAG" update.json --clobber --repo "$GITHUB_REPOSITORY"

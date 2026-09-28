@@ -1385,6 +1385,16 @@ class AppLocalizations {
     );
   }
 
+  /// `Couldn't check for updates. Check your connection and try again`
+  String get checkUpdateFailed {
+    return Intl.message(
+      'Couldn\'t check for updates. Check your connection and try again',
+      name: 'checkUpdateFailed',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Go to download`
   String get goDownload {
     return Intl.message(

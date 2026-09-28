@@ -180,6 +180,7 @@
   "checkUpdate": "Check for updates",
   "discoverNewVersion": "New version",
   "checkUpdateError": "The current application is already the latest version",
+  "checkUpdateFailed": "Couldn't check for updates. Check your connection and try again",
   "goDownload": "Go to download",
   "updateDownloading": "Downloading…",
   "updateVerifying": "Verifying…",

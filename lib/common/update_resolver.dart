@@ -79,6 +79,55 @@ AppUpdateInfo? resolveAndroidUpdate({
   );
 }
 
+/// Pure: true when [s] parses as an `https` URL with a non-empty host.
+bool _isHttpsUrl(String s) {
+  final uri = Uri.tryParse(s);
+  return uri != null && uri.scheme == 'https' && uri.host.isNotEmpty;
+}
+
+/// Pure: the manifest's `mirrors` list as trimmed, https-valid, deduped
+/// (first-seen order) URLs capped at [kMaxUpdateMirrors]. Returns null when
+/// the key is absent or not a List (keep the cached mirrors); an empty list is
+/// a valid answer meaning "clear the learned mirrors".
+List<String>? parseManifestMirrors(Map<String, dynamic> manifest) {
+  final raw = manifest['mirrors'];
+  if (raw is! List) return null;
+  final out = <String>[];
+  for (final entry in raw) {
+    if (entry is! String) continue;
+    final url = entry.trim();
+    if (!_isHttpsUrl(url) || out.contains(url)) continue;
+    out.add(url);
+    if (out.length >= kMaxUpdateMirrors) break;
+  }
+  return out;
+}
+
+/// Pure: the trusted sources to race — [kUpdateManifestSeeds] first, then the
+/// https-valid [cached] learned mirrors not already present; total capped at
+/// seeds + [kMaxUpdateMirrors].
+List<String> trustedManifestSources(List<String> cached) {
+  final out = <String>[...kUpdateManifestSeeds];
+  final cap = kUpdateManifestSeeds.length + kMaxUpdateMirrors;
+  for (final entry in cached) {
+    if (out.length >= cap) break;
+    final url = entry.trim();
+    if (!_isHttpsUrl(url) || out.contains(url)) continue;
+    out.add(url);
+  }
+  return out;
+}
+
+/// Pure: the provider-supplied last-resort manifest URL (the
+/// [kUpdateUrlHeader] header value), trimmed — or null when it is absent,
+/// not https-valid, or already one of the built-in seeds.
+String? providerManifestSource(String? raw) {
+  final url = raw?.trim();
+  if (url == null || !_isHttpsUrl(url)) return null;
+  if (kUpdateManifestSeeds.contains(url)) return null;
+  return url;
+}
+
 /// Parses an Android versionCode from a manifest field or a `PackageInfo`
 /// build-number string. Returns the value only when it is a valid **positive**
 /// integer; zero, negative, and malformed inputs return null (treated as

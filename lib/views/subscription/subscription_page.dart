@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/work_mode_patch.dart';
@@ -25,7 +26,10 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
         GlassMenu,
         GlassMenuAlignment,
         GlassMenuItem,
+        GlassModalSheet,
         GlassQuality,
+        GlassSheetDetent,
+        GlassSheetState,
         LiquidRoundedSuperellipse;
 
 // Merged «Подписка» page in the «LiquidLumina» style.
@@ -35,13 +39,25 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
 // switch toggles full tunnel, and the hero switches / adds / updates /
 // deletes subscriptions.
 //
-// Glass sits only on the hero and the grouped card. The country picker is an
-// opaque Material sheet: a scrolling list over glass re-refracts the mesh
-// every frame.
+// On mobile the page is a glass sheet that morphs out of the dashboard
+// subscription card; its cards are flat fills (glass is never nested in
+// glass). On desktop it is a page with a glass hero and grouped card. The
+// country picker stays an opaque Material sheet: a scrolling list over glass
+// re-refracts every frame.
 
 /// Leading inset of a hairline inside the grouped card: row padding 16 +
 /// icon 24 + gap 12, so the line starts under the title, iOS-style.
 const double _groupedDividerIndent = 52;
+
+/// Sheet content starts under the drag handle (the pill sits at y 8–12).
+const double _sheetTopInset = 24;
+
+/// Bottom padding of the sheet content, above the safe area.
+const double _sheetBottomInset = 16;
+
+/// Gap under the sheet; must equal the `bottomMargin` passed to
+/// `GlassModalSheet.show`.
+const double _sheetBottomMargin = 8;
 
 /// Same readiness gate and invalidation as `modeProfileDataProvider`, plus
 /// the name of the profile's primary router (the `MATCH` target).
@@ -68,13 +84,35 @@ Proxy? _findProxy(Group group, String name) {
 }
 
 class SubscriptionPage extends ConsumerStatefulWidget {
-  const SubscriptionPage({super.key});
+  const SubscriptionPage({super.key, this.inSheet = false});
 
-  /// Opens the page with the Liquid zoom. With [source] (the dashboard
-  /// subscription card) the page grows out of that card — its own header card
-  /// starts right on top of it — and shrinks back into it on close.
-  static Future<void> open(BuildContext context, {BuildContext? source}) =>
-      Navigator.of(context).push(
+  /// Presented inside the mobile glass sheet: no Scaffold, mesh or app bar,
+  /// and flat cards — glass is never nested in glass, the sheet itself is
+  /// the glass.
+  final bool inSheet;
+
+  /// On mobile opens a glass sheet: with [source] (the dashboard
+  /// subscription card) a glass droplet blooms out of the card and flows
+  /// into the sheet, and back on close; without it (the MENU row) the sheet
+  /// slides up. On desktop opens the page with the Liquid zoom: with [source]
+  /// the page grows out of that card — its own header card starts right on
+  /// top of it — and shrinks back into it.
+  ///
+  /// The morph is fed a plain rect, not a `GlassMorphAnchor`: an anchor adds
+  /// a second glass blob standing in for the card, and at standard quality
+  /// (no metaball blend) the travelling droplet paints its dark body over
+  /// that blob's rim. With a rect the card stays painted behind the droplet,
+  /// so the droplet's glass refracts the real card instead of cutting it.
+  ///
+  /// The morph measures the trigger in global coordinates, which the macOS
+  /// popover's scaled 500×800 canvas would mis-aim — one reason desktop keeps
+  /// the zoom route.
+  static Future<void> open(
+    BuildContext context, {
+    BuildContext? source,
+  }) {
+    if (system.isDesktop) {
+      return Navigator.of(context).push(
         LiquidZoomRoute<void>(
           source: source == null ? null : () => zoomSourceRectOf(source),
           // Where the header card sits on this page (the ListView padding).
@@ -85,6 +123,66 @@ class SubscriptionPage extends ConsumerStatefulWidget {
           builder: (_) => const SubscriptionPage(),
         ),
       );
+    }
+    return GlassModalSheet.show<void>(
+      context: context,
+      builder: (_) => const SubscriptionPage(inSheet: true),
+      morphFromRect: source == null ? null : zoomSourceRectOf(source),
+      halfSize: _sheetHeight(context),
+      initialState: GlassSheetState.half,
+      detents: const {GlassSheetDetent.medium},
+      bottomMargin: _sheetBottomMargin,
+      settings: Lumina.liquidMenu,
+      quality: GlassQuality.standard,
+      glowColor: context.colorScheme.primary,
+    );
+  }
+
+  /// GlassModalSheet can't size itself to its content, so the height is
+  /// summed from the same constants the content uses. A small miss only
+  /// shifts the bottom inset, because the content is a ListView.
+  static double _sheetHeight(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final state = ProviderScope.containerOf(context, listen: false)
+        .read(profilesSelectorStateProvider);
+    final profile = state.profiles.getProfile(state.currentProfileId) ??
+        (state.profiles.isEmpty ? null : state.profiles.first);
+    if (profile == null) return size.height * 0.45;
+    final scaler = MediaQuery.textScalerOf(context);
+    final textTheme = context.textTheme;
+    final direction = Directionality.of(context);
+    double line(TextStyle? style) {
+      final painter = TextPainter(
+        text: TextSpan(text: 'Ag', style: style),
+        textDirection: direction,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      final height = painter.height;
+      painter.dispose();
+      return height;
+    }
+
+    // Hero: padding 12 + name row (≥ the 40px «⋯») + optional summary + 16.
+    final hero = 12 +
+        math.max(40.0, line(textTheme.headlineSmall)) +
+        (profile.subscriptionInfo == null
+            ? 0
+            : 8 + line(textTheme.bodyMedium)) +
+        16;
+    // Grouped card: exit, full tunnel (Switch 48 + 24 padding), servers; two
+    // hairlines. Assumes the tunnel row is present (its availability loads
+    // async).
+    final row = math.max(52.0, 24 + line(textTheme.bodyLarge));
+    final rows = row + 1 + math.max(row, 72.0) + 1 + row;
+    final content = _sheetTopInset +
+        hero +
+        12 +
+        rows +
+        _sheetBottomInset +
+        MediaQuery.paddingOf(context).bottom;
+    return math.min(content + _sheetBottomMargin, size.height * 0.85);
+  }
 
   @override
   ConsumerState<SubscriptionPage> createState() => _SubscriptionPageState();
@@ -205,6 +303,25 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
         (profiles.isEmpty ? null : profiles.first);
     final padding = MediaQuery.paddingOf(context);
 
+    if (widget.inSheet) {
+      // No RefreshIndicator: dragging down dismisses the sheet; update stays
+      // in «⋯». The package installs sheet physics on the ListView itself.
+      return Material(
+        type: MaterialType.transparency,
+        child: profile == null
+            ? NullStatus(label: appLocalizations.nullProfileDesc)
+            : ListView(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  _sheetTopInset,
+                  16,
+                  _sheetBottomInset + padding.bottom,
+                ),
+                children: _buildSections(profile, profiles),
+              ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Lumina.void_,
       extendBodyBehindAppBar: true,
@@ -281,6 +398,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
         // подписку»: sound cue, isUpdating spinner, mapped error dialog.
         onUpdate: () => refreshProfiles(context, profile),
         onDelete: () => _deleteProfile(profile),
+        flat: widget.inSheet,
       ),
       const SizedBox(height: 12),
       // Taps are held off while a mode/tunnel change applies, but the card is
@@ -289,6 +407,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
       IgnorePointer(
         ignoring: _applying,
         child: _LiquidCard(
+          flat: widget.inSheet,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -398,6 +517,7 @@ class _Hero extends StatelessWidget {
     required this.onAdd,
     required this.onUpdate,
     required this.onDelete,
+    this.flat = false,
   });
 
   final Profile profile;
@@ -406,6 +526,7 @@ class _Hero extends StatelessWidget {
   final VoidCallback onAdd;
   final VoidCallback onUpdate;
   final VoidCallback onDelete;
+  final bool flat;
 
   /// `<traffic> · <expiry>` on one line; null when the provider sends no
   /// subscription info.
@@ -435,6 +556,7 @@ class _Hero extends StatelessWidget {
   Widget build(BuildContext context) {
     final summary = _summary();
     return _LiquidCard(
+      flat: flat,
       child: Stack(
         children: [
           Positioned.fill(
@@ -718,26 +840,42 @@ class _ActionsMenu extends StatelessWidget {
 /// Card substrate, identical to the dashboard subscription card's glass.
 /// Its Material clips the ink of the rows inside to the card shape.
 class _LiquidCard extends StatelessWidget {
-  const _LiquidCard({required this.child});
+  const _LiquidCard({required this.child, this.flat = false});
 
   final Widget child;
 
+  /// Flat fill instead of glass, for use inside the glass sheet (no glass in
+  /// glass).
+  final bool flat;
+
   @override
-  Widget build(BuildContext context) => GlassCard(
-        useOwnLayer: true,
-        quality: GlassQuality.standard,
-        padding: EdgeInsets.zero,
-        shape: const LiquidRoundedSuperellipse(borderRadius: Lumina.radiusLg),
-        settings: Lumina.liquidCard,
-        child: Material(
-          type: MaterialType.transparency,
-          shape: RoundedSuperellipseBorder(
-            borderRadius: BorderRadius.circular(Lumina.radiusLg),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: child,
+  Widget build(BuildContext context) {
+    if (flat) {
+      return Material(
+        color: context.colorScheme.onSurface.opacity10,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Lumina.radiusLg),
         ),
+        clipBehavior: Clip.antiAlias,
+        child: child,
       );
+    }
+    return GlassCard(
+      useOwnLayer: true,
+      quality: GlassQuality.standard,
+      padding: EdgeInsets.zero,
+      shape: const LiquidRoundedSuperellipse(borderRadius: Lumina.radiusLg),
+      settings: Lumina.liquidCard,
+      child: Material(
+        type: MaterialType.transparency,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Lumina.radiusLg),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: child,
+      ),
+    );
+  }
 }
 
 /// One settings-style row of the grouped card: icon, title, trailing.

@@ -9,6 +9,9 @@ enum AppUpdateStatus {
   idle,
   checking,
   upToDate,
+
+  /// No mirror answered — network problem, NOT "up to date".
+  checkFailed,
   available,
   downloading,
   verifying,

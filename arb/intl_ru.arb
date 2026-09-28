@@ -180,6 +180,7 @@
   "checkUpdate": "Проверить обновления",
   "discoverNewVersion": "Новая версия",
   "checkUpdateError": "Текущее приложение уже является последней версией",
+  "checkUpdateFailed": "Не удалось проверить обновления. Проверьте интернет и попробуйте ещё раз",
   "goDownload": "Перейти к загрузке",
   "updateDownloading": "Загрузка…",
   "updateVerifying": "Проверка…",

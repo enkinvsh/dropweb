@@ -124,6 +124,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "checkError": MessageLookupByLibrary.simpleMessage("检测失败"),
     "checkUpdate": MessageLookupByLibrary.simpleMessage("检查更新"),
     "checkUpdateError": MessageLookupByLibrary.simpleMessage("当前应用已经是最新版了"),
+    "checkUpdateFailed": MessageLookupByLibrary.simpleMessage(
+      "无法检查更新。请检查网络连接后重试",
+    ),
     "checking": MessageLookupByLibrary.simpleMessage("检测中..."),
     "clearData": MessageLookupByLibrary.simpleMessage("清除数据"),
     "clearDataTip": MessageLookupByLibrary.simpleMessage(
