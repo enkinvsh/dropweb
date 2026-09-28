@@ -217,10 +217,11 @@ class App {
   /// Pixel-tuned native UI sound cues for the dashboard power button.
   ///
   /// On Android the call routes through `AppPlugin.playUiSound`, which
-  /// plays a short pre-loaded WAV via `SoundPool` (USAGE_ASSISTANCE_SONIFICATION).
+  /// plays a short pre-loaded WAV via `SoundPool` at MEDIA volume (USAGE_GAME).
   /// The native side returns `true` both when the cue is played and when it
-  /// is intentionally consumed silently (e.g. the user disabled system touch
-  /// sounds via `Settings.System.SOUND_EFFECTS_ENABLED == 0`) — in both cases
+  /// is intentionally consumed silently (the user disabled system touch
+  /// sounds via `Settings.System.SOUND_EFFECTS_ENABLED == 0`, or the phone is
+  /// on silent/vibrate) — in both cases
   /// the Dart wrapper must NOT play a fallback. Native returns `false` only
   /// for actual failures (unknown cue, missing asset, sample not yet loaded).
   /// In that case — and when the channel is absent or errors — we fall back

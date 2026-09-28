@@ -10,6 +10,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.Signature
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.SoundPool
 import android.net.Uri
 import android.net.VpnService
@@ -381,8 +382,13 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     private fun ensureSoundPool(): SoundPool {
         soundPool?.let { return it }
+        // In-app sound effects follow the MEDIA volume (like iOS "ambient"
+        // app sounds), not USAGE_ASSISTANCE_SONIFICATION: that one plays in
+        // the "system" volume group, which is tied to the ring volume and
+        // capped at -6 dB by the stock volume curve — inaudible on a phone.
+        // Silent/vibrate is honoured explicitly in playUiSound instead.
         val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setUsage(AudioAttributes.USAGE_GAME)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
         val pool = SoundPool.Builder()
@@ -399,8 +405,9 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
      * back to SystemSound.click. Specifically:
      *  - Returns true when SoundPool.play succeeded (streamId != 0).
      *  - Returns true when the user disabled system touch sounds
-     *    (Settings.System.SOUND_EFFECTS_ENABLED == 0). The user asked for
-     *    silence; falling back to SystemSound.click would defeat that.
+     *    (Settings.System.SOUND_EFFECTS_ENABLED == 0) or the phone is on
+     *    silent/vibrate. The user asked for silence; falling back to
+     *    SystemSound.click would defeat that.
      *  - Returns false on any other failure (sample not yet loaded, unknown
      *    cue, asset missing) so the Dart wrapper plays SystemSound.click.
      */
@@ -419,11 +426,18 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
         }
         if (!effectsEnabled) return true
 
+        // Media-volume playback ignores the ringer, so honour silent/vibrate
+        // here — the same contract as iOS app sounds and the mute switch.
+        val audioManager = context.getSystemService(AudioManager::class.java)
+        if (audioManager != null &&
+            audioManager.ringerMode != AudioManager.RINGER_MODE_NORMAL
+        ) return true
+
         val pool = soundPool ?: ensureSoundPool().also {
             pluginBinding?.let(::preloadUiSounds)
         }
         val sampleId = soundIdMap[cue] ?: return false
-        val streamId = pool.play(sampleId, 0.8f, 0.8f, 1, 0, 1f)
+        val streamId = pool.play(sampleId, 1f, 1f, 1, 0, 1f)
         return streamId != 0
     }
 
