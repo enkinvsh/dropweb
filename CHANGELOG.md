@@ -1,3 +1,52 @@
+## v0.9.1
+
+- Merge pull request #4 from enkinvsh/dev
+
+- v0.9.1: шторка подписки, обновления при блокировках, подписка при мёртвом VPN
+- docs(release): notes for v0.9.1
+
+- chore(release): bump to 0.9.1+2050000019 for v0.9.1
+
+- feat(subscription): retry the fetch outside the tunnel when the VPN is dead
+
+- fix(sound): UI sounds at 0.8 of media volume
+
+- feat(android): fetch a URL over the physical network, bypassing our VPN
+
+- fix(aur): runtime deps and stale RUNPATHs in the dropweb-bin package
+
+- ci(update): mirrors list in update.json, manifest copy on the GitHub release
+
+- update.json gets the mirrors list from .github/update-mirrors.json and is attached to the stable GitHub release (also on notes repair). New manual workflow rolls out a changed mirrors list without an app release. Documents the dropweb-update-url header.
+
+- fix(update): no duplicate browser update dialog on Android
+
+- The sideloaded build has the in-app updater; the legacy 'new version found' dialog now runs on desktop only.
+
+- feat(update): race update.json across mirrors, honest failure
+
+- The manifest is fetched in parallel from YC, the latest GitHub release and dropweb.org plus mirrors learned from an earlier manifest; the first valid answer wins. The provider header dropweb-update-url is a last resort that never teaches mirrors. When nothing answers the check reports a failure instead of 'up to date' and does not consume the daily cadence.
+
+- feat(update): checkFailed status separate from up to date
+
+- feat(l10n): update check failed message
+
+- feat(update): store update-manifest mirrors learned from update.json
+
+- fix(sound): UI sounds follow media volume at full level, silent in silent mode
+
+- Sonification usage is tied to the ring volume and capped at -6 dB on stock Android, which made the sounds barely audible. Switch SoundPool to USAGE_GAME, play at 1.0 and skip playback when the ringer is silent or vibrate.
+
+- feat(subscription): open as a liquid glass sheet that grows out of the card
+
+- On mobile the subscription page opens as a content-height GlassModalSheet morphing from the dashboard card (morphFromRect, standard quality: 120 fps on Pixel 10, card rim stays intact). Cards inside the sheet are flat to avoid glass-in-glass. Desktop keeps the zoom route.
+
+- fix(macos): zoom page fills the popover instead of its top-left corner
+
+- The macOS popover lays the app out on a 500x800 canvas scaled into 375x600, so MediaQuery reports a size smaller than the canvas. LiquidZoomRoute now sizes the page from its layout constraints and maps the source card rect into the navigator overlay's coordinates.
+
+- Update changelog
+
 ## v0.9.0
 
 - Merge pull request #3 from enkinvsh/dev
