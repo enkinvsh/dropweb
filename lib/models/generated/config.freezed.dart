@@ -32,7 +32,8 @@ mixin _$AppSettingProps {
   bool get closeConnections => throw _privateConstructorUsedError;
   String get testUrl => throw _privateConstructorUsedError;
   bool get isAnimateToPage =>
-      throw _privateConstructorUsedError; // Sideloaded RU build self-updates from dropweb.org/update.json by default;
+      throw _privateConstructorUsedError; // Sideloaded RU build self-updates from the update-manifest mirrors
+// (kUpdateManifestSeeds + learned updateMirrors) by default;
 // Play build ignores this (gated by kIsPlayBuild). Desktop just opens the
 // release page on a newer version. See docs/plans/2026-06-25-auto-update.md.
   bool get autoCheckUpdate => throw _privateConstructorUsedError;
@@ -40,6 +41,11 @@ mixin _$AppSettingProps {
   /// Epoch-ms of the last in-app update check; drives the once/day cadence of
   /// the Android updater (see shouldRunScheduledCheck). 0 = never checked.
   int get lastUpdateCheckMs => throw _privateConstructorUsedError;
+
+  /// Update-manifest mirrors learned from the last update.json served by a
+  /// trusted source (built-in seed or an earlier learned mirror). Raced with
+  /// kUpdateManifestSeeds so new hosts roll out without an app release.
+  List<String> get updateMirrors => throw _privateConstructorUsedError;
   bool get showLabel => throw _privateConstructorUsedError;
   bool get disclaimerAccepted => throw _privateConstructorUsedError;
   bool get minimizeOnExit => throw _privateConstructorUsedError;
@@ -80,6 +86,7 @@ abstract class $AppSettingPropsCopyWith<$Res> {
       bool isAnimateToPage,
       bool autoCheckUpdate,
       int lastUpdateCheckMs,
+      List<String> updateMirrors,
       bool showLabel,
       bool disclaimerAccepted,
       bool minimizeOnExit,
@@ -118,6 +125,7 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
     Object? isAnimateToPage = null,
     Object? autoCheckUpdate = null,
     Object? lastUpdateCheckMs = null,
+    Object? updateMirrors = null,
     Object? showLabel = null,
     Object? disclaimerAccepted = null,
     Object? minimizeOnExit = null,
@@ -177,6 +185,10 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
           ? _value.lastUpdateCheckMs
           : lastUpdateCheckMs // ignore: cast_nullable_to_non_nullable
               as int,
+      updateMirrors: null == updateMirrors
+          ? _value.updateMirrors
+          : updateMirrors // ignore: cast_nullable_to_non_nullable
+              as List<String>,
       showLabel: null == showLabel
           ? _value.showLabel
           : showLabel // ignore: cast_nullable_to_non_nullable
@@ -239,6 +251,7 @@ abstract class _$$AppSettingPropsImplCopyWith<$Res>
       bool isAnimateToPage,
       bool autoCheckUpdate,
       int lastUpdateCheckMs,
+      List<String> updateMirrors,
       bool showLabel,
       bool disclaimerAccepted,
       bool minimizeOnExit,
@@ -275,6 +288,7 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
     Object? isAnimateToPage = null,
     Object? autoCheckUpdate = null,
     Object? lastUpdateCheckMs = null,
+    Object? updateMirrors = null,
     Object? showLabel = null,
     Object? disclaimerAccepted = null,
     Object? minimizeOnExit = null,
@@ -334,6 +348,10 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
           ? _value.lastUpdateCheckMs
           : lastUpdateCheckMs // ignore: cast_nullable_to_non_nullable
               as int,
+      updateMirrors: null == updateMirrors
+          ? _value._updateMirrors
+          : updateMirrors // ignore: cast_nullable_to_non_nullable
+              as List<String>,
       showLabel: null == showLabel
           ? _value.showLabel
           : showLabel // ignore: cast_nullable_to_non_nullable
@@ -391,6 +409,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
       this.isAnimateToPage = true,
       this.autoCheckUpdate = true,
       this.lastUpdateCheckMs = 0,
+      final List<String> updateMirrors = const <String>[],
       this.showLabel = false,
       this.disclaimerAccepted = false,
       this.minimizeOnExit = true,
@@ -400,7 +419,8 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
       this.applySubscriptionTheme = true,
       this.applySubscriptionLogo = true,
       this.overrideNetworkSettings = false})
-      : _dashboardWidgets = dashboardWidgets;
+      : _dashboardWidgets = dashboardWidgets,
+        _updateMirrors = updateMirrors;
 
   factory _$AppSettingPropsImpl.fromJson(Map<String, dynamic> json) =>
       _$$AppSettingPropsImplFromJson(json);
@@ -441,7 +461,8 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
   @override
   @JsonKey()
   final bool isAnimateToPage;
-// Sideloaded RU build self-updates from dropweb.org/update.json by default;
+// Sideloaded RU build self-updates from the update-manifest mirrors
+// (kUpdateManifestSeeds + learned updateMirrors) by default;
 // Play build ignores this (gated by kIsPlayBuild). Desktop just opens the
 // release page on a newer version. See docs/plans/2026-06-25-auto-update.md.
   @override
@@ -453,6 +474,23 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
   @override
   @JsonKey()
   final int lastUpdateCheckMs;
+
+  /// Update-manifest mirrors learned from the last update.json served by a
+  /// trusted source (built-in seed or an earlier learned mirror). Raced with
+  /// kUpdateManifestSeeds so new hosts roll out without an app release.
+  final List<String> _updateMirrors;
+
+  /// Update-manifest mirrors learned from the last update.json served by a
+  /// trusted source (built-in seed or an earlier learned mirror). Raced with
+  /// kUpdateManifestSeeds so new hosts roll out without an app release.
+  @override
+  @JsonKey()
+  List<String> get updateMirrors {
+    if (_updateMirrors is EqualUnmodifiableListView) return _updateMirrors;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_updateMirrors);
+  }
+
   @override
   @JsonKey()
   final bool showLabel;
@@ -483,7 +521,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
 
   @override
   String toString() {
-    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, lastUpdateCheckMs: $lastUpdateCheckMs, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, applySubscriptionLogo: $applySubscriptionLogo, overrideNetworkSettings: $overrideNetworkSettings)';
+    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, lastUpdateCheckMs: $lastUpdateCheckMs, updateMirrors: $updateMirrors, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, applySubscriptionLogo: $applySubscriptionLogo, overrideNetworkSettings: $overrideNetworkSettings)';
   }
 
   @override
@@ -512,6 +550,8 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
                 other.autoCheckUpdate == autoCheckUpdate) &&
             (identical(other.lastUpdateCheckMs, lastUpdateCheckMs) ||
                 other.lastUpdateCheckMs == lastUpdateCheckMs) &&
+            const DeepCollectionEquality()
+                .equals(other._updateMirrors, _updateMirrors) &&
             (identical(other.showLabel, showLabel) ||
                 other.showLabel == showLabel) &&
             (identical(other.disclaimerAccepted, disclaimerAccepted) ||
@@ -549,6 +589,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
         isAnimateToPage,
         autoCheckUpdate,
         lastUpdateCheckMs,
+        const DeepCollectionEquality().hash(_updateMirrors),
         showLabel,
         disclaimerAccepted,
         minimizeOnExit,
@@ -592,6 +633,7 @@ abstract class _AppSettingProps implements AppSettingProps {
       final bool isAnimateToPage,
       final bool autoCheckUpdate,
       final int lastUpdateCheckMs,
+      final List<String> updateMirrors,
       final bool showLabel,
       final bool disclaimerAccepted,
       final bool minimizeOnExit,
@@ -626,7 +668,8 @@ abstract class _AppSettingProps implements AppSettingProps {
   String get testUrl;
   @override
   bool
-      get isAnimateToPage; // Sideloaded RU build self-updates from dropweb.org/update.json by default;
+      get isAnimateToPage; // Sideloaded RU build self-updates from the update-manifest mirrors
+// (kUpdateManifestSeeds + learned updateMirrors) by default;
 // Play build ignores this (gated by kIsPlayBuild). Desktop just opens the
 // release page on a newer version. See docs/plans/2026-06-25-auto-update.md.
   @override
@@ -636,6 +679,12 @@ abstract class _AppSettingProps implements AppSettingProps {
   /// the Android updater (see shouldRunScheduledCheck). 0 = never checked.
   @override
   int get lastUpdateCheckMs;
+
+  /// Update-manifest mirrors learned from the last update.json served by a
+  /// trusted source (built-in seed or an earlier learned mirror). Raced with
+  /// kUpdateManifestSeeds so new hosts roll out without an app release.
+  @override
+  List<String> get updateMirrors;
   @override
   bool get showLabel;
   @override
