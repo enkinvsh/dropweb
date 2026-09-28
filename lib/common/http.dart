@@ -15,7 +15,10 @@ class DropwebHttpOverrides extends HttpOverrides {
       return "DIRECT";
     }
 
-    // Mobile: app excluded from VPN, always go direct
+    // Mobile: DIRECT at the HTTP layer, but the app is NOT excluded from its
+    // own VPN — with the VPN on these sockets still traverse our TUN.
+    // Subscription fetches add an out-of-tunnel leg in
+    // Request.getFileResponseForUrl for when the VPN's servers are dead.
     if (Platform.isAndroid || Platform.isIOS) {
       return "DIRECT";
     }
