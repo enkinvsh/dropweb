@@ -248,7 +248,8 @@ class _SettingItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocale = AppLocalizations.of(context);
     return ListItem.open(
-      leading: const HugeIcon(icon: HugeIcons.strokeRoundedSettings02, size: 24),
+      leading:
+          const HugeIcon(icon: HugeIcons.strokeRoundedSettings02, size: 24),
       title: Text(appLocale.application),
       delegate: OpenDelegate(
         title: appLocale.application,
@@ -285,9 +286,8 @@ class _InfoItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final appLocale = AppLocalizations.of(context);
     return ListItem.open(
-      leading:
-          const HugeIcon(
-              icon: HugeIcons.strokeRoundedInformationCircle, size: 24),
+      leading: const HugeIcon(
+          icon: HugeIcons.strokeRoundedInformationCircle, size: 24),
       title: Text(appLocale.about),
       delegate: OpenDelegate(
         title: appLocale.about,
@@ -297,7 +297,6 @@ class _InfoItem extends StatelessWidget {
     );
   }
 }
-
 
 class _UpdateItem extends ConsumerWidget {
   const _UpdateItem();
@@ -317,7 +316,14 @@ class _UpdateItem extends ConsumerWidget {
       final hasUpdate = status == AppUpdateStatus.available ||
           status == AppUpdateStatus.downloading ||
           status == AppUpdateStatus.readyToInstall;
-      if (hasUpdate) {
+      if (status == AppUpdateStatus.checkFailed) {
+        await globalState.showMessage(
+          title: appLocalizations.checkUpdate,
+          message: TextSpan(text: appLocalizations.checkUpdateFailed),
+          cancelable: false,
+          confirmText: appLocalizations.ok,
+        );
+      } else if (hasUpdate) {
         await showUpdateSheet(context);
       } else {
         await globalState.showMessage(
@@ -400,5 +406,3 @@ class _DeveloperItem extends StatelessWidget {
     );
   }
 }
-
-

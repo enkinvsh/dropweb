@@ -81,11 +81,28 @@ const defaultTestUrl = "https://www.gstatic.com/generate_204";
 /// in-app updater is inert on Play builds (Play policy forbids self-update from
 /// an external source); this const-folds so the whole updater tree-shakes out
 /// of the Play AAB. Every other channel — crucially the sideloaded RU build —
-/// self-updates from [kUpdateManifestUrl].
+/// self-updates from the manifest mirrors in [kUpdateManifestSeeds].
 const bool kIsPlayBuild = bool.fromEnvironment('PLAY_BUILD');
 
-/// Update manifest endpoint: dropweb.org → Vercel → Yandex Cloud Object Storage.
-const kUpdateManifestUrl = "https://dropweb.org/update.json";
+/// Built-in update-manifest mirrors, raced in parallel — the first valid
+/// manifest wins. YC path-style first (Yandex network: reachable in RU even
+/// in mobile whitelist mode), then the GitHub asset of the latest stable
+/// release (CI attaches update.json), then dropweb.org (Vercel → YC; blocked
+/// in RU without VPN, works through the tunnel). More mirrors are learned
+/// at runtime from the manifest's `mirrors` list (AppSettingProps.updateMirrors).
+const kUpdateManifestSeeds = <String>[
+  'https://storage.yandexcloud.net/dropweb-downloads/update.json',
+  'https://github.com/$repository/releases/latest/download/update.json',
+  'https://dropweb.org/update.json',
+];
+
+/// Subscription response header with a provider-supplied, last-resort
+/// update-manifest URL — tried only when every built-in and learned mirror
+/// failed. Never teaches mirrors; the APK signing pin still gates install.
+const kUpdateUrlHeader = 'dropweb-update-url';
+
+/// Cap on mirrors learned from a manifest's `mirrors` list.
+const kMaxUpdateMirrors = 8;
 
 /// GitHub release asset filename SUFFIX per platform key — the YC→GitHub
 /// fallback source. Since v0.8.5-pre.5 release assets are versioned as

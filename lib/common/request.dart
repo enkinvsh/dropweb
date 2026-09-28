@@ -331,26 +331,15 @@ class Request {
     return MemoryImage(data);
   }
 
-  /// Update check against our own update server (dropweb.org/update.json,
-  /// backed by YC Object Storage) instead of the GitHub API. РФ-reliable and
-  /// independent of GitHub. The manifest is adapted to the shape
+  /// Update check against our own update manifest (raced across
+  /// [kUpdateManifestSeeds] via [fetchFirstUpdateManifest]) instead of the
+  /// GitHub API. The manifest is adapted to the shape
   /// [Controller.checkUpdateResultHandle] expects (tag_name / body / html_url),
-  /// so downstream handling is unchanged. Absent manifest (404) => no update.
+  /// so downstream handling is unchanged. No mirror answered => no update.
   Future<Map<String, dynamic>?> checkForUpdate() async {
     try {
-      final response = await _dio.get(
-        kUpdateManifestUrl,
-        options: Options(
-          responseType: ResponseType.json,
-        ),
-      );
-      if (response.statusCode != 200) return null;
-      final raw = response.data;
-      final manifest = raw is Map<String, dynamic>
-          ? raw
-          : (raw is String
-              ? json.decode(raw) as Map<String, dynamic>
-              : <String, dynamic>{});
+      final manifest = await fetchFirstUpdateManifest(kUpdateManifestSeeds);
+      if (manifest == null) return null;
       final remoteVersion = (manifest['version']?.toString() ?? '').trim();
       if (remoteVersion.isEmpty) return null;
       final localVersion = globalState.packageInfo.version;
@@ -381,31 +370,65 @@ class Request {
     }
   }
 
-  /// Raw fetch of the update manifest (dropweb.org/update.json → Vercel → YC),
-  /// reused by the Android in-app updater. Returns the decoded JSON map, or null
-  /// on any non-200 / parse failure / network error.
-  ///
-  /// Tunnel-aware (the RU update path): when [viaProxy] is true — the caller
-  /// knows the tunnel is connected — the request goes through the proxy-routed
-  /// [_clashDio] so a ТСПУ block on dropweb.org/YC is bypassed via the active
-  /// node; otherwise it goes direct via [_dio]. The caller owns the tunnel-state
-  /// decision and the direct→proxy fallback ordering.
-  Future<Map<String, dynamic>?> fetchUpdateManifest(
-      {bool viaProxy = false}) async {
-    try {
-      final response = await (viaProxy ? _clashDio : _dio).get(
-        kUpdateManifestUrl,
-        options: Options(responseType: ResponseType.json),
-      );
-      if (response.statusCode != 200) return null;
-      final raw = response.data;
-      if (raw is Map<String, dynamic>) return raw;
-      if (raw is String) return json.decode(raw) as Map<String, dynamic>;
-      return null;
-    } catch (e) {
-      debugPrint('fetchUpdateManifest failed: $e');
-      return null;
+  /// Max accepted update-manifest body size; anything larger is a miss.
+  static const int _maxManifestBytes = 256 * 1024;
+
+  /// Races every url in [urls] in parallel (via [_dio]; on Android the app's
+  /// own TUN carries the traffic automatically when connected) and completes
+  /// with the FIRST valid update manifest — HTTP 200, body <= 256 KiB, a JSON
+  /// object with a non-empty `version` string. The winner cancels the shared
+  /// [CancelToken] so the losers stop. Any error/cancel for a url is a miss;
+  /// completes with null when every url misses (or [urls] is empty).
+  Future<Map<String, dynamic>?> fetchFirstUpdateManifest(
+      List<String> urls) async {
+    if (urls.isEmpty) return null;
+    final cancelToken = CancelToken();
+    final completer = Completer<Map<String, dynamic>?>();
+    var pending = urls.length;
+
+    void miss() {
+      pending--;
+      if (pending == 0 && !completer.isCompleted) completer.complete(null);
     }
+
+    for (final url in urls) {
+      unawaited(() async {
+        try {
+          final response = await _dio.get<String>(
+            url,
+            cancelToken: cancelToken,
+            options: Options(responseType: ResponseType.plain),
+          );
+          final body = response.data;
+          if (response.statusCode != 200 ||
+              body == null ||
+              body.length > _maxManifestBytes) {
+            miss();
+            return;
+          }
+          final decoded = json.decode(body);
+          if (decoded is! Map<String, dynamic>) {
+            miss();
+            return;
+          }
+          final version = decoded['version'];
+          if (version is! String || version.trim().isEmpty) {
+            miss();
+            return;
+          }
+          if (!completer.isCompleted) {
+            completer.complete(decoded);
+            cancelToken.cancel('update manifest race won');
+          }
+        } catch (e) {
+          debugPrint(
+            'update manifest miss: ${Uri.tryParse(url)?.host} (${e.runtimeType})',
+          );
+          miss();
+        }
+      }());
+    }
+    return completer.future;
   }
 
   /// Tunnel-aware APK download for the in-app updater. Streams [url] to
