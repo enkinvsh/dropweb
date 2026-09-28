@@ -87,22 +87,21 @@ bool shouldHandleUpdateResult({
   return handleError;
 }
 
-/// Whether [AppController.autoCheckUpdate] is allowed to self-update from our
-/// own server on startup. Disabled ONLY on the Google Play build (Play policy
-/// forbids in-app update from an external source). Every other channel —
-/// crucially the sideloaded RU Android build, our primary RU update path —
-/// honours the user's `autoCheckUpdate` preference and self-updates from
-/// dropweb.org/update.json.
+/// Whether [AppController.autoCheckUpdate] (the legacy "new version found →
+/// open the browser" check) runs on startup. Android NEVER runs it: the
+/// sideloaded build has the in-app updater (appUpdateProvider, fed by the
+/// update-manifest mirrors), so the legacy browser dialog was a duplicate
+/// prompt, and the Play build has no self-update at all. Desktop honours the
+/// user's `autoCheckUpdate` preference.
 ///
 /// Pure update policy shared by [AppController.autoCheckUpdate] (the facade)
 /// and its implementation in [AppUpdateService]; also unit-tested directly via
 /// `package:dropweb/controller.dart`.
 bool shouldRunAutoUpdateCheck({
   required bool isAndroid,
-  required bool isPlayBuild,
   required bool autoCheckUpdate,
 }) {
-  if (isAndroid && isPlayBuild) return false;
+  if (isAndroid) return false;
   return autoCheckUpdate;
 }
 
