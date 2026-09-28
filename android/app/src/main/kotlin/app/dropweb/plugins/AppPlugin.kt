@@ -471,7 +471,7 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
             pluginBinding?.let(::preloadUiSounds)
         }
         val sampleId = soundIdMap[cue] ?: return false
-        val streamId = pool.play(sampleId, 1f, 1f, 1, 0, 1f)
+        val streamId = pool.play(sampleId, 0.8f, 0.8f, 1, 0, 1f)
         return streamId != 0
     }
 
