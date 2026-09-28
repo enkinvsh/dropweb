@@ -38,7 +38,9 @@ class _AppUpdateSheetBody extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            info != null ? '$appName ${info.version}' : appLocalizations.checkUpdate,
+            info != null
+                ? '$appName ${info.version}'
+                : appLocalizations.checkUpdate,
             style: textTheme.headlineSmall,
           ),
           if (info != null && info.notes.isNotEmpty) ...[
@@ -134,6 +136,7 @@ class _Actions extends StatelessWidget {
       case AppUpdateStatus.idle:
       case AppUpdateStatus.checking:
       case AppUpdateStatus.upToDate:
+      case AppUpdateStatus.checkFailed:
         return _row(
           context,
           primaryLabel: appLocalizations.update,
