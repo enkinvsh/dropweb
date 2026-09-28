@@ -10,7 +10,6 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 class App {
-
   factory App() {
     _instance ??= App._internal();
     return _instance!;
@@ -39,7 +38,8 @@ class App {
   late MethodChannel methodChannel;
   Function()? onExit;
 
-  Future<bool?> moveTaskToBack() async => methodChannel.invokeMethod<bool>("moveTaskToBack");
+  Future<bool?> moveTaskToBack() async =>
+      methodChannel.invokeMethod<bool>("moveTaskToBack");
 
   Future<List<Package>> getPackages() async {
     final packagesString =
@@ -61,10 +61,11 @@ class App {
     });
   }
 
-  Future<bool> openFile(String path) async => await methodChannel.invokeMethod<bool>("openFile", {
-          "path": path,
-        }) ??
-        false;
+  Future<bool> openFile(String path) async =>
+      await methodChannel.invokeMethod<bool>("openFile", {
+        "path": path,
+      }) ??
+      false;
 
   Future<ImageProvider?> getPackageIcon(String packageName) async {
     final base64 = await methodChannel.invokeMethod<String>("getPackageIcon", {
@@ -76,9 +77,10 @@ class App {
     return MemoryImage(base64Decode(base64));
   }
 
-  Future<bool?> tip(String? message) async => methodChannel.invokeMethod<bool>("tip", {
-      "message": "$message",
-    });
+  Future<bool?> tip(String? message) async =>
+      methodChannel.invokeMethod<bool>("tip", {
+        "message": "$message",
+      });
 
   Future<bool> openVpnSettings() async {
     try {
@@ -151,7 +153,6 @@ class App {
     }
   }
 
-
   /// MANDATORY fail-closed signing-cert pin. Returns true ONLY if the downloaded
   /// APK at [path] is signed by the SAME release key as the installed app — the
   /// one integrity control that survives a poisoned manifest (sha256 shares the
@@ -169,14 +170,49 @@ class App {
     }
   }
 
-  Future<bool?> initShortcuts() async => methodChannel.invokeMethod<bool>(
-      "initShortcuts",
-      appLocalizations.toggle,
+  /// One GET hop over the physical network, OUTSIDE our own VPN tunnel
+  /// (Android only). No redirects are followed; the caller walks them.
+  /// Throws [PlatformException]/[MissingPluginException] on failure.
+  Future<({int status, Map<String, List<String>> headers, Uint8List body})>
+      fetchBypassingVpn(
+    Uri uri,
+    Map<String, String> headers, {
+    required int maxBytes,
+  }) async {
+    final result = await methodChannel.invokeMethod<Map<Object?, Object?>>(
+      'fetchBypassingVpn',
+      {'url': uri.toString(), 'headers': headers, 'maxBytes': maxBytes},
     );
+    if (result == null) {
+      throw StateError('fetchBypassingVpn returned no result');
+    }
+    final rawHeaders = result['headers'];
+    final parsedHeaders = <String, List<String>>{
+      if (rawHeaders is Map)
+        for (final entry in rawHeaders.entries)
+          if (entry.key is String && entry.value is List)
+            entry.key as String: [
+              for (final value in entry.value as List)
+                if (value != null) '$value',
+            ],
+    };
+    final body = result['body'];
+    return (
+      status: result['status']! as int,
+      headers: parsedHeaders,
+      body: body is Uint8List ? body : Uint8List(0),
+    );
+  }
 
-  Future<bool?> updateExcludeFromRecents(bool value) async => methodChannel.invokeMethod<bool>("updateExcludeFromRecents", {
-      "value": value,
-    });
+  Future<bool?> initShortcuts() async => methodChannel.invokeMethod<bool>(
+        "initShortcuts",
+        appLocalizations.toggle,
+      );
+
+  Future<bool?> updateExcludeFromRecents(bool value) async =>
+      methodChannel.invokeMethod<bool>("updateExcludeFromRecents", {
+        "value": value,
+      });
 
   /// Pixel-tuned native haptic cues for the dashboard power button.
   ///

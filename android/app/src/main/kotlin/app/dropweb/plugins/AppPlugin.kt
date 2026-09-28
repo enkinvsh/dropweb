@@ -12,6 +12,9 @@ import android.content.pm.Signature
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.SoundPool
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.net.VpnService
 import android.os.Build
@@ -46,8 +49,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.lang.ref.WeakReference
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.zip.ZipFile
 
 // MIME for the system package installer (ACTION_VIEW). Single source of truth
@@ -300,6 +307,33 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 result.success(true)
             }
 
+            "fetchBypassingVpn" -> {
+                val url = call.argument<String>("url")
+                val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
+                val maxBytes = call.argument<Number>("maxBytes")?.toLong()
+                scope.launch(Dispatchers.IO) {
+                    val outcome = try {
+                        requireNotNull(url) { "url is required" }
+                        requireNotNull(maxBytes) { "maxBytes is required" }
+                        kotlin.Result.success(fetchBypassingVpn(url, headers, maxBytes))
+                    } catch (t: Throwable) {
+                        kotlin.Result.failure(t)
+                    }
+                    withContext(Dispatchers.Main) {
+                        outcome.fold(
+                            onSuccess = { result.success(it) },
+                            onFailure = { t ->
+                                result.error(
+                                    "BYPASS_FETCH_FAILED",
+                                    t.message ?: t.javaClass.simpleName,
+                                    null
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
             else -> {
                 result.notImplemented()
             }
@@ -458,6 +492,111 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
             true
         } catch (_: Exception) {
             false
+        }
+    }
+
+    // Non-VPN networks with internet, best first. Same eligibility rule as
+    // VpnPlugin.isEligiblePhysicalNetwork.
+    // One-shot enumeration; a NetworkCallback would be overkill for a single fetch.
+    @Suppress("DEPRECATION")
+    private fun physicalNetworks(): List<Network> {
+        val cm = DropwebApplication.getAppContext()
+            .getSystemService(ConnectivityManager::class.java) ?: return emptyList()
+        return cm.allNetworks.mapNotNull { network ->
+            val caps = cm.getNetworkCapabilities(network) ?: return@mapNotNull null
+            val eligible =
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED) &&
+                    caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) &&
+                    !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+            if (eligible) network to caps else null
+        }.sortedWith(
+            compareByDescending<Pair<Network, NetworkCapabilities>> {
+                it.second.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            }.thenByDescending {
+                it.second.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+            }
+        ).map { it.first }
+    }
+
+    /**
+     * One GET hop of a subscription URL over a physical (non-VPN) network, so
+     * the subscription can be refreshed while our own VPN is on but its
+     * servers are dead. No redirects are followed — Dart walks them.
+     *
+     * Why this escapes our tunnel: the VPN owner UID is in netd's protectable
+     * set, so binding a socket to a non-VPN [Network] is allowed and the
+     * socket is marked protectedFromVpn. DNS goes through that network as
+     * well, not through our fake-ip resolver.
+     *
+     * The app's network_security_config forbids cleartext except loopback, so
+     * plain http:// subscription URLs fail on this leg; the normal in-tunnel
+     * leg still serves them.
+     *
+     * Tries each network in turn on [IOException]; a too-large body is an
+     * [IllegalStateException] and is not retried.
+     */
+    private fun fetchBypassingVpn(
+        url: String,
+        headers: Map<String, String>,
+        maxBytes: Long
+    ): Map<String, Any> {
+        val target = URL(url)
+        if (target.protocol != "http" && target.protocol != "https") {
+            throw IllegalArgumentException("Unsupported scheme: ${target.protocol}")
+        }
+        var lastError: IOException? = null
+        for (network in physicalNetworks()) {
+            try {
+                return fetchOnce(network, target, headers, maxBytes)
+            } catch (e: IOException) {
+                lastError = e
+            }
+        }
+        throw lastError ?: IOException("no physical network")
+    }
+
+    private fun fetchOnce(
+        network: Network,
+        target: URL,
+        headers: Map<String, String>,
+        maxBytes: Long
+    ): Map<String, Any> {
+        val conn = network.openConnection(target) as HttpURLConnection
+        try {
+            conn.instanceFollowRedirects = false
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 30_000
+            // No Accept-Encoding: HttpURLConnection negotiates and inflates gzip itself.
+            headers.forEach { (k, v) -> conn.setRequestProperty(k, v) }
+            val status = conn.responseCode
+            val headersMap = conn.headerFields
+                .filterKeys { it != null }
+                .map { (k, v) -> k.lowercase() to v.toList() }
+                .toMap()
+            val body = if (status in 200..299) {
+                val out = ByteArrayOutputStream()
+                conn.inputStream.use { input ->
+                    val buffer = ByteArray(64 * 1024)
+                    var total = 0L
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        total += read
+                        if (total > maxBytes) {
+                            throw IllegalStateException("Subscription too large (max $maxBytes)")
+                        }
+                        out.write(buffer, 0, read)
+                    }
+                }
+                out.toByteArray()
+            } else {
+                ByteArray(0)
+            }
+            return mapOf("status" to status, "headers" to headersMap, "body" to body)
+        } finally {
+            conn.disconnect()
         }
     }
 
