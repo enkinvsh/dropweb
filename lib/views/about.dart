@@ -14,6 +14,14 @@ bool shouldShowCheckForUpdate({
 }) =>
     !isAndroid || !isPlayBuild;
 
+/// Privacy policy linked from About. The store build links the app's own
+/// policy (published by Pulse, neutral client); the sideload build keeps the
+/// dropweb service policy.
+@visibleForTesting
+String privacyPolicyUrl({bool isPlayBuild = kIsPlayBuild}) => isPlayBuild
+    ? 'https://dropweb.org/app/privacy/'
+    : 'https://dropweb.org/privacy';
+
 class AboutView extends StatelessWidget {
   const AboutView({super.key});
 
@@ -26,7 +34,7 @@ class AboutView extends StatelessWidget {
       ),
       ListItem(
         title: Text(appLocalizations.privacyPolicy),
-        onTap: () => globalState.openUrl("https://dropweb.org/privacy"),
+        onTap: () => globalState.openUrl(privacyPolicyUrl()),
         trailing: HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 24),
       ),
     ];

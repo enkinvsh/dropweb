@@ -1,3 +1,4 @@
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -13,10 +14,41 @@ val localProperties = Properties().apply {
     }
 }
 
-val mStoreFile: File = file("keystore.jks")
-val mStorePassword: String? = System.getenv("DROPWEB_STORE_PASSWORD") ?: localProperties.getProperty("storePassword")
-val mKeyAlias: String? = System.getenv("DROPWEB_KEY_ALIAS") ?: localProperties.getProperty("keyAlias")
-val mKeyPassword: String? = System.getenv("DROPWEB_KEY_PASSWORD") ?: localProperties.getProperty("keyPassword")
+// Store (Google Play) build = the SAME switch as Dart's `kIsPlayBuild`
+// (lib/common/constant.dart): `--dart-define=PLAY_BUILD=true`. The Flutter tool
+// forwards dart-defines to Gradle as `-Pdart-defines=<base64>,<base64>`
+// (flutter_tools build_info.dart `encodeDartDefines`). One switch drives the
+// Dart gates, the manifest overlay, the ABI set and the signing key, so a
+// store artifact can never ship sideload-only entries (and vice versa).
+val isStoreBuild: Boolean = (project.findProperty("dart-defines") as String?)
+    ?.split(",")
+    ?.filter { it.isNotBlank() }
+    ?.any { String(Base64.getDecoder().decode(it), Charsets.UTF_8) == "PLAY_BUILD=true" }
+    ?: false
+
+// Signing. Sideload (direct) artifacts are signed with the app signing key
+// keystore.jks. Store artifacts are signed with the separate Play UPLOAD key
+// upload-keystore.jks: Play re-signs them with its own Google-generated app
+// signing key, which deliberately differs from the sideload key — the store
+// and sideload builds have different content, so Play must never cross-update
+// a sideloaded install (developer.android.com/google/play/app-updates,
+// "Prevent cross-store updates"). The sideload key never signs a store build.
+val mStoreFile: File = file(if (isStoreBuild) "upload-keystore.jks" else "keystore.jks")
+val mStorePassword: String? = if (isStoreBuild) {
+    System.getenv("DROPWEB_UPLOAD_STORE_PASSWORD") ?: localProperties.getProperty("uploadStorePassword")
+} else {
+    System.getenv("DROPWEB_STORE_PASSWORD") ?: localProperties.getProperty("storePassword")
+}
+val mKeyAlias: String? = if (isStoreBuild) {
+    System.getenv("DROPWEB_UPLOAD_KEY_ALIAS") ?: localProperties.getProperty("uploadKeyAlias")
+} else {
+    System.getenv("DROPWEB_KEY_ALIAS") ?: localProperties.getProperty("keyAlias")
+}
+val mKeyPassword: String? = if (isStoreBuild) {
+    System.getenv("DROPWEB_UPLOAD_KEY_PASSWORD") ?: localProperties.getProperty("uploadKeyPassword")
+} else {
+    System.getenv("DROPWEB_KEY_PASSWORD") ?: localProperties.getProperty("keyPassword")
+}
 
 // Release signing is considered configured only when:
 //   - keystore.jks is an actual regular file (a directory or symlink-to-dir
@@ -38,6 +70,16 @@ android {
     namespace = "app.dropweb"
     compileSdk = 36
     ndkVersion = "28.2.13676358"
+
+    // Store build: merge src/store/AndroidManifest.xml over main for RELEASE only
+    // (Play uploads release artifacts; debug/profile keep their own manifests).
+    sourceSets {
+        getByName("release") {
+            if (isStoreBuild) {
+                manifest.srcFile("src/store/AndroidManifest.xml")
+            }
+        }
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -117,6 +159,19 @@ android {
             isShrinkResources = true
             isDebuggable = false
 
+            // Store build ships ONLY the ABIs the bundled core (libclash) is
+            // built for. The Flutter Gradle plugin sets every buildType's
+            // abiFilters to arm/arm64/x64 when it is applied (FlutterPlugin.kt);
+            // this block runs later and overrides it. Without it the bundle
+            // carries an armeabi-v7a split with no libclash, and Play would
+            // serve it to 32-bit devices → the VPN core fails to load.
+            if (isStoreBuild) {
+                ndk {
+                    abiFilters.clear()
+                    abiFilters.addAll(listOf("arm64-v8a", "x86_64"))
+                }
+            }
+
             // Fail-closed signing: only attach the production signing config when
             // every required input is present (keystore + storePassword + keyAlias
             // + keyPassword). When inputs are missing, signingConfig is left null
@@ -187,6 +242,11 @@ gradle.taskGraph.whenReady {
                storePassword=<your store password>
                keyAlias=<your key alias>
                keyPassword=<your key password>
+
+        Store build (PLAY_BUILD=true) instead needs the Play UPLOAD key:
+          1. android/app/upload-keystore.jks
+          2. In android/local.properties: uploadStorePassword, uploadKeyAlias,
+             uploadKeyPassword (or DROPWEB_UPLOAD_* environment variables)
 
         See docs/release/direct-apk.md for the full production signing and
         backup checklist. If you only need a debug build, run the matching

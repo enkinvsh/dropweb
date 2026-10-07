@@ -67,7 +67,7 @@ class _ToolboxViewState extends ConsumerState<ToolsView> {
           // Update self-check is hidden on the Play build (store policy), same
           // gate as the About entry used.
           if (!Platform.isAndroid || !kIsPlayBuild) const _UpdateItem(),
-          const _SupportItem(),
+          if (!kIsPlayBuild) const _SupportItem(),
           const _DisclaimerItem(),
           if (enableDeveloperMode) const _DeveloperItem(),
           const _InfoItem(),

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Store (Google Play) manifest overlay.
+
+    Applied ONLY when `isStoreBuild` is true in android/app/build.gradle.kts,
+    i.e. for release builds made with the PLAY_BUILD=true dart-define (the same
+    switch as Dart's `kIsPlayBuild`). It is merged over src/main as the release
+    source-set manifest and strips sideload-only entries: the in-app
+    self-update (download our APK + launch the system installer) is disabled in
+    the store build, so neither the REQUEST_INSTALL_PACKAGES permission nor the
+    package-archive <queries> intent may ship in a store artifact.
+    Sideload (direct) builds never see this file.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission
+        android:name="android.permission.REQUEST_INSTALL_PACKAGES"
+        tools:node="remove" />
+
+    <queries>
+        <intent tools:node="remove">
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/vnd.android.package-archive" />
+        </intent>
+    </queries>
+</manifest>

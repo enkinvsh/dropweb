@@ -32,6 +32,24 @@ void main() {
     });
   });
 
+  group('about.privacyPolicyUrl', () {
+    // The store build is a neutral client and links the app's own policy.
+    test('store build links the app privacy policy', () {
+      expect(
+        privacyPolicyUrl(isPlayBuild: true),
+        'https://dropweb.org/app/privacy/',
+      );
+    });
+
+    // The sideload build keeps the dropweb service policy.
+    test('sideload build keeps the service privacy policy', () {
+      expect(
+        privacyPolicyUrl(isPlayBuild: false),
+        'https://dropweb.org/privacy',
+      );
+    });
+  });
+
   group('support project link', () {
     // The donation entry was surfaced out of About → "More" into Settings
     // (lib/views/tools.dart, _SupportItem) so it sits one tap deep instead of

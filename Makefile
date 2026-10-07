@@ -6,6 +6,10 @@ android_app:
 	dart ./setup.dart android
 android_arm64_core:
 	dart ./setup.dart android --arch arm64 --out core
+
+android_store_aab:
+	PATH="$(CURDIR)/.fvm/flutter_sdk/bin:$$PATH" dart ./setup.dart android --env stable --store
+
 macos_arm64_core:
 	dart ./setup.dart macos --arch arm64  --out core
 

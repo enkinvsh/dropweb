@@ -566,6 +566,14 @@ class BuildCommand extends Command {
       ].join(','),
       help: 'The $name build env',
     );
+    if (target == Target.android) {
+      argParser.addFlag(
+        "store",
+        negatable: false,
+        help:
+            "Google Play store build: AAB with --dart-define=PLAY_BUILD=true (no self-update, no REQUEST_INSTALL_PACKAGES, no payment/cabinet/support/donation links)",
+      );
+    }
     // Android APK builds always use split-per-abi and never package universal APKs.
   }
 
@@ -956,6 +964,32 @@ class BuildCommand extends Command {
         };
         final allTargets = targetMap.values.join(",");
         final defaultTarget = arch == null ? allTargets : targetMap[arch];
+
+        // Store (Google Play) build: a single AAB with PLAY_BUILD=true — the
+        // same switch drives the Dart gates (kIsPlayBuild) and the Gradle
+        // release manifest overlay (android/app/src/store/AndroidManifest.xml).
+        // No sideload APKs are produced in store mode.
+        if (argResults?["store"] == true) {
+          await Build.exec(
+            name: "flutter build appbundle (store)",
+            [
+              "flutter",
+              "build",
+              "appbundle",
+              "--release",
+              "--dart-define=APP_ENV=$env",
+              "--dart-define=CORE_VERSION=$coreVersion",
+              "--dart-define=PLAY_BUILD=true",
+              if (arch != null) "--target-platform=${targetMap[arch]}",
+            ],
+          );
+          Build.copyFile(
+            join(current, "build", "app", "outputs", "bundle", "release",
+                "app-release.aab"),
+            join(Build.distPath, "${Build.appName}-store.aab"),
+          );
+          return;
+        }
 
         await _buildDistributor(
           target: target,
