@@ -182,7 +182,7 @@ func handleStartTun(fd int, callback unsafe.Pointer) {
 		limit:    semaphore.NewWeighted(4),
 	}
 	initTunHook()
-	tunListener, err := t.Start(fd, currentConfig.General.Tun.Device, currentConfig.General.Tun.Stack)
+	tunListener, err := t.Start(fd, currentConfig.General.Tun.Device, currentConfig.General.Tun.Stack, 9000)
 	if err != nil || tunListener == nil {
 		// fd belongs to sing-tun once t.Start is entered; it closes the fd exactly
 		// once via Listener.Close on a post-wrap failure. Do NOT add an unconditional
