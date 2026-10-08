@@ -52,6 +52,9 @@ func pushType(payload any) MessageType {
 }
 
 func (result ActionResult) send() {
+	if deliverSync(result) {
+		return
+	}
 	data, err := result.Json()
 	if err != nil {
 		return
