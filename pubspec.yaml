@@ -144,7 +144,10 @@ flutter_intl:
 
 flutter_launcher_icons:
   android: true
-  ios: false
+  ios: true
+  # App Store rejects icons with transparency; the tile is black to its edge.
+  remove_alpha_ios: true
+  background_color_ios: "#000000"
   image_path: "assets/images/icon.png"
   adaptive_icon_background: "#202020"
   adaptive_icon_foreground: "assets/images/icon.png"
