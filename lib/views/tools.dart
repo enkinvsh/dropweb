@@ -64,9 +64,9 @@ class _ToolboxViewState extends ConsumerState<ToolsView> {
         items: [
           // Surfaced out of the (previously buried) About → "More" section so
           // updates + donations sit one tap deep in Settings, not three.
-          // Update self-check is hidden on the Play build (store policy), same
-          // gate as the About entry used.
-          if (!Platform.isAndroid || !kIsPlayBuild) const _UpdateItem(),
+          // Update self-check is hidden on store builds (store policy). The
+          // donation link stays on iOS and is hidden on the Play build.
+          if (shouldShowCheckForUpdate()) const _UpdateItem(),
           if (!kIsPlayBuild) const _SupportItem(),
           const _DisclaimerItem(),
           if (enableDeveloperMode) const _DeveloperItem(),

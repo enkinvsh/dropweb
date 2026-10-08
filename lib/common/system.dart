@@ -41,6 +41,11 @@ class System {
   /// desktop has none at all.
   bool get showsPageHeader => !Platform.isAndroid;
 
+  /// Store builds leave out payment links and the self-updater: the Google
+  /// Play build, and every iOS build, since iOS apps only ship through the
+  /// App Store.
+  bool get isStoreBuild => kIsPlayBuild || Platform.isIOS;
+
   /// Whether decoding a QR code from a gallery image is supported.
   ///
   /// `mobile_scanner`'s `analyzeImage` only has a native implementation on

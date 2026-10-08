@@ -16,21 +16,22 @@ void main() {
   };
 
   group('storeSafeProviderHeaders', () {
-    // Store build: payment, cabinet and provider-support links never reach
-    // the profile, so every UI read site sees them as absent.
-    test('store build drops payment/cabinet/support headers', () {
-      final result = storeSafeProviderHeaders(headers, isPlayBuild: true);
+    // Store build (Google Play, iOS): payment and cabinet links never reach
+    // the profile, so every UI read site sees them as absent. Support and
+    // device removal stay, as in other store VPN clients.
+    test('store build drops payment and cabinet headers', () {
+      final result = storeSafeProviderHeaders(headers, isStoreBuild: true);
 
       for (final key in [
-        'support-url',
         'dropweb-renew-url',
         'dropweb-topup-url',
         'dropweb-cabinet',
-        'dropweb-device-remove',
       ]) {
         expect(result.containsKey(key), isFalse, reason: key);
       }
       expect(result, {
+        'support-url': 'https://t.me/provider_support',
+        'dropweb-device-remove': 'https://cab.example.com/devices',
         'announce': 'Maintenance tonight',
         'x-hwid-limit': 'true',
         'profile-update-interval': '12',
@@ -41,7 +42,7 @@ void main() {
 
     // Sideload build: headers pass through untouched.
     test('sideload build keeps every header', () {
-      expect(storeSafeProviderHeaders(headers, isPlayBuild: false), headers);
+      expect(storeSafeProviderHeaders(headers, isStoreBuild: false), headers);
     });
   });
 }

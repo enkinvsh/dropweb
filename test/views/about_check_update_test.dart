@@ -5,30 +5,16 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('about.shouldShowCheckForUpdate', () {
-    // Play builds (--dart-define=PLAY_BUILD=true) MUST NOT expose an in-app
-    // update check — Google Play policy requires updates through the store.
-    test('Android Play build hides the manual update entry', () {
-      expect(
-        shouldShowCheckForUpdate(isAndroid: true, isPlayBuild: true),
-        isFalse,
-      );
+    // Store builds (Google Play, iOS) MUST NOT expose an in-app update
+    // check — store policy requires updates through the store.
+    test('store build hides the manual update entry', () {
+      expect(shouldShowCheckForUpdate(isStoreBuild: true), isFalse);
     });
 
-    // The sideloaded Android build (our primary RU channel) shows it and
-    // self-updates from our own server.
-    test('Android sideload build keeps the manual update entry', () {
-      expect(
-        shouldShowCheckForUpdate(isAndroid: true, isPlayBuild: false),
-        isTrue,
-      );
-    });
-
-    // Desktop always shows the manual check, regardless of build flavour.
-    test('non-Android keeps the manual update entry', () {
-      expect(shouldShowCheckForUpdate(isAndroid: false, isPlayBuild: true),
-          isTrue);
-      expect(shouldShowCheckForUpdate(isAndroid: false, isPlayBuild: false),
-          isTrue);
+    // Sideloaded Android (our primary RU channel) and desktop show it and
+    // update from our own server.
+    test('sideload and desktop builds keep the manual update entry', () {
+      expect(shouldShowCheckForUpdate(isStoreBuild: false), isTrue);
     });
   });
 
@@ -36,7 +22,7 @@ void main() {
     // The store build is a neutral client and links the app's own policy.
     test('store build links the app privacy policy', () {
       expect(
-        privacyPolicyUrl(isPlayBuild: true),
+        privacyPolicyUrl(isStoreBuild: true),
         'https://dropweb.org/app/privacy/',
       );
     });
@@ -44,7 +30,7 @@ void main() {
     // The sideload build keeps the dropweb service policy.
     test('sideload build keeps the service privacy policy', () {
       expect(
-        privacyPolicyUrl(isPlayBuild: false),
+        privacyPolicyUrl(isStoreBuild: false),
         'https://dropweb.org/privacy',
       );
     });

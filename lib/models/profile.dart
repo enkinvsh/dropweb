@@ -18,24 +18,22 @@ part 'generated/profile.g.dart';
 
 typedef SelectedMap = Map<String, String>;
 
-/// Provider headers the store build (Google Play / App Store, [kIsPlayBuild])
-/// drops at ingestion: payment, account-cabinet and provider-support links.
-/// The store app is a neutral bring-your-own-config client — it must not
-/// steer users to a provider's checkout, cabinet or sales bot, whatever panel
-/// the user imports. Sideload builds keep every header.
+/// Provider headers store builds ([System.isStoreBuild]: Google Play, iOS)
+/// drop at ingestion: payment and account-cabinet links. The store app is a
+/// neutral bring-your-own-config client — it must not steer users to a
+/// provider's checkout or cabinet, whatever panel the user imports. Provider
+/// support and device removal stay. Sideload builds keep every header.
 const storeStrippedProviderHeaders = {
-  'support-url',
   'dropweb-renew-url',
   'dropweb-topup-url',
   'dropweb-cabinet',
-  'dropweb-device-remove',
 };
 
 Map<String, String> storeSafeProviderHeaders(
   Map<String, String> headers, {
-  bool isPlayBuild = kIsPlayBuild,
+  bool? isStoreBuild,
 }) {
-  if (!isPlayBuild) return headers;
+  if (!(isStoreBuild ?? system.isStoreBuild)) return headers;
   return {
     for (final entry in headers.entries)
       if (!storeStrippedProviderHeaders.contains(entry.key))

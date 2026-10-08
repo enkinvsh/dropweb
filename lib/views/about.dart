@@ -4,23 +4,19 @@ import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-/// Whether the About page should show the manual "Check for updates" entry.
-/// [isAndroid]/[isPlayBuild] are injected so this helper stays testable
-/// without mocking `Platform`; production callers pass `Platform.isAndroid`.
-@visibleForTesting
-bool shouldShowCheckForUpdate({
-  required bool isAndroid,
-  bool isPlayBuild = kIsPlayBuild,
-}) =>
-    !isAndroid || !isPlayBuild;
+/// Whether Settings shows the manual "Check for updates" entry. Store builds
+/// update through the store. [isStoreBuild] is injectable for tests.
+bool shouldShowCheckForUpdate({bool? isStoreBuild}) =>
+    !(isStoreBuild ?? system.isStoreBuild);
 
-/// Privacy policy linked from About. The store build links the app's own
-/// policy (published by Pulse, neutral client); the sideload build keeps the
-/// dropweb service policy.
+/// Privacy policy linked from About. Store builds link the app's own policy
+/// (published by Pulse, neutral client); the sideload build keeps the dropweb
+/// service policy.
 @visibleForTesting
-String privacyPolicyUrl({bool isPlayBuild = kIsPlayBuild}) => isPlayBuild
-    ? 'https://dropweb.org/app/privacy/'
-    : 'https://dropweb.org/privacy';
+String privacyPolicyUrl({bool? isStoreBuild}) =>
+    (isStoreBuild ?? system.isStoreBuild)
+        ? 'https://dropweb.org/app/privacy/'
+        : 'https://dropweb.org/privacy';
 
 class AboutView extends StatelessWidget {
   const AboutView({super.key});
