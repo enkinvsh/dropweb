@@ -35,6 +35,12 @@ class System {
 
   bool get isMobile => Platform.isAndroid || Platform.isIOS;
 
+  /// Whether pushed pages show a header: back arrow and page title.
+  /// Android goes back with the system gesture and keeps the bar empty for
+  /// notifications; iOS has no system back gesture for these pages and
+  /// desktop has none at all.
+  bool get showsPageHeader => !Platform.isAndroid;
+
   /// Whether decoding a QR code from a gallery image is supported.
   ///
   /// `mobile_scanner`'s `analyzeImage` only has a native implementation on

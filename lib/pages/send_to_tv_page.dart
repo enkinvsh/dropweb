@@ -129,8 +129,10 @@ class _SendToTvPageState extends ConsumerState<SendToTvPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
-          automaticallyImplyLeading: system.isDesktop,
-          title: system.isDesktop ? Text(appLocalizations.sendToTvTitle) : null,
+          automaticallyImplyLeading: system.showsPageHeader,
+          title: system.showsPageHeader
+              ? Text(appLocalizations.sendToTvTitle)
+              : null,
         ),
         body: MobileScanner(
           controller: _scannerController,

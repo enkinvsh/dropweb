@@ -149,9 +149,9 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
     final bottomSheet = widget.type == SheetType.bottomSheet;
     final sideSheet = widget.type == SheetType.sideSheet;
     final page = widget.type == SheetType.page;
-    // Page names only on desktop (next to the back arrow) and on bottom
-    // sheets. A mobile page keeps its bar empty for notifications.
-    final showTitle = system.isDesktop || bottomSheet;
+    // Page names next to the back arrow and on bottom sheets. An Android
+    // page keeps its bar empty for notifications.
+    final showTitle = system.showsPageHeader || bottomSheet;
     final backgroundColor = colorScheme.surface.withValues(alpha: 0.92);
     // Page-mode (mobile push from showExtend) renders inside CommonScaffold's
     // dark void with the mesh background. Forcing an opaque surface tint on
@@ -159,8 +159,8 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
     // from the dashboard. Let the mesh bleed through instead.
     final appBar = AppBar(
       forceMaterialTransparency: bottomSheet || page,
-      // Back arrow on desktop only; mobile uses the system back gesture.
-      automaticallyImplyLeading: system.isDesktop &&
+      // No back arrow on Android: it has the system back gesture.
+      automaticallyImplyLeading: system.showsPageHeader &&
           !bottomSheet &&
           !(widget.actions.isEmpty && sideSheet),
       centerTitle: bottomSheet,

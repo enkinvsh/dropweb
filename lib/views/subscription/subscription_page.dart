@@ -326,8 +326,9 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
       backgroundColor: Lumina.void_,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        automaticallyImplyLeading: system.isDesktop,
-        title: system.isDesktop ? Text(appLocalizations.subscription) : null,
+        automaticallyImplyLeading: system.showsPageHeader,
+        title:
+            system.showsPageHeader ? Text(appLocalizations.subscription) : null,
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
