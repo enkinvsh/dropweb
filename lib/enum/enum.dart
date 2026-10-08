@@ -13,7 +13,8 @@ enum SupportPlatform {
   Windows,
   MacOS,
   Linux,
-  Android;
+  Android,
+  iOS;
 
   static SupportPlatform get currentPlatform {
     if (Platform.isWindows) {
@@ -24,6 +25,8 @@ enum SupportPlatform {
       return SupportPlatform.Linux;
     } else if (Platform.isAndroid) {
       return SupportPlatform.Android;
+    } else if (Platform.isIOS) {
+      return SupportPlatform.iOS;
     }
     throw "invalid platform";
   }
