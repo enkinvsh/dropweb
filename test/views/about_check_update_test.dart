@@ -39,14 +39,14 @@ void main() {
   group('support project link', () {
     // The donation entry was surfaced out of About → "More" into Settings
     // (lib/views/tools.dart, _SupportItem) so it sits one tap deep instead of
-    // three. Verify it lives there with the correct tribute URL — it is no
-    // longer in About.
-    test('lives in Settings (tools.dart) with the tribute URL', () {
+    // three. Verify it lives there with our donation page — it is no longer
+    // in About.
+    test('lives in Settings (tools.dart) with the dropweb donation page', () {
       final source = File('lib/views/tools.dart').readAsStringSync();
       expect(source, contains('supportProject'));
       expect(
         source,
-        contains('globalState.openUrl("https://web.tribute.tg/d/Huc")'),
+        contains('globalState.openUrl("https://dropweb.org/donate")'),
       );
     });
   });

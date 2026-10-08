@@ -384,7 +384,7 @@ class _SupportItem extends StatelessWidget {
     return ListItem(
       leading: const HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 24),
       title: Text(appLocale.supportProject),
-      onTap: () => globalState.openUrl("https://web.tribute.tg/d/Huc"),
+      onTap: () => globalState.openUrl("https://dropweb.org/donate"),
     );
   }
 }
