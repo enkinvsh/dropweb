@@ -1,19 +1,22 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' show Pointer;
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 import 'dart:math';
 
 import 'package:animations/animations.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:dropweb/clash/clash.dart';
 import 'package:dropweb/common/connect_trace.dart';
 import 'package:dropweb/common/error_mapper.dart';
+import 'package:dropweb/common/ios_config_patch.dart';
 import 'package:dropweb/common/theme.dart';
 import 'package:dropweb/common/work_mode_patch.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/l10n/l10n.dart';
+import 'package:dropweb/plugins/ios_tunnel.dart';
 import 'package:dropweb/plugins/service.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/widgets/dialog.dart';
@@ -382,6 +385,17 @@ class GlobalState {
       if (!needsTunAck && !isDesktopPending) {
         startTime ??= DateTime.now();
       }
+      if (Platform.isIOS) {
+        // Traffic runs in the PacketTunnel extension's own core. The app's
+        // core only parses configs and downloads providers, so it never
+        // starts listeners.
+        if (!await _startIosTunnel()) {
+          startTime = null;
+          return false;
+        }
+        unawaited(startUpdateTasks(tasks));
+        return true;
+      }
       // The typed outcome distinguishes three cases the old bare bool could
       // not: ok, a real synchronous tunError (final cause), and — thrown
       // separately from interface.dart — the 30s RPC timeout. A timeout is NOT
@@ -483,6 +497,59 @@ class GlobalState {
     }
   }
 
+  /// Hands the extension the same three quickStart JSONs the Android
+  /// TileService uses (lib/main.dart), then waits for NEVPNStatus.connected:
+  /// startVPNTunnel returns before the extension is up.
+  Future<bool> _startIosTunnel() async {
+    final setup = await getSetupParams(
+      pathConfig: config.patchClashConfig.copyWith.tun(enable: false),
+    );
+    final extension = toIosExtensionConfig(
+      setup.config,
+      fileExists: (path) => File(path).existsSync(),
+    );
+    if (extension.stillRemote.isNotEmpty) {
+      commonPrint.log('ios: providers not downloaded yet, extension will fetch: '
+          '${extension.stillRemote.join(', ')}');
+    }
+    final tunnel = iosTunnel!;
+    try {
+      await tunnel.start(
+        init: json.encode(InitParams(
+          homeDir: await appPath.homeDirPath,
+          version: await system.version,
+        )),
+        setup: json.encode(setup.copyWith(config: extension.config)),
+        state: json.encode(getCoreState()),
+      );
+    } on PlatformException catch (e) {
+      commonPrint.log('ios: tunnel start failed: ${e.code} ${e.message}');
+      return false;
+    }
+    // NEVPNStatus: 0 invalid, 1 disconnected, 2 connecting, 3 connected.
+    // A quick extension failure can go 2 -> 1 between polls, so a lasting
+    // 0/1 also counts as failure after a short grace period.
+    final startedAt = DateTime.now();
+    var sawConnecting = false;
+    while (DateTime.now().difference(startedAt) < const Duration(seconds: 30)) {
+      final status = await tunnel.status();
+      if (status == 3) return true;
+      if (status == 2) sawConnecting = true;
+      final idle = status == null || status <= 1;
+      if (idle &&
+          (sawConnecting ||
+              DateTime.now().difference(startedAt) >
+                  const Duration(seconds: 3))) {
+        commonPrint.log('ios: tunnel did not come up (status $status)');
+        return false;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+    commonPrint.log('ios: tunnel start timed out');
+    await tunnel.stop();
+    return false;
+  }
+
   Future updateStartTime() async {
     startTime = await clashLib?.getRunTime();
   }
@@ -497,14 +564,24 @@ class GlobalState {
     _vpnTransitionInFlight = true;
     try {
       startTime = null;
-      await clashCore.stopListener();
-      try {
-        // 5s cap — a hung native service mustn't freeze the UI.
-        await service?.stopVpn().timeout(const Duration(seconds: 5));
-      } on TimeoutException {
-        commonPrint.log('service.stopVpn() timed out — forcing local stop');
-      } catch (e) {
-        commonPrint.log('service.stopVpn() failed: $e');
+      if (Platform.isIOS) {
+        try {
+          await iosTunnel!.stop().timeout(const Duration(seconds: 5));
+        } on TimeoutException {
+          commonPrint.log('ios: tunnel stop timed out');
+        } on PlatformException catch (e) {
+          commonPrint.log('ios: tunnel stop failed: ${e.code} ${e.message}');
+        }
+      } else {
+        await clashCore.stopListener();
+        try {
+          // 5s cap — a hung native service mustn't freeze the UI.
+          await service?.stopVpn().timeout(const Duration(seconds: 5));
+        } on TimeoutException {
+          commonPrint.log('service.stopVpn() timed out — forcing local stop');
+        } catch (e) {
+          commonPrint.log('service.stopVpn() failed: $e');
+        }
       }
       stopUpdateTasks();
       return true;
@@ -1056,11 +1133,15 @@ class GlobalState {
             '— patch is a no-op');
       }
     }
-    return applyWorkModePatch(
+    final patched = applyWorkModePatch(
       profile.fullTunnel ? applyFullTunnel(demoted.config) : demoted.config,
       workMode: profile.workMode,
       staticCountry: profile.staticCountry,
     );
+    if (!Platform.isIOS) return patched;
+    final ios = applyIosBasePatch(patched);
+    final systemVersion = (await DeviceInfoPlugin().iosInfo).systemVersion;
+    return iosNeedsLiteCore(systemVersion) ? applyIosLitePatch(ios) : ios;
   }
 
   Future<Map<String, dynamic>> getProfileConfig(String profileId) async {
