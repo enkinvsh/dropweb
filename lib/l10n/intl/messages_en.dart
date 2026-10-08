@@ -266,7 +266,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "deleteMultipTip": m1,
     "deleteTip": m2,
     "desc": MessageLookupByLibrary.simpleMessage(
-      "Dropweb — fast, simple VPN client. Open-source and ad-free.",
+      "dropweb — fast, simple VPN client. Open-source and ad-free.",
     ),
     "detectionTip": MessageLookupByLibrary.simpleMessage(
       "Relying on third-party api is for reference only",
@@ -947,7 +947,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Modify VPN related settings",
     ),
     "vpnDisclosureBody": MessageLookupByLibrary.simpleMessage(
-      "Dropweb uses Android\'s VPN permission to create a local VPN tunnel that you control. Network traffic is routed according to the connection or subscription you select. You can disconnect at any time from this screen or your device\'s VPN settings. Any optional diagnostics, account, or cabinet features are separate and are disclosed where they apply.",
+      "dropweb uses Android\'s VPN permission to create a local VPN tunnel that you control. Network traffic is routed according to the connection or subscription you select. You can disconnect at any time from this screen or your device\'s VPN settings. Any optional diagnostics, account, or cabinet features are separate and are disclosed where they apply.",
     ),
     "vpnDisclosureContinue": MessageLookupByLibrary.simpleMessage("Continue"),
     "vpnDisclosureTitle": MessageLookupByLibrary.simpleMessage(

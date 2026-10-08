@@ -193,7 +193,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "delete": MessageLookupByLibrary.simpleMessage("删除"),
     "deleteMultipTip": m1,
     "deleteTip": m2,
-    "desc": MessageLookupByLibrary.simpleMessage("Dropweb — 简洁高速的加速器。开源，无广告。"),
+    "desc": MessageLookupByLibrary.simpleMessage("dropweb — 简洁高速的加速器。开源，无广告。"),
     "detectionTip": MessageLookupByLibrary.simpleMessage("依赖第三方api，仅供参考"),
     "devAdbRemote": MessageLookupByLibrary.simpleMessage("adb 遥控"),
     "devAdbRemoteReplies": MessageLookupByLibrary.simpleMessage(
@@ -669,7 +669,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "view": MessageLookupByLibrary.simpleMessage("查看"),
     "vpnDesc": MessageLookupByLibrary.simpleMessage("修改加速器相关设置"),
     "vpnDisclosureBody": MessageLookupByLibrary.simpleMessage(
-      "Dropweb 使用 Android 的 VPN 权限来创建由您控制的本地加速隧道。网络流量将按照您选择的连接或订阅进行路由。您可以随时通过此界面或系统设置断开连接。任何可选的诊断、账户或后台功能均为独立功能，将在相应位置进行说明。",
+      "dropweb 使用 Android 的 VPN 权限来创建由您控制的本地加速隧道。网络流量将按照您选择的连接或订阅进行路由。您可以随时通过此界面或系统设置断开连接。任何可选的诊断、账户或后台功能均为独立功能，将在相应位置进行说明。",
     ),
     "vpnDisclosureContinue": MessageLookupByLibrary.simpleMessage("继续"),
     "vpnDisclosureTitle": MessageLookupByLibrary.simpleMessage("连接之前"),

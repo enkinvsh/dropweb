@@ -214,7 +214,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "deleteMultipTip": m1,
     "deleteTip": m2,
     "desc": MessageLookupByLibrary.simpleMessage(
-      "Dropweb — シンプルで高速な VPN クライアント。オープンソース、広告なし。",
+      "dropweb — シンプルで高速な VPN クライアント。オープンソース、広告なし。",
     ),
     "detectionTip": MessageLookupByLibrary.simpleMessage("サードパーティAPIに依存（参考値）"),
     "devAdbRemote": MessageLookupByLibrary.simpleMessage("adb リモート"),
@@ -767,7 +767,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "view": MessageLookupByLibrary.simpleMessage("表示"),
     "vpnDesc": MessageLookupByLibrary.simpleMessage("VPN関連設定の変更"),
     "vpnDisclosureBody": MessageLookupByLibrary.simpleMessage(
-      "Dropweb は Android の VPN 権限を使用して、ユーザーが制御するローカル VPN トンネルを作成します。ネットワーク通信は、選択した接続またはサブスクリプションに従ってルーティングされます。この画面または端末の VPN 設定からいつでも切断できます。診断、アカウント、キャビネットなどの任意機能はそれぞれ別個に提供され、該当箇所で説明されます。",
+      "dropweb は Android の VPN 権限を使用して、ユーザーが制御するローカル VPN トンネルを作成します。ネットワーク通信は、選択した接続またはサブスクリプションに従ってルーティングされます。この画面または端末の VPN 設定からいつでも切断できます。診断、アカウント、キャビネットなどの任意機能はそれぞれ別個に提供され、該当箇所で説明されます。",
     ),
     "vpnDisclosureContinue": MessageLookupByLibrary.simpleMessage("続行"),
     "vpnDisclosureTitle": MessageLookupByLibrary.simpleMessage("接続する前に"),
