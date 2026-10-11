@@ -12,6 +12,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../support/fake_path_provider.dart';
+
 /// Подмена контроллера аккаунта: сеть, PoW и защищённое хранилище форме не
 /// нужны — проверяем только её реакцию на ответы.
 class _FakeAccount extends Account {
@@ -164,6 +166,9 @@ Future<void> _flushNotifier(WidgetTester tester) async {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // Тост пишет в FileLogger, а тот спрашивает path_provider: на Linux (CI)
+  // стандартная реализация падает на getDownloadsDirectory.
+  useFakePathProvider();
 
   setUpAll(() async {
     await AppLocalizations.load(const Locale('ru'));
