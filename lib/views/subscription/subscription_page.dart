@@ -21,16 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
-    show
-        GlassCard,
-        GlassMenu,
-        GlassMenuAlignment,
-        GlassMenuItem,
-        GlassModalSheet,
-        GlassQuality,
-        GlassSheetDetent,
-        GlassSheetState,
-        LiquidRoundedSuperellipse;
+    show GlassMenu, GlassMenuAlignment;
 
 // Merged «Подписка» page in the «LiquidLumina» style.
 //
@@ -44,20 +35,6 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
 // glass). On desktop it is a page with a glass hero and grouped card. The
 // country picker stays an opaque Material sheet: a scrolling list over glass
 // re-refracts every frame.
-
-/// Leading inset of a hairline inside the grouped card: row padding 16 +
-/// icon 24 + gap 12, so the line starts under the title, iOS-style.
-const double _groupedDividerIndent = 52;
-
-/// Sheet content starts under the drag handle (the pill sits at y 8–12).
-const double _sheetTopInset = 24;
-
-/// Bottom padding of the sheet content, above the safe area.
-const double _sheetBottomInset = 16;
-
-/// Gap under the sheet; must equal the `bottomMargin` passed to
-/// `GlassModalSheet.show`.
-const double _sheetBottomMargin = 8;
 
 /// Same readiness gate and invalidation as `modeProfileDataProvider`, plus
 /// the name of the profile's primary router (the `MATCH` target).
@@ -124,17 +101,11 @@ class SubscriptionPage extends ConsumerStatefulWidget {
         ),
       );
     }
-    return GlassModalSheet.show<void>(
-      context: context,
+    return showLiquidSheet<void>(
+      context,
       builder: (_) => const SubscriptionPage(inSheet: true),
       morphFromRect: source == null ? null : zoomSourceRectOf(source),
       halfSize: _sheetHeight(context),
-      initialState: GlassSheetState.half,
-      detents: const {GlassSheetDetent.medium},
-      bottomMargin: _sheetBottomMargin,
-      settings: Lumina.liquidMenu,
-      quality: GlassQuality.standard,
-      glowColor: context.colorScheme.primary,
     );
   }
 
@@ -148,20 +119,8 @@ class SubscriptionPage extends ConsumerStatefulWidget {
     final profile = state.profiles.getProfile(state.currentProfileId) ??
         (state.profiles.isEmpty ? null : state.profiles.first);
     if (profile == null) return size.height * 0.45;
-    final scaler = MediaQuery.textScalerOf(context);
     final textTheme = context.textTheme;
-    final direction = Directionality.of(context);
-    double line(TextStyle? style) {
-      final painter = TextPainter(
-        text: TextSpan(text: 'Ag', style: style),
-        textDirection: direction,
-        textScaler: scaler,
-        maxLines: 1,
-      )..layout();
-      final height = painter.height;
-      painter.dispose();
-      return height;
-    }
+    double line(TextStyle? style) => liquidLineHeight(context, style);
 
     // Hero: padding 12 + name row (≥ the 40px «⋯») + optional summary + 16.
     final hero = 12 +
@@ -175,13 +134,13 @@ class SubscriptionPage extends ConsumerStatefulWidget {
     // async).
     final row = math.max(52.0, 24 + line(textTheme.bodyLarge));
     final rows = row + 1 + math.max(row, 72.0) + 1 + row;
-    final content = _sheetTopInset +
+    final content = kLiquidSheetTopInset +
         hero +
         12 +
         rows +
-        _sheetBottomInset +
+        kLiquidSheetBottomInset +
         MediaQuery.paddingOf(context).bottom;
-    return math.min(content + _sheetBottomMargin, size.height * 0.85);
+    return math.min(content + kLiquidSheetBottomMargin, size.height * 0.85);
   }
 
   @override
@@ -313,9 +272,9 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
             : ListView(
                 padding: EdgeInsets.fromLTRB(
                   16,
-                  _sheetTopInset,
+                  kLiquidSheetTopInset,
                   16,
-                  _sheetBottomInset + padding.bottom,
+                  kLiquidSheetBottomInset + padding.bottom,
                 ),
                 children: _buildSections(profile, profiles),
               ),
@@ -369,7 +328,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
       if (fullTunnelAvailable)
         Semantics(
           identifier: 'dw_tunnel',
-          child: _LiquidTile(
+          child: LiquidTile(
             icon: HugeIcons.strokeRoundedSecurityCheck,
             title: Text(appLocalizations.fullTunnelTitle, style: bodyLarge),
             trailing: Switch(
@@ -379,10 +338,10 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
             onTap: () => _setFullTunnel(!profile.fullTunnel),
           ),
         ),
-      _LiquidTile(
+      LiquidTile(
         icon: HugeIcons.strokeRoundedServerStack01,
         title: Text(appLocalizations.serversAndGroups, style: bodyLarge),
-        trailing: const _Chevron(),
+        trailing: const LiquidChevron(),
         onTap: _openServersAndGroups,
       ),
     ];
@@ -406,13 +365,13 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
       // a grey flash over the whole card read as a glitch.
       IgnorePointer(
         ignoring: _applying,
-        child: _LiquidCard(
+        child: LiquidCard(
           flat: widget.inSheet,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               for (var i = 0; i < rows.length; i++) ...[
-                if (i > 0) const _Hairline(indent: _groupedDividerIndent),
+                if (i > 0) const LiquidHairline(indent: kLiquidDividerIndent),
                 rows[i],
               ],
             ],
@@ -438,7 +397,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
         );
 
     if (routeData.hasError && !routeData.isLoading) {
-      return _LiquidTile(
+      return LiquidTile(
         icon: HugeIcons.strokeRoundedGlobe02,
         title: title(appLocalizations.genericErrorMessage),
       );
@@ -446,7 +405,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
     final data = routeData.valueOrNull;
     final routerName = data?.routerName;
     if (data != null && routerName == null) {
-      return _LiquidTile(
+      return LiquidTile(
         icon: HugeIcons.strokeRoundedGlobe02,
         title: title(appLocalizations.routeUndetected),
       );
@@ -455,7 +414,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
         ? null
         : ref.watch(groupsProvider).getGroup(routerName);
     if (group == null) {
-      return _LiquidTile(
+      return LiquidTile(
         icon: HugeIcons.strokeRoundedGlobe02,
         title: title(appLocalizations.loadingEllipsis),
         trailing: SizedBox.square(
@@ -488,7 +447,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
 
     return Semantics(
       identifier: 'dw_exit',
-      child: _LiquidTile(
+      child: LiquidTile(
         icon: HugeIcons.strokeRoundedGlobe02,
         title: titleWidget,
         trailing: Row(
@@ -498,7 +457,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
               _DelayBadge(proxyName: proxy.name, testUrl: group.testUrl),
               const SizedBox(width: 8),
             ],
-            const _Chevron(),
+            const LiquidChevron(),
           ],
         ),
         onTap: () => _openCountrySheet(group, exitName),
@@ -555,7 +514,7 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final summary = _summary();
-    return _LiquidCard(
+    return LiquidCard(
       flat: flat,
       child: Stack(
         children: [
@@ -584,7 +543,7 @@ class _Hero extends StatelessWidget {
                     // «⋯» turns into a spinner, like the old profile card.
                     FadeThroughBox(
                       child: profile.isUpdating
-                          ? const _UpdatingIndicator()
+                          ? const LiquidUpdatingIndicator()
                           : _ActionsMenu(
                               profile: profile,
                               onUpdate: onUpdate,
@@ -611,37 +570,6 @@ class _Hero extends StatelessWidget {
       ),
     );
   }
-}
-
-GlassMenuItem _menuItem(
-  BuildContext context, {
-  required String title,
-  required VoidCallback onTap,
-  List<List<dynamic>>? icon,
-  String? subtitle,
-  Widget? trailing,
-  bool isSelected = false,
-  bool isDestructive = false,
-}) {
-  final colorScheme = context.colorScheme;
-  final textTheme = context.textTheme;
-  final color = isDestructive ? colorScheme.error : colorScheme.onSurface;
-  return GlassMenuItem(
-    title: title,
-    subtitle: subtitle,
-    // Two-line row: the package's own 44pt default fits the title only.
-    height: subtitle == null ? 44 : 56,
-    icon: icon == null ? null : HugeIcon(icon: icon, size: 20, color: color),
-    iconColor: color,
-    titleStyle: textTheme.bodyLarge?.copyWith(color: color),
-    subtitleStyle: textTheme.bodySmall?.copyWith(
-      color: colorScheme.onSurfaceVariant,
-    ),
-    trailing: trailing,
-    isSelected: isSelected,
-    isDestructive: isDestructive,
-    onTap: onTap,
-  );
 }
 
 /// Subscription name that morphs into the list of subscriptions. Selecting
@@ -684,7 +612,7 @@ class _ProfileSwitcher extends StatelessWidget {
       ),
       items: [
         for (final item in profiles)
-          _menuItem(
+          liquidMenuItem(
             context,
             title: item.serviceName,
             isSelected: item.id == profile.id,
@@ -697,7 +625,7 @@ class _ProfileSwitcher extends StatelessWidget {
                 : null,
             onTap: () => onSelect(item.id),
           ),
-        _menuItem(
+        liquidMenuItem(
           context,
           title: appLocalizations.addSubscription,
           icon: HugeIcons.strokeRoundedAdd01,
@@ -715,36 +643,6 @@ class _ProfileSwitcher extends StatelessWidget {
   }
 }
 
-/// Stand-in for «⋯» while the subscription updates: the same 32px circle
-/// with a spinner, so the hero doesn't jump.
-class _UpdatingIndicator extends StatelessWidget {
-  const _UpdatingIndicator();
-
-  @override
-  Widget build(BuildContext context) => SizedBox.square(
-        dimension: 40,
-        child: Center(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Lumina.surface5.opacity60,
-              border: Border.all(
-                color: context.colorScheme.outlineVariant.opacity50,
-                width: 0.5,
-              ),
-            ),
-            child: const SizedBox.square(
-              dimension: 32,
-              child: Padding(
-                padding: EdgeInsets.all(8),
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          ),
-        ),
-      );
-}
-
 /// «⋯» actions of the shown subscription: update, provider support, delete.
 class _ActionsMenu extends StatelessWidget {
   const _ActionsMenu({
@@ -759,46 +657,12 @@ class _ActionsMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = context.colorScheme;
     final supportUrl = profile.providerHeaders['support-url'];
     final hasSupport = supportUrl != null && supportUrl.isNotEmpty;
     final updated = profile.lastUpdateDate?.lastUpdateTimeDesc;
-    return GlassMenu(
-      // Builder + opaque detector: the whole 40×40 box is the hit target,
-      // not just the glyph's painted pixels.
-      triggerBuilder: (_, toggle) => GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: toggle,
-        child: SizedBox.square(
-          dimension: 40,
-          // Filled circle keeps the glyph legible over the provider logo
-          // watermark (iOS «ellipsis.circle.fill»).
-          child: Center(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Lumina.surface5.opacity60,
-                border: Border.all(
-                  color: colorScheme.outlineVariant.opacity50,
-                  width: 0.5,
-                ),
-              ),
-              child: SizedBox.square(
-                dimension: 32,
-                child: Center(
-                  child: HugeIcon(
-                    icon: HugeIcons.strokeRoundedMoreHorizontal,
-                    size: 20,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return LiquidMoreMenu(
       items: [
-        _menuItem(
+        liquidMenuItem(
           context,
           title: appLocalizations.update,
           subtitle: updated == null || updated.isEmpty
@@ -808,7 +672,7 @@ class _ActionsMenu extends StatelessWidget {
           onTap: onUpdate,
         ),
         if (hasSupport)
-          _menuItem(
+          liquidMenuItem(
             context,
             title: appLocalizations.support,
             icon: supportUrl.toLowerCase().contains('t.me')
@@ -816,7 +680,7 @@ class _ActionsMenu extends StatelessWidget {
                 : HugeIcons.strokeRoundedCustomerSupport,
             onTap: () => globalState.openUrl(supportUrl),
           ),
-        _menuItem(
+        liquidMenuItem(
           context,
           title: appLocalizations.delete,
           icon: HugeIcons.strokeRoundedDelete02,
@@ -824,133 +688,8 @@ class _ActionsMenu extends StatelessWidget {
           onTap: onDelete,
         ),
       ],
-      menuAlignment: GlassMenuAlignment.topRight,
-      autoAdjustToScreen: true,
-      menuWidth: 240,
-      settings: Lumina.liquidMenu,
-      quality: Lumina.liquidOverlayQuality,
-      selectionColor: colorScheme.primary.opacity15,
-      glowColor: colorScheme.primary,
     );
   }
-}
-
-// ── Building blocks ───────────────────────────────────────────────────────
-
-/// Card substrate, identical to the dashboard subscription card's glass.
-/// Its Material clips the ink of the rows inside to the card shape.
-class _LiquidCard extends StatelessWidget {
-  const _LiquidCard({required this.child, this.flat = false});
-
-  final Widget child;
-
-  /// Flat fill instead of glass, for use inside the glass sheet (no glass in
-  /// glass).
-  final bool flat;
-
-  @override
-  Widget build(BuildContext context) {
-    if (flat) {
-      return Material(
-        color: context.colorScheme.onSurface.opacity10,
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(Lumina.radiusLg),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: child,
-      );
-    }
-    return GlassCard(
-      useOwnLayer: true,
-      quality: GlassQuality.standard,
-      padding: EdgeInsets.zero,
-      shape: const LiquidRoundedSuperellipse(borderRadius: Lumina.radiusLg),
-      settings: Lumina.liquidCard,
-      child: Material(
-        type: MaterialType.transparency,
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(Lumina.radiusLg),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: child,
-      ),
-    );
-  }
-}
-
-/// One settings-style row of the grouped card: icon, title, trailing.
-class _LiquidTile extends StatelessWidget {
-  const _LiquidTile({
-    required this.icon,
-    required this.title,
-    this.trailing,
-    this.onTap,
-  });
-
-  final List<List<dynamic>> icon;
-  final Widget title;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final trailing = this.trailing;
-    return InkWell(
-      onTap: onTap,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 52),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              SizedBox.square(
-                dimension: 24,
-                child: Center(
-                  child: HugeIcon(
-                    icon: icon,
-                    size: 22,
-                    color: context.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: title),
-              if (trailing != null) ...[
-                const SizedBox(width: 8),
-                trailing,
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// iOS grouped-list separator.
-class _Hairline extends StatelessWidget {
-  const _Hairline({this.indent = 16});
-
-  final double indent;
-
-  @override
-  Widget build(BuildContext context) => Divider(
-        height: 1,
-        thickness: 0.5,
-        indent: indent,
-        color: context.colorScheme.outlineVariant.opacity50,
-      );
-}
-
-class _Chevron extends StatelessWidget {
-  const _Chevron();
-
-  @override
-  Widget build(BuildContext context) => HugeIcon(
-        icon: HugeIcons.strokeRoundedArrowRight01,
-        size: 18,
-        color: context.colorScheme.onSurfaceVariant,
-      );
 }
 
 /// Latency pill, same look as `ProxySelectorRow`.
@@ -1035,7 +774,7 @@ class _CountrySheetState extends ConsumerState<_CountrySheet> {
       shrinkWrap: true,
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: members.length,
-      separatorBuilder: (_, __) => const _Hairline(),
+      separatorBuilder: (_, __) => const LiquidHairline(),
       itemBuilder: (context, index) {
         final proxy = members[index];
         return _CountryRow(
