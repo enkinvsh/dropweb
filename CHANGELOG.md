@@ -1,3 +1,141 @@
+## v0.10.0
+
+- Merge pull request #5 from enkinvsh/dev
+
+- v0.10.0: вход по почте, подписка переживает падение адреса, обновления сами
+- test(account): hermetic path_provider in the account sheet tests — the toast's file logger asked for the downloads dir, which throws on Linux CI
+
+- chore(release): bump to 0.10.0+2050000020 for v0.10.0
+
+- docs(release): notes for v0.10.0
+
+- ci(release): the GitHub update manifest (pointing at the release assets) is published first and always; the Yandex Cloud mirror is best effort and no longer blocks the release or the Telegram post
+
+- fix(update): the freshest update manifest wins — a fast mirror left on the previous release can no longer hide a new version published elsewhere
+
+- feat(update): the sideload Android app checks for a new version on every open (at most hourly) and offers it — «Позже» hides that version for a day, a newer one is offered at once, never on top of another open sheet
+
+- feat(subscription): re-adding the same subscription (same address, mirror or dropweb-sub-id) updates the existing profile instead of a duplicate; a signed-in account re-points its subscription when updates fail
+
+- feat(subscription): survive a dead front — mirrors from dropweb-sub-mirrors / fallback-url, the working address remembered, and a signed beacon list (dropweb-sub-beacon + Ed25519 key) when every known address is down; secrets kept only in secure storage
+
+- Signer: fvm dart tool/sign_sub_beacon.dart (keygen / sign). Contract: docs/subscription-headers.md §9–10.
+
+- fix(account): off on iOS too (system.isStoreBuild); the store AAB gets no account backend define
+
+- Merge feat/ios: iOS port and store builds (Google Play, iOS) into dev
+
+- # Conflicts:
+- #	lib/l10n/intl/messages_zh_CN.dart
+
+- ci(account): DROPWEB_ACCOUNT_API build define for the publisher's own default account backend
+
+- feat(account): sign in by email code, fingerprint unlock and the subscription added by itself — offered only when the provider's panel sends dropweb-account; off in store builds
+
+- refactor(ui): Liquid grouped-card building blocks shared from the subscription sheet
+
+- fix(android): a handled deep link is not offered again when Android restores the app after process death
+
+- feat(android): FragmentActivity and AppCompat themes for the biometric prompt (local_auth)
+
+- fix(l10n): dropweb in lowercase in the app description and VPN disclosure
+
+- fix(ios): app name is dropweb in lowercase
+
+- feat(ios): Russian camera and photo permission prompts
+
+- feat(ios): dropweb app icon instead of the Flutter default
+
+- feat(donate): donation link opens dropweb.org/donate
+
+- One page of our own instead of a payment provider link in the app.
+
+- feat(store): iOS is a store build; support and device removal stay
+
+- System.isStoreBuild covers the Play build and every iOS build (iOS apps only ship through the App Store). Store builds drop only payment and cabinet links (renew, top-up, cabinet) and hide the self-update check; provider support and device removal stay, as in other store VPN clients. Store privacy policy link on iOS too.
+
+- feat(android): Google Play store build behind PLAY_BUILD=true
+
+- One switch (--dart-define=PLAY_BUILD=true) now drives the Dart gates and
+- the Gradle side of the store build:
+
+- - release manifest overlay android/app/src/store/AndroidManifest.xml drops
+-   REQUEST_INSTALL_PACKAGES and the package-archive <queries> intent
+- - provider payment/cabinet/support links (support-url, dropweb-renew-url,
+-   dropweb-topup-url, dropweb-cabinet, dropweb-device-remove) are dropped at
+-   ingestion in Profile.update()
+- - Tribute donation link hidden; About links the app policy
+-   https://dropweb.org/app/privacy/
+- - release ABIs limited to arm64-v8a + x86_64 (the ABIs libclash is built for)
+- - signed with the separate Play upload key (upload-keystore.jks); Play
+-   re-signs with its own app signing key, so it never cross-updates
+-   sideloaded installs
+- - setup.dart android --store / make android_store_aab build the AAB
+
+- Sideload builds are unchanged.
+
+- feat(ios): start the VPN from the app through the PacketTunnel extension
+
+- Core home lives in the App Group so the extension sees profiles and providers. Connect writes init/setup/state for the extension (rule providers already downloaded by the app), starts the tunnel and waits for it to come up; the app core never opens listeners. patchRawConfig applies the iOS patches, lite on iOS 13-14.
+
+- build(ios): fake-sign script for jailbroken test devices
+
+- Signs a copy of the release build with ldid and the NetworkExtension entitlements and installs it through AppSync. Signing identifiers must be the bundle IDs or nehelper cannot find the app.
+
+- build(ios): script that adds the PacketTunnel target
+
+- Rerunnable record of how the extension target was created with the xcodeproj gem, including the embed phase order that avoids a build cycle.
+
+- feat(ios): Xcode project with the PacketTunnel extension
+
+- Runner (minimum iOS 13.0) links libclash.a for offline core work and hosts IosTunnelPlugin, which saves the NETunnelProviderManager and starts the tunnel. PacketTunnel links its own core and reads the ready config from the App Group. Xcode 27 rejects deployment targets below 15.0; __DIAGNOSE_INVALID_DEPLOYMENT_TARGET_AS_ERROR=NO turns that into a warning so every binary keeps minos 13.0 (project and Podfile). Scene delegate forwards URLs to app_links, which only listens on the app delegate. Camera and photo library usage strings for QR import; dropweb:// and clash:// schemes.
+
+- feat(ios): back arrow and page titles on iOS
+
+- iOS has no system back gesture for pushed pages, so they show the header desktop has. Android keeps the empty bar.
+
+- fix(ios): no tray on iOS
+
+- fix(ios): report iOS as a supported platform
+
+- SupportPlatform threw on iOS and broke the dashboard after a profile import.
+
+- feat(ios): HWID from identifierForVendor kept in the Keychain
+
+- feat(ios): core inside the app process over FFI
+
+- The app links libclash.a and talks to it through DynamicLibrary.process(); Android keeps its service engine.
+
+- feat(ios): config patches for the iOS extension
+
+- All iOS: no listeners, inbound servers, controller, process lookup or keep-alive; mips TUN stack. iOS 13-14 lite: auto groups become select except one slow auto group, provider health checks off, smux off, one DNS server per list.
+
+- build(ios): iOS core target in setup.dart
+
+- c-archive for arm64, minimum iOS 13.0, tags with_low_memory and no_extra_protocols, no gVisor. A Go runtime overlay shrinks span set blocks and starts goroutines with the minimum stack (~2 MB less in the extension); it fails loudly if the runtime source changes.
+
+- feat(ios): Go core entry points for the PacketTunnel extension
+
+- c-archive exports for quick start, TUN settings, start/stop, invokeAction and memory stats. Lite mode (iOS 13-14, ~15 MB extension limit) sets a memory budget before the config is parsed, caps GOMAXPROCS, skips file watchers and paces new connections by os_proc_available_memory. TUN runs on the user-space mips stack: the system stack's kernel listener cannot answer through the extension's own tunnel. SecTrustCopyCertificateChain is defined locally for iOS 13-14, where Go's crypto/x509 import is missing.
+
+- feat(tun): build for iOS, MTU chosen by the caller
+
+- Android keeps 9000; iOS rejects it and uses 1500.
+
+- feat(core): pace new connections by memory headroom
+
+- Each admitted connection is charged its expected cost for a short window; new ones are admitted only while the headroom above a floor covers every charge.
+
+- feat(core): deliver iOS action results synchronously
+
+- The PacketTunnel extension has no Dart isolate to post to. Results for ports registered in the sync sink go back to the waiting caller; late results after a timeout are dropped instead of hitting an uninitialised Dart API.
+
+- chore(core): bump core for the iOS extension
+
+- Slim build tag no_extra_protocols, low-memory mips stack buffers, connection admission hook, optional file watchers, Reality key shares released after the handshake. All off unless a build or host turns them on.
+
+- Update changelog
+
 ## v0.9.1
 
 - Merge pull request #4 from enkinvsh/dev
