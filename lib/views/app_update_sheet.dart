@@ -5,19 +5,43 @@ import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Opens the Lumina in-app update sheet (Android sideload). Reactive to
-/// [appUpdateProvider]: the body morphs across available → downloading →
-/// verifying → readyToInstall → error. Compose only from existing atoms/tokens.
-Future<void> showUpdateSheet(BuildContext context) {
-  return showSheet<void>(
-    context: context,
-    props: const SheetProps(isScrollControlled: true),
-    builder: (context, type) => AdaptiveSheetScaffold(
-      type: type,
-      title: appLocalizations.discoverNewVersion,
-      body: const _AppUpdateSheetBody(),
-    ),
-  );
+/// Сколько шитов обновления сейчас открыто — чтобы автопредложение не легло
+/// вторым поверх уже открытого (ручного или автоматического).
+int _openUpdateSheets = 0;
+
+/// Открывает шит обновления (Android sideload). Реактивен к
+/// [appUpdateProvider]: тело переходит available → downloading → verifying →
+/// readyToInstall → error. При закрытии с ещё не применённым обновлением эта
+/// версия откладывается (см. [AppUpdate.snoozeIfPending]).
+Future<void> showUpdateSheet(BuildContext context) async {
+  final container = ProviderScope.containerOf(context, listen: false);
+  _openUpdateSheets++;
+  try {
+    await showSheet<void>(
+      context: context,
+      props: const SheetProps(isScrollControlled: true),
+      builder: (context, type) => AdaptiveSheetScaffold(
+        type: type,
+        title: appLocalizations.discoverNewVersion,
+        body: const _AppUpdateSheetBody(),
+      ),
+    );
+  } finally {
+    _openUpdateSheets--;
+  }
+  container.read(appUpdateProvider.notifier).snoozeIfPending();
+}
+
+/// Автопредложение по результату [AppUpdate.autoCheck]: открывает шит, только
+/// если поверх главного экрана ничего не открыто. Иначе юзер, вернувшийся из
+/// почты с кодом, получил бы шит поверх шторки входа; обновление при этом
+/// остаётся в настройках, а следующая проверка предложит его снова.
+/// [context] — корневой навигатор, чтобы шит не зависел от текущего экрана.
+Future<void> offerUpdateSheet(BuildContext context) async {
+  if (_openUpdateSheets > 0 || !context.mounted) return;
+  final navigator = Navigator.maybeOf(context, rootNavigator: true);
+  if (navigator == null || navigator.canPop()) return;
+  await showUpdateSheet(context);
 }
 
 class _AppUpdateSheetBody extends ConsumerWidget {

@@ -89,14 +89,21 @@ class AppSettingProps with _$AppSettingProps {
     // release page on a newer version. See docs/plans/2026-06-25-auto-update.md.
     @Default(true) bool autoCheckUpdate,
 
-    /// Epoch-ms of the last in-app update check; drives the once/day cadence of
-    /// the Android updater (see shouldRunScheduledCheck). 0 = never checked.
+    /// Epoch-ms последней УСПЕШНОЙ проверки обновления; задаёт интервал
+    /// автопроверок Android-апдейтера (см. shouldRunScheduledCheck). 0 = не
+    /// проверяли.
     @Default(0) int lastUpdateCheckMs,
 
     /// Update-manifest mirrors learned from the last update.json served by a
     /// trusted source (built-in seed or an earlier learned mirror). Raced with
     /// kUpdateManifestSeeds so new hosts roll out without an app release.
     @Default(<String>[]) List<String> updateMirrors,
+
+    /// Версия, автопредложение которой юзер отложил «Позже» (или закрыв шит),
+    /// и до какого epoch-ms. Привязано к версии: вышедшая следом новая версия
+    /// предлагается сразу. '' / 0 = ничего не отложено.
+    @Default('') String updateSnoozedVersion,
+    @Default(0) int updateSnoozedUntilMs,
     @Default(false) bool showLabel,
     @Default(false) bool disclaimerAccepted,
     @Default(true) bool minimizeOnExit,

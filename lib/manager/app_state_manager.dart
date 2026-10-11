@@ -96,6 +96,8 @@ class _AppStateManagerState extends ConsumerState<AppStateManager>
       // HWID device-limit recovery: the user likely just freed a slot in the
       // panel cabinet (browser) — retry the flagged profile immediately.
       globalState.appController.resumeHwidRecovery();
+      // Проверка версии при каждом открытии (sideload Android, раз в час).
+      globalState.appController.checkAppUpdateOnResume();
     } else {
       render?.resume();
     }

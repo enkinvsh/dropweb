@@ -27,6 +27,9 @@ _$AppSettingPropsImpl _$$AppSettingPropsImplFromJson(
               ?.map((e) => e as String)
               .toList() ??
           const <String>[],
+      updateSnoozedVersion: json['updateSnoozedVersion'] as String? ?? '',
+      updateSnoozedUntilMs:
+          (json['updateSnoozedUntilMs'] as num?)?.toInt() ?? 0,
       showLabel: json['showLabel'] as bool? ?? false,
       disclaimerAccepted: json['disclaimerAccepted'] as bool? ?? false,
       minimizeOnExit: json['minimizeOnExit'] as bool? ?? true,
@@ -58,6 +61,8 @@ Map<String, dynamic> _$$AppSettingPropsImplToJson(
       'autoCheckUpdate': instance.autoCheckUpdate,
       'lastUpdateCheckMs': instance.lastUpdateCheckMs,
       'updateMirrors': instance.updateMirrors,
+      'updateSnoozedVersion': instance.updateSnoozedVersion,
+      'updateSnoozedUntilMs': instance.updateSnoozedUntilMs,
       'showLabel': instance.showLabel,
       'disclaimerAccepted': instance.disclaimerAccepted,
       'minimizeOnExit': instance.minimizeOnExit,

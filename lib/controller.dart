@@ -26,6 +26,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'common/common.dart';
 import 'models/models.dart';
+import 'views/app_update_sheet.dart';
 import 'views/profiles/override_profile.dart';
 
 /// Decides whether a profile is eligible for automatic subscription update.
@@ -1581,10 +1582,11 @@ class AppController {
         const Duration(seconds: 1), _updateCurrentProfileSubscription);
     autoUpdateProfiles();
     autoCheckUpdate();
-    // Android sideload in-app updater — self-gates on Play/desktop, the
-    // autoCheckUpdate setting, and the once/day cadence. Surfaces only via the
-    // Settings update entry (no dashboard banner).
-    unawaited(_ref.read(appUpdateProvider.notifier).check());
+    // Android sideload-апдейтер: сам гасится на Play/десктопе, при выключенной
+    // настройке autoCheckUpdate и до истечения kUpdateCheckInterval. Сеть идёт
+    // параллельно с диалогами первого запуска, а шит предлагается только после
+    // них (initProvider=true ниже), иначе лёг бы поверх дисклеймера.
+    final appUpdateOffer = _ref.read(appUpdateProvider.notifier).autoCheck();
     // Сессия аккаунта поднимается в фоне: сеть до кабинета может быть
     // медленной, а старт приложения и VPN от неё не зависят.
     unawaited(
@@ -1595,6 +1597,7 @@ class AppController {
     await _handlePreference();
     await _handlerDisclaimer();
     _ref.read(initProvider.notifier).value = true;
+    unawaited(appUpdateOffer.then(_offerAppUpdate));
 
     // Post-frame so a slow keystore can't freeze the splash.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1606,6 +1609,22 @@ class AppController {
             ),
       );
     });
+  }
+
+  /// Автопроверка обновления при возврате приложения в foreground. До конца
+  /// init() молчим: стартовую проверку и её предложение ведёт сам init().
+  void checkAppUpdateOnResume() {
+    if (!_ref.read(initProvider)) return;
+    unawaited(
+      _ref.read(appUpdateProvider.notifier).autoCheck().then(_offerAppUpdate),
+    );
+  }
+
+  void _offerAppUpdate(bool offer) {
+    if (!offer) return;
+    final context = globalState.navigatorKey.currentContext;
+    if (context == null) return;
+    unawaited(offerUpdateSheet(context));
   }
 
   Future<void> _initStatus() async {

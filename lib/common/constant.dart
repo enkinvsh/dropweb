@@ -126,8 +126,13 @@ const kGithubApkAssetByPlatform = <String, String>{
 /// Subdir under the app cache dir where a downloaded APK is staged before install.
 const kUpdateCacheDirName = "updates";
 
-/// Scheduled (non-manual) auto-check cadence.
-const kUpdateCheckInterval = Duration(hours: 24);
+/// Минимальный интервал между автоматическими проверками обновления. Проверка
+/// идёт при каждом открытии приложения, час гасит дёрганье манифеста при частых
+/// сворачиваниях; неудачная проверка интервал не расходует.
+const kUpdateCheckInterval = Duration(hours: 1);
+
+/// На сколько «Позже» откладывает автопредложение той же версии.
+const kUpdateSnoozeDuration = Duration(hours: 24);
 
 /// While our VPN is on, a subscription fetch that has not succeeded within
 /// this delay (or failed earlier) is ALSO started outside the tunnel.

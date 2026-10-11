@@ -38,14 +38,21 @@ mixin _$AppSettingProps {
 // release page on a newer version. See docs/plans/2026-06-25-auto-update.md.
   bool get autoCheckUpdate => throw _privateConstructorUsedError;
 
-  /// Epoch-ms of the last in-app update check; drives the once/day cadence of
-  /// the Android updater (see shouldRunScheduledCheck). 0 = never checked.
+  /// Epoch-ms последней УСПЕШНОЙ проверки обновления; задаёт интервал
+  /// автопроверок Android-апдейтера (см. shouldRunScheduledCheck). 0 = не
+  /// проверяли.
   int get lastUpdateCheckMs => throw _privateConstructorUsedError;
 
   /// Update-manifest mirrors learned from the last update.json served by a
   /// trusted source (built-in seed or an earlier learned mirror). Raced with
   /// kUpdateManifestSeeds so new hosts roll out without an app release.
   List<String> get updateMirrors => throw _privateConstructorUsedError;
+
+  /// Версия, автопредложение которой юзер отложил «Позже» (или закрыв шит),
+  /// и до какого epoch-ms. Привязано к версии: вышедшая следом новая версия
+  /// предлагается сразу. '' / 0 = ничего не отложено.
+  String get updateSnoozedVersion => throw _privateConstructorUsedError;
+  int get updateSnoozedUntilMs => throw _privateConstructorUsedError;
   bool get showLabel => throw _privateConstructorUsedError;
   bool get disclaimerAccepted => throw _privateConstructorUsedError;
   bool get minimizeOnExit => throw _privateConstructorUsedError;
@@ -87,6 +94,8 @@ abstract class $AppSettingPropsCopyWith<$Res> {
       bool autoCheckUpdate,
       int lastUpdateCheckMs,
       List<String> updateMirrors,
+      String updateSnoozedVersion,
+      int updateSnoozedUntilMs,
       bool showLabel,
       bool disclaimerAccepted,
       bool minimizeOnExit,
@@ -126,6 +135,8 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
     Object? autoCheckUpdate = null,
     Object? lastUpdateCheckMs = null,
     Object? updateMirrors = null,
+    Object? updateSnoozedVersion = null,
+    Object? updateSnoozedUntilMs = null,
     Object? showLabel = null,
     Object? disclaimerAccepted = null,
     Object? minimizeOnExit = null,
@@ -189,6 +200,14 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
           ? _value.updateMirrors
           : updateMirrors // ignore: cast_nullable_to_non_nullable
               as List<String>,
+      updateSnoozedVersion: null == updateSnoozedVersion
+          ? _value.updateSnoozedVersion
+          : updateSnoozedVersion // ignore: cast_nullable_to_non_nullable
+              as String,
+      updateSnoozedUntilMs: null == updateSnoozedUntilMs
+          ? _value.updateSnoozedUntilMs
+          : updateSnoozedUntilMs // ignore: cast_nullable_to_non_nullable
+              as int,
       showLabel: null == showLabel
           ? _value.showLabel
           : showLabel // ignore: cast_nullable_to_non_nullable
@@ -252,6 +271,8 @@ abstract class _$$AppSettingPropsImplCopyWith<$Res>
       bool autoCheckUpdate,
       int lastUpdateCheckMs,
       List<String> updateMirrors,
+      String updateSnoozedVersion,
+      int updateSnoozedUntilMs,
       bool showLabel,
       bool disclaimerAccepted,
       bool minimizeOnExit,
@@ -289,6 +310,8 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
     Object? autoCheckUpdate = null,
     Object? lastUpdateCheckMs = null,
     Object? updateMirrors = null,
+    Object? updateSnoozedVersion = null,
+    Object? updateSnoozedUntilMs = null,
     Object? showLabel = null,
     Object? disclaimerAccepted = null,
     Object? minimizeOnExit = null,
@@ -352,6 +375,14 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
           ? _value._updateMirrors
           : updateMirrors // ignore: cast_nullable_to_non_nullable
               as List<String>,
+      updateSnoozedVersion: null == updateSnoozedVersion
+          ? _value.updateSnoozedVersion
+          : updateSnoozedVersion // ignore: cast_nullable_to_non_nullable
+              as String,
+      updateSnoozedUntilMs: null == updateSnoozedUntilMs
+          ? _value.updateSnoozedUntilMs
+          : updateSnoozedUntilMs // ignore: cast_nullable_to_non_nullable
+              as int,
       showLabel: null == showLabel
           ? _value.showLabel
           : showLabel // ignore: cast_nullable_to_non_nullable
@@ -410,6 +441,8 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
       this.autoCheckUpdate = true,
       this.lastUpdateCheckMs = 0,
       final List<String> updateMirrors = const <String>[],
+      this.updateSnoozedVersion = '',
+      this.updateSnoozedUntilMs = 0,
       this.showLabel = false,
       this.disclaimerAccepted = false,
       this.minimizeOnExit = true,
@@ -469,8 +502,9 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
   @JsonKey()
   final bool autoCheckUpdate;
 
-  /// Epoch-ms of the last in-app update check; drives the once/day cadence of
-  /// the Android updater (see shouldRunScheduledCheck). 0 = never checked.
+  /// Epoch-ms последней УСПЕШНОЙ проверки обновления; задаёт интервал
+  /// автопроверок Android-апдейтера (см. shouldRunScheduledCheck). 0 = не
+  /// проверяли.
   @override
   @JsonKey()
   final int lastUpdateCheckMs;
@@ -491,6 +525,15 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
     return EqualUnmodifiableListView(_updateMirrors);
   }
 
+  /// Версия, автопредложение которой юзер отложил «Позже» (или закрыв шит),
+  /// и до какого epoch-ms. Привязано к версии: вышедшая следом новая версия
+  /// предлагается сразу. '' / 0 = ничего не отложено.
+  @override
+  @JsonKey()
+  final String updateSnoozedVersion;
+  @override
+  @JsonKey()
+  final int updateSnoozedUntilMs;
   @override
   @JsonKey()
   final bool showLabel;
@@ -521,7 +564,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
 
   @override
   String toString() {
-    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, lastUpdateCheckMs: $lastUpdateCheckMs, updateMirrors: $updateMirrors, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, applySubscriptionLogo: $applySubscriptionLogo, overrideNetworkSettings: $overrideNetworkSettings)';
+    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, lastUpdateCheckMs: $lastUpdateCheckMs, updateMirrors: $updateMirrors, updateSnoozedVersion: $updateSnoozedVersion, updateSnoozedUntilMs: $updateSnoozedUntilMs, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, applySubscriptionLogo: $applySubscriptionLogo, overrideNetworkSettings: $overrideNetworkSettings)';
   }
 
   @override
@@ -552,6 +595,10 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
                 other.lastUpdateCheckMs == lastUpdateCheckMs) &&
             const DeepCollectionEquality()
                 .equals(other._updateMirrors, _updateMirrors) &&
+            (identical(other.updateSnoozedVersion, updateSnoozedVersion) ||
+                other.updateSnoozedVersion == updateSnoozedVersion) &&
+            (identical(other.updateSnoozedUntilMs, updateSnoozedUntilMs) ||
+                other.updateSnoozedUntilMs == updateSnoozedUntilMs) &&
             (identical(other.showLabel, showLabel) ||
                 other.showLabel == showLabel) &&
             (identical(other.disclaimerAccepted, disclaimerAccepted) ||
@@ -590,6 +637,8 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
         autoCheckUpdate,
         lastUpdateCheckMs,
         const DeepCollectionEquality().hash(_updateMirrors),
+        updateSnoozedVersion,
+        updateSnoozedUntilMs,
         showLabel,
         disclaimerAccepted,
         minimizeOnExit,
@@ -634,6 +683,8 @@ abstract class _AppSettingProps implements AppSettingProps {
       final bool autoCheckUpdate,
       final int lastUpdateCheckMs,
       final List<String> updateMirrors,
+      final String updateSnoozedVersion,
+      final int updateSnoozedUntilMs,
       final bool showLabel,
       final bool disclaimerAccepted,
       final bool minimizeOnExit,
@@ -675,8 +726,9 @@ abstract class _AppSettingProps implements AppSettingProps {
   @override
   bool get autoCheckUpdate;
 
-  /// Epoch-ms of the last in-app update check; drives the once/day cadence of
-  /// the Android updater (see shouldRunScheduledCheck). 0 = never checked.
+  /// Epoch-ms последней УСПЕШНОЙ проверки обновления; задаёт интервал
+  /// автопроверок Android-апдейтера (см. shouldRunScheduledCheck). 0 = не
+  /// проверяли.
   @override
   int get lastUpdateCheckMs;
 
@@ -685,6 +737,14 @@ abstract class _AppSettingProps implements AppSettingProps {
   /// kUpdateManifestSeeds so new hosts roll out without an app release.
   @override
   List<String> get updateMirrors;
+
+  /// Версия, автопредложение которой юзер отложил «Позже» (или закрыв шит),
+  /// и до какого epoch-ms. Привязано к версии: вышедшая следом новая версия
+  /// предлагается сразу. '' / 0 = ничего не отложено.
+  @override
+  String get updateSnoozedVersion;
+  @override
+  int get updateSnoozedUntilMs;
   @override
   bool get showLabel;
   @override
