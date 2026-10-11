@@ -134,6 +134,23 @@ class Account extends _$Account {
   Future<SubscriptionSyncResult> syncSubscription() =>
       _account.syncSubscription();
 
+  /// Тихая починка адреса подписки профиля аккаунта; false — нечего чинить
+  /// или нельзя (нет сессии, замок, пауза между попытками, сбой сети).
+  Future<bool> repairSubscription() async {
+    if (!ref.read(accountFeatureEnabledProvider)) return false;
+    return _account.repairSubscription();
+  }
+
+  /// Зовёт AppController.updateProfile, когда загрузка профиля упала.
+  /// Магазинная сборка и процесс без restore() — no-op: сессии там нет, и
+  /// хранилище аккаунта трогать незачем.
+  Future<void> onProfileUpdateFailed(String profileId) async {
+    if (!ref.read(accountFeatureEnabledProvider)) return;
+    final controller = _controller;
+    if (controller == null) return;
+    await controller.onProfileUpdateFailed(profileId);
+  }
+
   /// [reason] — локализованный текст системного диалога, передаёт UI.
   Future<bool> unlock(String reason) => _account.unlock(reason);
 
@@ -190,4 +207,8 @@ class _RiverpodAccountProfiles implements AccountProfiles {
   @override
   Future<void> deleteProfile(String id) =>
       globalState.appController.deleteProfile(id);
+
+  @override
+  Future<void> repointProfile(String profileId, String url) =>
+      globalState.appController.repointProfileUrl(profileId, url);
 }

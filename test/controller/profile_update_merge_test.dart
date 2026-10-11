@@ -78,6 +78,40 @@ void main() {
     expect(merged.providerHeaders, isEmpty);
   });
 
+  test('fallback / зеркала / sub-id берутся из полей fetched, не из headers',
+      () {
+    final fresh = snapshot.copyWith(
+      fallbackUrl: 'https://old-fb.example',
+      mirrorUrls: ['https://old-m.example'],
+      subId: 'OLD',
+    );
+    final merged = applyFetchedProfileFields(
+      fresh: fresh,
+      fetched: fetched.copyWith(
+        providerHeaders: const {'dropweb-theme': 'x'},
+        fallbackUrl: 'https://new-fb.example',
+        mirrorUrls: ['https://new-m.example'],
+        subId: 'NEW',
+      ),
+    );
+    expect(merged.fallbackUrl, 'https://new-fb.example');
+    expect(merged.mirrorUrls, ['https://new-m.example']);
+    expect(merged.subId, 'NEW');
+  });
+
+  test('нет зеркал / sub-id в fetched → остаются прежние', () {
+    final fresh = snapshot.copyWith(
+      mirrorUrls: ['https://old-m.example'],
+      subId: 'OLD',
+    );
+    final merged = applyFetchedProfileFields(
+      fresh: fresh,
+      fetched: fetched.copyWith(mirrorUrls: const [], subId: null),
+    );
+    expect(merged.mirrorUrls, ['https://old-m.example']);
+    expect(merged.subId, 'OLD');
+  });
+
   test('a profile without a label takes the fetched (disposition) label', () {
     final fresh = snapshot.copyWith(label: null);
     final merged = applyFetchedProfileFields(

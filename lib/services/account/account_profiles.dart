@@ -1,3 +1,6 @@
+export 'package:dropweb/common/subscription_resilience.dart'
+    show normalizeProfileUrl;
+
 /// Узкий доступ контроллера аккаунта к VPN-профилям: только то, что нужно для
 /// импорта подписки и удаления её профиля. Продакшен-реализация живёт рядом с
 /// провайдером и ходит в существующие потоки AppController.
@@ -17,11 +20,10 @@ abstract interface class AccountProfiles {
   Future<void> importProfile(String url);
 
   Future<void> deleteProfile(String id);
-}
 
-/// Та же нормализация, что делает `addProfileFormURL`, чтобы сравнение по URL
-/// совпадало с тем, что реально сохранено в профиле.
-String normalizeProfileUrl(String url) {
-  final trimmed = url.trim();
-  return Uri.tryParse(trimmed)?.toString() ?? trimmed;
+  /// Перевести существующий профиль [profileId] на новый адрес подписки
+  /// [url] и обновить его — тот же профиль, без дубля. Бросает, если профиля
+  /// нет, адрес негоден или обновление по новому адресу не удалось (адрес в
+  /// последнем случае уже сменён).
+  Future<void> repointProfile(String profileId, String url);
 }

@@ -116,17 +116,17 @@ bool shouldRunAutoUpdateCheck({
 /// `label` (only when the profile has none — mirrors `label ?? disposition`),
 /// `subscriptionInfo`, `providerHeaders`, `lastUpdateDate`, and — when the
 /// response carried the matching header — `autoUpdateDuration`
-/// (`profile-update-interval`) and `fallbackUrl` (`fallback-url`). The derived
-/// header values are re-parsed exactly as `Profile.update` does, so a user edit
-/// of those fields during the fetch survives when the header is absent.
-/// `isUpdating` is cleared.
+/// (`profile-update-interval`). `isUpdating` is cleared.
+///
+/// `fallbackUrl`, `mirrorUrls` и `subId` берутся из полей [fetched]: их
+/// заголовки несут токен и в `providerHeaders` не хранятся. Пришло значение —
+/// заменяет старое; не пришло — остаётся значение [fresh].
 Profile applyFetchedProfileFields({
   required Profile fresh,
   required Profile fetched,
 }) {
   final headers = fetched.providerHeaders;
   final intervalHours = int.tryParse(headers['profile-update-interval'] ?? '');
-  final headerFallbackUrl = headers['fallback-url'];
   return fresh.copyWith(
     label: fresh.label ?? fetched.label,
     subscriptionInfo: fetched.subscriptionInfo,
@@ -135,9 +135,125 @@ Profile applyFetchedProfileFields({
     autoUpdateDuration: intervalHours != null && intervalHours > 0
         ? Duration(hours: intervalHours)
         : fresh.autoUpdateDuration,
-    fallbackUrl: headerFallbackUrl ?? fresh.fallbackUrl,
+    fallbackUrl: (fetched.fallbackUrl?.isNotEmpty ?? false)
+        ? fetched.fallbackUrl
+        : fresh.fallbackUrl,
+    mirrorUrls:
+        fetched.mirrorUrls.isNotEmpty ? fetched.mirrorUrls : fresh.mirrorUrls,
+    subId: fetched.subId ?? fresh.subId,
     isUpdating: false,
   );
+}
+
+/// Ищет среди [profiles] ту же подписку, что только что скачана по [newUrl].
+///
+/// Совпадение — нормализованный [newUrl] равен основному, предпочтённому,
+/// любому зеркалу или fallback-адресу профиля, либо у обоих есть непустой
+/// одинаковый sub-id (провайдер сменил фронт, а подписка та же). Адреса
+/// читаются через [preferences]: после миграции поля профиля в памяти пусты.
+/// Из нескольких совпавших берётся текущий профиль, иначе первый.
+Future<Profile?> findReAddTarget({
+  required List<Profile> profiles,
+  required String newUrl,
+  required String? newSubId,
+  String? currentProfileId,
+}) async {
+  final target = normalizeProfileUrl(newUrl);
+  final hasSubId = newSubId != null && newSubId.isNotEmpty;
+  final matches = <Profile>[];
+  for (final profile in profiles) {
+    final known = <String?>[
+      await preferences.getProfileUrl(profile),
+      await preferences.getProfilePreferredUrl(profile),
+      ...await preferences.getProfileMirrors(profile),
+      await preferences.getProfileFallbackUrl(profile),
+    ];
+    final urlMatch = known.any(
+      (url) =>
+          url != null && url.isNotEmpty && normalizeProfileUrl(url) == target,
+    );
+    final subIdMatch =
+        hasSubId && await preferences.getProfileSubId(profile) == newSubId;
+    if (urlMatch || subIdMatch) matches.add(profile);
+  }
+  if (matches.isEmpty) return null;
+  return matches.firstWhere(
+    (profile) => profile.id == currentProfileId,
+    orElse: () => matches.first,
+  );
+}
+
+/// Шаг импорта по URL после скачивания: та же подписка уже есть — отдаёт
+/// перенаправленный существующий профиль (его id), иначе [downloaded] как
+/// новый. Коммит по id (`setProfile`) поэтому никогда не создаёт дубль.
+Future<Profile> resolveReAddedProfile({
+  required Profile downloaded,
+  required String newUrl,
+  required List<Profile> profiles,
+  String? currentProfileId,
+}) async {
+  final existing = await findReAddTarget(
+    profiles: profiles,
+    newUrl: newUrl,
+    newSubId: downloaded.subId,
+    currentProfileId: currentProfileId,
+  );
+  if (existing == null) return downloaded;
+  return adoptDownloadedProfile(
+    existing: existing,
+    downloaded: downloaded,
+    newUrl: newUrl,
+  );
+}
+
+/// Превращает свежескачанный [downloaded] (временный id) в обновление
+/// [existing]: id и все пользовательские настройки остаются, основной адрес
+/// становится [newUrl], поля ответа подписки берутся как при обычном
+/// обновлении. Скачанный файл переезжает на путь [existing] — второй загрузки
+/// нет, и файл-сирота под временным id не остаётся.
+Future<Profile> adoptDownloadedProfile({
+  required Profile existing,
+  required Profile downloaded,
+  required String newUrl,
+}) async {
+  final label = existing.label;
+  final base = existing.copyWith(
+    url: newUrl,
+    label: label == null || label.isEmpty ? null : label,
+  );
+  final merged = applyFetchedProfileFields(fresh: base, fetched: downloaded);
+
+  final tmpFile = File(await appPath.getProfilePath(downloaded.id));
+  final targetPath = await appPath.getProfilePath(existing.id);
+  if (tmpFile.existsSync()) {
+    try {
+      await tmpFile.rename(targetPath);
+    } catch (_) {
+      // Windows не переименовывает поверх существующего файла.
+      final target = File(targetPath);
+      if (target.existsSync()) {
+        await target.delete();
+      }
+      await tmpFile.rename(targetPath);
+    }
+  }
+
+  // Основной адрес сменился — память о сработавшем зеркале старого адреса
+  // больше не актуальна. Временный id мог успеть её записать при скачивании.
+  if (!await preferences.setProfileUrl(existing.id, newUrl)) {
+    commonPrint.log('[profile] re-add: secure url write not confirmed');
+  }
+  await preferences.setProfilePreferredUrl(existing.id, null);
+  if (!await preferences.saveProfileSecrets(merged)) {
+    commonPrint.log('[profile] re-add: secure secrets write not confirmed');
+  }
+  try {
+    await preferences.removeProfileSecrets(downloaded.id);
+  } catch (e) {
+    commonPrint.log('[profile] re-add: temp secrets cleanup failed: '
+        '${e.runtimeType}');
+  }
+  return merged;
 }
 
 /// Per-key debouncer: a call only cancels the pending call for the SAME key.
@@ -159,6 +275,24 @@ class KeyedDebouncer {
       _timers.remove(key);
       func();
     });
+  }
+}
+
+/// Загрузка профиля [fetch]; при сбое — [onFailed] в фоне (слой аккаунта
+/// пробует починить адрес подписки) и исходная ошибка без изменений: на ней
+/// держится обычный UX обновления. Сбой самого хука только логируется — без
+/// текста ошибки, в нём мог бы оказаться адрес с токеном.
+Future<T> notifyAccountOnFetchFailure<T>(
+  Future<T> Function() fetch,
+  FutureOr<void> Function() onFailed,
+) async {
+  try {
+    return await fetch();
+  } catch (_) {
+    unawaited(Future<void>.sync(onFailed).catchError((Object e) {
+      commonPrint.log('[account] update-failed hook error: ${e.runtimeType}');
+    }));
+    rethrow;
   }
 }
 
@@ -391,8 +525,10 @@ class AppController {
         _ref.read(profilesProvider).getProfile(profile.id) ?? profile;
     final prefs = await SharedPreferences.getInstance();
     final shouldSend = prefs.getBool('sendDeviceHeaders') ?? true;
-    final fetched = await latest.update(
-      shouldSendHeaders: shouldSend,
+    final fetched = await notifyAccountOnFetchFailure(
+      () => latest.update(shouldSendHeaders: shouldSend),
+      () =>
+          _ref.read(accountProvider.notifier).onProfileUpdateFailed(profile.id),
     );
 
     // The fetch took seconds. Re-read AGAIN: the profile may have been edited
@@ -444,6 +580,38 @@ class AppController {
         .catchError((e) {
       commonPrint.log("Error checking subscription: $e");
     }));
+  }
+
+  /// Тихо переводит профиль [profileId] на новый основной адрес подписки и
+  /// обновляет его обычным [updateProfile] (без навигации, звуков и
+  /// онбординга) — для слоя аккаунта, когда провайдер выдал новую ссылку.
+  ///
+  /// Адрес пишется сразу в защищённое хранилище: [Preferences.getProfileUrl]
+  /// читает его раньше поля профиля, и без этой записи обновление ушло бы на
+  /// старый адрес. Ошибки обновления пробрасываются как у [updateProfile];
+  /// адрес при этом уже сменён. В сообщениях ошибок адреса нет — он с токеном.
+  Future<void> repointProfileUrl(String profileId, String newUrl) async {
+    final profile = _ref.read(profilesProvider).getProfile(profileId);
+    if (profile == null) {
+      throw StateError('repoint: profile not found');
+    }
+    final uri = Uri.tryParse(newUrl.trim());
+    if (uri == null ||
+        !(uri.scheme == 'http' || uri.scheme == 'https') ||
+        uri.host.isEmpty) {
+      throw ArgumentError('repoint: invalid subscription url');
+    }
+    final normalized = normalizeProfileUrl(newUrl);
+    if (!await preferences.setProfileUrl(profileId, normalized)) {
+      throw StateError('repoint: secure url write not confirmed');
+    }
+    await preferences.setProfilePreferredUrl(profileId, null);
+    _ref
+        .read(profilesProvider.notifier)
+        .updateProfile(profileId, (p) => p.copyWith(url: normalized));
+    final repointed = _ref.read(profilesProvider).getProfile(profileId);
+    if (repointed == null) return;
+    await updateProfile(repointed);
   }
 
   /// HWID device-limit recovery. Header-driven and provider-neutral: any
@@ -1661,8 +1829,15 @@ class AppController {
           // (Profile.serviceName / MetainfoWidget.pickTitle), and update()
           // keeps `label ?? disposition ?? id`, so a non-null label survives
           // auto-updates while manual renames keep working.
-          return Profile.normal(url: normalizedUrl, label: uri.host)
-              .update(shouldSendHeaders: shouldSend);
+          final downloaded =
+              await Profile.normal(url: normalizedUrl, label: uri.host)
+                  .update(shouldSendHeaders: shouldSend);
+          return resolveReAddedProfile(
+            downloaded: downloaded,
+            newUrl: normalizedUrl,
+            profiles: _ref.read(profilesProvider),
+            currentProfileId: _ref.read(currentProfileIdProvider),
+          );
         },
         title: appLocalizations.addProfile,
       ),

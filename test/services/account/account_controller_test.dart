@@ -41,8 +41,12 @@ class _Harness {
       defaultBases: () => defaultBases,
       knownBases: () => knownBases,
       onState: states.add,
+      clock: () => now,
     );
   }
+
+  /// Часы контроллера: тест двигает их, проверяя паузу между починками.
+  DateTime now = DateTime(2026, 10, 11, 12);
 
   final FakeAdapter adapter;
   final store = MemoryAccountStore();
@@ -687,5 +691,150 @@ void main() {
     expect(h.controller.state.status, AccountStatus.loggedOut);
     expect(h.profiles.profiles, contains('sub'));
     expect(h.count('/cabinet/auth/logout'), 1);
+  });
+
+  group('починка адреса подписки', () {
+    const newUrl = 'https://sub2.example/s/abc';
+
+    /// Сессия ready, профиль аккаунта 'sub' на старом адресе [_subUrl].
+    Future<_Harness> ready(FakeHandler sub, {bool locked = false}) async {
+      final h = _Harness((o) {
+        if (o.path.endsWith('/cabinet/auth/refresh')) {
+          return _tokens('a1', 'r2');
+        }
+        return sub(o);
+      });
+      h.store
+        ..refreshToken = 'r1'
+        ..importedUrl = _subUrl
+        ..biometricEnabled = locked;
+      h.profiles.profiles['sub'] = _subUrl;
+      await h.controller.restore();
+      return h;
+    }
+
+    test('сервер выдал новый адрес → профиль переведён, imported обновлён',
+        () async {
+      final h = await ready((o) => _subscription(url: newUrl));
+
+      expect(await h.controller.repairSubscription(), isTrue);
+
+      expect(h.profiles.repoints, [('sub', newUrl)]);
+      expect(h.profiles.imports, isEmpty);
+      expect(h.store.importedUrl, newUrl);
+      expect(h.controller.state.profileId, 'sub');
+    });
+
+    test('адрес тот же → false, профиль не трогаем', () async {
+      final h = await ready((o) => _subscription());
+      expect(await h.controller.repairSubscription(), isFalse);
+      expect(h.profiles.repoints, isEmpty);
+      expect(h.store.importedUrl, _subUrl);
+    });
+
+    test('locked → false без сети и без запроса биометрии', () async {
+      final h = await ready((o) => _subscription(url: newUrl), locked: true);
+      expect(h.controller.state.status, AccountStatus.locked);
+
+      expect(await h.controller.repairSubscription(), isFalse);
+
+      expect(h.count('/cabinet/subscription'), 0);
+      expect(h.biometrics.calls, 0);
+      expect(h.profiles.repoints, isEmpty);
+    });
+
+    test('пауза 30 минут между попытками', () async {
+      final h = await ready((o) => _subscription(url: newUrl));
+      expect(await h.controller.repairSubscription(), isTrue);
+
+      h.now = h.now.add(const Duration(minutes: 29));
+      expect(await h.controller.repairSubscription(), isFalse);
+      expect(h.count('/cabinet/subscription'), 1);
+
+      h.now = h.now.add(const Duration(minutes: 2));
+      await h.controller.repairSubscription();
+      expect(h.count('/cabinet/subscription'), 2);
+    });
+
+    test('профиль аккаунта удалён → false, нового не импортируем', () async {
+      final h = await ready((o) => _subscription(url: newUrl));
+      h.profiles.profiles.remove('sub');
+
+      expect(await h.controller.repairSubscription(), isFalse);
+
+      expect(h.profiles.imports, isEmpty);
+      expect(h.profiles.profiles, isEmpty);
+      expect(h.store.importedUrl, _subUrl);
+    });
+
+    test('подписки нет → false', () async {
+      final h = await ready((o) => _subscription(url: null));
+      expect(await h.controller.repairSubscription(), isFalse);
+      expect(h.profiles.repoints, isEmpty);
+    });
+
+    test('ошибка API → false, наружу не бросает', () async {
+      final h = await ready((o) => jsonResponse(500, {'detail': 'boom'}));
+      expect(await h.controller.repairSubscription(), isFalse);
+      expect(h.profiles.repoints, isEmpty);
+    });
+
+    test('сеть упала → false, наружу не бросает', () async {
+      final h = await ready((o) => throw DioException.connectionError(
+          requestOptions: o, reason: 'offline'));
+      expect(await h.controller.repairSubscription(), isFalse);
+      expect(h.profiles.repoints, isEmpty);
+    });
+
+    test('новый адрес тоже не отвечает → false, но аккаунт следит за профилем',
+        () async {
+      final h = await ready((o) => _subscription(url: newUrl));
+      h.profiles.repointUpdateError = Exception('fetch failed');
+
+      expect(await h.controller.repairSubscription(), isFalse);
+
+      expect(h.profiles.profiles['sub'], newUrl);
+      expect(h.store.importedUrl, newUrl);
+      expect(h.controller.state.profileId, 'sub');
+    });
+
+    test('onProfileUpdateFailed: чужой профиль → без сети', () async {
+      final h = await ready((o) => _subscription(url: newUrl));
+      h.profiles.profiles['other'] = 'https://other.example/s/x';
+      final before = h.adapter.requests.length;
+
+      expect(await h.controller.onProfileUpdateFailed('other'), isFalse);
+
+      expect(h.adapter.requests.length, before);
+      expect(h.profiles.repoints, isEmpty);
+    });
+
+    test('onProfileUpdateFailed: профиль аккаунта → починка', () async {
+      final h = await ready((o) => _subscription(url: newUrl));
+      expect(await h.controller.onProfileUpdateFailed('sub'), isTrue);
+      expect(h.profiles.repoints, [('sub', newUrl)]);
+    });
+
+    test('onProfileUpdateFailed: locked → без сети', () async {
+      final h = await ready((o) => _subscription(url: newUrl), locked: true);
+      final before = h.adapter.requests.length;
+      expect(await h.controller.onProfileUpdateFailed('sub'), isFalse);
+      expect(h.adapter.requests.length, before);
+      expect(h.biometrics.calls, 0);
+    });
+
+    test('syncSubscription: адрес сменился → профиль переведён, без дубля',
+        () async {
+      final h = await ready((o) => _subscription(url: newUrl));
+
+      expect(await h.controller.syncSubscription(),
+          SubscriptionSyncResult.alreadyPresent);
+
+      expect(h.profiles.imports, isEmpty);
+      expect(h.profiles.repoints, [('sub', newUrl)]);
+      expect(h.profiles.profiles, {'sub': newUrl});
+      expect(h.store.importedUrl, newUrl);
+      expect(h.controller.state.profileId, 'sub');
+    });
   });
 }

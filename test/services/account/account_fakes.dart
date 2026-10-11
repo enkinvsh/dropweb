@@ -171,4 +171,23 @@ class FakeProfiles implements AccountProfiles {
     deleted.add(id);
     profiles.remove(id);
   }
+
+  /// (id, url) каждого вызова [repointProfile].
+  final repoints = <(String, String)>[];
+
+  /// Если задано — repointProfile бросает это после смены адреса, как
+  /// repointProfileUrl, когда новый адрес тоже не отвечает.
+  Exception? repointUpdateError;
+
+  @override
+  Future<void> repointProfile(String profileId, String url) async {
+    repoints.add((profileId, url));
+    // Как AppController.repointProfileUrl: нет профиля — StateError.
+    if (!profiles.containsKey(profileId)) {
+      throw StateError('repoint: profile not found');
+    }
+    profiles[profileId] = url;
+    final error = repointUpdateError;
+    if (error != null) throw error;
+  }
 }

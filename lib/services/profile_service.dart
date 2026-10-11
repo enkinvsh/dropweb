@@ -70,6 +70,15 @@ class ProfileService {
         globalState.appController.updateStatus(false);
       }
     }
+    // Адреса с токеном, зеркала и sub-id не должны пережить профиль в
+    // KeyStore. В конце — чтобы ожидание хранилища не вклинилось между
+    // удалением и сменой текущего профиля. Сбой удаление не отменяет; в
+    // логе — только тип.
+    try {
+      await preferences.removeProfileSecrets(id);
+    } catch (e) {
+      commonPrint.log('[profile] remove secrets failed: ${e.runtimeType}');
+    }
   }
 
   void applySubscriptionSettings(Set<String>? settings) {

@@ -30,7 +30,9 @@ class AccountController {
     required List<String> Function() defaultBases,
     List<List<String>> Function()? knownBases,
     required void Function(AccountState state) onState,
+    DateTime Function()? clock,
   })  : _api = api,
+        _clock = clock ?? DateTime.now,
         _store = store,
         _biometrics = biometrics,
         _profiles = profiles,
@@ -52,6 +54,15 @@ class AccountController {
   final List<String> Function() _defaultBases;
   final List<List<String>> Function() _knownBases;
   final void Function(AccountState state) _onState;
+  final DateTime Function() _clock;
+
+  /// Пауза между попытками починки адреса подписки. Защищает бэкенд от
+  /// долбёжки при каждом автообновлении и рвёт рекурсию: перевод профиля
+  /// сам запускает обновление, которое при сбое снова зовёт починку.
+  static const repairCooldown = Duration(minutes: 30);
+
+  /// Время последней ПОПЫТКИ починки, только в памяти процесса.
+  DateTime? _lastRepairAttempt;
 
   /// Только запрос и проверка кода — на бэкенд текущего профиля.
   late final AccountApi _loginApi;
@@ -249,6 +260,15 @@ class AccountController {
       _emit(_state.withProfileId(existing));
       return SubscriptionSyncResult.alreadyPresent;
     }
+    // Провайдер сменил адрес подписки (2026-10-11: фронт подписок лежал
+    // часами), а профиль аккаунта ещё на старом — переводим его, а не
+    // импортируем второй такой же.
+    final own = await _accountProfileId();
+    if (own != null) {
+      await _guardProfile(() => _repoint(own, url));
+      await _guardProfile(() => _profiles.selectProfile(own));
+      return SubscriptionSyncResult.alreadyPresent;
+    }
     await _guardProfile(() => _profiles.importProfile(url));
     // Поток импорта сам показывает ошибку и не бросает — проверяем результат.
     final imported =
@@ -263,6 +283,92 @@ class AccountController {
     await _store.writeImportedUrl(url);
     _emit(_state.withProfileId(imported));
     return SubscriptionSyncResult.imported;
+  }
+
+  /// Перевод профиля [id] на [url]. Аккаунт начинает следить за новым
+  /// адресом, как только профиль на него переехал, — даже если обновление по
+  /// новому адресу упало: иначе профиль аккаунта «потеряется» до следующего
+  /// входа.
+  Future<void> _repoint(String id, String url) async {
+    try {
+      await _profiles.repointProfile(id, url);
+    } finally {
+      String? moved;
+      try {
+        moved = await _profiles.findProfileIdByUrl(url);
+      } on Object catch (e) {
+        if (kDebugMode) debugPrint('[Account] repoint check: ${e.runtimeType}');
+      }
+      if (moved == id) {
+        await _store.writeImportedUrl(url);
+        if (_hasSession) _emit(_state.withProfileId(id));
+      }
+    }
+  }
+
+  /// Тихая починка адреса подписки своего профиля после сбоя его обновления:
+  /// бэкенд аккаунта доступен через свои зеркала и знает актуальную ссылку.
+  /// true — профиль переведён на новый адрес и обновился. Никогда не бросает:
+  /// зовётся из фона, у вызывающего свой сбой и свой UX.
+  Future<bool> repairSubscription() async {
+    // locked — только ready: фоновый сбой не должен поднимать диалог
+    // биометрии.
+    if (_state.status != AccountStatus.ready) return false;
+    final now = _clock();
+    final last = _lastRepairAttempt;
+    if (last != null && now.difference(last) < repairCooldown) return false;
+    _lastRepairAttempt = now;
+    try {
+      final info = await _authed(_sessionApi.subscription);
+      if (_state.status != AccountStatus.ready) return false;
+      _emit(_state.copyWith(subscription: info));
+      final rawUrl = info.url;
+      if (rawUrl == null || rawUrl.trim().isEmpty) return false;
+      final url = normalizeProfileUrl(rawUrl);
+
+      final importedUrl = await _store.readImportedUrl();
+      String? id;
+      if (importedUrl != null && importedUrl.isNotEmpty) {
+        if (normalizeProfileUrl(importedUrl) == url) return false;
+        id = await _profiles.findProfileIdByUrl(importedUrl);
+      }
+      // Профиля нет — его удалил пользователь: молча новый не импортируем.
+      // Если id из состояния уже неактуален, repointProfile бросит.
+      id ??= _state.profileId;
+      if (id == null) return false;
+
+      final holder = await _profiles.findProfileIdByUrl(url);
+      // Свой профиль уже на этом адресе — сбой не в адресе. Чужой профиль на
+      // нём — перевод дал бы два профиля с одной подпиской.
+      if (holder != null) return false;
+
+      await _repoint(id, url);
+      return true;
+    } on Object catch (e) {
+      // Без адресов и токенов в логе: только тип/вид ошибки.
+      final kind = e is AccountApiException ? e.kind : e.runtimeType;
+      if (kDebugMode) debugPrint('[Account] subscription repair failed: $kind');
+      return false;
+    }
+  }
+
+  /// Хук сбоя обновления профиля [profileId]. Дёшев для чужих профилей: без
+  /// сети, только сравнение с профилем аккаунта.
+  Future<bool> onProfileUpdateFailed(String profileId) async {
+    if (_state.status != AccountStatus.ready) return false;
+    var own = _state.profileId;
+    if (own != profileId) {
+      try {
+        own = await _accountProfileId();
+      } on AccountApiException catch (e) {
+        if (kDebugMode) {
+          debugPrint('[Account] profile lookup failed: ${e.kind}');
+        }
+        return false;
+      }
+    }
+    if (own != profileId) return false;
+    return repairSubscription();
   }
 
   Future<bool> unlock(String reason) async {
