@@ -20,6 +20,11 @@ const helperStartTimeout = Duration(seconds: 15);
 // The helper's STOP_BUDGET is 10 seconds; keep a two-second HTTP envelope.
 const helperStopTimeout = Duration(seconds: 12);
 
+/// Сколько после первого валидного манифеста обновления ждать ответа других
+/// зеркал, чтобы выбрать самый свежий. Проверка фоновая, 3 с не мешают, а
+/// медленный GitHub в РФ обычно успевает.
+const kUpdateManifestGrace = Duration(seconds: 3);
+
 String generateCoreRunToken([Random? random]) {
   final generator = random ?? Random.secure();
   return List.generate(
@@ -540,22 +545,37 @@ class Request {
   /// Max accepted update-manifest body size; anything larger is a miss.
   static const int _maxManifestBytes = 256 * 1024;
 
-  /// Races every url in [urls] in parallel (via [_dio]; on Android the app's
-  /// own TUN carries the traffic automatically when connected) and completes
-  /// with the FIRST valid update manifest — HTTP 200, body <= 256 KiB, a JSON
-  /// object with a non-empty `version` string. The winner cancels the shared
-  /// [CancelToken] so the losers stop. Any error/cancel for a url is a miss;
-  /// completes with null when every url misses (or [urls] is empty).
+  /// Опрашивает все [urls] параллельно (через [_dio]; на Android при
+  /// включённом VPN трафик сам идёт через наш TUN). Валидный манифест —
+  /// HTTP 200, тело <= 256 КиБ, JSON-объект с непустой строкой `version`.
+  /// После первого валидного ответа ждёт остальных не дольше [grace] и отдаёт
+  /// самый свежий (больший `build`, без него — большая `version`): если в CI
+  /// запись в одно хранилище сорвалась, там остаётся прошлый манифест, и
+  /// быстрое устаревшее зеркало не должно прятать новую версию. Ответили все —
+  /// решение сразу, без ожидания. Оставшиеся запросы отменяются общим
+  /// [CancelToken]. Ошибка/отмена — промах; промахнулись все (или список
+  /// пуст) — null.
   Future<Map<String, dynamic>?> fetchFirstUpdateManifest(
-      List<String> urls) async {
+    List<String> urls, {
+    Duration grace = kUpdateManifestGrace,
+  }) async {
     if (urls.isEmpty) return null;
     final cancelToken = CancelToken();
     final completer = Completer<Map<String, dynamic>?>();
     var pending = urls.length;
+    Map<String, dynamic>? best;
+    Timer? graceTimer;
 
-    void miss() {
+    void finish() {
+      if (completer.isCompleted) return;
+      graceTimer?.cancel();
+      completer.complete(best);
+      cancelToken.cancel('update manifest race decided');
+    }
+
+    void settled() {
       pending--;
-      if (pending == 0 && !completer.isCompleted) completer.complete(null);
+      if (pending == 0) finish();
     }
 
     for (final url in urls) {
@@ -570,32 +590,53 @@ class Request {
           if (response.statusCode != 200 ||
               body == null ||
               body.length > _maxManifestBytes) {
-            miss();
+            settled();
             return;
           }
           final decoded = json.decode(body);
           if (decoded is! Map<String, dynamic>) {
-            miss();
+            settled();
             return;
           }
           final version = decoded['version'];
           if (version is! String || version.trim().isEmpty) {
-            miss();
+            settled();
             return;
           }
           if (!completer.isCompleted) {
-            completer.complete(decoded);
-            cancelToken.cancel('update manifest race won');
+            final current = best;
+            if (current == null || _isFresherManifest(decoded, current)) {
+              best = decoded;
+            }
+            graceTimer ??= Timer(grace, finish);
           }
+          settled();
         } catch (e) {
           debugPrint(
             'update manifest miss: ${Uri.tryParse(url)?.host} (${e.runtimeType})',
           );
-          miss();
+          settled();
         }
       }());
     }
     return completer.future;
+  }
+
+  /// true, если [candidate] новее [current]: решает целый `build`
+  /// (versionCode), а если его нет хотя бы у одного — `version`. При равенстве
+  /// остаётся пришедший раньше.
+  static bool _isFresherManifest(
+    Map<String, dynamic> candidate,
+    Map<String, dynamic> current,
+  ) {
+    final a = candidate['build'];
+    final b = current['build'];
+    if (a is int && b is int) return a > b;
+    return utils.compareVersions(
+          candidate['version'] as String,
+          current['version'] as String,
+        ) >
+        0;
   }
 
   /// Tunnel-aware APK download for the in-app updater. Streams [url] to

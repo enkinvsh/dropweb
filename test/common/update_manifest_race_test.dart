@@ -1,6 +1,8 @@
-// Request.fetchFirstUpdateManifest races every mirror in parallel and returns
-// the FIRST valid manifest; bad mirrors (5xx, garbage, no version, oversized)
-// are misses, and an all-miss race yields null (never a fake "up to date").
+// Request.fetchFirstUpdateManifest опрашивает все зеркала параллельно и после
+// первого валидного ответа ждёт остальных не дольше окна grace — побеждает самый
+// свежий манифест (устаревшее быстрое зеркало не прячет новую версию). Битые
+// зеркала (5xx, мусор, без version, слишком большие) — промахи; если промахнулись
+// все — null (никогда не ложное «актуально»).
 import 'dart:convert';
 import 'dart:io';
 
@@ -40,6 +42,13 @@ void main() {
             await Future<void>.delayed(slowDelay);
             res.headers.contentType = ContentType.json;
             res.write(jsonEncode({'version': '1.0.0'}));
+          case '/old-fast':
+            res.headers.contentType = ContentType.json;
+            res.write(jsonEncode({'version': '0.9.1', 'build': 19}));
+          case '/new-later':
+            await Future<void>.delayed(const Duration(milliseconds: 300));
+            res.headers.contentType = ContentType.json;
+            res.write(jsonEncode({'version': '0.10.0', 'build': 20}));
           case '/500':
             res.statusCode = HttpStatus.internalServerError;
             res.write('boom');
@@ -71,10 +80,28 @@ void main() {
     final sw = Stopwatch()..start();
     final m = await request.fetchFirstUpdateManifest(
       ['$base/slow', '$base/fast'],
+      grace: const Duration(milliseconds: 200),
     );
     sw.stop();
     expect(m?['version'], '9.9.9');
     expect(sw.elapsed, lessThan(const Duration(milliseconds: 1000)));
+  });
+
+  // Запись в одно хранилище сорвалась в CI → там остался прошлый манифест.
+  // Он отвечает первым, но новую версию с другого зеркала прятать не должен.
+  test('stale fast mirror does not hide a newer one', () async {
+    final m = await request.fetchFirstUpdateManifest(
+      ['$base/old-fast', '$base/new-later'],
+    );
+    expect(m?['version'], '0.10.0');
+    expect(m?['build'], 20);
+  });
+
+  test('newer manifest wins whatever the list order', () async {
+    final m = await request.fetchFirstUpdateManifest(
+      ['$base/new-later', '$base/old-fast'],
+    );
+    expect(m?['build'], 20);
   });
 
   test('all bad mirrors => null', () async {
