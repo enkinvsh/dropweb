@@ -46,6 +46,8 @@ export 'scroll.dart';
 export 'setup_hash.dart';
 export 'statusbar.dart';
 export 'string.dart';
+export 'subscription_beacon.dart';
+export 'subscription_resilience.dart';
 export 'system.dart';
 export 'text.dart';
 export 'tray.dart';

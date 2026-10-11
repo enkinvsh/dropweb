@@ -116,7 +116,10 @@ opencode.json
 /DESIGN.md
 
 # Dev/release tooling kept local-only (build it yourself if you need it)
-/tool/
+/tool/*
+# Подписант маяка — часть контракта для провайдеров, на него опирается
+# test/tool/sign_sub_beacon_test.dart.
+!/tool/sign_sub_beacon.dart
 
 # Orchestrator notepad directory
 .omo/

@@ -56,6 +56,11 @@ _$ProfileImpl _$$ProfileImplFromJson(Map<String, dynamic> json) =>
           ) ??
           const {},
       fallbackUrl: json['fallbackUrl'] as String?,
+      mirrorUrls: (json['mirrorUrls'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
+      subId: json['subId'] as String?,
       workMode: $enumDecodeNullable(_$WorkModeEnumMap, json['workMode'],
               unknownValue: WorkMode.standard) ??
           WorkMode.standard,
@@ -78,6 +83,8 @@ Map<String, dynamic> _$$ProfileImplToJson(_$ProfileImpl instance) =>
       'overrideData': instance.overrideData,
       'providerHeaders': instance.providerHeaders,
       'fallbackUrl': instance.fallbackUrl,
+      'mirrorUrls': instance.mirrorUrls,
+      'subId': instance.subId,
       'workMode': _$WorkModeEnumMap[instance.workMode]!,
       'staticCountry': instance.staticCountry,
       'fullTunnel': instance.fullTunnel,

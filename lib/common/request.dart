@@ -372,9 +372,13 @@ class Request {
   /// second leg outside the tunnel (Android: native fetch over the physical
   /// network; desktop: no core proxy) starts after [kSubscriptionBypassDelay]
   /// or as soon as the normal leg fails. The first success wins.
+  ///
+  /// [maxBytes] — потолок тела; маяк зеркал передаёт свой (64 KiB), чтобы
+  /// чужой хостинг не мог заставить качать мегабайты.
   Future<Response<Uint8List>> getFileResponseForUrl(
     String url, {
     Map<String, dynamic>? headers,
+    int maxBytes = _maxProfileBytes,
   }) async {
     final requestHeaders = headers ?? {};
     requestHeaders['User-Agent'] = globalState.ua;
@@ -389,10 +393,10 @@ class Request {
             cancelToken: cancelToken,
           ),
           maxRedirects: _maxRedirects,
-          maxBytes: _maxProfileBytes,
+          maxBytes: maxBytes,
         );
 
-    final bypassHop = _bypassHop(requestHeaders);
+    final bypassHop = _bypassHop(requestHeaders, maxBytes);
     if (bypassHop == null) return primary(CancelToken());
 
     Response<Uint8List>? bypassResponse;
@@ -402,7 +406,7 @@ class Request {
         uri,
         bypassHop,
         maxRedirects: _maxRedirects,
-        maxBytes: _maxProfileBytes,
+        maxBytes: maxBytes,
       ),
       delay: kSubscriptionBypassDelay,
     );
@@ -426,7 +430,10 @@ class Request {
   /// off) or no way to bypass it on this platform. Sends the SAME headers as
   /// the normal leg: the panel picks the config format from User-Agent and
   /// identifies the device by its x-hwid/x-device-* headers.
-  SubscriptionHop? _bypassHop(Map<String, dynamic> requestHeaders) {
+  SubscriptionHop? _bypassHop(
+    Map<String, dynamic> requestHeaders,
+    int maxBytes,
+  ) {
     if (!globalState.isStart) return null;
     if (Platform.isAndroid) {
       final native = app;
@@ -436,7 +443,7 @@ class Request {
         final r = await native.fetchBypassingVpn(
           u,
           stringHeaders,
-          maxBytes: _maxProfileBytes,
+          maxBytes: maxBytes,
         );
         return Response<Uint8List>(
           requestOptions: RequestOptions(path: u.toString()),
