@@ -63,6 +63,10 @@ jobs:
 
       - name: Build candidate installer
         run: dart setup.dart windows --arch amd64
+        env:
+          # Бэкенд аккаунта по умолчанию для пустого состояния; пусто, если
+          # переменная репозитория не задана — тогда сборка без своего бэкенда.
+          DROPWEB_ACCOUNT_API: ${{ vars.DROPWEB_ACCOUNT_API }}
 
       - name: Verify installer artifact
         shell: pwsh

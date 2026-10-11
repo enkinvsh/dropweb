@@ -426,6 +426,22 @@ class Build {
   }
 }
 
+/// Бэкенд аккаунта по умолчанию для собственной сборки издателя
+/// (`DROPWEB_ACCOUNT_API=<base>[, <base>...]` в окружении). Пусто — define не
+/// передаётся вовсе, и сборка остаётся «губкой» без своего бэкенда. Зеркала
+/// склеиваем через `;`: запятую `--build-dart-define` у flutter_distributor
+/// режет на отдельные значения, а пробел — разбор строки команды.
+String get _accountApiValue =>
+    (Platform.environment['DROPWEB_ACCOUNT_API'] ?? '')
+        .split(RegExp(r'[,;\s]+'))
+        .where((base) => base.isNotEmpty)
+        .join(';');
+
+List<String> _accountApiArgs(String flag) {
+  final value = _accountApiValue;
+  return value.isEmpty ? const [] : ['$flag=DROPWEB_ACCOUNT_API=$value'];
+}
+
 class BuildCommand extends Command {
   Target target;
 
@@ -577,6 +593,7 @@ class BuildCommand extends Command {
         "--release",
         "--dart-define=APP_ENV=$env",
         "--dart-define=CORE_VERSION=$coreVersion",
+        ..._accountApiArgs("--dart-define"),
       ],
     );
 
@@ -802,7 +819,7 @@ class BuildCommand extends Command {
           target: target,
           targets: "exe,zip",
           args:
-              " --description $archName --build-dart-define=CORE_SHA256=$token --build-dart-define=CORE_VERSION=$coreVersion",
+              " --description $archName --build-dart-define=CORE_SHA256=$token --build-dart-define=CORE_VERSION=$coreVersion${_accountApiArgs("--build-dart-define").map((arg) => " $arg").join()}",
           env: env,
         );
         return;
@@ -822,7 +839,7 @@ class BuildCommand extends Command {
           target: target,
           targets: targets,
           args:
-              " --description $archName --build-target-platform $defaultTarget --build-dart-define=CORE_VERSION=$coreVersion",
+              " --description $archName --build-target-platform $defaultTarget --build-dart-define=CORE_VERSION=$coreVersion${_accountApiArgs("--build-dart-define").map((arg) => " $arg").join()}",
           env: env,
         );
         return;
@@ -839,7 +856,7 @@ class BuildCommand extends Command {
           target: target,
           targets: "apk",
           args:
-              ",split-per-abi --build-target-platform $defaultTarget --build-dart-define=CORE_VERSION=$coreVersion",
+              ",split-per-abi --build-target-platform $defaultTarget --build-dart-define=CORE_VERSION=$coreVersion${_accountApiArgs("--build-dart-define").map((arg) => " $arg").join()}",
           env: env,
         );
 
@@ -860,6 +877,7 @@ class BuildCommand extends Command {
               "--release",
               "--dart-define=APP_ENV=$env",
               "--dart-define=CORE_VERSION=$coreVersion",
+              ..._accountApiArgs("--dart-define"),
             ],
           );
           Build.copyFile(

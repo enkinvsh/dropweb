@@ -30,6 +30,10 @@ jobs:
 
       - name: Build Linux
         run: dart run setup.dart linux --arch amd64
+        env:
+          # Бэкенд аккаунта по умолчанию для пустого состояния; пусто, если
+          # переменная репозитория не задана — тогда сборка без своего бэкенда.
+          DROPWEB_ACCOUNT_API: ${{ vars.DROPWEB_ACCOUNT_API }}
 
       - name: Upload
         uses: actions/upload-artifact@v4

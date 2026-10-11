@@ -112,6 +112,10 @@ jobs:
 
       - name: Setup
         run: dart setup.dart ${{ matrix.platform }} ${{ matrix.arch && format('--arch {0}', matrix.arch) }} ${{ env.IS_STABLE == 'true' && '--env stable' || '' }}
+        env:
+          # Бэкенд аккаунта по умолчанию для пустого состояния; пусто, если
+          # переменная репозитория не задана — тогда сборка без своего бэкенда.
+          DROPWEB_ACCOUNT_API: ${{ vars.DROPWEB_ACCOUNT_API }}
 
       # Guard against the "green job, empty dist/" failure mode: setup.dart can
       # exit 0 yet produce no artifact (e.g. an MSVC hard-error in a plugin, or a
