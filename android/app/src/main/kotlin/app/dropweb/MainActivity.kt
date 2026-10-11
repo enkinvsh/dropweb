@@ -35,6 +35,17 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         applyAppTheme()
 
+        // Задача восстановлена после смерти процесса: Android пересоздаёт Activity
+        // с исходным интентом задачи. Если её открыл диплинк
+        // dropweb://install-config, app_links прочитает ту же ссылку снова и опять
+        // спросит «Добавить профиль?», хотя её уже обработали. Запуск из «Недавних»
+        // плагин отсекает сам по FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY, а при
+        // восстановлении этого флага нет — признак только savedInstanceState.
+        // Чистим до super.onCreate: плагин читает интент при подключении к Activity.
+        if (savedInstanceState != null && intent?.data != null) {
+            intent = Intent(intent).setData(null)
+        }
+
         // После перезагрузки Android восстанавливает Task из сохранённого состояния
         // и передаёт savedInstanceState убитого процесса с его FlutterEngine.
         // onCreate (FlutterActivity и FlutterFragmentActivity — у второй это ещё и
