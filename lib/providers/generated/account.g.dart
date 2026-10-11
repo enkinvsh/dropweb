@@ -7,13 +7,13 @@ part of '../account.dart';
 // **************************************************************************
 
 String _$accountFeatureEnabledHash() =>
-    r'56b3266d60235f6b70b0110a8c52f8766443ee4b';
+    r'7d997ebb8400277972f78584df7a6d5c3144227d';
 
-/// Аккаунт есть только в сборках вне магазинов. В Google Play (а с iOS — и
-/// в App Store) приложение остаётся чистым клиентом, как RabbitHole: вход по
-/// почте создаёт аккаунт, а это тянет удаление в приложении, демо-доступ для
-/// ревью и другую декларацию данных. Провайдером — чтобы тесты подменяли тип
-/// сборки.
+/// Аккаунт есть только в сборках вне магазинов. В Google Play и на iOS
+/// ([System.isStoreBuild]) приложение остаётся чистым клиентом, как
+/// RabbitHole: вход по почте создаёт аккаунт, а это тянет удаление в
+/// приложении, демо-доступ для ревью и другую декларацию данных. Провайдером —
+/// чтобы тесты подменяли тип сборки.
 ///
 /// Copied from [accountFeatureEnabled].
 @ProviderFor(accountFeatureEnabled)
@@ -107,7 +107,7 @@ final accountProfileProvider = AutoDisposeProvider<Profile?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AccountProfileRef = AutoDisposeProviderRef<Profile?>;
-String _$accountHash() => r'aebb76ca1cd78a0e29b94d8017b8e8ee071b9cd9';
+String _$accountHash() => r'eff1f8ff4a8655efbd9a74ab0fbb18ba6da11289';
 
 /// Аккаунт кабинета внутри приложения: вход по коду с почты, сессия,
 /// биометрический замок, импорт подписки, удаление аккаунта.

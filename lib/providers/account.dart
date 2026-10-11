@@ -22,13 +22,13 @@ export 'package:dropweb/services/account/account_state.dart';
 
 part 'generated/account.g.dart';
 
-/// Аккаунт есть только в сборках вне магазинов. В Google Play (а с iOS — и
-/// в App Store) приложение остаётся чистым клиентом, как RabbitHole: вход по
-/// почте создаёт аккаунт, а это тянет удаление в приложении, демо-доступ для
-/// ревью и другую декларацию данных. Провайдером — чтобы тесты подменяли тип
-/// сборки.
+/// Аккаунт есть только в сборках вне магазинов. В Google Play и на iOS
+/// ([System.isStoreBuild]) приложение остаётся чистым клиентом, как
+/// RabbitHole: вход по почте создаёт аккаунт, а это тянет удаление в
+/// приложении, демо-доступ для ревью и другую декларацию данных. Провайдером —
+/// чтобы тесты подменяли тип сборки.
 @riverpod
-bool accountFeatureEnabled(Ref ref) => !kIsPlayBuild;
+bool accountFeatureEnabled(Ref ref) => !system.isStoreBuild;
 
 /// Бэкенд аккаунта по умолчанию из `--dart-define=DROPWEB_ACCOUNT_API`.
 /// Провайдером, а не константой — чтобы тесты подменяли дефолт сборки.
