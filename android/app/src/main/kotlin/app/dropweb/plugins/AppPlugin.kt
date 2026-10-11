@@ -37,7 +37,6 @@ import app.dropweb.extensions.getActionIntent
 import app.dropweb.extensions.getBase64
 import app.dropweb.models.Package
 import com.google.gson.Gson
-import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -958,7 +957,7 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
 
     private fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
         if (requestCode == VPN_PERMISSION_REQUEST_CODE) {
-            if (resultCode == FlutterActivity.RESULT_OK) {
+            if (resultCode == Activity.RESULT_OK) {
                 GlobalState.initServiceEngine()
                 val pending = vpnCallBacks.toList()
                 vpnCallBacks.clear()

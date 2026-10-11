@@ -15,13 +15,15 @@ import app.dropweb.plugins.AppPlugin
 import app.dropweb.plugins.ServicePlugin
 import app.dropweb.plugins.TilePlugin
 import app.dropweb.plugins.VpnPlugin
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONObject
 
-class MainActivity : FlutterActivity() {
+// FlutterFragmentActivity, а не FlutterActivity: local_auth (вход по отпечатку/лицу)
+// показывает BiometricPrompt через FragmentManager и без FragmentActivity падает.
+class MainActivity : FlutterFragmentActivity() {
     // Cold start route delivered via Intent extra. Consumed once by Dart via
     // `getInitialRoute`. Hot/warm start routes are pushed through
     // [navigationSink] in [onNewIntent].
@@ -33,11 +35,23 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         applyAppTheme()
 
-        // Post-reboot Android restores our Task from persistent state and passes
-        // a savedInstanceState pointing at the killed process's FlutterEngine.
-        // FlutterActivity.onCreate then blocks trying to restore engine state
-        // that doesn't exist — splash hangs forever. We don't use Flutter's
-        // restoration API, so always start fresh.
+        // Задача восстановлена после смерти процесса: Android пересоздаёт Activity
+        // с исходным интентом задачи. Если её открыл диплинк
+        // dropweb://install-config, app_links прочитает ту же ссылку снова и опять
+        // спросит «Добавить профиль?», хотя её уже обработали. Запуск из «Недавних»
+        // плагин отсекает сам по FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY, а при
+        // восстановлении этого флага нет — признак только savedInstanceState.
+        // Чистим до super.onCreate: плагин читает интент при подключении к Activity.
+        if (savedInstanceState != null && intent?.data != null) {
+            intent = Intent(intent).setData(null)
+        }
+
+        // После перезагрузки Android восстанавливает Task из сохранённого состояния
+        // и передаёт savedInstanceState убитого процесса с его FlutterEngine.
+        // onCreate (FlutterActivity и FlutterFragmentActivity — у второй это ещё и
+        // состояние FlutterFragment) пытается поднять несуществующий движок —
+        // сплэш висит вечно. API восстановления Flutter мы не используем,
+        // поэтому всегда стартуем с чистого листа.
         super.onCreate(null)
 
         // Capture deep-link route from notification (or other sender) before

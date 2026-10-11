@@ -20,33 +20,41 @@ typedef String MessageIfAbsent(String messageStr, List<dynamic> args);
 class MessageLookup extends MessageLookupByLibrary {
   String get localeName => 'en';
 
-  static String m0(host) => "Add ${host}";
+  static String m0(wait) => "Too many attempts, wait ${wait}";
 
-  static String m1(label) =>
+  static String m1(n) => "${n} h";
+
+  static String m2(n) => "${n} min";
+
+  static String m3(n) => "${n} s";
+
+  static String m4(host) => "Add ${host}";
+
+  static String m5(label) =>
       "Are you sure you want to delete the selected ${label}?";
 
-  static String m2(label) =>
+  static String m6(label) =>
       "Are you sure you want to delete the current ${label}?";
 
-  static String m3(path) => "Diagnostics: ${path}";
+  static String m7(path) => "Diagnostics: ${path}";
 
-  static String m4(label) => "${label} cannot be empty";
+  static String m8(label) => "${label} cannot be empty";
 
-  static String m5(label) => "Current ${label} already exists";
+  static String m9(label) => "Current ${label} already exists";
 
-  static String m6(label) => "No ${label} at the moment";
+  static String m10(label) => "No ${label} at the moment";
 
-  static String m7(label) => "${label} must be a number";
+  static String m11(label) => "${label} must be a number";
 
-  static String m8(label) => "${label} must be between 1024 and 49151";
+  static String m12(label) => "${label} must be between 1024 and 49151";
 
-  static String m9(count) => "${count} items have been selected";
+  static String m13(count) => "${count} items have been selected";
 
-  static String m10(days) => "Your subscription expires in ${days} day(s)";
+  static String m14(days) => "Your subscription expires in ${days} day(s)";
 
-  static String m11(label) => "${label} must be a url";
+  static String m15(label) => "${label} must be a url";
 
-  static String m12(date) => "until ${date}";
+  static String m16(date) => "until ${date}";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
@@ -62,6 +70,91 @@ class MessageLookup extends MessageLookupByLibrary {
       "The selected application will be excluded from VPN",
     ),
     "account": MessageLookupByLibrary.simpleMessage("Account"),
+    "accountBiometricEnable": MessageLookupByLibrary.simpleMessage("Turn on"),
+    "accountBiometricEnableReason": MessageLookupByLibrary.simpleMessage(
+      "Confirm to sign in with your fingerprint",
+    ),
+    "accountBiometricOfferText": MessageLookupByLibrary.simpleMessage(
+      "Your account will open with your fingerprint.",
+    ),
+    "accountBiometricOfferTitle": MessageLookupByLibrary.simpleMessage(
+      "Sign in with your fingerprint?",
+    ),
+    "accountBiometricSwitch": MessageLookupByLibrary.simpleMessage(
+      "Fingerprint sign-in",
+    ),
+    "accountBiometricUnlockReason": MessageLookupByLibrary.simpleMessage(
+      "Confirm signing in to your account",
+    ),
+    "accountChangeEmail": MessageLookupByLibrary.simpleMessage("Change email"),
+    "accountCodeLabel": MessageLookupByLibrary.simpleMessage("Code"),
+    "accountEmailInvalid": MessageLookupByLibrary.simpleMessage(
+      "Check the email address",
+    ),
+    "accountEmailLabel": MessageLookupByLibrary.simpleMessage("Email"),
+    "accountErrorCodeExpired": MessageLookupByLibrary.simpleMessage(
+      "Code expired — request a new one",
+    ),
+    "accountErrorDisabled": MessageLookupByLibrary.simpleMessage(
+      "Sign-in temporarily unavailable",
+    ),
+    "accountErrorEmailRejected": MessageLookupByLibrary.simpleMessage(
+      "This email can\'t be used",
+    ),
+    "accountErrorGeneric": MessageLookupByLibrary.simpleMessage(
+      "Something went wrong",
+    ),
+    "accountErrorInvalidCode": MessageLookupByLibrary.simpleMessage(
+      "Incorrect code",
+    ),
+    "accountErrorNetwork": MessageLookupByLibrary.simpleMessage(
+      "Can\'t reach the server",
+    ),
+    "accountErrorRateLimited": m0,
+    "accountErrorRateLimitedLater": MessageLookupByLibrary.simpleMessage(
+      "Too many attempts, try later",
+    ),
+    "accountGetCode": MessageLookupByLibrary.simpleMessage("Get code"),
+    "accountLoggedOut": MessageLookupByLibrary.simpleMessage("Signed out"),
+    "accountLoginByEmail": MessageLookupByLibrary.simpleMessage(
+      "Sign in with email",
+    ),
+    "accountLogout": MessageLookupByLibrary.simpleMessage("Sign out"),
+    "accountNoSubscription": MessageLookupByLibrary.simpleMessage(
+      "Signed in, no subscription yet",
+    ),
+    "accountRemoveFromDevice": MessageLookupByLibrary.simpleMessage(
+      "Remove from this device",
+    ),
+    "accountRemoveFromDeviceText": MessageLookupByLibrary.simpleMessage(
+      "The account and its subscription will disappear from this device. You can sign in again with your email.",
+    ),
+    "accountRemoveFromDeviceTitle": MessageLookupByLibrary.simpleMessage(
+      "Remove from this device?",
+    ),
+    "accountRemovedFromDevice": MessageLookupByLibrary.simpleMessage(
+      "Removed from this device",
+    ),
+    "accountResend": MessageLookupByLibrary.simpleMessage("Send again"),
+    "accountSignInWithCode": MessageLookupByLibrary.simpleMessage(
+      "Sign in with a code",
+    ),
+    "accountSubscriptionAlreadyPresent": MessageLookupByLibrary.simpleMessage(
+      "The subscription is already in the app",
+    ),
+    "accountSubscriptionImported": MessageLookupByLibrary.simpleMessage(
+      "Subscription connected",
+    ),
+    "accountSyncFailed": MessageLookupByLibrary.simpleMessage(
+      "Signed in, subscription not connected",
+    ),
+    "accountSyncSubscription": MessageLookupByLibrary.simpleMessage(
+      "Update subscription",
+    ),
+    "accountUnlock": MessageLookupByLibrary.simpleMessage("Unlock"),
+    "accountWaitHours": m1,
+    "accountWaitMinutes": m2,
+    "accountWaitSeconds": m3,
     "action": MessageLookupByLibrary.simpleMessage("Action"),
     "action_mode": MessageLookupByLibrary.simpleMessage("Switch mode"),
     "action_proxy": MessageLookupByLibrary.simpleMessage("System proxy"),
@@ -73,7 +166,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Scan QR code with phone",
     ),
     "addFromPhoneTitle": MessageLookupByLibrary.simpleMessage("Add from Phone"),
-    "addNamedSubscription": m0,
+    "addNamedSubscription": m4,
     "addProfile": MessageLookupByLibrary.simpleMessage("Add Profile"),
     "addRule": MessageLookupByLibrary.simpleMessage("Add rule"),
     "addSubscription": MessageLookupByLibrary.simpleMessage("Add subscription"),
@@ -263,10 +356,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "delay": MessageLookupByLibrary.simpleMessage("Delay"),
     "delaySort": MessageLookupByLibrary.simpleMessage("Sort by delay"),
     "delete": MessageLookupByLibrary.simpleMessage("Delete"),
-    "deleteMultipTip": m1,
-    "deleteTip": m2,
+    "deleteMultipTip": m5,
+    "deleteTip": m6,
     "desc": MessageLookupByLibrary.simpleMessage(
-      "Dropweb — fast, simple VPN client. Open-source and ad-free.",
+      "dropweb — fast, simple VPN client. Open-source and ad-free.",
     ),
     "detectionTip": MessageLookupByLibrary.simpleMessage(
       "Relying on third-party api is for reference only",
@@ -277,7 +370,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "devCopyAll": MessageLookupByLibrary.simpleMessage("Copy all"),
     "devDiagnostics": MessageLookupByLibrary.simpleMessage("Diagnostics"),
-    "devDiagnosticsWritten": m3,
+    "devDiagnosticsWritten": m7,
     "devEffectiveConfig": MessageLookupByLibrary.simpleMessage(
       "Effective config",
     ),
@@ -316,7 +409,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "domain": MessageLookupByLibrary.simpleMessage("Domain"),
     "download": MessageLookupByLibrary.simpleMessage("Download"),
     "edit": MessageLookupByLibrary.simpleMessage("Edit"),
-    "emptyTip": m4,
+    "emptyTip": m8,
     "en": MessageLookupByLibrary.simpleMessage("English"),
     "enableOverride": MessageLookupByLibrary.simpleMessage("Enable override"),
     "entries": MessageLookupByLibrary.simpleMessage(" entries"),
@@ -325,7 +418,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "excludeDesc": MessageLookupByLibrary.simpleMessage(
       "When the app is in the background, the app is hidden from the recent task",
     ),
-    "existsTip": m5,
+    "existsTip": m9,
     "exit": MessageLookupByLibrary.simpleMessage("Exit"),
     "expand": MessageLookupByLibrary.simpleMessage("Standard"),
     "expirationTime": MessageLookupByLibrary.simpleMessage("Expiration time"),
@@ -538,8 +631,8 @@ class MessageLookup extends MessageLookupByLibrary {
       "No profile, Please add a profile",
     ),
     "nullScriptTip": MessageLookupByLibrary.simpleMessage("No scripts"),
-    "nullTip": m6,
-    "numberTip": m7,
+    "nullTip": m10,
+    "numberTip": m11,
     "ok": MessageLookupByLibrary.simpleMessage("OK"),
     "onboardingAddHint": MessageLookupByLibrary.simpleMessage(
       "Tap to add your subscription",
@@ -627,7 +720,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "portConflictTip": MessageLookupByLibrary.simpleMessage(
       "Please enter a different port",
     ),
-    "portTip": m8,
+    "portTip": m12,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage(
       "Prioritize the use of DOH\'s http/3",
     ),
@@ -763,7 +856,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("Select all"),
     "selectProfile": MessageLookupByLibrary.simpleMessage("Select Profile"),
     "selected": MessageLookupByLibrary.simpleMessage("Selected"),
-    "selectedCountTitle": m9,
+    "selectedCountTitle": m13,
     "sendToTv": MessageLookupByLibrary.simpleMessage("Send to TV"),
     "sendToTvTitle": MessageLookupByLibrary.simpleMessage("Send to TV"),
     "sentSuccessfullyMessage": MessageLookupByLibrary.simpleMessage(
@@ -823,7 +916,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscriptionExpired": MessageLookupByLibrary.simpleMessage(
       "Your subscription has expired",
     ),
-    "subscriptionExpiresInDays": m10,
+    "subscriptionExpiresInDays": m14,
     "subscriptionExpiresSoon": MessageLookupByLibrary.simpleMessage(
       "Subscription expires soon",
     ),
@@ -936,10 +1029,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "urlDesc": MessageLookupByLibrary.simpleMessage(
       "Obtain profile through URL",
     ),
-    "urlTip": m11,
+    "urlTip": m15,
     "useHosts": MessageLookupByLibrary.simpleMessage("Use hosts"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("Use system hosts"),
-    "validUntil": m12,
+    "validUntil": m16,
     "value": MessageLookupByLibrary.simpleMessage("Value"),
     "vibrantScheme": MessageLookupByLibrary.simpleMessage("Vibrant"),
     "view": MessageLookupByLibrary.simpleMessage("View"),
@@ -947,7 +1040,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Modify VPN related settings",
     ),
     "vpnDisclosureBody": MessageLookupByLibrary.simpleMessage(
-      "Dropweb uses Android\'s VPN permission to create a local VPN tunnel that you control. Network traffic is routed according to the connection or subscription you select. You can disconnect at any time from this screen or your device\'s VPN settings. Any optional diagnostics, account, or cabinet features are separate and are disclosed where they apply.",
+      "dropweb uses Android\'s VPN permission to create a local VPN tunnel that you control. Network traffic is routed according to the connection or subscription you select. You can disconnect at any time from this screen or your device\'s VPN settings. Any optional diagnostics, account, or cabinet features are separate and are disclosed where they apply.",
     ),
     "vpnDisclosureContinue": MessageLookupByLibrary.simpleMessage("Continue"),
     "vpnDisclosureTitle": MessageLookupByLibrary.simpleMessage(

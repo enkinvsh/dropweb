@@ -18,6 +18,35 @@ part 'generated/profile.g.dart';
 
 typedef SelectedMap = Map<String, String>;
 
+typedef _FetchedSubscription = ({
+  Response<Uint8List> response,
+  Uint8List bytes,
+  String url,
+});
+
+/// Provider headers store builds ([System.isStoreBuild]: Google Play, iOS)
+/// drop at ingestion: payment and account-cabinet links. The store app is a
+/// neutral bring-your-own-config client — it must not steer users to a
+/// provider's checkout or cabinet, whatever panel the user imports. Provider
+/// support and device removal stay. Sideload builds keep every header.
+const storeStrippedProviderHeaders = {
+  'dropweb-renew-url',
+  'dropweb-topup-url',
+  'dropweb-cabinet',
+};
+
+Map<String, String> storeSafeProviderHeaders(
+  Map<String, String> headers, {
+  bool? isStoreBuild,
+}) {
+  if (!(isStoreBuild ?? system.isStoreBuild)) return headers;
+  return {
+    for (final entry in headers.entries)
+      if (!storeStrippedProviderHeaders.contains(entry.key))
+        entry.key: entry.value,
+  };
+}
+
 @freezed
 class SubscriptionInfo with _$SubscriptionInfo {
   const factory SubscriptionInfo({
@@ -70,6 +99,11 @@ class Profile with _$Profile {
     bool isUpdating,
     @Default({}) Map<String, String> providerHeaders,
     String? fallbackUrl,
+    // Зеркала той же подписки (`dropweb-sub-mirrors`) и её стабильный id
+    // (`dropweb-sub-id`). Оба несут токен: на диск попадают только через
+    // защищённое хранилище, как [url] / [fallbackUrl].
+    @Default([]) List<String> mirrorUrls,
+    String? subId,
     @JsonKey(unknownEnumValue: WorkMode.standard)
     @Default(WorkMode.standard)
     WorkMode workMode,
@@ -229,23 +263,48 @@ extension ProfileExtension on Profile {
       );
     }
     final fallback = await preferences.getProfileFallbackUrl(this);
+    final mirrors = await preferences.getProfileMirrors(this);
+    final preferred = await preferences.getProfilePreferredUrl(this);
+    final candidates = subscriptionCandidates(
+      preferred: preferred,
+      primary: primaryUrl,
+      mirrors: mirrors,
+      fallback: fallback,
+    );
 
-    Response<Uint8List> response;
-    try {
-      response = await request.getFileResponseForUrl(
-        primaryUrl,
-        headers: headers.isNotEmpty ? headers : null,
-      );
-    } catch (e) {
-      if (fallback != null && fallback.isNotEmpty) {
-        response = await request.getFileResponseForUrl(
-          fallback,
-          headers: headers.isNotEmpty ? headers : null,
+    // Перебор фронтов одной подписки: падение одного (шлюз, домен) не должно
+    // оставлять приложение без обновлений, пока остальные живы. Если упали
+    // все — и известные адреса, и адреса из маяка, — наружу уходит ошибка
+    // ПЕРВОГО кандидата: на неё рассчитан существующий UX ошибок.
+    final known = await _fetchFirstAccepted(
+      candidates,
+      headers,
+      logLabel: 'candidate',
+    );
+    var fetched = known.fetched;
+    final viaBeacon = fetched == null;
+    if (fetched == null) {
+      try {
+        fetched = await _fetchViaBeacon(
+          tried: candidates.toSet(),
+          headers: headers,
         );
-      } else {
-        rethrow;
+      } catch (e) {
+        // Маяк — последний шанс, а не новый источник ошибок для UX.
+        commonPrint.log('subscription beacon stage failed: ${e.runtimeType}');
       }
     }
+    if (fetched == null) {
+      Error.throwWithStackTrace(known.firstError!, known.firstStackTrace!);
+    }
+    final response = fetched.response;
+    final bytesToSave = fetched.bytes;
+    final succeededUrl = fetched.url;
+    await _rememberWorkingCandidate(
+      succeededUrl: succeededUrl,
+      primaryUrl: primaryUrl,
+      preferredUrl: preferred,
+    );
 
     // `headers.value()` THROWS when a header is repeated (e.g. a panel
     // custom header duplicating `profile-title`); take the first value.
@@ -254,11 +313,6 @@ extension ProfileExtension on Profile {
     final disposition = header("content-disposition");
     final userinfo = header('subscription-userinfo');
 
-    final responseData = response.data;
-    if (responseData == null) {
-      throw Exception("Failed to get profile data from response.");
-    }
-
     final providerHeaders = <String, String>{};
 
     final headersToCollect = [
@@ -266,7 +320,6 @@ extension ProfileExtension on Profile {
       'support-url',
       'profile-update-interval',
       'x-hwid-limit',
-      'fallback-url',
       // Standard Remnawave subscription headers — profile title and the
       // subscription page URL, collected as harmless metadata.
       'profile-title',
@@ -302,39 +355,244 @@ extension ProfileExtension on Profile {
       }
     }
 
-    final newFallbackUrl = providerHeaders['fallback-url'];
+    // Адреса и id подписки несут токен: в разобранном виде они уходят в поля
+    // профиля (на диск — только через защищённое хранилище), а в
+    // providerHeaders, который пишется в plaintext Config, их нет. Читаются
+    // без гейта `dropweb-custom`: это устойчивость, а не кастомизация.
+    final newFallbackUrl = header('fallback-url');
+    final mirrorsHeader = header('dropweb-sub-mirrors');
+    final newMirrors =
+        mirrorsHeader == null ? null : parseSubscriptionMirrors(mirrorsHeader);
+    final newSubId = parseSubscriptionSubId(header('dropweb-sub-id'));
+    // Маяк — параметр провайдера, а не кастомизация: тоже без гейта
+    // `dropweb-custom` и без вырезания в магазинных сборках.
+    final beaconUrlsHeader = header('dropweb-sub-beacon');
+    final beaconKeysHeader = header('dropweb-sub-beacon-key');
+    providerHeaders.removeWhere((name, _) => isStoredOutsideConfigHeader(name));
 
+    final freshMirrors = newMirrors?.isNotEmpty ?? false;
+    final List<String> nextMirrors;
+    if (viaBeacon) {
+      // Адрес из маяка становится известным: следующее обновление начнётся с
+      // него (preferred), не дожидаясь мёртвых фронтов и самого маяка. База —
+      // зеркала из хранилища: после миграции поле профиля может быть пустым,
+      // и запись одного адреса затёрла бы сохранённый список.
+      nextMirrors = _withLeadingMirror(
+        freshMirrors ? newMirrors! : mirrors,
+        succeededUrl,
+      );
+    } else {
+      nextMirrors = freshMirrors ? newMirrors! : mirrorUrls;
+    }
+
+    final saved = await copyWith(
+      label: label ?? utils.getFileNameForDisposition(disposition) ?? id,
+      subscriptionInfo: SubscriptionInfo.formHString(userinfo),
+      autoUpdateDuration: durationFromHeader ?? autoUpdateDuration,
+      providerHeaders: storeSafeProviderHeaders(providerHeaders),
+      fallbackUrl:
+          (newFallbackUrl?.isNotEmpty ?? false) ? newFallbackUrl : fallbackUrl,
+      mirrorUrls: nextMirrors,
+      subId: newSubId ?? subId,
+    ).saveFile(bytesToSave);
+    await _storeBeaconHeaders(
+      urlsHeader: beaconUrlsHeader,
+      keysHeader: beaconKeysHeader,
+    );
+    return saved;
+  }
+
+  /// Первый адрес из [urls], давший пригодную подписку. Ошибки по адресам
+  /// только считаются: в URL лежит токен подписки.
+  Future<
+      ({
+        _FetchedSubscription? fetched,
+        Object? firstError,
+        StackTrace? firstStackTrace,
+      })> _fetchFirstAccepted(
+    List<String> urls,
+    Map<String, dynamic> headers, {
+    required String logLabel,
+  }) async {
+    Object? firstError;
+    StackTrace? firstStackTrace;
+    for (var i = 0; i < urls.length; i++) {
+      final url = urls[i];
+      try {
+        final response = await request.getFileResponseForUrl(
+          url,
+          headers: headers.isNotEmpty ? Map.of(headers) : null,
+        );
+        final bytes = _acceptedSubscriptionBytes(response.data);
+        return (
+          fetched: (response: response, bytes: bytes, url: url),
+          firstError: firstError,
+          firstStackTrace: firstStackTrace,
+        );
+      } catch (e, st) {
+        if (firstError == null) {
+          firstError = e;
+          firstStackTrace = st;
+        }
+        // SECURITY: только номер и тип ошибки — в URL лежит токен подписки.
+        commonPrint.log(
+          'subscription $logLabel ${i + 1}/${urls.length} failed: '
+          '${e.runtimeType}',
+        );
+      }
+    }
+    return (
+      fetched: null,
+      firstError: firstError,
+      firstStackTrace: firstStackTrace,
+    );
+  }
+
+  /// Этап маяка: все известные адреса мертвы, новый фронт берётся из
+  /// подписанного провайдером списка. Без sub-id персональный адрес не
+  /// собрать — тогда этап пропускается целиком, маяк даже не запрашивается.
+  Future<_FetchedSubscription?> _fetchViaBeacon({
+    required Set<String> tried,
+    required Map<String, dynamic> headers,
+  }) async {
+    final subId = await preferences.getProfileSubId(this);
+    if (subId == null || subId.isEmpty) return null;
+    final beaconUrls = await preferences.getProfileBeaconUrls(id);
+    final keys = await preferences.getProfileBeaconKeys(id);
+    if (beaconUrls.isEmpty || keys.isEmpty) return null;
+    final cached = await preferences.getProfileBeaconState(id);
+
+    final resolution = await resolveBeacon(
+      beaconUrls: beaconUrls,
+      keys: keys,
+      cached: cached,
+      // SECURITY: никаких заголовков — хостинг маяка чужой и не должен
+      // узнать ни устройство, ни подписку; он видит только IP и User-Agent.
+      fetch: (url) async {
+        final response = await request.getFileResponseForUrl(
+          url,
+          maxBytes: kMaxBeaconDocumentBytes,
+        );
+        final data = response.data;
+        if (data == null) throw const BeaconRejected('empty');
+        return data;
+      },
+      onFailure: (i, n, e) => commonPrint.log(
+        i < n
+            ? 'subscription beacon ${i + 1}/$n failed: ${e.runtimeType}'
+            : 'subscription beacon cache rejected: ${e.runtimeType}',
+      ),
+    );
+    if (resolution == null) return null;
+    if (resolution.state != cached) {
+      try {
+        final ok = await preferences.setProfileBeaconState(
+          id,
+          resolution.state,
+        );
+        if (!ok) commonPrint.log('subscription beacon state not stored');
+      } catch (e) {
+        commonPrint.log(
+          'subscription beacon state not stored: ${e.runtimeType}',
+        );
+      }
+    }
+
+    final urls = beaconSubscriptionUrls(resolution.payload.mirrors, subId)
+        .where((url) => !tried.contains(url))
+        .take(kMaxBeaconAttempts)
+        .toList();
+    if (urls.isEmpty) return null;
+    final attempt = await _fetchFirstAccepted(
+      urls,
+      headers,
+      logLabel: 'beacon candidate',
+    );
+    return attempt.fetched;
+  }
+
+  /// Правило то же, что у остальных заголовков подписки: есть валидное
+  /// значение — заменяем, нет — оставляем прежнее. Сбой хранилища не валит
+  /// уже успешное обновление.
+  Future<void> _storeBeaconHeaders({
+    required String? urlsHeader,
+    required String? keysHeader,
+  }) async {
+    try {
+      final urls = parseSubscriptionBeaconUrls(urlsHeader);
+      if (urls.isNotEmpty) {
+        if (!await preferences.setProfileBeaconUrls(id, urls)) {
+          commonPrint.log('subscription beacon urls not stored');
+        }
+      }
+      final keys = parseSubscriptionBeaconKeys(keysHeader);
+      if (keys.isNotEmpty) {
+        if (!await preferences.setProfileBeaconKeys(id, keys)) {
+          commonPrint.log('subscription beacon keys not stored');
+        }
+      }
+    } catch (e) {
+      commonPrint.log('subscription beacon not stored: ${e.runtimeType}');
+    }
+  }
+
+  static List<String> _withLeadingMirror(List<String> mirrors, String url) {
+    final normalized = normalizeProfileUrl(url);
+    if (mirrors.map(normalizeProfileUrl).contains(normalized)) return mirrors;
+    return [normalized, ...mirrors].take(kMaxSubscriptionMirrors).toList();
+  }
+
+  /// Тело ответа, пригодное к сохранению, или исключение — тогда кандидат
+  /// считается упавшим и пробуется следующий (captive-портал или страница
+  /// ошибки одного фронта не должны ни перезаписать профиль, ни остановить
+  /// перебор).
+  Uint8List _acceptedSubscriptionBytes(Uint8List? responseData) {
+    if (responseData == null) {
+      throw Exception("Failed to get profile data from response.");
+    }
     // Some providers return a raw, newline-separated list of share links
     // (e.g. `vless://...`, `trojan://...`) instead of a Mihomo/Clash YAML
     // document. Detect that case here and rewrite the bytes to a minimal,
     // self-contained Mihomo YAML before they hit `saveFile`. Returns `null`
     // for normal YAML, in which case `responseData` flows through unchanged.
-    var bytesToSave = responseData;
     final decoded = utf8.decode(responseData, allowMalformed: true);
     final converted = convertShareLinkSubscriptionToMihomo(decoded);
-    if (converted != null) {
-      bytesToSave = Uint8List.fromList(utf8.encode(converted));
-    }
 
     // Guard the stored profile: a blank body or a document without any
     // proxy source (an HTML/JSON error page, `proxies: []`) would pass the
     // core's syntax-only validation and overwrite the working config, after
     // which every connection silently routes DIRECT. Reject it the same way a
     // fetch failure is rejected so the existing file stays untouched.
-    final rejectReason = subscriptionBodyRejectReason(
-      converted ?? decoded,
-    );
+    final rejectReason = subscriptionBodyRejectReason(converted ?? decoded);
     if (rejectReason != null) {
       throw Exception('Invalid subscription response: $rejectReason');
     }
+    return converted == null
+        ? responseData
+        : Uint8List.fromList(utf8.encode(converted));
+  }
 
-    return copyWith(
-      label: label ?? utils.getFileNameForDisposition(disposition) ?? id,
-      subscriptionInfo: SubscriptionInfo.formHString(userinfo),
-      autoUpdateDuration: durationFromHeader ?? autoUpdateDuration,
-      providerHeaders: providerHeaders,
-      fallbackUrl: newFallbackUrl ?? fallbackUrl,
-    ).saveFile(bytesToSave);
+  /// Запоминает сработавший не основной адрес, чтобы следующее обновление
+  /// начиналось с него, а не ждало таймаутов мёртвого фронта. Основной адрес
+  /// успех зеркала не меняет. Ошибка хранилища только логируется: память о
+  /// зеркале — оптимизация, а не условие успешного обновления.
+  Future<void> _rememberWorkingCandidate({
+    required String succeededUrl,
+    required String primaryUrl,
+    required String? preferredUrl,
+  }) async {
+    final isPrimary =
+        normalizeProfileUrl(succeededUrl) == normalizeProfileUrl(primaryUrl);
+    final next = isPrimary ? null : succeededUrl;
+    if (next == preferredUrl) return;
+    try {
+      final ok = await preferences.setProfilePreferredUrl(id, next);
+      if (!ok) commonPrint.log('subscription preferred candidate not stored');
+    } catch (e) {
+      commonPrint.log(
+        'subscription preferred candidate not stored: ${e.runtimeType}',
+      );
+    }
   }
 
   Future<Profile> saveFile(Uint8List bytes) async {

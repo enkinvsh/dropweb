@@ -30,6 +30,33 @@ class _NoSecureStore implements SecureProfileUrlStoreInterface {
   @override
   Future<bool> setFallbackUrl(String profileId, String? url) async => true;
   @override
+  Future<List<String>?> getMirrors(String profileId) async => null;
+  @override
+  Future<bool> setMirrors(String profileId, List<String>? mirrors) async =>
+      true;
+  @override
+  Future<String?> getSubId(String profileId) async => null;
+  @override
+  Future<bool> setSubId(String profileId, String? subId) async => true;
+  @override
+  Future<String?> getPreferredUrl(String profileId) async => null;
+  @override
+  Future<bool> setPreferredUrl(String profileId, String? url) async => true;
+  @override
+  Future<List<String>?> getBeaconUrls(String profileId) async => null;
+  @override
+  Future<bool> setBeaconUrls(String profileId, List<String>? urls) async =>
+      true;
+  @override
+  Future<List<String>?> getBeaconKeys(String profileId) async => null;
+  @override
+  Future<bool> setBeaconKeys(String profileId, List<String>? keys) async =>
+      true;
+  @override
+  Future<String?> getBeaconState(String profileId) async => null;
+  @override
+  Future<bool> setBeaconState(String profileId, String? state) async => true;
+  @override
   Future<void> removeProfile(String profileId) async {}
   @override
   Future<bool> isMigrated() async => true;
@@ -145,7 +172,8 @@ void main() {
           res.headers.contentType = ContentType.html;
           res.write('<html><body>Subscription expired</body></html>');
         case '/empty-proxies':
-          res.write('proxies: []\nproxy-groups: []\nrules:\n  - MATCH,DIRECT\n');
+          res.write(
+              'proxies: []\nproxy-groups: []\nrules:\n  - MATCH,DIRECT\n');
         case '/redirect-404':
           res.statusCode = HttpStatus.found;
           res.headers.set('location', '/gone');

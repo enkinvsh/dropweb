@@ -12,6 +12,8 @@
         android:required="false" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Вход в аккаунт по отпечатку/лицу (local_auth, BiometricPrompt) -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- Required for the persistent VPN status notification on Android 13+
          (runtime request in AppPlugin.requestNotificationPermission). -->
@@ -40,10 +42,11 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- In-app self-update for the SIDELOADED build: download our signed APK and
          launch the system package installer (docs/plans/2026-06-25-auto-update.md).
-         Inert on the Play build via the kIsPlayBuild dart-define gate, BUT this
-         permission still ships in any AAB — WAVE-3 TODO: strip it from the Play
-         build with a manifest overlay (tools:node="remove") or declare it in the
-         Play Console, since REQUEST_INSTALL_PACKAGES triggers a policy form. -->
+         Inert on the Play build via the kIsPlayBuild dart-define gate, and
+         stripped from the store build entirely by the release manifest overlay
+         android/app/src/store/AndroidManifest.xml (tools:node="remove"), applied
+         when isStoreBuild is true in android/app/build.gradle.kts
+         (PLAY_BUILD=true dart-define). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!--
         Package visibility for per-app VPN access control and config-file
@@ -89,7 +92,8 @@
              downloaded APK via ACTION_VIEW + the package-archive MIME; this lets
              queryIntentActivities resolve the installer under Android 11+ package
              visibility so we can grant it the FileProvider URI up-front (mirrors
-             the text/plain entry above). -->
+             the text/plain entry above). The store build removes this entry
+             via android/app/src/store/AndroidManifest.xml. -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:mimeType="application/vnd.android.package-archive" />

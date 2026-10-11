@@ -27,16 +27,16 @@ class AppUpdate extends _$AppUpdate {
   @override
   AppUpdateState build() => const AppUpdateState();
 
-  /// Checks for a newer build. Races every trusted update-manifest source —
-  /// [kUpdateManifestSeeds] plus the mirrors learned from an earlier manifest
-  /// (AppSettingProps.updateMirrors) — and takes the first valid answer. Only
-  /// when all of them fail is the provider-supplied [kUpdateUrlHeader] of the
-  /// current profile tried as a last resort (it never teaches mirrors). If
-  /// nothing answers the status becomes [AppUpdateStatus.checkFailed] (NOT
-  /// "up to date") and the once/day cadence is NOT consumed, so the next
-  /// launch retries. On Android the app's own TUN carries this traffic
-  /// automatically when connected. [manual] bypasses the cadence + the
-  /// autoCheckUpdate setting; the Play gate is ALWAYS honoured.
+  /// Проверяет, есть ли новая сборка. Гонит все доверенные источники манифеста
+  /// — [kUpdateManifestSeeds] плюс зеркала, выученные из прошлого манифеста
+  /// (AppSettingProps.updateMirrors), — и берёт первый валидный ответ. Только
+  /// если все упали, последним шансом идёт [kUpdateUrlHeader] текущего профиля
+  /// (он зеркалам не учит). Если не ответил никто — статус
+  /// [AppUpdateStatus.checkFailed] (НЕ «актуально») и интервал
+  /// [kUpdateCheckInterval] НЕ расходуется: следующее открытие повторит. На
+  /// Android при включённом VPN этот трафик сам идёт через наш TUN. [manual]
+  /// обходит интервал и настройку autoCheckUpdate; Play-гейт соблюдается
+  /// всегда.
   Future<void> check({bool manual = false}) async {
     if (!Platform.isAndroid || kIsPlayBuild) return;
     final setting = ref.read(appSettingProvider);
@@ -49,11 +49,15 @@ class AppUpdate extends _$AppUpdate {
     )) {
       return;
     }
+    // Проверка поверх идущего скачивания/проверки подписи затёрла бы их статус:
+    // при проверке на каждое открытие это уже не редкость.
     if (state.status == AppUpdateStatus.checking ||
-        state.status == AppUpdateStatus.downloading) {
+        state.status == AppUpdateStatus.downloading ||
+        state.status == AppUpdateStatus.verifying) {
       return;
     }
 
+    final previous = state;
     state = state.copyWith(status: AppUpdateStatus.checking, error: null);
     final trusted = await request.fetchFirstUpdateManifest(
       trustedManifestSources(setting.updateMirrors),
@@ -68,8 +72,11 @@ class AppUpdate extends _$AppUpdate {
       }
     }
     if (manifest == null) {
-      // Cadence deliberately not consumed: next launch retries.
-      state = state.copyWith(status: AppUpdateStatus.checkFailed);
+      // Интервал намеренно не расходуем: следующее открытие повторит. Уже
+      // скачанный и проверенный APK сбой сети не отменяет.
+      state = previous.status == AppUpdateStatus.readyToInstall
+          ? previous
+          : state.copyWith(status: AppUpdateStatus.checkFailed);
       return;
     }
     // Provider manifests never teach mirrors.
@@ -85,13 +92,47 @@ class AppUpdate extends _$AppUpdate {
       localVersion: globalState.packageInfo.version,
       localBuild: globalState.packageInfo.buildNumber,
     );
-    state = info == null
-        ? state.copyWith(status: AppUpdateStatus.upToDate, info: null)
-        : state.copyWith(
-            status: AppUpdateStatus.available,
-            info: info,
-            dismissed: false,
-          );
+    state = applyCheckResult(previous, info);
+  }
+
+  /// Автоматическая проверка (старт и возврат в foreground). true — UI должен
+  /// сам открыть шит обновления. Предлагаем только по СВЕЖЕМУ результату: если
+  /// [check] не запускался (интервал, уже идёт, выключено в настройках),
+  /// состояние остаётся тем же объектом и повторного предложения нет.
+  Future<bool> autoCheck() async {
+    if (!ref.read(appSettingProvider).autoCheckUpdate) return false;
+    final before = state;
+    await check();
+    if (identical(state, before)) return false;
+    final setting = ref.read(appSettingProvider);
+    return shouldAutoOfferUpdate(
+      info: state.info,
+      status: state.status,
+      snoozedVersion: setting.updateSnoozedVersion,
+      snoozedUntilMs: setting.updateSnoozedUntilMs,
+      now: DateTime.now(),
+    );
+  }
+
+  /// Шит закрыт («Позже», свайп, back), а обновление так и ждёт действия —
+  /// откладываем автопредложение этой версии на [kUpdateSnoozeDuration]. Во
+  /// время скачивания/проверки не откладываем: процесс идёт и без шита.
+  void snoozeIfPending() {
+    final info = state.info;
+    if (info == null) return;
+    const pending = {
+      AppUpdateStatus.available,
+      AppUpdateStatus.readyToInstall,
+      AppUpdateStatus.error,
+    };
+    if (!pending.contains(state.status)) return;
+    final until = DateTime.now().add(kUpdateSnoozeDuration);
+    ref.read(appSettingProvider.notifier).updateState(
+          (s) => s.copyWith(
+            updateSnoozedVersion: info.version,
+            updateSnoozedUntilMs: until.millisecondsSinceEpoch,
+          ),
+        );
   }
 
   /// Downloads the APK then verifies it. Source order: YC primary (direct, then

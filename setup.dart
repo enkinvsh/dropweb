@@ -12,6 +12,7 @@ enum Target {
   linux,
   android,
   macos,
+  ios,
 }
 
 extension TargetExt on Target {
@@ -49,6 +50,9 @@ extension TargetExt on Target {
         break;
       case Target.macos:
         extensionName = ".dylib";
+        break;
+      case Target.ios:
+        extensionName = ".a";
         break;
     }
     return extensionName;
@@ -129,6 +133,10 @@ class Build {
           arch: Arch.amd64,
           archName: 'x86_64',
         ),
+        BuildItem(
+          target: Target.ios,
+          arch: Arch.arm64,
+        ),
       ];
 
   static String get appName => "dropweb";
@@ -165,13 +173,97 @@ class Build {
         map[buildItem.archName],
       );
     }
+    if (buildItem.target == Target.ios) {
+      return iosCc(
+        clang: _xcrunIphoneos(["-f", "clang"]),
+        sdkPath: _xcrunIphoneos(["--show-sdk-path"]),
+      );
+    }
     return "gcc";
   }
+
+  static String _xcrunIphoneos(List<String> args) {
+    final result = Process.runSync("xcrun", ["--sdk", "iphoneos", ...args]);
+    if (result.exitCode != 0) {
+      throw "xcrun --sdk iphoneos ${args.join(' ')} failed "
+          "(exit ${result.exitCode}): ${result.stderr}";
+    }
+    return result.stdout.toString().trim();
+  }
+
+  static String iosCc({required String clang, required String sdkPath}) =>
+      "$clang -isysroot $sdkPath -arch arm64 -miphoneos-version-min=13.0";
 
   // Mesh-network outbounds (tailscale/zerotier/easytier) need per-user auth
   // keys and never appear in provider subscriptions; they were ~24 MB of the
   // 76 MB arm64 libclash.so. The upstream no_* tags swap in parse-error stubs.
-  static get tags => "with_gvisor,no_tailscale,no_zerotier,no_easytier";
+  // iOS drops with_gvisor (≈1.5 MB less resident memory on iPhone 8; the
+  // extension runs the user-space mips TUN stack) and adds with_low_memory:
+  // smaller relay buffers in mihomo/sing and capped mipstack buffers, so the
+  // iOS 13–14 extension survives its ~15 MB limit. no_extra_protocols keeps
+  // only the common proxy types (others load as unavailable placeholders):
+  // ≈0.7 MB less resident memory on iPhone 8.
+  static String tagsFor(Target target) => target == Target.ios
+      ? "with_low_memory,no_extra_protocols,no_tailscale,no_zerotier,no_easytier"
+      : "with_gvisor,no_tailscale,no_zerotier,no_easytier";
+
+  // Go runtime defaults patched for the iOS 13–14 extension's ~15 MB budget,
+  // per runtime source file: name -> (from, to).
+  static const _iosRuntimePatches = {
+    // The runtime allocates a 4 KB block plus a 2 KB spine for every span set
+    // it touches (four per span class) and never frees them: ~2 MB. Smaller
+    // blocks cut that to ~0.7 MB; the sets still grow on demand, so large
+    // heaps only use more, smaller blocks.
+    "mspanset.go": {
+      "spanSetBlockEntries": (from: "512", to: "64"),
+      "spanSetInitSpineCap": (from: "256", to: "16"),
+    },
+    // New goroutines start with the average stack size seen by the last GC,
+    // and exited ones keep that stack for reuse; the deep config parse and
+    // TLS handshakes inflate it for every connection's goroutines. Start them
+    // at the minimum and let them grow.
+    "runtime1.go": {
+      "debug.adaptivestackstart": (from: "1", to: "0"),
+    },
+  };
+
+  static String iosRuntimePatch(String file, String source) {
+    final changes = _iosRuntimePatches[file];
+    if (changes == null) throw "no iOS runtime patch for $file";
+    var patched = source;
+    for (final MapEntry(key: name, value: change) in changes.entries) {
+      final line =
+          RegExp("(?<![\\w.])${RegExp.escape(name)}\\s*=\\s*${change.from}\\b");
+      if (line.allMatches(patched).length != 1) {
+        throw "runtime/$file: expected '$name = ${change.from}'; "
+            "the Go runtime changed, re-check the iOS runtime patch";
+      }
+      patched = patched.replaceFirst(line, "$name = ${change.to}");
+    }
+    return patched;
+  }
+
+  // Writes the patched runtime files and a `go build -overlay` file into
+  // [dir]; returns the overlay file path.
+  static String writeIosRuntimeOverlay(Directory dir) {
+    final goroot = Process.runSync("go", ["env", "GOROOT"]);
+    if (goroot.exitCode != 0) throw "go env GOROOT failed: ${goroot.stderr}";
+    final runtime = join(goroot.stdout.toString().trim(), "src", "runtime");
+    final replace = <String, String>{};
+    for (final file in _iosRuntimePatches.keys) {
+      final original = join(runtime, file);
+      final patched = join(dir.path, file);
+      File(patched).writeAsStringSync(
+          iosRuntimePatch(file, File(original).readAsStringSync()));
+      replace[original] = patched;
+    }
+    final overlay = join(dir.path, "overlay.json");
+    File(overlay).writeAsStringSync(json.encode({"Replace": replace}));
+    return overlay;
+  }
+
+  static String buildModeFlag(Target target) =>
+      target == Target.ios ? "-buildmode=c-archive" : "-buildmode=c-shared";
 
   static Future<void> exec(
     List<String> executable, {
@@ -281,25 +373,39 @@ class Build {
         if (item.target == Target.android) {
           env["CGO_LDFLAGS"] = "-O2 -s -w -Wl,-z,max-page-size=16384";
         }
+        // Every cgo object must carry LC_BUILD_VERSION minos 13.0.
+        if (item.target == Target.ios) {
+          env["CGO_CFLAGS"] = "-O2 -miphoneos-version-min=13.0";
+          env["CGO_LDFLAGS"] = "-miphoneos-version-min=13.0";
+        }
       } else {
         env["CGO_ENABLED"] = "0";
       }
 
-      final execLines = [
-        "go",
-        "build",
-        "-ldflags=-w -s",
-        "-tags=$tags",
-        if (isLib) "-buildmode=c-shared",
-        "-o",
-        realOutPath,
-      ];
-      await exec(
-        execLines,
-        name: "build core",
-        environment: env,
-        workingDirectory: _coreDir,
-      );
+      final overlayDir = item.target == Target.ios
+          ? Directory.systemTemp.createTempSync("dropweb-ios-runtime-")
+          : null;
+      try {
+        final execLines = [
+          "go",
+          "build",
+          "-ldflags=-w -s",
+          "-tags=${tagsFor(item.target)}",
+          if (overlayDir != null)
+            "-overlay=${writeIosRuntimeOverlay(overlayDir)}",
+          if (isLib) buildModeFlag(item.target),
+          "-o",
+          realOutPath,
+        ];
+        await exec(
+          execLines,
+          name: "build core",
+          environment: env,
+          workingDirectory: _coreDir,
+        );
+      } finally {
+        overlayDir?.deleteSync(recursive: true);
+      }
       if (isLib && item.archName != null) {
         await adjustLibOut(
           targetOutFilePath: targetOutFilePath,
@@ -426,6 +532,22 @@ class Build {
   }
 }
 
+/// Бэкенд аккаунта по умолчанию для собственной сборки издателя
+/// (`DROPWEB_ACCOUNT_API=<base>[, <base>...]` в окружении). Пусто — define не
+/// передаётся вовсе, и сборка остаётся «губкой» без своего бэкенда. Зеркала
+/// склеиваем через `;`: запятую `--build-dart-define` у flutter_distributor
+/// режет на отдельные значения, а пробел — разбор строки команды.
+String get _accountApiValue =>
+    (Platform.environment['DROPWEB_ACCOUNT_API'] ?? '')
+        .split(RegExp(r'[,;\s]+'))
+        .where((base) => base.isNotEmpty)
+        .join(';');
+
+List<String> _accountApiArgs(String flag) {
+  final value = _accountApiValue;
+  return value.isEmpty ? const [] : ['$flag=DROPWEB_ACCOUNT_API=$value'];
+}
+
 class BuildCommand extends Command {
   Target target;
 
@@ -460,6 +582,14 @@ class BuildCommand extends Command {
       ].join(','),
       help: 'The $name build env',
     );
+    if (target == Target.android) {
+      argParser.addFlag(
+        "store",
+        negatable: false,
+        help:
+            "Google Play store build: AAB with --dart-define=PLAY_BUILD=true (no self-update, no REQUEST_INSTALL_PACKAGES, no payment/cabinet/support/donation links)",
+      );
+    }
     // Android APK builds always use split-per-abi and never package universal APKs.
   }
 
@@ -479,7 +609,8 @@ class BuildCommand extends Command {
       Build.getExecutable("sudo apt update -y"),
     );
     await Build.exec(
-      Build.getExecutable("sudo apt install -y ninja-build libgtk-3-dev libsecret-1-dev"),
+      Build.getExecutable(
+          "sudo apt install -y ninja-build libgtk-3-dev libsecret-1-dev"),
     );
     await Build.exec(
       Build.getExecutable("sudo apt install -y libayatana-appindicator3-dev"),
@@ -577,6 +708,7 @@ class BuildCommand extends Command {
         "--release",
         "--dart-define=APP_ENV=$env",
         "--dart-define=CORE_VERSION=$coreVersion",
+        ..._accountApiArgs("--dart-define"),
       ],
     );
 
@@ -675,17 +807,31 @@ class BuildCommand extends Command {
       final process = await Process.start(
         "create-dmg",
         [
-          "--volname", appName,
+          "--volname",
+          appName,
           "--volicon",
           join(appPath, "Contents", "Resources", "AppIcon.icns"),
-          "--background", join("assets", "dmg", "background.png"),
-          "--window-pos", "200", "120",
-          "--window-size", "660", "400",
-          "--icon-size", "128",
-          "--text-size", "13",
-          "--icon", "$appName.app", "165", "200",
-          "--app-drop-link", "495", "200",
-          "--hide-extension", "$appName.app",
+          "--background",
+          join("assets", "dmg", "background.png"),
+          "--window-pos",
+          "200",
+          "120",
+          "--window-size",
+          "660",
+          "400",
+          "--icon-size",
+          "128",
+          "--text-size",
+          "13",
+          "--icon",
+          "$appName.app",
+          "165",
+          "200",
+          "--app-drop-link",
+          "495",
+          "200",
+          "--hide-extension",
+          "$appName.app",
           "--no-internet-enable",
           targetDmgPath,
           stagingPath,
@@ -768,7 +914,8 @@ class BuildCommand extends Command {
 
   @override
   Future<void> run() async {
-    final mode = target == Target.android ? Mode.lib : Mode.core;
+    final mode =
+        target == Target.android || target == Target.ios ? Mode.lib : Mode.core;
     final String out = argResults?["out"] ?? (target.same ? "app" : "core");
     final archName = argResults?["arch"];
     final env = argResults?["env"] ?? "pre";
@@ -776,7 +923,7 @@ class BuildCommand extends Command {
         arches.where((element) => element.name == archName).toList();
     final arch = currentArches.isEmpty ? null : currentArches.first;
 
-    if (arch == null && target != Target.android) {
+    if (arch == null && target != Target.android && target != Target.ios) {
       throw "Invalid arch parameter";
     }
 
@@ -802,7 +949,7 @@ class BuildCommand extends Command {
           target: target,
           targets: "exe,zip",
           args:
-              " --description $archName --build-dart-define=CORE_SHA256=$token --build-dart-define=CORE_VERSION=$coreVersion",
+              " --description $archName --build-dart-define=CORE_SHA256=$token --build-dart-define=CORE_VERSION=$coreVersion${_accountApiArgs("--build-dart-define").map((arg) => " $arg").join()}",
           env: env,
         );
         return;
@@ -822,7 +969,7 @@ class BuildCommand extends Command {
           target: target,
           targets: targets,
           args:
-              " --description $archName --build-target-platform $defaultTarget --build-dart-define=CORE_VERSION=$coreVersion",
+              " --description $archName --build-target-platform $defaultTarget --build-dart-define=CORE_VERSION=$coreVersion${_accountApiArgs("--build-dart-define").map((arg) => " $arg").join()}",
           env: env,
         );
         return;
@@ -835,11 +982,37 @@ class BuildCommand extends Command {
         final allTargets = targetMap.values.join(",");
         final defaultTarget = arch == null ? allTargets : targetMap[arch];
 
+        // Store (Google Play) build: a single AAB with PLAY_BUILD=true — the
+        // same switch drives the Dart gates (kIsPlayBuild) and the Gradle
+        // release manifest overlay (android/app/src/store/AndroidManifest.xml).
+        // No sideload APKs are produced in store mode.
+        if (argResults?["store"] == true) {
+          await Build.exec(
+            name: "flutter build appbundle (store)",
+            [
+              "flutter",
+              "build",
+              "appbundle",
+              "--release",
+              "--dart-define=APP_ENV=$env",
+              "--dart-define=CORE_VERSION=$coreVersion",
+              "--dart-define=PLAY_BUILD=true",
+              if (arch != null) "--target-platform=${targetMap[arch]}",
+            ],
+          );
+          Build.copyFile(
+            join(current, "build", "app", "outputs", "bundle", "release",
+                "app-release.aab"),
+            join(Build.distPath, "${Build.appName}-store.aab"),
+          );
+          return;
+        }
+
         await _buildDistributor(
           target: target,
           targets: "apk",
           args:
-              ",split-per-abi --build-target-platform $defaultTarget --build-dart-define=CORE_VERSION=$coreVersion",
+              ",split-per-abi --build-target-platform $defaultTarget --build-dart-define=CORE_VERSION=$coreVersion${_accountApiArgs("--build-dart-define").map((arg) => " $arg").join()}",
           env: env,
         );
 
@@ -860,6 +1033,7 @@ class BuildCommand extends Command {
               "--release",
               "--dart-define=APP_ENV=$env",
               "--dart-define=CORE_VERSION=$coreVersion",
+              ..._accountApiArgs("--dart-define"),
             ],
           );
           Build.copyFile(
@@ -877,6 +1051,8 @@ class BuildCommand extends Command {
           coreVersion: coreVersion,
         );
         return;
+      case Target.ios:
+        throw "ios app: build with fvm flutter build ios (see docs/plans/2026-10-08-ios-port.md)";
     }
   }
 }
@@ -887,5 +1063,6 @@ main(args) async {
   runner.addCommand(BuildCommand(target: Target.linux));
   runner.addCommand(BuildCommand(target: Target.windows));
   runner.addCommand(BuildCommand(target: Target.macos));
+  runner.addCommand(BuildCommand(target: Target.ios));
   runner.run(args);
 }

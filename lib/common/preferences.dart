@@ -11,6 +11,8 @@ import 'constant.dart';
 import 'path.dart';
 import 'print.dart';
 import 'secure_profile_store.dart';
+import 'subscription_beacon.dart';
+import 'subscription_resilience.dart';
 
 class Preferences {
   factory Preferences() {
@@ -234,6 +236,78 @@ class Preferences {
     return profile.fallbackUrl;
   }
 
+  Future<List<String>> getProfileMirrors(Profile profile) async {
+    final fromStore = await secureStore.getMirrors(profile.id);
+    if (fromStore != null && fromStore.isNotEmpty) return fromStore;
+    return profile.mirrorUrls;
+  }
+
+  Future<String?> getProfileSubId(Profile profile) async {
+    final fromStore = await secureStore.getSubId(profile.id);
+    if (fromStore != null && fromStore.isNotEmpty) return fromStore;
+    return profile.subId;
+  }
+
+  /// Живёт только в защищённом хранилище: это служебная память о сработавшем
+  /// зеркале, а не часть профиля.
+  Future<String?> getProfilePreferredUrl(Profile profile) async {
+    final fromStore = await secureStore.getPreferredUrl(profile.id);
+    return fromStore == null || fromStore.isEmpty ? null : fromStore;
+  }
+
+  Future<bool> setProfilePreferredUrl(String profileId, String? url) =>
+      secureStore.setPreferredUrl(profileId, url);
+
+  /// Сразу в защищённое хранилище: [getProfileUrl] читает его раньше поля
+  /// профиля, поэтому смена адреса без этой записи не вступила бы в силу до
+  /// следующего saveConfig.
+  Future<bool> setProfileUrl(String profileId, String url) =>
+      secureStore.setUrl(profileId, url);
+
+  /// Параметры маяка живут только в защищённом хранилище: полей профиля у
+  /// них нет, читает их `Profile.update()` при аварийном обновлении.
+  Future<List<String>> getProfileBeaconUrls(String profileId) async =>
+      await secureStore.getBeaconUrls(profileId) ?? const [];
+
+  Future<bool> setProfileBeaconUrls(String profileId, List<String>? urls) =>
+      secureStore.setBeaconUrls(profileId, urls);
+
+  Future<List<String>> getProfileBeaconKeys(String profileId) async =>
+      await secureStore.getBeaconKeys(profileId) ?? const [];
+
+  Future<bool> setProfileBeaconKeys(String profileId, List<String>? keys) =>
+      secureStore.setBeaconKeys(profileId, keys);
+
+  Future<BeaconState?> getProfileBeaconState(String profileId) async =>
+      BeaconState.decode(await secureStore.getBeaconState(profileId));
+
+  Future<bool> setProfileBeaconState(String profileId, BeaconState? state) =>
+      secureStore.setBeaconState(profileId, state?.encode());
+
+  Future<void> removeProfileSecrets(String profileId) =>
+      secureStore.removeProfile(profileId);
+
+  /// Пишет все секреты профиля (адреса, зеркала, sub-id) в защищённое
+  /// хранилище. true — всё, что было непустым, подтверждено чтением.
+  Future<bool> saveProfileSecrets(Profile profile) async {
+    var ok = true;
+    if (profile.url.isNotEmpty) {
+      ok = await secureStore.setUrl(profile.id, profile.url);
+    }
+    final fallback = profile.fallbackUrl;
+    if (fallback != null && fallback.isNotEmpty) {
+      ok = await secureStore.setFallbackUrl(profile.id, fallback) && ok;
+    }
+    if (profile.mirrorUrls.isNotEmpty) {
+      ok = await secureStore.setMirrors(profile.id, profile.mirrorUrls) && ok;
+    }
+    final subId = profile.subId;
+    if (subId != null && subId.isNotEmpty) {
+      ok = await secureStore.setSubId(profile.id, subId) && ok;
+    }
+    return ok;
+  }
+
   /// One-time move of plaintext URLs into the encrypted store. Idempotent and
   /// TRANSACTIONAL: the "migrated" marker is set ONLY after every required
   /// per-profile secure write succeeds AND the stripped Config is durably
@@ -277,17 +351,11 @@ class Preferences {
       final hasUrl = profile.url.isNotEmpty;
       final fb = profile.fallbackUrl;
       final hasFb = fb != null && fb.isNotEmpty;
-      if (!hasUrl && !hasFb) continue;
+      final hasOther =
+          profile.mirrorUrls.isNotEmpty || (profile.subId?.isNotEmpty ?? false);
+      if (!hasUrl && !hasFb && !hasOther) continue;
 
-      var ok = true;
-      if (hasUrl) {
-        ok = await secureStore.setUrl(profile.id, profile.url);
-      }
-      if (hasFb) {
-        final fbOk = await secureStore.setFallbackUrl(profile.id, fb);
-        ok = ok && fbOk;
-      }
-      if (ok) {
+      if (await saveProfileSecrets(profile)) {
         stripIds.add(profile.id);
       } else {
         allMigrated = false;
@@ -316,20 +384,9 @@ class Preferences {
 
     final stripIds = <String>{};
     for (final profile in config.profiles) {
-      var ok = true;
-      if (profile.url.isNotEmpty) {
-        ok = await secureStore.setUrl(profile.id, profile.url);
-      }
-      if (profile.fallbackUrl != null && profile.fallbackUrl!.isNotEmpty) {
-        final fbOk = await secureStore.setFallbackUrl(
-          profile.id,
-          profile.fallbackUrl,
-        );
-        ok = ok && fbOk;
-      }
       // Strip the plaintext URL only after it is safely in the encrypted store,
       // so a transient keystore failure cannot lose the subscription URL.
-      if (ok) stripIds.add(profile.id);
+      if (await saveProfileSecrets(profile)) stripIds.add(profile.id);
     }
 
     final saved = await _writeConfigStripped(config, preferences, stripIds);
@@ -342,23 +399,29 @@ class Preferences {
     return saved;
   }
 
-  /// Writes Config with empty url/fallbackUrl. Callers MUST first sync the
-  /// real values to [secureProfileUrlStore] or the data is lost.
+  /// Writes Config with empty url/fallbackUrl/mirrorUrls/subId. Callers MUST
+  /// first sync the real values to [secureProfileUrlStore] or the data is lost.
+  /// Заголовки с токенами вырезаются из `providerHeaders` у всех профилей:
+  /// старые версии клали туда `fallback-url`, а значение уже есть в поле
+  /// [Profile.fallbackUrl].
   Future<bool> _writeConfigStripped(
     Config config,
     SharedPreferences preferences,
     Set<String> stripIds,
   ) async {
-    final strippedProfiles = config.profiles
-        .map(
-          (p) => stripIds.contains(p.id)
-              ? p.copyWith(
-                  url: '',
-                  fallbackUrl: null,
-                )
-              : p,
-        )
-        .toList();
+    final strippedProfiles = config.profiles.map((p) {
+      final clean = p.copyWith(
+        providerHeaders: withoutSecretHeaders(p.providerHeaders),
+      );
+      return stripIds.contains(p.id)
+          ? clean.copyWith(
+              url: '',
+              fallbackUrl: null,
+              mirrorUrls: const [],
+              subId: null,
+            )
+          : clean;
+    }).toList();
     final strippedConfig = config.copyWith(profiles: strippedProfiles);
     return rawStringWriter(
       preferences,

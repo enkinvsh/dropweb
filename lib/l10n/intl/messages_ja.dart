@@ -20,31 +20,39 @@ typedef String MessageIfAbsent(String messageStr, List<dynamic> args);
 class MessageLookup extends MessageLookupByLibrary {
   String get localeName => 'ja';
 
-  static String m0(host) => "${host} を追加";
+  static String m0(wait) => "リクエストが多すぎます。${wait}お待ちください";
 
-  static String m1(label) => "選択された${label}を削除してもよろしいですか？";
+  static String m1(n) => "${n} 時間";
 
-  static String m2(label) => "現在の${label}を削除してもよろしいですか？";
+  static String m2(n) => "${n} 分";
 
-  static String m3(path) => "診断: ${path}";
+  static String m3(n) => "${n} 秒";
 
-  static String m4(label) => "${label}は空欄にできません";
+  static String m4(host) => "${host} を追加";
 
-  static String m5(label) => "現在の${label}は既に存在しています";
+  static String m5(label) => "選択された${label}を削除してもよろしいですか？";
 
-  static String m6(label) => "現在${label}はありません";
+  static String m6(label) => "現在の${label}を削除してもよろしいですか？";
 
-  static String m7(label) => "${label}は数字でなければなりません";
+  static String m7(path) => "診断: ${path}";
 
-  static String m8(label) => "${label} は 1024 から 49151 の間でなければなりません";
+  static String m8(label) => "${label}は空欄にできません";
 
-  static String m9(count) => "${count} 項目が選択されています";
+  static String m9(label) => "現在の${label}は既に存在しています";
 
-  static String m10(days) => "サブスクリプションは${days}日後に期限切れになります";
+  static String m10(label) => "現在${label}はありません";
 
-  static String m11(label) => "${label}はURLである必要があります";
+  static String m11(label) => "${label}は数字でなければなりません";
 
-  static String m12(date) => "${date}まで";
+  static String m12(label) => "${label} は 1024 から 49151 の間でなければなりません";
+
+  static String m13(count) => "${count} 項目が選択されています";
+
+  static String m14(days) => "サブスクリプションは${days}日後に期限切れになります";
+
+  static String m15(label) => "${label}はURLである必要があります";
+
+  static String m16(date) => "${date}まで";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
@@ -60,6 +68,81 @@ class MessageLookup extends MessageLookupByLibrary {
       "選択したアプリをVPNから除外",
     ),
     "account": MessageLookupByLibrary.simpleMessage("アカウント"),
+    "accountBiometricEnable": MessageLookupByLibrary.simpleMessage("オンにする"),
+    "accountBiometricEnableReason": MessageLookupByLibrary.simpleMessage(
+      "指紋でログインするには確認してください",
+    ),
+    "accountBiometricOfferText": MessageLookupByLibrary.simpleMessage(
+      "アカウントを指紋で開けるようになります。",
+    ),
+    "accountBiometricOfferTitle": MessageLookupByLibrary.simpleMessage(
+      "指紋でログインしますか？",
+    ),
+    "accountBiometricSwitch": MessageLookupByLibrary.simpleMessage("指紋でログイン"),
+    "accountBiometricUnlockReason": MessageLookupByLibrary.simpleMessage(
+      "アカウントへのログインを確認してください",
+    ),
+    "accountChangeEmail": MessageLookupByLibrary.simpleMessage("メールアドレスを変更"),
+    "accountCodeLabel": MessageLookupByLibrary.simpleMessage("コード"),
+    "accountEmailInvalid": MessageLookupByLibrary.simpleMessage(
+      "メールアドレスを確認してください",
+    ),
+    "accountEmailLabel": MessageLookupByLibrary.simpleMessage("メールアドレス"),
+    "accountErrorCodeExpired": MessageLookupByLibrary.simpleMessage(
+      "コードの期限切れです。再送信してください",
+    ),
+    "accountErrorDisabled": MessageLookupByLibrary.simpleMessage(
+      "ログインは一時的に利用できません",
+    ),
+    "accountErrorEmailRejected": MessageLookupByLibrary.simpleMessage(
+      "このメールアドレスは使用できません",
+    ),
+    "accountErrorGeneric": MessageLookupByLibrary.simpleMessage("うまくいきませんでした"),
+    "accountErrorInvalidCode": MessageLookupByLibrary.simpleMessage(
+      "コードが正しくありません",
+    ),
+    "accountErrorNetwork": MessageLookupByLibrary.simpleMessage("サーバーに接続できません"),
+    "accountErrorRateLimited": m0,
+    "accountErrorRateLimitedLater": MessageLookupByLibrary.simpleMessage(
+      "リクエストが多すぎます。後でお試しください",
+    ),
+    "accountGetCode": MessageLookupByLibrary.simpleMessage("コードを受け取る"),
+    "accountLoggedOut": MessageLookupByLibrary.simpleMessage("ログアウトしました"),
+    "accountLoginByEmail": MessageLookupByLibrary.simpleMessage("メールでログイン"),
+    "accountLogout": MessageLookupByLibrary.simpleMessage("ログアウト"),
+    "accountNoSubscription": MessageLookupByLibrary.simpleMessage(
+      "ログインしました。サブスクリプションはまだありません",
+    ),
+    "accountRemoveFromDevice": MessageLookupByLibrary.simpleMessage(
+      "このデバイスから削除",
+    ),
+    "accountRemoveFromDeviceText": MessageLookupByLibrary.simpleMessage(
+      "アカウントとそのサブスクリプションがこのデバイスから消えます。メールで再度サインインできます。",
+    ),
+    "accountRemoveFromDeviceTitle": MessageLookupByLibrary.simpleMessage(
+      "このデバイスから削除しますか？",
+    ),
+    "accountRemovedFromDevice": MessageLookupByLibrary.simpleMessage(
+      "このデバイスから削除しました",
+    ),
+    "accountResend": MessageLookupByLibrary.simpleMessage("もう一度送信"),
+    "accountSignInWithCode": MessageLookupByLibrary.simpleMessage("コードでログイン"),
+    "accountSubscriptionAlreadyPresent": MessageLookupByLibrary.simpleMessage(
+      "サブスクリプションはすでにアプリに追加されています",
+    ),
+    "accountSubscriptionImported": MessageLookupByLibrary.simpleMessage(
+      "サブスクリプションを接続しました",
+    ),
+    "accountSyncFailed": MessageLookupByLibrary.simpleMessage(
+      "ログインしました。サブスクリプションは未接続です",
+    ),
+    "accountSyncSubscription": MessageLookupByLibrary.simpleMessage(
+      "サブスクリプションを更新",
+    ),
+    "accountUnlock": MessageLookupByLibrary.simpleMessage("ロックを解除"),
+    "accountWaitHours": m1,
+    "accountWaitMinutes": m2,
+    "accountWaitSeconds": m3,
     "action": MessageLookupByLibrary.simpleMessage("アクション"),
     "action_mode": MessageLookupByLibrary.simpleMessage("モード切替"),
     "action_proxy": MessageLookupByLibrary.simpleMessage("システムプロキシ"),
@@ -71,7 +154,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "スマホでQRコードをスキャン",
     ),
     "addFromPhoneTitle": MessageLookupByLibrary.simpleMessage("スマホから追加"),
-    "addNamedSubscription": m0,
+    "addNamedSubscription": m4,
     "addProfile": MessageLookupByLibrary.simpleMessage("プロファイルを追加"),
     "addRule": MessageLookupByLibrary.simpleMessage("ルールを追加"),
     "addSubscription": MessageLookupByLibrary.simpleMessage("サブスクリプションを追加"),
@@ -211,10 +294,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "delay": MessageLookupByLibrary.simpleMessage("遅延"),
     "delaySort": MessageLookupByLibrary.simpleMessage("遅延順"),
     "delete": MessageLookupByLibrary.simpleMessage("削除"),
-    "deleteMultipTip": m1,
-    "deleteTip": m2,
+    "deleteMultipTip": m5,
+    "deleteTip": m6,
     "desc": MessageLookupByLibrary.simpleMessage(
-      "Dropweb — シンプルで高速な VPN クライアント。オープンソース、広告なし。",
+      "dropweb — シンプルで高速な VPN クライアント。オープンソース、広告なし。",
     ),
     "detectionTip": MessageLookupByLibrary.simpleMessage("サードパーティAPIに依存（参考値）"),
     "devAdbRemote": MessageLookupByLibrary.simpleMessage("adb リモート"),
@@ -223,7 +306,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "devCopyAll": MessageLookupByLibrary.simpleMessage("すべてコピー"),
     "devDiagnostics": MessageLookupByLibrary.simpleMessage("診断"),
-    "devDiagnosticsWritten": m3,
+    "devDiagnosticsWritten": m7,
     "devEffectiveConfig": MessageLookupByLibrary.simpleMessage("最終設定"),
     "devEffectiveConfigEmpty": MessageLookupByLibrary.simpleMessage(
       "コアはまだ起動していません — 設定なし",
@@ -252,7 +335,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "domain": MessageLookupByLibrary.simpleMessage("ドメイン"),
     "download": MessageLookupByLibrary.simpleMessage("ダウンロード"),
     "edit": MessageLookupByLibrary.simpleMessage("編集"),
-    "emptyTip": m4,
+    "emptyTip": m8,
     "en": MessageLookupByLibrary.simpleMessage("英語"),
     "enableOverride": MessageLookupByLibrary.simpleMessage("上書きを有効化"),
     "entries": MessageLookupByLibrary.simpleMessage(" エントリ"),
@@ -261,7 +344,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "excludeDesc": MessageLookupByLibrary.simpleMessage(
       "アプリがバックグラウンド時に最近のタスクから非表示",
     ),
-    "existsTip": m5,
+    "existsTip": m9,
     "exit": MessageLookupByLibrary.simpleMessage("終了"),
     "expand": MessageLookupByLibrary.simpleMessage("標準"),
     "expirationTime": MessageLookupByLibrary.simpleMessage("有効期限"),
@@ -430,8 +513,8 @@ class MessageLookup extends MessageLookupByLibrary {
       "プロファイルがありません。追加してください",
     ),
     "nullScriptTip": MessageLookupByLibrary.simpleMessage("スクリプトはありません"),
-    "nullTip": m6,
-    "numberTip": m7,
+    "nullTip": m10,
+    "numberTip": m11,
     "ok": MessageLookupByLibrary.simpleMessage("OK"),
     "onboardingAddHint": MessageLookupByLibrary.simpleMessage(
       "タップしてサブスクリプションを追加",
@@ -505,7 +588,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "port": MessageLookupByLibrary.simpleMessage("ポート"),
     "portConflictTip": MessageLookupByLibrary.simpleMessage("別のポートを入力してください"),
-    "portTip": m8,
+    "portTip": m12,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage("DOHのHTTP/3を優先使用"),
     "presetAmber": MessageLookupByLibrary.simpleMessage("アンバー"),
     "presetAmethyst": MessageLookupByLibrary.simpleMessage("アメジスト"),
@@ -617,7 +700,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("すべて選択"),
     "selectProfile": MessageLookupByLibrary.simpleMessage("プロファイルを選択"),
     "selected": MessageLookupByLibrary.simpleMessage("選択済み"),
-    "selectedCountTitle": m9,
+    "selectedCountTitle": m13,
     "sendToTv": MessageLookupByLibrary.simpleMessage("TVに送信"),
     "sendToTvTitle": MessageLookupByLibrary.simpleMessage("TVに送信"),
     "sentSuccessfullyMessage": MessageLookupByLibrary.simpleMessage("送信しました"),
@@ -665,7 +748,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscriptionExpired": MessageLookupByLibrary.simpleMessage(
       "サブスクリプションが期限切れになりました",
     ),
-    "subscriptionExpiresInDays": m10,
+    "subscriptionExpiresInDays": m14,
     "subscriptionExpiresSoon": MessageLookupByLibrary.simpleMessage(
       "サブスクリプションがまもなく期限切れ",
     ),
@@ -758,16 +841,16 @@ class MessageLookup extends MessageLookupByLibrary {
     "upload": MessageLookupByLibrary.simpleMessage("アップロード"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
     "urlDesc": MessageLookupByLibrary.simpleMessage("URL経由でプロファイルを取得"),
-    "urlTip": m11,
+    "urlTip": m15,
     "useHosts": MessageLookupByLibrary.simpleMessage("ホストを使用"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("システムホストを使用"),
-    "validUntil": m12,
+    "validUntil": m16,
     "value": MessageLookupByLibrary.simpleMessage("値"),
     "vibrantScheme": MessageLookupByLibrary.simpleMessage("ビブラント"),
     "view": MessageLookupByLibrary.simpleMessage("表示"),
     "vpnDesc": MessageLookupByLibrary.simpleMessage("VPN関連設定の変更"),
     "vpnDisclosureBody": MessageLookupByLibrary.simpleMessage(
-      "Dropweb は Android の VPN 権限を使用して、ユーザーが制御するローカル VPN トンネルを作成します。ネットワーク通信は、選択した接続またはサブスクリプションに従ってルーティングされます。この画面または端末の VPN 設定からいつでも切断できます。診断、アカウント、キャビネットなどの任意機能はそれぞれ別個に提供され、該当箇所で説明されます。",
+      "dropweb は Android の VPN 権限を使用して、ユーザーが制御するローカル VPN トンネルを作成します。ネットワーク通信は、選択した接続またはサブスクリプションに従ってルーティングされます。この画面または端末の VPN 設定からいつでも切断できます。診断、アカウント、キャビネットなどの任意機能はそれぞれ別個に提供され、該当箇所で説明されます。",
     ),
     "vpnDisclosureContinue": MessageLookupByLibrary.simpleMessage("続行"),
     "vpnDisclosureTitle": MessageLookupByLibrary.simpleMessage("接続する前に"),

@@ -5,44 +5,48 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('about.shouldShowCheckForUpdate', () {
-    // Play builds (--dart-define=PLAY_BUILD=true) MUST NOT expose an in-app
-    // update check — Google Play policy requires updates through the store.
-    test('Android Play build hides the manual update entry', () {
+    // Store builds (Google Play, iOS) MUST NOT expose an in-app update
+    // check — store policy requires updates through the store.
+    test('store build hides the manual update entry', () {
+      expect(shouldShowCheckForUpdate(isStoreBuild: true), isFalse);
+    });
+
+    // Sideloaded Android (our primary RU channel) and desktop show it and
+    // update from our own server.
+    test('sideload and desktop builds keep the manual update entry', () {
+      expect(shouldShowCheckForUpdate(isStoreBuild: false), isTrue);
+    });
+  });
+
+  group('about.privacyPolicyUrl', () {
+    // The store build is a neutral client and links the app's own policy.
+    test('store build links the app privacy policy', () {
       expect(
-        shouldShowCheckForUpdate(isAndroid: true, isPlayBuild: true),
-        isFalse,
+        privacyPolicyUrl(isStoreBuild: true),
+        'https://dropweb.org/app/privacy/',
       );
     });
 
-    // The sideloaded Android build (our primary RU channel) shows it and
-    // self-updates from our own server.
-    test('Android sideload build keeps the manual update entry', () {
+    // The sideload build keeps the dropweb service policy.
+    test('sideload build keeps the service privacy policy', () {
       expect(
-        shouldShowCheckForUpdate(isAndroid: true, isPlayBuild: false),
-        isTrue,
+        privacyPolicyUrl(isStoreBuild: false),
+        'https://dropweb.org/privacy',
       );
-    });
-
-    // Desktop always shows the manual check, regardless of build flavour.
-    test('non-Android keeps the manual update entry', () {
-      expect(shouldShowCheckForUpdate(isAndroid: false, isPlayBuild: true),
-          isTrue);
-      expect(shouldShowCheckForUpdate(isAndroid: false, isPlayBuild: false),
-          isTrue);
     });
   });
 
   group('support project link', () {
     // The donation entry was surfaced out of About → "More" into Settings
     // (lib/views/tools.dart, _SupportItem) so it sits one tap deep instead of
-    // three. Verify it lives there with the correct tribute URL — it is no
-    // longer in About.
-    test('lives in Settings (tools.dart) with the tribute URL', () {
+    // three. Verify it lives there with our donation page — it is no longer
+    // in About.
+    test('lives in Settings (tools.dart) with the dropweb donation page', () {
       final source = File('lib/views/tools.dart').readAsStringSync();
       expect(source, contains('supportProject'));
       expect(
         source,
-        contains('globalState.openUrl("https://web.tribute.tg/d/Huc")'),
+        contains('globalState.openUrl("https://dropweb.org/donate")'),
       );
     });
   });

@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:win32_registry/win32_registry.dart';
@@ -29,6 +30,12 @@ class DeviceInfoService {
   static const String _hwidStorageKey = 'app_persistent_hwid';
   static const MethodChannel _channel =
       MethodChannel('app.dropweb/device_id');
+
+  // iOS keeps the HWID in the Keychain: unlike SharedPreferences it survives
+  // reinstalling the app, and identifierForVendor alone does not.
+  static const FlutterSecureStorage _iosKeychain = FlutterSecureStorage(
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+  );
 
   String _generateCompact16CharId(String fullId) {
     final bytes = utf8.encode(fullId);
@@ -98,6 +105,9 @@ class DeviceInfoService {
         final combined =
             info.systemGUID ?? '${info.model}-${info.computerName}';
         return combined;
+      } else if (Platform.isIOS) {
+        final info = await _deviceInfoPlugin.iosInfo;
+        return info.identifierForVendor;
       }
       return null;
     } catch (e) {
@@ -110,7 +120,9 @@ class DeviceInfoService {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      final storedHwid = prefs.getString(_hwidStorageKey);
+      final storedHwid = Platform.isIOS
+          ? await _iosKeychain.read(key: _hwidStorageKey)
+          : prefs.getString(_hwidStorageKey);
       if (storedHwid != null && storedHwid.isNotEmpty) {
         return storedHwid;
       }
@@ -126,7 +138,11 @@ class DeviceInfoService {
       // The raw system identifier (e.g. ANDROID_ID) is never persisted or sent.
       final newHwid = _generateCompact16CharId(deviceId);
 
-      await prefs.setString(_hwidStorageKey, newHwid);
+      if (Platform.isIOS) {
+        await _iosKeychain.write(key: _hwidStorageKey, value: newHwid);
+      } else {
+        await prefs.setString(_hwidStorageKey, newHwid);
+      }
 
       return newHwid;
     } catch (e) {
@@ -163,6 +179,11 @@ class DeviceInfoService {
         os = 'macOS';
         osVersion = info.osRelease;
         model = info.model;
+      } else if (Platform.isIOS) {
+        final info = await _deviceInfoPlugin.iosInfo;
+        os = 'iOS';
+        osVersion = info.systemVersion;
+        model = info.utsname.machine;
       }
     } catch (e) {
       // Silently handle errors in device info retrieval

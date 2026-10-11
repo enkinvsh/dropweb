@@ -242,7 +242,12 @@ mixin _$Profile {
   @JsonKey(includeToJson: false, includeFromJson: false)
   bool get isUpdating => throw _privateConstructorUsedError;
   Map<String, String> get providerHeaders => throw _privateConstructorUsedError;
-  String? get fallbackUrl => throw _privateConstructorUsedError;
+  String? get fallbackUrl =>
+      throw _privateConstructorUsedError; // Зеркала той же подписки (`dropweb-sub-mirrors`) и её стабильный id
+// (`dropweb-sub-id`). Оба несут токен: на диск попадают только через
+// защищённое хранилище, как [url] / [fallbackUrl].
+  List<String> get mirrorUrls => throw _privateConstructorUsedError;
+  String? get subId => throw _privateConstructorUsedError;
   @JsonKey(unknownEnumValue: WorkMode.standard)
   WorkMode get workMode => throw _privateConstructorUsedError;
   String? get staticCountry =>
@@ -279,6 +284,8 @@ abstract class $ProfileCopyWith<$Res> {
       @JsonKey(includeToJson: false, includeFromJson: false) bool isUpdating,
       Map<String, String> providerHeaders,
       String? fallbackUrl,
+      List<String> mirrorUrls,
+      String? subId,
       @JsonKey(unknownEnumValue: WorkMode.standard) WorkMode workMode,
       String? staticCountry,
       bool fullTunnel});
@@ -316,6 +323,8 @@ class _$ProfileCopyWithImpl<$Res, $Val extends Profile>
     Object? isUpdating = null,
     Object? providerHeaders = null,
     Object? fallbackUrl = freezed,
+    Object? mirrorUrls = null,
+    Object? subId = freezed,
     Object? workMode = null,
     Object? staticCountry = freezed,
     Object? fullTunnel = null,
@@ -376,6 +385,14 @@ class _$ProfileCopyWithImpl<$Res, $Val extends Profile>
       fallbackUrl: freezed == fallbackUrl
           ? _value.fallbackUrl
           : fallbackUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
+      mirrorUrls: null == mirrorUrls
+          ? _value.mirrorUrls
+          : mirrorUrls // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      subId: freezed == subId
+          ? _value.subId
+          : subId // ignore: cast_nullable_to_non_nullable
               as String?,
       workMode: null == workMode
           ? _value.workMode
@@ -439,6 +456,8 @@ abstract class _$$ProfileImplCopyWith<$Res> implements $ProfileCopyWith<$Res> {
       @JsonKey(includeToJson: false, includeFromJson: false) bool isUpdating,
       Map<String, String> providerHeaders,
       String? fallbackUrl,
+      List<String> mirrorUrls,
+      String? subId,
       @JsonKey(unknownEnumValue: WorkMode.standard) WorkMode workMode,
       String? staticCountry,
       bool fullTunnel});
@@ -476,6 +495,8 @@ class __$$ProfileImplCopyWithImpl<$Res>
     Object? isUpdating = null,
     Object? providerHeaders = null,
     Object? fallbackUrl = freezed,
+    Object? mirrorUrls = null,
+    Object? subId = freezed,
     Object? workMode = null,
     Object? staticCountry = freezed,
     Object? fullTunnel = null,
@@ -537,6 +558,14 @@ class __$$ProfileImplCopyWithImpl<$Res>
           ? _value.fallbackUrl
           : fallbackUrl // ignore: cast_nullable_to_non_nullable
               as String?,
+      mirrorUrls: null == mirrorUrls
+          ? _value._mirrorUrls
+          : mirrorUrls // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      subId: freezed == subId
+          ? _value.subId
+          : subId // ignore: cast_nullable_to_non_nullable
+              as String?,
       workMode: null == workMode
           ? _value.workMode
           : workMode // ignore: cast_nullable_to_non_nullable
@@ -572,13 +601,16 @@ class _$ProfileImpl implements _Profile {
       this.isUpdating = false,
       final Map<String, String> providerHeaders = const {},
       this.fallbackUrl,
+      final List<String> mirrorUrls = const [],
+      this.subId,
       @JsonKey(unknownEnumValue: WorkMode.standard)
       this.workMode = WorkMode.standard,
       this.staticCountry,
       this.fullTunnel = false})
       : _selectedMap = selectedMap,
         _unfoldSet = unfoldSet,
-        _providerHeaders = providerHeaders;
+        _providerHeaders = providerHeaders,
+        _mirrorUrls = mirrorUrls;
 
   factory _$ProfileImpl.fromJson(Map<String, dynamic> json) =>
       _$$ProfileImplFromJson(json);
@@ -636,6 +668,23 @@ class _$ProfileImpl implements _Profile {
 
   @override
   final String? fallbackUrl;
+// Зеркала той же подписки (`dropweb-sub-mirrors`) и её стабильный id
+// (`dropweb-sub-id`). Оба несут токен: на диск попадают только через
+// защищённое хранилище, как [url] / [fallbackUrl].
+  final List<String> _mirrorUrls;
+// Зеркала той же подписки (`dropweb-sub-mirrors`) и её стабильный id
+// (`dropweb-sub-id`). Оба несут токен: на диск попадают только через
+// защищённое хранилище, как [url] / [fallbackUrl].
+  @override
+  @JsonKey()
+  List<String> get mirrorUrls {
+    if (_mirrorUrls is EqualUnmodifiableListView) return _mirrorUrls;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_mirrorUrls);
+  }
+
+  @override
+  final String? subId;
   @override
   @JsonKey(unknownEnumValue: WorkMode.standard)
   final WorkMode workMode;
@@ -649,7 +698,7 @@ class _$ProfileImpl implements _Profile {
 
   @override
   String toString() {
-    return 'Profile(id: $id, label: $label, currentGroupName: $currentGroupName, url: $url, lastUpdateDate: $lastUpdateDate, autoUpdateDuration: $autoUpdateDuration, subscriptionInfo: $subscriptionInfo, autoUpdate: $autoUpdate, selectedMap: $selectedMap, unfoldSet: $unfoldSet, overrideData: $overrideData, isUpdating: $isUpdating, providerHeaders: $providerHeaders, fallbackUrl: $fallbackUrl, workMode: $workMode, staticCountry: $staticCountry, fullTunnel: $fullTunnel)';
+    return 'Profile(id: $id, label: $label, currentGroupName: $currentGroupName, url: $url, lastUpdateDate: $lastUpdateDate, autoUpdateDuration: $autoUpdateDuration, subscriptionInfo: $subscriptionInfo, autoUpdate: $autoUpdate, selectedMap: $selectedMap, unfoldSet: $unfoldSet, overrideData: $overrideData, isUpdating: $isUpdating, providerHeaders: $providerHeaders, fallbackUrl: $fallbackUrl, mirrorUrls: $mirrorUrls, subId: $subId, workMode: $workMode, staticCountry: $staticCountry, fullTunnel: $fullTunnel)';
   }
 
   @override
@@ -682,6 +731,9 @@ class _$ProfileImpl implements _Profile {
                 .equals(other._providerHeaders, _providerHeaders) &&
             (identical(other.fallbackUrl, fallbackUrl) ||
                 other.fallbackUrl == fallbackUrl) &&
+            const DeepCollectionEquality()
+                .equals(other._mirrorUrls, _mirrorUrls) &&
+            (identical(other.subId, subId) || other.subId == subId) &&
             (identical(other.workMode, workMode) ||
                 other.workMode == workMode) &&
             (identical(other.staticCountry, staticCountry) ||
@@ -692,25 +744,28 @@ class _$ProfileImpl implements _Profile {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      label,
-      currentGroupName,
-      url,
-      lastUpdateDate,
-      autoUpdateDuration,
-      subscriptionInfo,
-      autoUpdate,
-      const DeepCollectionEquality().hash(_selectedMap),
-      const DeepCollectionEquality().hash(_unfoldSet),
-      overrideData,
-      isUpdating,
-      const DeepCollectionEquality().hash(_providerHeaders),
-      fallbackUrl,
-      workMode,
-      staticCountry,
-      fullTunnel);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        label,
+        currentGroupName,
+        url,
+        lastUpdateDate,
+        autoUpdateDuration,
+        subscriptionInfo,
+        autoUpdate,
+        const DeepCollectionEquality().hash(_selectedMap),
+        const DeepCollectionEquality().hash(_unfoldSet),
+        overrideData,
+        isUpdating,
+        const DeepCollectionEquality().hash(_providerHeaders),
+        fallbackUrl,
+        const DeepCollectionEquality().hash(_mirrorUrls),
+        subId,
+        workMode,
+        staticCountry,
+        fullTunnel
+      ]);
 
   /// Create a copy of Profile
   /// with the given fields replaced by the non-null parameter values.
@@ -745,6 +800,8 @@ abstract class _Profile implements Profile {
       final bool isUpdating,
       final Map<String, String> providerHeaders,
       final String? fallbackUrl,
+      final List<String> mirrorUrls,
+      final String? subId,
       @JsonKey(unknownEnumValue: WorkMode.standard) final WorkMode workMode,
       final String? staticCountry,
       final bool fullTunnel}) = _$ProfileImpl;
@@ -779,7 +836,14 @@ abstract class _Profile implements Profile {
   @override
   Map<String, String> get providerHeaders;
   @override
-  String? get fallbackUrl;
+  String?
+      get fallbackUrl; // Зеркала той же подписки (`dropweb-sub-mirrors`) и её стабильный id
+// (`dropweb-sub-id`). Оба несут токен: на диск попадают только через
+// защищённое хранилище, как [url] / [fallbackUrl].
+  @override
+  List<String> get mirrorUrls;
+  @override
+  String? get subId;
   @override
   @JsonKey(unknownEnumValue: WorkMode.standard)
   WorkMode get workMode;

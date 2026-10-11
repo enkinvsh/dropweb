@@ -74,6 +74,41 @@ class FakeSecureStore implements SecureProfileUrlStoreInterface {
   }
 
   @override
+  Future<List<String>?> getMirrors(String profileId) async => null;
+
+  @override
+  Future<bool> setMirrors(String profileId, List<String>? mirrors) async =>
+      true;
+
+  @override
+  Future<String?> getSubId(String profileId) async => null;
+
+  @override
+  Future<bool> setSubId(String profileId, String? subId) async => true;
+
+  @override
+  Future<String?> getPreferredUrl(String profileId) async => null;
+
+  @override
+  Future<bool> setPreferredUrl(String profileId, String? url) async => true;
+
+  // Маяк к миграции не относится.
+  @override
+  Future<List<String>?> getBeaconUrls(String profileId) async => null;
+  @override
+  Future<bool> setBeaconUrls(String profileId, List<String>? urls) async =>
+      true;
+  @override
+  Future<List<String>?> getBeaconKeys(String profileId) async => null;
+  @override
+  Future<bool> setBeaconKeys(String profileId, List<String>? keys) async =>
+      true;
+  @override
+  Future<String?> getBeaconState(String profileId) async => null;
+  @override
+  Future<bool> setBeaconState(String profileId, String? state) async => true;
+
+  @override
   Future<void> removeProfile(String profileId) async {
     urls.remove(profileId);
     fallbacks.remove(profileId);

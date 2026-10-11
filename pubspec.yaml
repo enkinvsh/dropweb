@@ -1,7 +1,7 @@
 name: dropweb
 description: Multi-platform VPN client based on mihomo core. Open-source and ad-free.
 publish_to: "none"
-version: 0.9.1+2050000019
+version: 0.10.0+2050000020
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -78,6 +78,8 @@ dependencies:
   yaml_edit: ^2.2.4
   flutter_colorpicker: ^1.1.0
   liquid_glass_widgets: ^1.7.2
+  local_auth: ^3.0.2
+  cryptography: ^2.9.0
 
 dev_dependencies:
   flutter_test:
@@ -144,7 +146,10 @@ flutter_intl:
 
 flutter_launcher_icons:
   android: true
-  ios: false
+  ios: true
+  # App Store rejects icons with transparency; the tile is black to its edge.
+  remove_alpha_ios: true
+  background_color_ios: "#000000"
   image_path: "assets/images/icon.png"
   adaptive_icon_background: "#202020"
   adaptive_icon_foreground: "assets/images/icon.png"
