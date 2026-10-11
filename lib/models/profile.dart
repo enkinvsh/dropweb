@@ -18,6 +18,29 @@ part 'generated/profile.g.dart';
 
 typedef SelectedMap = Map<String, String>;
 
+/// Provider headers store builds ([System.isStoreBuild]: Google Play, iOS)
+/// drop at ingestion: payment and account-cabinet links. The store app is a
+/// neutral bring-your-own-config client — it must not steer users to a
+/// provider's checkout or cabinet, whatever panel the user imports. Provider
+/// support and device removal stay. Sideload builds keep every header.
+const storeStrippedProviderHeaders = {
+  'dropweb-renew-url',
+  'dropweb-topup-url',
+  'dropweb-cabinet',
+};
+
+Map<String, String> storeSafeProviderHeaders(
+  Map<String, String> headers, {
+  bool? isStoreBuild,
+}) {
+  if (!(isStoreBuild ?? system.isStoreBuild)) return headers;
+  return {
+    for (final entry in headers.entries)
+      if (!storeStrippedProviderHeaders.contains(entry.key))
+        entry.key: entry.value,
+  };
+}
+
 @freezed
 class SubscriptionInfo with _$SubscriptionInfo {
   const factory SubscriptionInfo({
@@ -332,7 +355,7 @@ extension ProfileExtension on Profile {
       label: label ?? utils.getFileNameForDisposition(disposition) ?? id,
       subscriptionInfo: SubscriptionInfo.formHString(userinfo),
       autoUpdateDuration: durationFromHeader ?? autoUpdateDuration,
-      providerHeaders: providerHeaders,
+      providerHeaders: storeSafeProviderHeaders(providerHeaders),
       fallbackUrl: newFallbackUrl ?? fallbackUrl,
     ).saveFile(bytesToSave);
   }

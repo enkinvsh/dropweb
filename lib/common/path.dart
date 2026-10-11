@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dropweb/common/common.dart';
+import 'package:dropweb/plugins/ios_tunnel.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -13,9 +14,18 @@ class AppPath {
 
   AppPath._internal() {
     appDirPath = join(dirname(Platform.resolvedExecutable));
-    getApplicationSupportDirectory().then((value) {
-      dataDir.complete(value);
-    });
+    if (Platform.isIOS) {
+      // The tunnel extension runs its own core instance: both must see the
+      // same profiles and providers at the same absolute paths.
+      _iosGroupDataDir().then(
+        dataDir.complete,
+        onError: dataDir.completeError,
+      );
+    } else {
+      getApplicationSupportDirectory().then((value) {
+        dataDir.complete(value);
+      });
+    }
     getTemporaryDirectory().then((value) {
       tempDir.complete(value);
     });
@@ -24,6 +34,15 @@ class AppPath {
     });
   }
   static AppPath? _instance;
+
+  static Future<Directory> _iosGroupDataDir() async {
+    final groupPath = await IosTunnel.instance.groupPath();
+    if (groupPath == null) {
+      throw StateError('App Group container group.app.dropweb is unavailable');
+    }
+    return Directory(join(groupPath, 'dropweb')).create(recursive: true);
+  }
+
   Completer<Directory> dataDir = Completer();
   Completer<Directory> downloadDir = Completer();
   Completer<Directory> tempDir = Completer();

@@ -1,0 +1,3 @@
+/* Permission prompts; English originals live in Info.plist. */
+"NSCameraUsageDescription" = "Камера нужна, чтобы отсканировать QR-код подписки.";
+"NSPhotoLibraryUsageDescription" = "Доступ к фото нужен, чтобы выбрать изображение с QR-кодом подписки.";

@@ -51,9 +51,9 @@ class CommonScaffold extends ConsumerStatefulWidget {
           automaticallyImplyLeading: false,
           actions: actions,
           disableBackground: disableBackground,
-          // Mobile goes back with the system gesture; the arrow is a
-          // desktop-only affordance.
-          leading: system.isDesktop
+          // Android goes back with the system gesture; everywhere else the
+          // page needs the arrow.
+          leading: system.showsPageHeader
               ? IconButton(
                   icon: const BackButtonIcon(),
                   onPressed: () {
@@ -309,9 +309,9 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
                 "${_appBarState.value.editState?.editCount ?? 0}",
               ),
             )
-          // Page names only on desktop, next to the back arrow. On mobile
-          // the bar stays empty: that is where notifications appear.
-          : system.isDesktop
+          // Page names next to the back arrow. On Android the bar stays
+          // empty: that is where notifications appear.
+          : system.showsPageHeader
               ? Text(widget.titleBuilder?.call(context) ?? widget.title!)
               : const SizedBox.shrink();
 
@@ -440,10 +440,11 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
                       surfaceTintColor:
                           transparentAppBar ? Colors.transparent : null,
                       centerTitle: widget.centerTitle ?? false,
-                      // Back arrow on desktop only; mobile uses the system
-                      // back gesture.
+                      // No back arrow on Android: it has the system back
+                      // gesture.
                       automaticallyImplyLeading:
-                          widget.automaticallyImplyLeading && system.isDesktop,
+                          widget.automaticallyImplyLeading &&
+                              system.showsPageHeader,
                       leading: _buildLeading(),
                       title: _buildTitle(state.searchState),
                       actions: _buildActions(

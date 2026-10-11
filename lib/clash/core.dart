@@ -21,6 +21,8 @@ class ClashCore {
   ClashCore._internal() {
     if (Platform.isAndroid) {
       clashInterface = clashLib!;
+    } else if (Platform.isIOS) {
+      clashInterface = clashLibIos!;
     } else {
       final service = clashService!;
       clashInterface = service;

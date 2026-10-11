@@ -448,6 +448,50 @@ class ClashLibHandler {
   }
 }
 
+/// iOS: the Go core is linked into the app binary (`-force_load libclash.a`)
+/// and driven over FFI straight from the UI isolate. This instance serves the
+/// offline work (profile parsing, groups, delay tests); the tunnel runs in the
+/// PacketTunnel extension with its own core.
+class ClashLibIos extends ClashHandlerInterface {
+  factory ClashLibIos() => _instance ??= ClashLibIos._internal();
+
+  ClashLibIos._internal() {
+    _clashFFI = ClashFFI(DynamicLibrary.process());
+    _clashFFI.initNativeApiBridge(NativeApi.initializeApiDLData);
+    _receiverPort.listen((message) {
+      if (message is String) {
+        handleResult(ActionResult.fromJson(json.decode(message)));
+      }
+    });
+    _clashFFI.attachMessagePort(_receiverPort.sendPort.nativePort);
+  }
+  static ClashLibIos? _instance;
+
+  late final ClashFFI _clashFFI;
+
+  /// Receives both action results and core pushes (logs, delays) — the same
+  /// stream the Android main isolate gets from its service isolate.
+  final ReceivePort _receiverPort = ReceivePort();
+
+  @override
+  Future<bool> preload() async => true;
+
+  @override
+  void sendMessage(String message) {
+    final messageChar = message.toNativeUtf8().cast<Char>();
+    _clashFFI.invokeAction(messageChar, _receiverPort.sendPort.nativePort);
+    malloc.free(messageChar);
+  }
+
+  @override
+  void reStart() {}
+
+  @override
+  Future<bool> destroy() async => true;
+}
+
+ClashLibIos? get clashLibIos => Platform.isIOS ? ClashLibIos() : null;
+
 ClashLib? get clashLib =>
     Platform.isAndroid && !globalState.isService ? ClashLib() : null;
 
