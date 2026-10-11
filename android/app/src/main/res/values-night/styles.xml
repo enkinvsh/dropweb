@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is on -->
-    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+    <style name="LaunchTheme" parent="Theme.AppCompat.NoActionBar">
+        <!-- AppCompat-родитель нужен local_auth; фон окна фиксируем цветом прежней платформенной темы, иначе AppCompat даёт серый #fafafa/#303030. -->
+        <item name="android:colorBackground">@android:color/black</item>
+        <item name="android:windowBackground">?android:colorBackground</item>
         <!-- Show a splash screen on the activity. Automatically removed when
              the Flutter engine draws its first frame -->
     </style>
@@ -11,7 +14,9 @@
          running.
 
          This Theme is only used starting with V2 of Flutter's Android embedding. -->
-    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+    <style name="NormalTheme" parent="Theme.AppCompat.NoActionBar">
+        <!-- AppCompat-родитель нужен local_auth; фон окна фиксируем цветом прежней платформенной темы, иначе AppCompat даёт серый #fafafa/#303030. -->
+        <item name="android:colorBackground">@android:color/black</item>
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
 </resources>

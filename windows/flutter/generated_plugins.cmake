@@ -11,6 +11,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_js
   flutter_secure_storage_windows
   hotkey_manager_windows
+  local_auth_windows
   proxy
   screen_retriever_windows
   tray_manager

@@ -78,6 +78,7 @@ dependencies:
   yaml_edit: ^2.2.4
   flutter_colorpicker: ^1.1.0
   liquid_glass_widgets: ^1.7.2
+  local_auth: ^3.0.2
 
 dev_dependencies:
   flutter_test:

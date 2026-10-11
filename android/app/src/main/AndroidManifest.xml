@@ -12,6 +12,8 @@
         android:required="false" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Вход в аккаунт по отпечатку/лицу (local_auth, BiometricPrompt) -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- Required for the persistent VPN status notification on Android 13+
          (runtime request in AppPlugin.requestNotificationPermission). -->
