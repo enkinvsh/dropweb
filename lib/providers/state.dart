@@ -599,6 +599,38 @@ Uri? profileCabinetUri(Profile? profile) {
   return null;
 }
 
+/// Базы API бэкенда аккаунта из строки вида `<base>[, <base>...]` — формат
+/// и заголовка `dropweb-account`, и `--dart-define=DROPWEB_ACCOUNT_API`.
+///
+/// Несколько адресов — зеркала ОДНОГО бэкенда для перебора при сетевых
+/// сбоях. Правила те же, что у кабинета: только https, http — лишь для
+/// loopback при локальной разработке. Невалидные записи молча выбрасываются,
+/// чтобы опечатка в одном зеркале не отключала вход целиком. Хвостовые `/`
+/// срезаются: пути API клеятся к базе как `$base/cabinet/...`. `;` тоже
+/// разделитель: setup.dart передаёт зеркала через `;`, потому что запятую
+/// режет на части парсер `--build-dart-define` у flutter_distributor.
+List<String> parseAccountApiBases(String? raw) {
+  if (raw == null) return const [];
+  final result = <String>[];
+  for (final token in raw.split(RegExp(r'[,;\s]+'))) {
+    final parsed = Uri.tryParse(token);
+    if (parsed == null || !parsed.hasScheme || parsed.host.isEmpty) continue;
+    final allowed = parsed.scheme == 'https' ||
+        (parsed.scheme == 'http' && _isLocalHttpCabinetHost(parsed.host));
+    if (!allowed) continue;
+    final base = token.replaceAll(RegExp(r'/+$'), '');
+    if (!result.contains(base)) result.add(base);
+  }
+  return result;
+}
+
+/// Бэкенд входа в аккаунт, объявленный панелью провайдера заголовком
+/// `dropweb-account`. Как и `dropweb-cabinet`, читается без гейта
+/// `dropweb-custom`: это адрес сервиса, а не настройка внешнего вида.
+/// Пустой список — провайдер вход в приложении не предлагает.
+List<String> profileAccountApiBases(Profile? profile) =>
+    parseAccountApiBases(profile?.providerHeaders['dropweb-account']);
+
 @riverpod
 bool globalModeEnabled(Ref ref) {
   final profile = ref.watch(currentProfileProvider);

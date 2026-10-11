@@ -518,6 +518,9 @@ class GlobalState {
     required InlineSpan message,
     String? confirmText,
     bool cancelable = true,
+    // Необратимое действие: кнопка подтверждения цветом ошибки, чтобы не
+    // сливаться с «Отмена».
+    bool destructive = false,
   }) async =>
       showCommonDialog<bool>(
         child: Builder(
@@ -532,6 +535,11 @@ class GlobalState {
                   child: Text(appLocalizations.cancel),
                 ),
               TextButton(
+                style: destructive
+                    ? TextButton.styleFrom(
+                        foregroundColor: context.colorScheme.error,
+                      )
+                    : null,
                 onPressed: () {
                   Navigator.of(context).pop(true);
                 },

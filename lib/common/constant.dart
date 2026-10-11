@@ -101,6 +101,14 @@ const kUpdateManifestSeeds = <String>[
 /// failed. Never teaches mirrors; the APK signing pin still gates install.
 const kUpdateUrlHeader = 'dropweb-update-url';
 
+/// Бэкенд аккаунта по умолчанию — только для пустого состояния (ни одного
+/// профиля) в собственной сборке издателя:
+/// `--dart-define=DROPWEB_ACCOUNT_API=<base>[;<base>...]`, формат как у
+/// заголовка `dropweb-account`. В общих
+/// сборках пусто: приложение-губка не знает ни одного бэкенда, пока его не
+/// объявит панель провайдера. Разбор — parseAccountApiBases.
+const kAccountApiDefault = String.fromEnvironment('DROPWEB_ACCOUNT_API');
+
 /// Cap on mirrors learned from a manifest's `mirrors` list.
 const kMaxUpdateMirrors = 8;
 

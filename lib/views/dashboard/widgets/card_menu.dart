@@ -1,9 +1,14 @@
+import 'dart:io';
+
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/dev_unlock_counter.dart';
 import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/views/account/account_common.dart';
+import 'package:dropweb/views/account/account_login_sheet.dart';
+import 'package:dropweb/views/account/account_sheet.dart';
 import 'package:dropweb/views/cabinet/cabinet_browser_entry.dart';
 import 'package:dropweb/views/subscription/profiles_content.dart'
     show refreshProfiles;
@@ -30,11 +35,12 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
 // stale streaks.
 final DevUnlockCounter _devUnlockCounter = DevUnlockCounter();
 
-/// Dashboard MENU: the label condenses into a Liquid Glass panel (iOS-26
-/// GlassMenu morph) that grows upward from it, and collapses back into the
-/// label on outside tap / item select. Tap anywhere on the strip or swipe up
-/// to open. Rows are conditional on the active profile: Подписка, Личный
-/// кабинет, Поддержка, Обновить подписку, Настройки.
+/// МЕНЮ дашборда: надпись превращается в панель Liquid Glass (морф GlassMenu
+/// в духе iOS 26), растущую вверх, и сворачивается обратно по тапу снаружи или
+/// выбору пункта. Открывается тапом по полосе или свайпом вверх. Строки:
+/// Аккаунт (только Android — вход по почте пока есть только там), затем
+/// зависящие от активного профиля Подписка, Личный кабинет, Поддержка,
+/// Обновить подписку и всегда Настройки.
 class DashboardGlassMenu extends ConsumerStatefulWidget {
   const DashboardGlassMenu({super.key});
 
@@ -168,7 +174,19 @@ class _DashboardGlassMenuState extends ConsumerState<DashboardGlassMenu> {
           onTap: onTap,
         );
 
+    final showAccount = accountMenuEntryVisible(
+      isAndroid: Platform.isAndroid,
+      status: ref.watch(accountProvider.select((state) => state.status)),
+      loginAvailable: ref.watch(accountLoginAvailableProvider),
+    );
+
     return [
+      if (showAccount)
+        item(
+          icon: HugeIcons.strokeRoundedUserAccount,
+          title: appLocalizations.account,
+          onTap: () => _openAccount(context),
+        ),
       if (currentProfile != null)
         item(
           icon: HugeIcons.strokeRoundedCreditCard,
@@ -179,7 +197,7 @@ class _DashboardGlassMenuState extends ConsumerState<DashboardGlassMenu> {
         item(
           icon: HugeIcons.strokeRoundedUserCircle,
           title: appLocalizations.personalCabinet,
-          onTap: () => openCabinetBrowser(cabinetUri),
+          onTap: () => _openCabinet(currentProfile?.id, cabinetUri),
         ),
       if (hasSupport)
         item(
@@ -218,6 +236,39 @@ class _DashboardGlassMenuState extends ConsumerState<DashboardGlassMenu> {
         onTap: () => _openToolsSheet(context, ref),
       ),
     ];
+  }
+
+  /// Статус читаем в момент тапа, а не при сборке меню: restore() мог
+  /// завершиться, пока панель была открыта. Без сессии сразу ведём во вход;
+  /// заблокированную сессию экран аккаунта сам предложит открыть отпечатком.
+  Future<void> _openAccount(BuildContext context) =>
+      switch (ref.read(accountProvider).status) {
+        AccountStatus.unknown ||
+        AccountStatus.loggedOut =>
+          openAccountLoginSheet(context),
+        AccountStatus.locked ||
+        AccountStatus.ready =>
+          openAccountSheet(context),
+      };
+
+  /// На Android кабинет профиля аккаунта открывается уже залогиненным
+  /// (одноразовый handoff-токен). Кабинет любого другого профиля — обычной
+  /// ссылкой, как до появления аккаунта: токен нашего бэкенда чужому
+  /// провайдеру не отдаём. Отмена отпечатка или сбой тоже ведут на обычную
+  /// ссылку — тап никогда не остаётся «мёртвым».
+  Future<void> _openCabinet(String? profileId, Uri cabinetUri) async {
+    if (!Platform.isAndroid) {
+      await openCabinetBrowser(cabinetUri);
+      return;
+    }
+    final account = ref.read(accountProvider);
+    await openAccountCabinet(
+      account: ref.read(accountProvider.notifier),
+      status: account.status,
+      profileId: profileId,
+      accountProfileId: account.profileId,
+      fallback: cabinetUri,
+    );
   }
 }
 

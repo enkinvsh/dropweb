@@ -1417,6 +1417,13 @@ class AppController {
     // autoCheckUpdate setting, and the once/day cadence. Surfaces only via the
     // Settings update entry (no dashboard banner).
     unawaited(_ref.read(appUpdateProvider.notifier).check());
+    // Сессия аккаунта поднимается в фоне: сеть до кабинета может быть
+    // медленной, а старт приложения и VPN от неё не зависят.
+    unawaited(
+      _ref.read(accountProvider.notifier).restore().catchError(
+            (Object e) => commonPrint.log('[account] restore failed: $e'),
+          ),
+    );
     await _handlePreference();
     await _handlerDisclaimer();
     _ref.read(initProvider.notifier).value = true;

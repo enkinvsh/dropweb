@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/pages/scan.dart';
+import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/views/account/account_common.dart';
+import 'package:dropweb/views/account/account_login_sheet.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'receive_profile_dialog.dart';
 
@@ -62,6 +67,20 @@ class _AddProfileViewState extends State<AddProfileView> {
     unawaited(addProfileFromUrl(candidate));
   }
 
+  /// Вход открываем от контекста экрана, открывшего этот лист: контекст
+  /// самого листа уходит вместе с ним при `Navigator.pop`. Ждём, пока лист
+  /// доедет вниз (`completed` маршрута), иначе на полсекунды видны два листа.
+  Future<void> _handleAccountLogin() async {
+    final route = ModalRoute.of(context);
+    final parent = widget.context;
+    Navigator.pop(context);
+    await route?.completed;
+    if (!parent.mounted) {
+      return;
+    }
+    await openAccountLoginSheet(parent);
+  }
+
   Future<void> _handleReceiveFromPhone() async {
     final url = await showDialog<String>(
       context: widget.context,
@@ -109,6 +128,33 @@ class _AddProfileViewState extends State<AddProfileView> {
             physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(vertical: 8),
             children: [
+              // Вход по почте — первой строкой: для нового пользователя это
+              // самый короткий путь, подписка импортируется сама. Строки нет,
+              // если провайдер не объявил бэкенд входа или сессия уже есть
+              // (условие — accountLoginEntryVisible).
+              if (Platform.isAndroid)
+                Consumer(
+                  builder: (context, ref, _) {
+                    final status = ref.watch(
+                      accountProvider.select((state) => state.status),
+                    );
+                    if (!accountLoginEntryVisible(
+                      isAndroid: true,
+                      status: status,
+                      loginAvailable: ref.watch(accountLoginAvailableProvider),
+                    )) {
+                      return const SizedBox.shrink();
+                    }
+                    return ListItem(
+                      leading: const HugeIcon(
+                        icon: HugeIcons.strokeRoundedMail01,
+                        size: 24,
+                      ),
+                      title: Text(appLocalizations.accountLoginByEmail),
+                      onTap: _handleAccountLogin,
+                    );
+                  },
+                ),
               // Clipboard row — ALWAYS present, a plain ListItem matching the
               // QR/URL rows. With a candidate detected at sheet open it names
               // the service («Добавить sub.example.com», one tap = import);

@@ -4324,6 +4324,346 @@ class AppLocalizations {
       args: [],
     );
   }
+
+  /// `Sign in with email`
+  String get accountLoginByEmail {
+    return Intl.message(
+      'Sign in with email',
+      name: 'accountLoginByEmail',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Email`
+  String get accountEmailLabel {
+    return Intl.message('Email', name: 'accountEmailLabel', desc: '', args: []);
+  }
+
+  /// `Check the email address`
+  String get accountEmailInvalid {
+    return Intl.message(
+      'Check the email address',
+      name: 'accountEmailInvalid',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Get code`
+  String get accountGetCode {
+    return Intl.message('Get code', name: 'accountGetCode', desc: '', args: []);
+  }
+
+  /// `Code`
+  String get accountCodeLabel {
+    return Intl.message('Code', name: 'accountCodeLabel', desc: '', args: []);
+  }
+
+  /// `Send again`
+  String get accountResend {
+    return Intl.message(
+      'Send again',
+      name: 'accountResend',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Change email`
+  String get accountChangeEmail {
+    return Intl.message(
+      'Change email',
+      name: 'accountChangeEmail',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Incorrect code`
+  String get accountErrorInvalidCode {
+    return Intl.message(
+      'Incorrect code',
+      name: 'accountErrorInvalidCode',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Code expired — request a new one`
+  String get accountErrorCodeExpired {
+    return Intl.message(
+      'Code expired — request a new one',
+      name: 'accountErrorCodeExpired',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Too many attempts, wait {wait}`
+  String accountErrorRateLimited(Object wait) {
+    return Intl.message(
+      'Too many attempts, wait $wait',
+      name: 'accountErrorRateLimited',
+      desc: '',
+      args: [wait],
+    );
+  }
+
+  /// `Too many attempts, try later`
+  String get accountErrorRateLimitedLater {
+    return Intl.message(
+      'Too many attempts, try later',
+      name: 'accountErrorRateLimitedLater',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `This email can't be used`
+  String get accountErrorEmailRejected {
+    return Intl.message(
+      'This email can\'t be used',
+      name: 'accountErrorEmailRejected',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Can't reach the server`
+  String get accountErrorNetwork {
+    return Intl.message(
+      'Can\'t reach the server',
+      name: 'accountErrorNetwork',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Sign-in temporarily unavailable`
+  String get accountErrorDisabled {
+    return Intl.message(
+      'Sign-in temporarily unavailable',
+      name: 'accountErrorDisabled',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Something went wrong`
+  String get accountErrorGeneric {
+    return Intl.message(
+      'Something went wrong',
+      name: 'accountErrorGeneric',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Subscription connected`
+  String get accountSubscriptionImported {
+    return Intl.message(
+      'Subscription connected',
+      name: 'accountSubscriptionImported',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The subscription is already in the app`
+  String get accountSubscriptionAlreadyPresent {
+    return Intl.message(
+      'The subscription is already in the app',
+      name: 'accountSubscriptionAlreadyPresent',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Signed in, no subscription yet`
+  String get accountNoSubscription {
+    return Intl.message(
+      'Signed in, no subscription yet',
+      name: 'accountNoSubscription',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Signed in, subscription not connected`
+  String get accountSyncFailed {
+    return Intl.message(
+      'Signed in, subscription not connected',
+      name: 'accountSyncFailed',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Sign in with your fingerprint?`
+  String get accountBiometricOfferTitle {
+    return Intl.message(
+      'Sign in with your fingerprint?',
+      name: 'accountBiometricOfferTitle',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Your account will open with your fingerprint.`
+  String get accountBiometricOfferText {
+    return Intl.message(
+      'Your account will open with your fingerprint.',
+      name: 'accountBiometricOfferText',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Turn on`
+  String get accountBiometricEnable {
+    return Intl.message(
+      'Turn on',
+      name: 'accountBiometricEnable',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Confirm signing in to your account`
+  String get accountBiometricUnlockReason {
+    return Intl.message(
+      'Confirm signing in to your account',
+      name: 'accountBiometricUnlockReason',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Confirm to sign in with your fingerprint`
+  String get accountBiometricEnableReason {
+    return Intl.message(
+      'Confirm to sign in with your fingerprint',
+      name: 'accountBiometricEnableReason',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Fingerprint sign-in`
+  String get accountBiometricSwitch {
+    return Intl.message(
+      'Fingerprint sign-in',
+      name: 'accountBiometricSwitch',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Update subscription`
+  String get accountSyncSubscription {
+    return Intl.message(
+      'Update subscription',
+      name: 'accountSyncSubscription',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Sign out`
+  String get accountLogout {
+    return Intl.message('Sign out', name: 'accountLogout', desc: '', args: []);
+  }
+
+  /// `Signed out`
+  String get accountLoggedOut {
+    return Intl.message(
+      'Signed out',
+      name: 'accountLoggedOut',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Remove from this device`
+  String get accountRemoveFromDevice {
+    return Intl.message(
+      'Remove from this device',
+      name: 'accountRemoveFromDevice',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Remove from this device?`
+  String get accountRemoveFromDeviceTitle {
+    return Intl.message(
+      'Remove from this device?',
+      name: 'accountRemoveFromDeviceTitle',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The account and its subscription will disappear from this device. You can sign in again with your email.`
+  String get accountRemoveFromDeviceText {
+    return Intl.message(
+      'The account and its subscription will disappear from this device. You can sign in again with your email.',
+      name: 'accountRemoveFromDeviceText',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Removed from this device`
+  String get accountRemovedFromDevice {
+    return Intl.message(
+      'Removed from this device',
+      name: 'accountRemovedFromDevice',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Unlock`
+  String get accountUnlock {
+    return Intl.message('Unlock', name: 'accountUnlock', desc: '', args: []);
+  }
+
+  /// `Sign in with a code`
+  String get accountSignInWithCode {
+    return Intl.message(
+      'Sign in with a code',
+      name: 'accountSignInWithCode',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `{n} s`
+  String accountWaitSeconds(Object n) {
+    return Intl.message(
+      '$n s',
+      name: 'accountWaitSeconds',
+      desc: '',
+      args: [n],
+    );
+  }
+
+  /// `{n} min`
+  String accountWaitMinutes(Object n) {
+    return Intl.message(
+      '$n min',
+      name: 'accountWaitMinutes',
+      desc: '',
+      args: [n],
+    );
+  }
+
+  /// `{n} h`
+  String accountWaitHours(Object n) {
+    return Intl.message('$n h', name: 'accountWaitHours', desc: '', args: [n]);
+  }
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<AppLocalizations> {
