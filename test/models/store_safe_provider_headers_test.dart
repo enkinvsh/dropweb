@@ -45,4 +45,16 @@ void main() {
       expect(storeSafeProviderHeaders(headers, isStoreBuild: false), headers);
     });
   });
+
+  group('announceLinksTappable', () {
+    // Текст announce в магазинной сборке остаётся, но ссылки в нём не живые:
+    // провайдер не может увести на оплату или в бота через объявление.
+    test('store build: ссылки в announce не кликабельны', () {
+      expect(announceLinksTappable(isStoreBuild: true), isFalse);
+    });
+
+    test('sideload build: ссылки в announce кликабельны', () {
+      expect(announceLinksTappable(isStoreBuild: false), isTrue);
+    });
+  });
 }

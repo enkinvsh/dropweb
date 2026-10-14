@@ -18,10 +18,29 @@
         android:name="android.permission.REQUEST_INSTALL_PACKAGES"
         tools:node="remove" />
 
+    <!-- Вход по биометрии/отпечатку относится к выключенной в store-сборке
+         функции аккаунта (local_auth транзитивно подтягивает оба разрешения). -->
+    <uses-permission
+        android:name="android.permission.USE_BIOMETRIC"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.USE_FINGERPRINT"
+        tools:node="remove" />
+
     <queries>
         <intent tools:node="remove">
             <action android:name="android.intent.action.VIEW" />
             <data android:mimeType="application/vnd.android.package-archive" />
         </intent>
     </queries>
+
+    <!-- Отладочный adb-приёмник (DebugReceiver, exported под permission DUMP)
+         в магазинном артефакте не нужен: Dart-сторона и так отвечает
+         disabled-in-play-build, а лишний экспортированный компонент только
+         привлекает внимание статического анализа Google. -->
+    <application>
+        <receiver
+            android:name=".DebugReceiver"
+            tools:node="remove" />
+    </application>
 </manifest>

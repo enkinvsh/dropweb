@@ -115,6 +115,10 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
       color: theme.colorScheme.onSurfaceVariant,
     );
 
+    if (!announceLinksTappable()) {
+      return [TextSpan(text: text, style: style)];
+    }
+
     for (final match in urlPattern.allMatches(text)) {
       if (match.start > lastIndex) {
         spans.add(TextSpan(
@@ -216,8 +220,12 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
     // Monetization buttons — gated by subscription state and driven by
     // dropweb-* headers (auto-collected lowercase in profile.dart). Mechanism
     // is ported from pluralplay/FlClashX; the Lumina visual treatment is ours.
-    final renewUrl = headers['dropweb-renew-url'];
-    final topUpUrl = headers['dropweb-topup-url'];
+    // В магазинных сборках кнопок оплаты нет, даже если ключи уже лежат в
+    // сохранённом профиле: при импорте они вырезаются, это второй рубеж.
+    final renewUrl =
+        system.isStoreBuild ? null : headers['dropweb-renew-url'];
+    final topUpUrl =
+        system.isStoreBuild ? null : headers['dropweb-topup-url'];
 
     final now = DateTime.now();
     final showRenew = renewUrl != null &&

@@ -170,6 +170,14 @@ android {
                     abiFilters.clear()
                     abiFilters.addAll(listOf("arm64-v8a", "x86_64"))
                 }
+
+                // Ручная обкатка store-сборки на устройстве с рабочей dropweb:
+                // DROPWEB_STORE_TEST_SUFFIX=.store ставит копию app.dropweb.store
+                // рядом, не затирая подписки. Только для локального теста,
+                // артефакт для Play собирается без переменной (id app.dropweb).
+                System.getenv("DROPWEB_STORE_TEST_SUFFIX")
+                    ?.takeIf { it.startsWith(".") }
+                    ?.let { applicationIdSuffix = it }
             }
 
             // Fail-closed signing: only attach the production signing config when

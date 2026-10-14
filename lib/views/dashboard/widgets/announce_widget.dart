@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/widgets.dart';
@@ -30,6 +31,10 @@ class _AnnounceWidgetState extends ConsumerState<AnnounceWidget> {
   }
 
   List<InlineSpan> _buildTextSpans(BuildContext context, String text) {
+    if (!announceLinksTappable()) {
+      return buildEmojiSpans(text, style: Theme.of(context).textTheme.bodyLarge);
+    }
+
     final urlPattern = RegExp(
       r'https?://[^\s]+',
       caseSensitive: false,

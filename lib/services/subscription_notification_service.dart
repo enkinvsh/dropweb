@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dropweb/common/app_localizations.dart';
 import 'package:dropweb/common/print.dart';
+import 'package:dropweb/common/system.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/plugins/vpn.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +18,17 @@ class SubscriptionNotificationService {
   /// 3 = 3 days left, 2 = 2 days left, 1 = 1 day left, 0 = expires today
   /// -1 is special: means subscription has expired
   static const List<int> notificationDays = [3, 2, 1, 0, -1];
+
+  /// Ссылка для кнопки «Продлить» в уведомлении. В магазинных сборках её нет:
+  /// само напоминание об истечении политика приложения раскрывает, а уводить
+  /// из уведомления на оплату или в бота провайдера store-клиент не должен.
+  static String renewActionUrl(
+    Map<String, String> providerHeaders, {
+    bool? isStoreBuild,
+  }) {
+    if (isStoreBuild ?? system.isStoreBuild) return '';
+    return providerHeaders['support-url'] ?? '';
+  }
 
   /// Check subscription and show notification if needed
   static Future<void> checkAndNotify(Profile profile) async {
@@ -107,8 +119,8 @@ class SubscriptionNotificationService {
       return;
     }
 
-    // Get support URL for "Renew" button (optional)
-    final supportUrl = profile.providerHeaders['support-url'] ?? '';
+    // Get support URL for "Renew" button (optional); empty in store builds
+    final supportUrl = renewActionUrl(profile.providerHeaders);
     commonPrint.log('[SubscriptionNotification] supportUrl: $supportUrl');
 
     // Get title from dropweb-servicename header or fallback to profile label

@@ -10,10 +10,12 @@ import 'package:flutter/material.dart';
 ///   * `false` — user pressed Cancel.
 ///   * `null`  — dialog dismissed without an explicit choice (treat as cancel).
 ///
-/// The wording is intentionally factual and moderation-safe: it describes
-/// what the VPN does, that the user controls it, and that optional
-/// diagnostics/account flows are disclosed separately. It does NOT claim
-/// "no logs" or "anonymous".
+/// Текст фактический и должен совпадать с политикой приложения
+/// (dropweb.org/app/privacy): что делает VPN, куда уходит трафик, что получает
+/// провайдер подписки (IP, HWID, модель устройства) и что приложение сам
+/// содержимое трафика не смотрит и не отправляет. Он НЕ обещает «no logs»
+/// и «anonymous»: локальные логи приложение ведёт, а серверы пользователя
+/// живут по своим правилам. Меняешь текст — сверь с политикой.
 Future<bool?> showVpnDisclosureDialog(BuildContext context) =>
     globalState.showCommonDialog<bool>(
       dismissible: false,
