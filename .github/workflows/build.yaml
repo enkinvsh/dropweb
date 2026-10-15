@@ -53,8 +53,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       # The android job builds a UNIVERSAL APK (3 ABIs) plus the Go core, which
       # can exhaust the ~14 GB ubuntu runner during :app:mergeReleaseNativeLibs

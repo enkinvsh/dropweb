@@ -1,0 +1,10 @@
+# script_template: "custom-inno-setup-script.iss"
+app_id: 15F38A1C-4C4B-4477-99C3-1205BC28C4CC
+publisher_name: LeanFlutter
+publisher_url: https://github.com/leanflutter/flutter_distributor
+display_name: Hello 世界
+create_desktop_icon: true
+launch_at_startup: true
+# install_dir_name: "D:\\HELLO-WORLD"
+locales:
+  - zh

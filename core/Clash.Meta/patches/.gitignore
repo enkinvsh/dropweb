@@ -1,0 +1,6 @@
+# Vendored third-party modules live here verbatim, so the repo-root rules must
+# not eat files the upstream module actually ships. In particular *.gitignore:4*
+# excludes *.dll, which silently dropped internal/wintun/*/wintun.dll — files
+# that //go:embed requires — and broke the Windows build with
+# "pattern amd64/wintun.dll: no matching files found".
+!*.dll

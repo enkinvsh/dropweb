@@ -21,10 +21,6 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-        with:
-          # core/ builds against the Clash.Meta submodule; `go test ./...` in
-          # core/ cannot resolve its `replace` directives without it.
-          submodules: recursive
 
       # Toolchain pins are copied from the proven release pipeline
       # (build.yaml / build-linux.yaml), not chosen here:
