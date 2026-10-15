@@ -347,6 +347,20 @@ dropweb-sub-id: {{SHORT_UUID}}
 
 ---
 
+## 11. dropweb-haul — закрытый мультиплексированный транспорт DropHaul
+
+Включает для `VLESS+Reality` узлов закрытый мультиплексированный транспорт `drophaul` внутри ядра `dropweb-app` (с 5-tuple Happy Eyeballs, приоритетом голоса `CLSREALTIME`, паддингом `cmdPAD`, автоматической отбраковкой придушенных ТСПУ сессий по `TCP_INFO`/RTT и прозрачным фолбэком на стандартный `VLESS+Reality`, если конкретная нода ещё не обновлена).
+
+```
+dropweb-haul: 1
+```
+
+- Значение `1` или `true` (без учёта регистра) включает `haul: true` на всех `vless`+`reality` (`tcp`) узлах подписки.
+- **Не требует настройки ключей в шаблоне подписки**: клиент и нода детерминированно выводят `haul_token` из `reality-opts.public-key` и `reality-opts.short-id` (`HMAC-SHA256(key=public_key, msg="drophaul-v1:"+short_id)`).
+- **Не гейтится** `dropweb-custom` и **не вырезается в магазинных сборках** (`PLAY_BUILD=true`): это транспортная опция протокола, а не брендинг или монетизация.
+
+---
+
 ## Сводка
 
 | Заголовок | Назначение | Пример значения |
@@ -364,3 +378,4 @@ dropweb-sub-id: {{SHORT_UUID}}
 | `fallback-url` | Последний запасной адрес подписки (секрет) | `https://mirror.example/fb/{{SHORT_UUID}}` |
 | `dropweb-sub-beacon` | Где лежит подписанный маяк зеркал (до 4 адресов) | `https://beacon.example/dropweb.json` |
 | `dropweb-sub-beacon-key` | Открытый ключ Ed25519 маяка (до 3, ротация) | `<base64, 32 байта>` |
+| `dropweb-haul` | Закрытый мультиплексированный транспорт DropHaul для VLESS+Reality узлов | `1` |

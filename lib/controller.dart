@@ -1090,6 +1090,7 @@ class AppController {
       'staticCountry': profile.staticCountry,
       // Rewrites the catch-all MATCH (applyFullTunnel) — same reason.
       'fullTunnel': profile.fullTunnel,
+      'haul': isHaulHeaderEnabled(profile.providerHeaders),
     };
 
     return computeSetupHash(
