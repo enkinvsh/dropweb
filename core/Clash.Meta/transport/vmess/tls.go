@@ -32,6 +32,9 @@ type TLSConfig struct {
 	Reality           *tlsC.RealityConfig
 	TLSMirror         *tlsmirror.Config
 	TLSMirrorDialer   tlsmirror.EnrollmentDialer
+	// ClientRandom задаёт явный 32-байтовый ClientHello.Random для uTLS-рукопожатия
+	// (используется drophaul-транспортом, чтобы ингресс отличал легитимного клиента от сканеров).
+	ClientRandom func() ([]byte, error)
 }
 
 func (cfg *TLSConfig) ToStdConfig() (*tls.Config, error) {
@@ -49,6 +52,11 @@ func (cfg *TLSConfig) ToStdConfig() (*tls.Config, error) {
 }
 
 func StreamTLSConn(ctx context.Context, conn net.Conn, cfg *TLSConfig) (net.Conn, error) {
+	if cfg.ClientRandom != nil && (cfg.ShadowTLS != nil || cfg.Restls != nil || cfg.JLS != nil || cfg.TLSMirror != nil || cfg.Reality != nil) {
+		// Немаркированный пакет серверный ингресс всё равно уведёт в nginx, поэтому при несовместимой
+		// обёртке возвращаем ошибку сразу, чтобы пул drophaul штатно откатился на Reality.
+		return nil, errors.New("client random hook is only supported for plain uTLS handshakes")
+	}
 	if cfg.ShadowTLS != nil {
 		alpn := cfg.NextProtos
 		if alpn == nil {
@@ -124,11 +132,29 @@ func StreamTLSConn(ctx context.Context, conn net.Conn, cfg *TLSConfig) (net.Conn
 		if err = tlsC.ApplyClientFingerprint(tlsConn, cfg.ClientFingerprint); err != nil {
 			return nil, err
 		}
+		if cfg.ClientRandom != nil {
+			r, err := cfg.ClientRandom()
+			if err != nil {
+				return nil, err
+			}
+			// BuildHandshakeState необходимо вызвать после ApplyPreset и до SetClientRandom:
+			// первый проход инициализирует Hello-структуру из пресета, а повторный проход
+			// внутри HandshakeContext пересоберёт Hello.Raw уже с подменённым Random.
+			if err = tlsConn.BuildHandshakeState(); err != nil {
+				return nil, err
+			}
+			if err = tlsConn.SetClientRandom(r); err != nil {
+				return nil, err
+			}
+		}
 		err = tlsConn.HandshakeContext(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return tlsConn, nil
+	}
+	if cfg.ClientRandom != nil {
+		return nil, errors.New("client random hook requires a valid uTLS client-fingerprint")
 	}
 	if cfg.Reality != nil {
 		return nil, errors.New("REALITY is based on uTLS, please set a client-fingerprint")

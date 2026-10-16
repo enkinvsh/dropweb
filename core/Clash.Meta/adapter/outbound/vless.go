@@ -625,6 +625,9 @@ func NewVless(option VlessOption) (*Vless, error) {
 					PrivateKey:        option.PrivateKey,
 					ClientFingerprint: fp,
 					NextProtos:        []string{"h2", "http/1.1"},
+					ClientRandom: func() ([]byte, error) {
+						return drophaul.ClientRandomForToken(haulToken)
+					},
 				}
 				return vmess.StreamTLSConn(ctx, rawConn, &tlsOpts)
 			},
