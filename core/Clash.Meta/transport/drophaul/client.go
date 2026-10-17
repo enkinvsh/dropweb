@@ -229,7 +229,7 @@ func (p *Pool) maybeWarmSecondSession() {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 		defer cancel()
-		_, _ = p.dialNewSessionWithLockAdjusted(ctx)
+		_, _ = p.dialNewSessionWithLockAdjusted(ctx, true)
 	}()
 }
 
@@ -278,10 +278,10 @@ func (p *Pool) dialNewSession(ctx context.Context) (*poolSession, error) {
 	p.mu.Lock()
 	p.dialing++
 	p.mu.Unlock()
-	return p.dialNewSessionWithLockAdjusted(ctx)
+	return p.dialNewSessionWithLockAdjusted(ctx, false)
 }
 
-func (p *Pool) dialNewSessionWithLockAdjusted(ctx context.Context) (*poolSession, error) {
+func (p *Pool) dialNewSessionWithLockAdjusted(ctx context.Context, background bool) (*poolSession, error) {
 	defer func() {
 		p.mu.Lock()
 		p.dialing--
@@ -290,7 +290,10 @@ func (p *Pool) dialNewSessionWithLockAdjusted(ctx context.Context) (*poolSession
 
 	rawConn, tlsConn, err := p.dialAndAuthenticate(ctx)
 	if err != nil {
-		if errors.Is(err, ErrFallbackToReality) {
+		// фоновый дозвон второй сессии не имеет права отправлять пул в откат:
+		// основная сессия может быть жива, а единичный сбой TLS/ack на «прогреве»
+		// (сеть мигнула, нода перегружена) иначе отключал drophaul на 10 минут.
+		if errors.Is(err, ErrFallbackToReality) && !background {
 			p.markFallback()
 		}
 		return nil, err
@@ -320,8 +323,10 @@ func (p *Pool) dialNewSessionWithLockAdjusted(ctx context.Context) (*poolSession
 		return nil, net.ErrClosed
 	}
 	p.sessions = append(p.sessions, ps)
+	// длину читаем под локом: после Unlock параллельный picker/cleanup меняет слайс.
+	active := len(p.sessions)
 	p.mu.Unlock()
-	log.Infoln("[drophaul] session established to %s (active=%d)", p.opts.Addr, len(p.sessions))
+	log.Infoln("[drophaul] session established to %s (active=%d)", p.opts.Addr, active)
 	return ps, nil
 }
 
@@ -379,6 +384,10 @@ func (p *Pool) dialHappyEyeballs(ctx context.Context) (net.Conn, error) {
 	ch := make(chan res, happyEyeballsWays)
 	launched := 0
 
+	// каждая горутина обязана отправить в ch РОВНО один результат (ёмкость канала
+	// = максимум запусков, отправка не блокируется): drain и цикл ниже считают
+	// ответы по числу запусков. Отправка через select с raceCtx.Done() ломает этот
+	// инвариант — после отмены гонки результат теряется, сборщик ждёт вечно.
 	launchOne := func() {
 		launched++
 		go func() {
@@ -387,10 +396,21 @@ func (p *Pool) dialHappyEyeballs(ctx context.Context) (net.Conn, error) {
 				ch <- res{err: err}
 				return
 			}
-			select {
-			case ch <- res{conn: c}:
-			case <-raceCtx.Done():
-				_ = c.Close()
+			ch <- res{conn: c}
+		}()
+	}
+
+	// drain дочищает результаты проигравших/отменённых дозвонов и закрывает их
+	// соединения, чтобы дескрипторы не утекали.
+	drain := func(rem int) {
+		if rem <= 0 {
+			return
+		}
+		go func() {
+			for i := 0; i < rem; i++ {
+				if extra := <-ch; extra.conn != nil {
+					_ = extra.conn.Close()
+				}
 			}
 		}()
 	}
@@ -406,13 +426,7 @@ func (p *Pool) dialHappyEyeballs(ctx context.Context) (net.Conn, error) {
 		case r := <-ch:
 			if r.err == nil && r.conn != nil {
 				cancelRace()
-				go func(rem int) {
-					for i := 0; i < rem; i++ {
-						if extra := <-ch; extra.conn != nil {
-							_ = extra.conn.Close()
-						}
-					}
-				}(launched - failures - 1)
+				drain(launched - failures - 1)
 				return r.conn, nil
 			}
 			failures++
@@ -438,6 +452,7 @@ func (p *Pool) dialHappyEyeballs(ctx context.Context) (net.Conn, error) {
 			}
 		case <-ctx.Done():
 			cancelRace()
+			drain(launched - failures)
 			return nil, ctx.Err()
 		}
 	}
