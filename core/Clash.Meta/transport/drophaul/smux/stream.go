@@ -107,10 +107,32 @@ func (s *Stream) tryRead(b []byte) (n int, err error) {
 
 	select {
 	case <-s.die:
-		return 0, io.EOF
+		return 0, s.dieReadErr()
 	default:
 		return 0, ErrWouldBlock
 	}
+}
+
+// dieReadErr — ошибка чтения из закрытого и уже вычитанного стрима. Сессия
+// закрывается при остановке recvLoop, поэтому die закрыт и при ошибке сокета/протокола:
+// отдаём реальную причину, а не io.EOF, чтобы обрыв не выглядел как штатный конец данных.
+// Полученный FIN или обычный Close по-прежнему дают io.EOF.
+func (s *Stream) dieReadErr() error {
+	select {
+	case <-s.chFinEvent:
+		return io.EOF
+	default:
+	}
+	if err := s.sess.recvErr(); err != nil {
+		return err
+	}
+	return io.EOF
+}
+
+func (s *Stream) hasBuffered() bool {
+	s.bufferLock.Lock()
+	defer s.bufferLock.Unlock()
+	return len(s.buffers) > 0
 }
 
 func (s *Stream) tryReadv2(b []byte) (n int, err error) {
@@ -144,6 +166,11 @@ func (s *Stream) tryReadv2(b []byte) (n int, err error) {
 		s.sess.returnTokens(n)
 		if notifyConsumed > 0 {
 			err := s.sendWindowUpdate(notifyConsumed)
+			// Дочитывание буфера после обрыва: UPD мёртвой сессии некому слать, а его
+			// ErrClosedPipe замаскировал бы реальную причину, которую вернёт следующий Read.
+			if err != nil && s.sess.IsClosed() {
+				return n, nil
+			}
 			return n, err
 		}
 		return n, nil
@@ -151,7 +178,7 @@ func (s *Stream) tryReadv2(b []byte) (n int, err error) {
 
 	select {
 	case <-s.die:
-		return 0, io.EOF
+		return 0, s.dieReadErr()
 	default:
 		return 0, ErrWouldBlock
 	}
@@ -217,7 +244,8 @@ func (s *Stream) writeTov2(w io.Writer) (n int64, err error) {
 				return n, ew
 			}
 			if notifyConsumed > 0 {
-				if err := s.sendWindowUpdate(notifyConsumed); err != nil {
+				// Как в tryReadv2: после обрыва дочитываем буфер, причину отдаст waitRead.
+				if err := s.sendWindowUpdate(notifyConsumed); err != nil && !s.sess.IsClosed() {
 					return n, err
 				}
 			}
@@ -255,6 +283,15 @@ func (s *Stream) effectiveStreamWindow(consumed uint32) uint32 {
 	}
 	if target > capWin {
 		target = capWin
+	}
+	// Все стримы делят один bucket (MaxReceiveBuffer). Без доли на стрим четыре
+	// застрявших читателя по 4*base выбирают весь бюджет, recvLoop перестаёт читать
+	// сокет и встают все стримы сессии, включая realtime и keepalive. Сумма выросших
+	// окон ограничена половиной бюджета; меньше base окно не опускаем.
+	if n := s.sess.NumStreams(); n > 1 {
+		if share := capWin / uint32(n); target > share {
+			target = share
+		}
 	}
 	if target < base {
 		return base
@@ -300,14 +337,42 @@ func (s *Stream) waitRead() error {
 		}
 		return io.EOF
 	case <-s.sess.chSocketReadError:
-		return s.sess.socketReadError.Load().(error)
+		return s.recvErrUnlessBuffered()
 	case <-s.sess.chProtoError:
-		return s.sess.protoError.Load().(error)
+		return s.recvErrUnlessBuffered()
 	case <-deadline:
 		return ErrTimeout
 	case <-s.die:
+		// Данные, принятые до обрыва, должны дочитываться: select мог выбрать die
+		// раньше chReadEvent, тогда tryRead отдаст буфер, а затем причину закрытия.
+		if s.hasBuffered() {
+			return nil
+		}
+		if err := s.sess.recvErr(); err != nil {
+			return err
+		}
 		return io.ErrClosedPipe
 	}
+}
+
+func (s *Stream) recvErrUnlessBuffered() error {
+	if s.hasBuffered() {
+		return nil
+	}
+	return s.sess.recvErr()
+}
+
+// writeDeadlineChan возвращает канал, закрываемый в момент write-дедлайна (nil без
+// дедлайна). Закрытый канал «помнит» истёкший дедлайн для всех кадров одного Write,
+// поэтому после кадра, засчитанного как ушедший, следующий кадр сразу получит ErrTimeout.
+func (s *Stream) writeDeadlineChan() (<-chan struct{}, func()) {
+	d, ok := s.writeDeadline.Load().(time.Time)
+	if !ok || d.IsZero() {
+		return nil, func() {}
+	}
+	ch := make(chan struct{})
+	timer := time.AfterFunc(time.Until(d), func() { close(ch) })
+	return ch, func() { timer.Stop() }
 }
 
 func (s *Stream) Write(b []byte) (n int, err error) {
@@ -315,12 +380,8 @@ func (s *Stream) Write(b []byte) (n int, err error) {
 		return s.writeV2(b)
 	}
 
-	var deadline <-chan time.Time
-	if d, ok := s.writeDeadline.Load().(time.Time); ok && !d.IsZero() {
-		timer := time.NewTimer(time.Until(d))
-		defer timer.Stop()
-		deadline = timer.C
-	}
+	deadline, stop := s.writeDeadlineChan()
+	defer stop()
 
 	select {
 	case <-s.chFinEvent:
@@ -353,7 +414,7 @@ func (s *Stream) Write(b []byte) (n int, err error) {
 		}
 		frame.data = bts[:sz]
 		bts = bts[sz:]
-		n, err := s.sess.writeFrameInternal(frame, deadline, class)
+		n, err := s.sess.writeData(frame, deadline, class)
 		s.numWritten++
 		sent += n
 		if err != nil {
@@ -377,12 +438,8 @@ func (s *Stream) writeV2(b []byte) (n int, err error) {
 	default:
 	}
 
-	var deadline <-chan time.Time
-	if d, ok := s.writeDeadline.Load().(time.Time); ok && !d.IsZero() {
-		timer := time.NewTimer(time.Until(d))
-		defer timer.Stop()
-		deadline = timer.C
-	}
+	deadline, stop := s.writeDeadlineChan()
+	defer stop()
 
 	sent := 0
 	frame := newFrame(byte(s.sess.config.Version), cmdPSH, s.id)
@@ -391,8 +448,10 @@ func (s *Stream) writeV2(b []byte) (n int, err error) {
 	for {
 		var bts []byte
 		inflight := int32(atomic.LoadUint32(&s.numWritten) - atomic.LoadUint32(&s.peerConsumed))
+		// Уже отправленные байты ушли пиру: вызывающий должен знать точный счёт,
+		// иначе повтор записи их продублирует.
 		if inflight < 0 {
-			return 0, ErrConsumed
+			return sent, ErrConsumed
 		}
 
 		win := int32(atomic.LoadUint32(&s.peerWindow)) - inflight
@@ -408,7 +467,9 @@ func (s *Stream) writeV2(b []byte) (n int, err error) {
 
 			if pad > 0 {
 				n, err := s.sess.writeGroup(s.padGroup(bts, pad), deadline)
-				atomic.AddUint32(&s.numWritten, uint32(len(bts)))
+				// Окно пира расходуют только реально ушедшие байты: отменённые по
+				// дедлайну иначе навсегда съедали бы окно, и повторные таймауты душили стрим.
+				atomic.AddUint32(&s.numWritten, uint32(n))
 				sent += n
 				pad = 0
 				if err != nil {
@@ -429,8 +490,8 @@ func (s *Stream) writeV2(b []byte) (n int, err error) {
 				frame.data = bts[:sz]
 				bts = bts[sz:]
 
-				n, err := s.sess.writeFrameInternal(frame, deadline, class)
-				atomic.AddUint32(&s.numWritten, uint32(sz))
+				n, err := s.sess.writeData(frame, deadline, class)
+				atomic.AddUint32(&s.numWritten, uint32(n))
 				sent += n
 				if err != nil {
 					return sent, err
@@ -441,13 +502,21 @@ func (s *Stream) writeV2(b []byte) (n int, err error) {
 		if len(b) > 0 {
 			select {
 			case <-s.chFinEvent:
-				return 0, io.EOF
+				return sent, io.EOF
 			case <-s.die:
+				if err := s.sess.recvErr(); err != nil {
+					return sent, err
+				}
 				return sent, io.ErrClosedPipe
 			case <-deadline:
 				return sent, ErrTimeout
 			case <-s.sess.chSocketWriteError:
 				return sent, s.sess.socketWriteError.Load().(error)
+			// Окно расширяют только UPD из recvLoop; если он остановился, ждать нечего.
+			case <-s.sess.chSocketReadError:
+				return sent, s.sess.socketReadError.Load().(error)
+			case <-s.sess.chProtoError:
+				return sent, s.sess.protoError.Load().(error)
 			case <-s.chUpdate:
 				continue
 			}

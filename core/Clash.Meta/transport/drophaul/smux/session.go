@@ -43,12 +43,25 @@ var (
 	ErrWouldBlock                = errors.New("operation would block on IO")
 )
 
+// Состояния отменяемого запроса записи. frame.data PSH-кадра указывает в буфер
+// вызывающего: после таймаута Write он вправе его переиспользовать, поэтому sendLoop
+// может копировать payload только выиграв CAS reqQueued->reqCopying, а ожидающий
+// возвращает таймаут только выиграв CAS reqQueued->reqCancelled.
+const (
+	reqQueued int32 = iota
+	reqCopying
+	reqCancelled
+)
+
 type writeRequest struct {
 	class  CLASSID
 	frame  Frame
 	seq    uint32
 	result chan writeResult
 	glue   bool
+	// state == nil у служебных кадров (SYN/FIN/UPD/NOP/keepalive): они владеют
+	// своими буферами и никогда не отменяются.
+	state *int32
 }
 
 type writeResult struct {
@@ -57,8 +70,11 @@ type writeResult struct {
 }
 
 type Session struct {
-	conn             io.ReadWriteCloser
-	config           *Config
+	conn   io.ReadWriteCloser
+	config *Config
+	// client: сессия создана через Client(); клиент пула никогда не вызывает
+	// AcceptStream, поэтому входящий SYN для него — нарушение протокола.
+	client           bool
 	nextStreamID     uint32
 	nextStreamIDLock sync.Mutex
 
@@ -93,6 +109,11 @@ type Session struct {
 	writeMu     sync.Mutex
 	writeQ      []writeRequest
 	writeNotify chan struct{}
+
+	// copyMu держит sendLoop, пока захватывает запросы и копирует их payload в батч,
+	// и отпускает до блокирующего conn.Write. Ожидающий, проигравший CAS отмены, ждёт
+	// на нём только конца копирования в память, а не сокет.
+	copyMu sync.Mutex
 }
 
 func newSession(config *Config, conn io.ReadWriteCloser, client bool) *Session {
@@ -108,6 +129,7 @@ func newSession(config *Config, conn io.ReadWriteCloser, client bool) *Session {
 	s.chSocketReadError = make(chan struct{})
 	s.chSocketWriteError = make(chan struct{})
 	s.chProtoError = make(chan struct{})
+	s.client = client
 
 	if client {
 		s.nextStreamID = 1
@@ -155,6 +177,8 @@ func (s *Session) OpenStream() (*Stream, error) {
 	select {
 	case <-s.chSocketReadError:
 		return nil, s.socketReadError.Load().(error)
+	case <-s.chProtoError:
+		return nil, s.protoError.Load().(error)
 	case <-s.chSocketWriteError:
 		return nil, s.socketWriteError.Load().(error)
 	case <-s.die:
@@ -245,6 +269,24 @@ func (s *Session) notifyProtoError(err error) {
 	})
 }
 
+// recvErr возвращает сохранённую причину остановки recvLoop (ошибка чтения
+// сокета или протокола) либо nil. Проверка неблокирующая и в фиксированном
+// порядке: после закрытия сессии die закрыт одновременно с этими каналами,
+// и случайный выбор select не должен подменять реальную причину на ErrClosedPipe.
+func (s *Session) recvErr() error {
+	select {
+	case <-s.chSocketReadError:
+		return s.socketReadError.Load().(error)
+	default:
+	}
+	select {
+	case <-s.chProtoError:
+		return s.protoError.Load().(error)
+	default:
+	}
+	return nil
+}
+
 func (s *Session) IsClosed() bool {
 	select {
 	case <-s.die:
@@ -323,6 +365,11 @@ func (s *Session) recvLoop() {
 	var hdr rawHeader
 	var updHdr updHeader
 	conn := bufio.NewReaderSize(s.conn, recvBufferSize)
+	// Без recvLoop сессия мертва: UPD не приходят, писатели ждут окно вечно, а пул
+	// продолжал бы выдавать её в OpenStream до keepalive-закрытия (до 2*KeepAliveTimeout).
+	// Поэтому любой выход закрывает сессию; повторный Close безопасен (dieOnce),
+	// его ErrClosedPipe здесь не несёт информации.
+	defer func() { _ = s.Close() }()
 
 	for {
 		for atomic.LoadInt32(&s.bucket) <= 0 && !s.IsClosed() {
@@ -349,13 +396,20 @@ func (s *Session) recvLoop() {
 			switch hdr.Cmd() {
 			case cmdNOP:
 			case cmdSYN:
+				if s.client {
+					s.notifyProtoError(ErrInvalidProtocol)
+					return
+				}
 				s.streamLock.Lock()
 				if _, ok := s.streams[sid]; !ok {
 					stream := newStream(sid, s.config.MaxFrameSize, s)
-					s.streams[sid] = stream
+					// Под streamLock блокироваться нельзя: при полном бэклоге (никто не
+					// вызывает Accept) зависли бы NumStreams/OpenStream/Stream.Close.
+					// Лишний SYN отбрасываем, стрим не регистрируем.
 					select {
 					case s.chAccepts <- stream:
-					case <-s.die:
+						s.streams[sid] = stream
+					default:
 					}
 				}
 				s.streamLock.Unlock()
@@ -499,8 +553,12 @@ func (s *Session) sendLoop() {
 func (s *Session) writeBatch(buf []byte, batch []writeRequest) error {
 	ordered := reorderBatch(batch)
 
+	// Отменённые запросы выкидываются из ordered сжатием на месте (kept <= i),
+	// чтобы flush считал смещения только по реально скопированным кадрам.
 	used := 0
 	first := 0
+	kept := 0
+	s.copyMu.Lock()
 	for i, r := range ordered {
 		sz := headerSize + len(r.frame.data)
 		need := sz
@@ -508,11 +566,19 @@ func (s *Session) writeBatch(buf []byte, batch []writeRequest) error {
 			need += headerSize + len(ordered[i+1].frame.data)
 		}
 		if used > 0 && used+need > len(buf) {
-			if err := s.flush(buf[:used], ordered[first:i]); err != nil {
+			s.copyMu.Unlock()
+			if err := s.flush(buf[:used], ordered[first:kept]); err != nil {
 				failRequests(ordered[i:], err)
 				return err
 			}
-			used, first = 0, i
+			used, first = 0, kept
+			s.copyMu.Lock()
+		}
+		// CAS строго после возможного flush и под copyMu: захваченный запрос
+		// копируется до отпускания copyMu, иначе ожидающий решил бы, что его
+		// payload уже скопирован, и вернул бы буфер вызывающему раньше времени.
+		if r.state != nil && !atomic.CompareAndSwapInt32(r.state, reqQueued, reqCopying) {
+			continue
 		}
 		buf[used] = r.frame.ver
 		buf[used+1] = r.frame.cmd
@@ -520,8 +586,14 @@ func (s *Session) writeBatch(buf []byte, batch []writeRequest) error {
 		binary.LittleEndian.PutUint32(buf[used+4:], r.frame.sid)
 		copy(buf[used+headerSize:], r.frame.data)
 		used += sz
+		ordered[kept] = r
+		kept++
 	}
-	return s.flush(buf[:used], ordered[first:])
+	s.copyMu.Unlock()
+	if used == 0 {
+		return nil
+	}
+	return s.flush(buf[:used], ordered[first:kept])
 }
 
 func (s *Session) flush(p []byte, reqs []writeRequest) error {
@@ -632,17 +704,7 @@ func (s *Session) writeFrameInternal(f Frame, deadline <-chan time.Time, class C
 		seq:    atomic.AddUint32(&s.requestID, 1),
 		result: make(chan writeResult, 1),
 	}
-
-	s.writeMu.Lock()
-	wasEmpty := len(s.writeQ) == 0
-	s.writeQ = append(s.writeQ, req)
-	s.writeMu.Unlock()
-	if wasEmpty {
-		select {
-		case s.writeNotify <- struct{}{}:
-		default:
-		}
-	}
+	s.enqueue([]writeRequest{req})
 
 	select {
 	case result := <-req.result:
@@ -654,4 +716,101 @@ func (s *Session) writeFrameInternal(f Frame, deadline <-chan time.Time, class C
 	case <-deadline:
 		return 0, ErrTimeout
 	}
+}
+
+func (s *Session) enqueue(reqs []writeRequest) {
+	s.writeMu.Lock()
+	wasEmpty := len(s.writeQ) == 0
+	s.writeQ = append(s.writeQ, reqs...)
+	s.writeMu.Unlock()
+	if wasEmpty {
+		select {
+		case s.writeNotify <- struct{}{}:
+		default:
+		}
+	}
+}
+
+// writeData пишет PSH-кадр с байтами вызывающего; запрос отменяемый (см. reqQueued).
+// deadline — канал, закрываемый в момент дедлайна: он остаётся «сработавшим» для
+// всех следующих кадров того же Write, в отличие от однократного time.Timer.C.
+func (s *Session) writeData(f Frame, deadline <-chan struct{}, class CLASSID) (int, error) {
+	select {
+	case <-s.die:
+		return 0, io.ErrClosedPipe
+	case <-s.chSocketWriteError:
+		return 0, s.socketWriteError.Load().(error)
+	case <-deadline:
+		return 0, ErrTimeout
+	default:
+	}
+
+	req := writeRequest{
+		class:  class,
+		frame:  f,
+		seq:    atomic.AddUint32(&s.requestID, 1),
+		result: make(chan writeResult, 1),
+		state:  new(int32),
+	}
+	reqs := [1]writeRequest{req}
+	s.enqueue(reqs[:])
+
+	select {
+	case result := <-req.result:
+		return result.n, result.err
+	case <-s.die:
+		return s.abandon(reqs[:], 0, io.ErrClosedPipe)
+	case <-s.chSocketWriteError:
+		return s.abandon(reqs[:], 0, s.socketWriteError.Load().(error))
+	case <-deadline:
+		return s.abandon(reqs[:], 0, ErrTimeout)
+	}
+}
+
+// abandon снимает ещё не отправленный хвост reqs (кадры одного Write в порядке
+// очереди) после дедлайна или смерти сессии. Отмена идёт с конца, чтобы PAD,
+// приклеенный к PSH, снимался раньше своего PSH, и на проводе никогда не оказалось
+// PAD без данных. sendLoop захватывает кадры по порядку, поэтому захваченные образуют
+// префикс: на первом проигранном CAS останавливаемся, всё до него уже в батче.
+// Захваченный кадр считается записанным (байты уйдут в сокет), но никогда не
+// возвращается как (n == len, err != nil): ошибку получит следующий кадр Write.
+func (s *Session) abandon(reqs []writeRequest, sent int, cause error) (int, error) {
+	claimed := 0
+	for j := len(reqs) - 1; j >= 0; j-- {
+		if !atomic.CompareAndSwapInt32(reqs[j].state, reqQueued, reqCancelled) {
+			claimed = j + 1
+			break
+		}
+	}
+	if claimed == 0 {
+		return sent, cause
+	}
+	// Копирование в батч ограничено памятью (<= maxWriteBatch), ждём только его.
+	s.copyMu.Lock()
+	s.copyMu.Unlock()
+	for _, r := range reqs[:claimed] {
+		n, err := len(r.frame.data), error(nil)
+		select {
+		case res := <-r.result:
+			n, err = res.n, res.err
+		default:
+			// Сессия умирает, flush ещё не отчитался — доставка не гарантирована.
+			if cause != ErrTimeout {
+				n, err = 0, cause
+			}
+		}
+		if r.frame.cmd != cmdPAD {
+			sent += n
+		}
+		if err != nil {
+			return sent, err
+		}
+	}
+	// Снятый одиночный PAD данных не несёт: если все PSH захвачены, Write успешен.
+	for _, r := range reqs[claimed:] {
+		if r.frame.cmd != cmdPAD {
+			return sent, cause
+		}
+	}
+	return sent, nil
 }

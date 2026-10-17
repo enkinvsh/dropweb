@@ -5,7 +5,6 @@ import (
 	"io"
 	"math/rand"
 	"sync/atomic"
-	"time"
 )
 
 // В первых padWritesPerStream вызовах Write каждого стрима в тот же батч
@@ -67,15 +66,20 @@ func (s *Stream) padGroup(data []byte, pad int) []Frame {
 	return frames
 }
 
-func (s *Session) writeGroup(frames []Frame, deadline <-chan time.Time) (int, error) {
+// writeGroup ставит в очередь PSH-кадры одного Write вместе с приклеенным PAD.
+// Все запросы отменяемые, включая PAD: он должен сниматься вместе со своим PSH.
+func (s *Session) writeGroup(frames []Frame, deadline <-chan struct{}) (int, error) {
 	select {
 	case <-s.die:
 		return 0, io.ErrClosedPipe
 	case <-s.chSocketWriteError:
 		return 0, s.socketWriteError.Load().(error)
+	case <-deadline:
+		return 0, ErrTimeout
 	default:
 	}
 
+	states := make([]int32, len(frames))
 	reqs := make([]writeRequest, len(frames))
 	for i, f := range frames {
 		reqs[i] = writeRequest{
@@ -84,22 +88,13 @@ func (s *Session) writeGroup(frames []Frame, deadline <-chan time.Time) (int, er
 			seq:    atomic.AddUint32(&s.requestID, 1),
 			result: make(chan writeResult, 1),
 			glue:   f.cmd == cmdPAD,
+			state:  &states[i],
 		}
 	}
-
-	s.writeMu.Lock()
-	wasEmpty := len(s.writeQ) == 0
-	s.writeQ = append(s.writeQ, reqs...)
-	s.writeMu.Unlock()
-	if wasEmpty {
-		select {
-		case s.writeNotify <- struct{}{}:
-		default:
-		}
-	}
+	s.enqueue(reqs)
 
 	sent := 0
-	for _, r := range reqs {
+	for i, r := range reqs {
 		select {
 		case result := <-r.result:
 			if r.frame.cmd != cmdPAD {
@@ -109,11 +104,11 @@ func (s *Session) writeGroup(frames []Frame, deadline <-chan time.Time) (int, er
 				return sent, result.err
 			}
 		case <-s.die:
-			return sent, io.ErrClosedPipe
+			return s.abandon(reqs[i:], sent, io.ErrClosedPipe)
 		case <-s.chSocketWriteError:
-			return sent, s.socketWriteError.Load().(error)
+			return s.abandon(reqs[i:], sent, s.socketWriteError.Load().(error))
 		case <-deadline:
-			return sent, ErrTimeout
+			return s.abandon(reqs[i:], sent, ErrTimeout)
 		}
 	}
 	return sent, nil
