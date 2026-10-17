@@ -14,6 +14,7 @@ import 'package:dropweb/views/subscription/profiles_content.dart'
     show refreshProfiles;
 import 'package:dropweb/views/subscription/proxy_selector_sheet.dart';
 import 'package:dropweb/views/subscription/rules_proxies_view.dart';
+import 'package:dropweb/widgets/glass_morph_route.dart';
 import 'package:dropweb/widgets/mesh_background.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
@@ -68,25 +69,21 @@ class SubscriptionPage extends ConsumerStatefulWidget {
   /// the glass.
   final bool inSheet;
 
-  /// On mobile opens a glass sheet: with [source] (the dashboard
-  /// subscription card) a glass droplet blooms out of the card and flows
-  /// into the sheet, and back on close; without it (the MENU row) the sheet
-  /// slides up. On desktop opens the page with the Liquid zoom: with [source]
-  /// the page grows out of that card — its own header card starts right on
-  /// top of it — and shrinks back into it.
+  /// На мобильном открывает стеклянный шит. С [origin] стекло растёт из
+  /// источника (карточка подписки на дашборде или панель меню MENU) и
+  /// возвращается в него при закрытии; без [origin] выезжает снизу. Шит один и
+  /// тот же из любого входа: те же форма, высота, ручка и жест закрытия.
+  /// На десктопе открывает страницу с zoom-переходом: с [source] страница
+  /// вырастает из этой карточки (её собственная шапка встаёт ровно поверх
+  /// неё) и сжимается обратно.
   ///
-  /// The morph is fed a plain rect, not a `GlassMorphAnchor`: an anchor adds
-  /// a second glass blob standing in for the card, and at standard quality
-  /// (no metaball blend) the travelling droplet paints its dark body over
-  /// that blob's rim. With a rect the card stays painted behind the droplet,
-  /// so the droplet's glass refracts the real card instead of cutting it.
-  ///
-  /// The morph measures the trigger in global coordinates, which the macOS
-  /// popover's scaled 500×800 canvas would mis-aim — one reason desktop keeps
-  /// the zoom route.
+  /// Морф меряет источник в глобальных координатах, а масштабированный холст
+  /// popover на macOS (500×800) их промахнул бы — одна из причин, почему
+  /// десктоп остаётся на zoom-маршруте.
   static Future<void> open(
     BuildContext context, {
     BuildContext? source,
+    GlassMorphOrigin? origin,
   }) {
     if (system.isDesktop) {
       return Navigator.of(context).push(
@@ -101,11 +98,26 @@ class SubscriptionPage extends ConsumerStatefulWidget {
         ),
       );
     }
-    return showLiquidSheet<void>(
+    final height = _sheetHeight(context);
+    return showGlassMorph<void>(
       context,
-      builder: (_) => const SubscriptionPage(inSheet: true),
-      morphFromRect: source == null ? null : zoomSourceRectOf(source),
-      halfSize: _sheetHeight(context),
+      GlassMorphSpec(
+        source: origin?.rect,
+        target: (size) => glassSheetTarget(size, height),
+        ghost: origin?.ghost,
+        ghostAlignment: origin?.ghostAlignment ?? Alignment.topLeft,
+        hideSource: origin?.hide,
+        closeOrigin: origin?.returnTo,
+        // Внешний радиус и вложенные карточки подобраны концентрично:
+        // 48 (внешний) - 16 (поле) = 32 у карточек внутри шита.
+        fromRadius: origin?.radius ?? kLiquidSheetRadius,
+        toRadius: kLiquidSheetRadius,
+        fromSettings: origin?.settings ?? Lumina.liquidMenu,
+        toSettings: Lumina.liquidMenu,
+        dragToDismiss: true,
+        showHandle: true,
+        content: (_) => const SubscriptionPage(inSheet: true),
+      ),
     );
   }
 
@@ -263,13 +275,13 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
     final padding = MediaQuery.paddingOf(context);
 
     if (widget.inSheet) {
-      // No RefreshIndicator: dragging down dismisses the sheet; update stays
-      // in «⋯». The package installs sheet physics on the ListView itself.
+      // Без RefreshIndicator: жест вниз закрывает шит, обновление живёт в «⋯».
       return Material(
         type: MaterialType.transparency,
         child: profile == null
             ? NullStatus(label: appLocalizations.nullProfileDesc)
             : ListView(
+                physics: const SheetFitPhysics(),
                 padding: EdgeInsets.fromLTRB(
                   16,
                   kLiquidSheetTopInset,
@@ -320,6 +332,8 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
     final routeData = ref.watch(_routeDataProvider(profile.id));
     final fullTunnelAvailable =
         routeData.valueOrNull?.fullTunnelAvailable ?? false;
+    // Внутри шита карточки концентричны его углам: радиусы 48 и 32.
+    final cardRadius = widget.inSheet ? Lumina.radiusXl : Lumina.radiusLg;
     final bodyLarge = context.textTheme.bodyLarge?.copyWith(
       color: context.colorScheme.onSurface,
     );
@@ -359,6 +373,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
         onUpdate: () => refreshProfiles(context, profile),
         onDelete: () => _deleteProfile(profile),
         flat: widget.inSheet,
+        radius: cardRadius,
       ),
       const SizedBox(height: 12),
       // Taps are held off while a mode/tunnel change applies, but the card is
@@ -368,6 +383,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage> {
         ignoring: _applying,
         child: LiquidCard(
           flat: widget.inSheet,
+          radius: cardRadius,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -478,6 +494,7 @@ class _Hero extends StatelessWidget {
     required this.onUpdate,
     required this.onDelete,
     this.flat = false,
+    this.radius = Lumina.radiusLg,
   });
 
   final Profile profile;
@@ -487,6 +504,7 @@ class _Hero extends StatelessWidget {
   final VoidCallback onUpdate;
   final VoidCallback onDelete;
   final bool flat;
+  final double radius;
 
   /// `<traffic> · <expiry>` on one line; null when the provider sends no
   /// subscription info.
@@ -517,6 +535,7 @@ class _Hero extends StatelessWidget {
     final summary = _summary();
     return LiquidCard(
       flat: flat,
+      radius: radius,
       child: Stack(
         children: [
           Positioned.fill(
