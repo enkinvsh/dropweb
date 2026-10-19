@@ -425,6 +425,68 @@ void main() {
       await tester.pumpAndSettle();
     });
   });
+
+  group('dismissGlassMorph', () {
+    const dialogKey = Key('dialog');
+
+    Future<Route<dynamic>> openCapturing(
+      WidgetTester tester,
+      NavigatorState navigator,
+      GlassMorphHide hide,
+    ) async {
+      Route<dynamic>? route;
+      final spec = GlassMorphSpec(
+        source: () => _source,
+        target: _target,
+        ghost: const SizedBox.expand(key: _ghostKey),
+        hideSource: hide,
+        fromRadius: Lumina.radiusLg,
+        toRadius: Lumina.radiusXxl,
+        fromSettings: Lumina.liquidCard,
+        toSettings: Lumina.liquidMenu,
+        content: (ctx) {
+          route = ModalRoute.of(ctx);
+          return const SizedBox.expand(key: _contentKey);
+        },
+      );
+      await _open(tester, navigator, spec);
+      return route!;
+    }
+
+    testWidgets('диалог, открытый пунктом меню, остаётся, а меню закрывается',
+        (tester) async {
+      final navigator = await _pumpHost(tester);
+      final hide = GlassMorphHide();
+      final route = await openCapturing(tester, navigator, hide);
+
+      // Так ведёт себя «Поддержка»: в тапе по пункту поверх меню встаёт
+      // подтверждение внешней ссылки, и только потом меню закрывается.
+      unawaited(showDialog<void>(
+        context: navigator.context,
+        builder: (_) => const SizedBox(key: dialogKey),
+      ));
+      dismissGlassMorph(navigator, route);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(dialogKey), findsOneWidget);
+      expect(find.byKey(_contentKey), findsNothing);
+      expect(hide.value, isFalse);
+    });
+
+    testWidgets('без диалога сверху меню закрывается обычным pop',
+        (tester) async {
+      final navigator = await _pumpHost(tester);
+      final hide = GlassMorphHide();
+      final route = await openCapturing(tester, navigator, hide);
+
+      dismissGlassMorph(navigator, route);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(_contentKey), findsNothing);
+      expect(hide.value, isFalse);
+      expect(navigator.canPop(), isFalse);
+    });
+  });
 }
 
 /// Содержимое с известной высотой: сообщает её хосту после кадра, как это

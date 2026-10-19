@@ -211,8 +211,8 @@ class _DashboardGlassMenuState extends ConsumerState<DashboardGlassMenu> {
           };
           item.onTap();
           _handoff = null;
-          if (!handedOff && route != null && route.isActive) {
-            Navigator.of(ctx).pop();
+          if (!handedOff && route != null) {
+            dismissGlassMorph(Navigator.of(ctx), route);
           }
         }),
       ),

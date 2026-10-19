@@ -193,6 +193,19 @@ Future<T?> showGlassMorph<T>(BuildContext context, GlassMorphSpec spec) {
   );
 }
 
+/// Закрывает именно маршрут морфа [route]. Пункт меню мог успеть открыть
+/// поверх него свой диалог (у «Поддержки» это подтверждение внешней ссылки):
+/// `pop()` снял бы этот диалог вместо меню, и ссылка молча не открывалась бы.
+/// Под диалогом меню убирается без анимации — его всё равно не видно.
+void dismissGlassMorph(NavigatorState navigator, Route<dynamic> route) {
+  if (!route.isActive) return;
+  if (route.isCurrent) {
+    navigator.pop();
+  } else {
+    navigator.removeRoute(route);
+  }
+}
+
 class _GlassMorphRoute<T> extends PopupRoute<T> {
   _GlassMorphRoute(this.spec);
 
