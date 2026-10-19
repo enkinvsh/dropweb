@@ -239,10 +239,17 @@ class _StartButtonState extends ConsumerState<StartButton>
     // Без него PageView сливал кнопку с текстом подсказки пустого экрана в
     // один узел на полэкрана; Robo (Test Lab, pre-launch report Play) жмёт в
     // центр узла, попадал в текст, и кнопка «+» для него не работала.
+    // Своя подпись нужна, потому что узел больше не берёт текст подсказки:
+    // без неё TalkBack читал бы просто «Кнопка».
     return Semantics(
       container: true,
       button: true,
       identifier: 'dw_connect',
+      label: !hasProfile
+          ? appLocalizations.dashboardEmptyTitle
+          : isStart
+              ? appLocalizations.stop
+              : appLocalizations.start,
       child: AnimatedBuilder(
         animation: _pressController,
         builder: (_, child) => Transform.scale(

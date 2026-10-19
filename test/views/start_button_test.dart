@@ -15,6 +15,7 @@
 // Cross-links: lib/views/dashboard/widgets/start_button.dart (_buildButton),
 // lib/controller.dart (init() / initProvider), lib/models/selector.dart.
 
+import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/views/dashboard/widgets/start_button.dart';
@@ -33,6 +34,9 @@ class _NullRunTime extends RunTime {
 }
 
 void main() {
+  // Подпись кнопки берётся из глобального appLocalizations.
+  setUpAll(() => AppLocalizations.load(const Locale('en')));
+
   testWidgets(
     'connect glyph stays rendered while core init is pending (isInit=false)',
     (tester) async {
@@ -130,7 +134,7 @@ void main() {
       final data = node.getSemanticsData();
       expect(data.identifier, 'dw_connect');
       expect(data.hasAction(SemanticsAction.tap), isTrue);
-      expect(data.label, isNot(contains('guidance hint')));
+      expect(data.label, 'Add a subscription');
       expect(node.rect.size, const Size(200, 200));
       semantics.dispose();
     },
