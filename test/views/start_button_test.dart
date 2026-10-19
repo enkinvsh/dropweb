@@ -15,10 +15,12 @@
 // Cross-links: lib/views/dashboard/widgets/start_button.dart (_buildButton),
 // lib/controller.dart (init() / initProvider), lib/models/selector.dart.
 
+import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/views/dashboard/widgets/start_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -32,6 +34,9 @@ class _NullRunTime extends RunTime {
 }
 
 void main() {
+  // Подпись кнопки берётся из глобального appLocalizations.
+  setUpAll(() => AppLocalizations.load(const Locale('en')));
+
   testWidgets(
     'connect glyph stays rendered while core init is pending (isInit=false)',
     (tester) async {
@@ -66,6 +71,72 @@ void main() {
 
       // The power glyph must still be present — NOT collapsed to SizedBox.shrink.
       expect(find.byType(HugeIcon), findsWidgets);
+    },
+  );
+
+  // Robo из Firebase Test Lab (и pre-launch report Google Play) нажимает в
+  // центр узла семантики. Без собственного узла кнопка сливалась с текстом
+  // подсказки пустого экрана в один узел на полэкрана, центр попадал в текст,
+  // и робот считал, что на экране нечего нажимать (прогон 19.10.2026,
+  // Galaxy S24 / A03s). Узел `dw_connect` должен совпадать с самой кнопкой.
+  testWidgets(
+    'dw_connect is its own tappable semantics node sized to the button',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            startButtonSelectorStateProvider.overrideWithValue(
+              const StartButtonSelectorState(
+                isInit: true,
+                hasProfile: false,
+                hasProxiesInit: true,
+              ),
+            ),
+            runTimeProvider.overrideWith(_NullRunTime.new),
+          ],
+          // Как на телефоне (lib/pages/home.dart): страница дашборда —
+          // элемент PageView, а он делает каждую страницу одним узлом
+          // семантики, куда сливается всё без собственной границы.
+          child: MaterialApp(
+            home: Scaffold(
+              body: PageView.builder(
+                itemCount: 1,
+                itemBuilder: (_, __) => const Stack(
+                  children: [
+                    // Как MobileEmptyGuidanceOverlay: декоративный текст над
+                    // кнопкой, без собственной границы семантики.
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: Text('guidance hint'),
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: SizedBox(
+                        width: 200,
+                        height: 200,
+                        child: StartButton(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final node = tester.getSemantics(find.byType(StartButton));
+      final data = node.getSemanticsData();
+      expect(data.identifier, 'dw_connect');
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      expect(data.label, 'Add a subscription');
+      expect(node.rect.size, const Size(200, 200));
+      semantics.dispose();
     },
   );
 }

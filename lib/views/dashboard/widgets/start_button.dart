@@ -234,9 +234,22 @@ class _StartButtonState extends ConsumerState<StartButton>
     const motionDuration = Duration(milliseconds: 180);
     const motionCurve = Curves.easeOutCubic;
 
-    // `dw_connect`: stable uiautomator resource-id for adb-driven QA.
+    // `dw_connect`: стабильный resource-id для uiautomator и adb-QA.
+    // `container: true` — собственный узел семантики размером с кнопку.
+    // Без него PageView сливал кнопку с текстом подсказки пустого экрана в
+    // один узел на полэкрана; Robo (Test Lab, pre-launch report Play) жмёт в
+    // центр узла, попадал в текст, и кнопка «+» для него не работала.
+    // Своя подпись нужна, потому что узел больше не берёт текст подсказки:
+    // без неё TalkBack читал бы просто «Кнопка».
     return Semantics(
+      container: true,
+      button: true,
       identifier: 'dw_connect',
+      label: !hasProfile
+          ? appLocalizations.dashboardEmptyTitle
+          : isStart
+              ? appLocalizations.stop
+              : appLocalizations.start,
       child: AnimatedBuilder(
         animation: _pressController,
         builder: (_, child) => Transform.scale(
