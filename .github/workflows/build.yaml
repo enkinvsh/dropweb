@@ -136,6 +136,91 @@ jobs:
           path: ./dist
           overwrite: true
 
+  # Сборка для Google Play: один AAB с PLAY_BUILD=true, подписанный ключом
+  # загрузки (upload key), а не sideload-ключом. Артефакт назван не artifact-*,
+  # поэтому upload его не подхватывает: AAB не попадает ни в публичный релиз,
+  # ни в update.json — его загружают в Play Console вручную. Сбой этого джоба
+  # не задерживает релиз для sideload-пользователей.
+  store:
+    needs: [notes, checks]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Ядро собирается под все ABI, как и в android-матрице, — тот же риск
+      # «No space left on device» на раннере.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+                      /usr/share/swift /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          df -h /
+
+      - name: Setup Play upload signing
+        env:
+          UPLOAD_KEYSTORE: ${{ secrets.UPLOAD_KEYSTORE }}
+        run: |
+          set -euo pipefail
+          if [ -z "$UPLOAD_KEYSTORE" ]; then
+            echo "::error::secret UPLOAD_KEYSTORE не задан — store-сборку нечем подписать"
+            exit 1
+          fi
+          printf '%s' "$UPLOAD_KEYSTORE" | base64 --decode > android/app/upload-keystore.jks
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.8"
+          cache-dependency-path: |
+            core/go.sum
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+          flutter-version: 3.41.6
+
+      - name: Get Flutter Dependency
+        run: flutter pub get
+
+      # Магазинная сборка всегда stable: APP_ENV=pre включил бы пре-релизный
+      # канал, а у store-сборки нет апдейтера и каналов.
+      - name: Build store AAB
+        run: dart setup.dart android --store --env stable
+        env:
+          DROPWEB_UPLOAD_STORE_PASSWORD: ${{ secrets.UPLOAD_STORE_PASSWORD }}
+          DROPWEB_UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          DROPWEB_UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+
+      # Первая загрузка в Play закрепляет этот сертификат как ключ загрузки;
+      # бандл, подписанный чем-то другим, Play потом отклонит. Ловим это здесь.
+      - name: Verify store AAB
+        run: |
+          set -euo pipefail
+          aab=dist/dropweb-store.aab
+          if [ ! -s "$aab" ]; then
+            echo "::error::$aab не собран"
+            exit 1
+          fi
+          expected="B9:8A:7E:A9:47:3D:E0:25:90:AA:E1:15:0A:1E:A7:1D:31:A6:38:9E:A9:20:AA:A9:A0:80:FA:0E:5C:59:2D:70"
+          actual=$("${JAVA_HOME:+$JAVA_HOME/bin/}keytool" -printcert -jarfile "$aab" | awk '/SHA256:/ {print $2; exit}')
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::AAB подписан не ключом загрузки Play: SHA-256 '$actual'"
+            exit 1
+          fi
+          ls -la dist
+
+      - name: Upload store AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-aab-${{ github.ref_name }}
+          path: dist/dropweb-store.aab
+          if-no-files-found: error
+          retention-days: 30
+
   changelog:
     runs-on: ubuntu-latest
     needs: [build]
