@@ -233,37 +233,31 @@ jobs:
         with:
           fetch-depth: 0
           ref: refs/heads/main
+      # В CHANGELOG.md идёт только текст из release_notes, без описаний коммитов:
+      # репозиторий публичный, а тексты коммитов раскрывают устройство транспорта.
       - name: Generate
         if: ${{ env.IS_STABLE == 'true' }}
         run: |
-          tags=($(git tag --merged $(git rev-parse HEAD) --sort=-creatordate))
-          preTag=$(grep -oP '^## \K.*' CHANGELOG.md | head -n 1)
-          currentTag=""
-          for ((i = 0; i <= ${#tags[@]}; i++)); do
-            if (( i < ${#tags[@]} )); then
-              tag=${tags[$i]}
+          set -euo pipefail
+          tag="${{ github.ref_name }}"
+          if grep -qxF "## $tag" CHANGELOG.md; then
+            echo "CHANGELOG.md уже содержит $tag"
+            exit 0
+          fi
+          note_file=".github/release_notes/$tag.md"
+          {
+            echo "## $tag"
+            echo ""
+            if [ -f "$note_file" ]; then
+              # Заголовки разделов на уровень ниже, чтобы «## vX.Y.Z» оставались единственными.
+              sed 's/^## /### /' "$note_file"
             else
-              tag=""
+              echo "Подробности: https://github.com/${{ github.repository }}/releases/tag/$tag"
             fi
-            if [ -n "$currentTag" ]; then
-              if [ "$(echo -e "$currentTag\n$preTag" | sort -V | head -n 1)" == "$currentTag" ]; then
-                break
-              fi
-            fi
-            if [ -n "$currentTag" ]; then
-              echo "## $currentTag" >> NEW_CHANGELOG.md
-              echo "" >> NEW_CHANGELOG.md
-              if [ -n "$tag" ]; then
-                git log --pretty=format:"%B" "$tag..$currentTag" | awk 'NF {print "- " $0} !NF {print ""}' >> NEW_CHANGELOG.md
-              else
-                git log --pretty=format:"%B" "$currentTag" | awk 'NF {print "- " $0} !NF {print ""}' >> NEW_CHANGELOG.md
-              fi
-              echo "" >> NEW_CHANGELOG.md
-            fi
-            currentTag=$tag
-          done
-          cat CHANGELOG.md >> NEW_CHANGELOG.md
-          cat NEW_CHANGELOG.md > CHANGELOG.md
+            echo ""
+            cat CHANGELOG.md
+          } > NEW_CHANGELOG.md
+          mv NEW_CHANGELOG.md CHANGELOG.md
 
       - name: Commit
         if: ${{ env.IS_STABLE == 'true' }}
