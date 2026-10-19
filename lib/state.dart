@@ -1112,6 +1112,8 @@ class GlobalState {
     }
     rawConfig["rule"] = rules;
 
+    applyHaulPatch(rawConfig, profile.providerHeaders);
+
     final pruned = pruneDanglingGroupMembers(rawConfig);
     if (pruned.dropped.isNotEmpty) {
       commonPrint.log('config: dropped group members the core would reject: '

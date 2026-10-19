@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:dropweb/common/common.dart';
+import 'package:dropweb/widgets/glass_morph_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
@@ -8,17 +9,10 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
     show
         GlassCard,
-        GlassDefaults,
-        GlassFillTransition,
         GlassMenu,
         GlassMenuAlignment,
         GlassMenuItem,
-        GlassModalSheet,
-        GlassModalSheetController,
-        GlassModalSheetScaffold,
         GlassQuality,
-        GlassSheetDetent,
-        GlassSheetState,
         LiquidRoundedSuperellipse;
 
 // Общие блоки «Liquid Lumina» из шита «Подписка»: стеклянный шит, карточки,
@@ -34,6 +28,11 @@ const double kLiquidSheetTopInset = 24;
 
 /// Нижний отступ контента шита над safe area.
 const double kLiquidSheetBottomInset = 16;
+
+/// Внешний радиус стеклянного шита подписки. Карточки внутри него берут
+/// `kLiquidSheetRadius - 16` (поле шита), чтобы углы шли концентрично:
+/// 48 - 16 = 32 = [Lumina.radiusXl].
+const double kLiquidSheetRadius = Lumina.radiusXxl;
 
 /// Зазор под шитом; равен `bottomMargin`, который [showLiquidSheet] отдаёт
 /// шиту, — суммы высот на него опираются.
@@ -53,152 +52,36 @@ double liquidLineHeight(BuildContext context, TextStyle? style) {
   return height;
 }
 
-/// Стеклянный шит как у «Подписки»: одна средняя высота [halfSize]
-/// (в логических пикселях), стекло меню Lumina, свечение акцентом.
-///
-/// С [morphFromRect] это ровно `GlassModalSheet.show`: морф держится на
-/// приватном презентере пакета. Без морфа маршрут собран из тех же частей с
-/// теми же параметрами, но через хост: пакет прибивает шит к низу экрана и не
-/// знает про клавиатуру, а высоту берёт числом. Хост поднимает шит над IME и
-/// подгоняет высоту под [LiquidSheetBody], когда её содержимое меняется.
+/// Стеклянный шит как у «Подписки»: то же стекло «одно целое» (см.
+/// [showGlassMorph]), растущее из [origin] (пилюля или панель меню, карточка)
+/// или выезжающее снизу, если источника нет. [halfSize] — стартовая оценка
+/// высоты в логических пикселях; дальше шит сам подгоняется под
+/// [LiquidSheetBody] (шаги, ошибки, новые строки) и поднимается над клавиатурой.
 Future<T?> showLiquidSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
   required double halfSize,
-  Rect? morphFromRect,
-}) {
-  final glowColor = context.colorScheme.primary;
-  if (morphFromRect != null) {
-    return GlassModalSheet.show<T>(
-      context: context,
-      builder: builder,
-      morphFromRect: morphFromRect,
-      halfSize: halfSize,
-      initialState: GlassSheetState.half,
-      detents: const {GlassSheetDetent.medium},
-      bottomMargin: kLiquidSheetBottomMargin,
-      settings: Lumina.liquidMenu,
-      quality: GlassQuality.standard,
-      glowColor: glowColor,
-    );
-  }
-  // Маршрут и анимация — копия немонфного пути `GlassModalSheet.show`.
-  return showGeneralDialog<T>(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: 'Dismiss',
-    barrierColor: GlassDefaults.barrierColor,
-    transitionDuration: const Duration(milliseconds: 500),
-    transitionBuilder: (context, animation, secondaryAnimation, child) =>
-        SlideTransition(
-      position:
-          Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(
-        CurvedAnimation(parent: animation, curve: Curves.easeOutQuart),
-      ),
-      child: child,
-    ),
-    pageBuilder: (context, animation, secondaryAnimation) => _LiquidSheetHost(
-      halfSize: halfSize,
-      glowColor: glowColor,
-      sheet: builder(context),
-    ),
-  );
-}
-
-class _LiquidSheetHost extends StatefulWidget {
-  const _LiquidSheetHost({
-    required this.halfSize,
-    required this.glowColor,
-    required this.sheet,
-  });
-
-  final double halfSize;
-  final Color glowColor;
-  final Widget sheet;
-
-  @override
-  State<_LiquidSheetHost> createState() => _LiquidSheetHostState();
-}
-
-class _LiquidSheetHostState extends State<_LiquidSheetHost> {
-  final _controller = GlassModalSheetController();
-  double? _contentHeight;
-  bool _closing = false;
-
-  void _setContentHeight(double height) {
-    if (!mounted || _contentHeight == height) return;
-    setState(() => _contentHeight = height);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final keyboard = media.viewInsets.bottom;
-    final contentHeight = _contentHeight;
-    final requested = contentHeight == null
-        ? widget.halfSize
-        : contentHeight + kLiquidSheetBottomMargin;
-    // Шит стоит на клавиатуре, поэтому потолок считается от того, что над ней.
-    final halfSize = math.min(requested, (media.size.height - keyboard) * 0.85);
-    return Padding(
-      padding: EdgeInsets.only(bottom: keyboard),
-      // Шиту и контенту отдаём раскладку без клавиатуры: подъём уже сделан
-      // паддингом. Нижний safe-area отступ над открытой клавиатурой не нужен
-      // (жестовую панель закрывает она), иначе под карточкой висят лишние
-      // 24 dp. Снимаем его одним шагом, а не вслед за кадрами анимации IME:
-      // каждая смена высоты перезапускает пружину шита с нулевой скоростью.
-      child: MediaQuery(
-        data: media.copyWith(
-          viewInsets: media.viewInsets.copyWith(bottom: 0),
-          padding: media.padding.copyWith(
-            bottom: keyboard > 0 ? 0 : media.padding.bottom,
-          ),
-        ),
-        child: _LiquidSheetScope(
-          onContentHeight: _setContentHeight,
-          child: GlassModalSheetScaffold(
-            controller: _controller,
-            halfSize: halfSize,
-            initialState: GlassSheetState.half,
-            fillThreshold: 0.60,
-            settings: Lumina.liquidMenu,
-            quality: GlassQuality.standard,
-            fillTransition: GlassFillTransition.instant,
-            topBorderRadius: 56,
-            fullTopBorderRadius: 46,
-            bottomMargin: kLiquidSheetBottomMargin,
-            glowColor: widget.glowColor,
-            detents: const {GlassSheetDetent.medium},
-            onStateChanged: (state) {
-              if (state == GlassSheetState.hidden && !_closing) {
-                _closing = true;
-                Navigator.of(context).pop();
-              }
-            },
-            body: const SizedBox.shrink(),
-            sheet: widget.sheet,
-          ),
-        ),
+  GlassMorphOrigin? origin,
+}) =>
+    showGlassMorph<T>(
+      context,
+      GlassMorphSpec(
+        fitContent: true,
+        target: (overlay) => glassSheetTarget(overlay, halfSize),
+        content: builder,
+        source: origin?.rect,
+        ghost: origin?.ghost,
+        ghostAlignment: origin?.ghostAlignment ?? Alignment.topLeft,
+        hideSource: origin?.hide,
+        closeOrigin: origin?.returnTo,
+        fromRadius: origin?.radius ?? kLiquidSheetRadius,
+        toRadius: kLiquidSheetRadius,
+        fromSettings: origin?.settings ?? Lumina.liquidMenu,
+        toSettings: Lumina.liquidMenu,
+        dragToDismiss: true,
+        showHandle: true,
       ),
     );
-  }
-}
-
-class _LiquidSheetScope extends InheritedWidget {
-  const _LiquidSheetScope({
-    required this.onContentHeight,
-    required super.child,
-  });
-
-  final ValueChanged<double> onContentHeight;
-
-  static ValueChanged<double>? of(BuildContext context) => context
-      .getInheritedWidgetOfExactType<_LiquidSheetScope>()
-      ?.onContentHeight;
-
-  @override
-  bool updateShouldNotify(_LiquidSheetScope oldWidget) => false;
-}
 
 /// Содержимое шита [showLiquidSheet]: поля как у «Подписки» и колонка, под
 /// высоту которой хост подгоняет шит (шаги, ошибки, новые строки).
@@ -209,7 +92,7 @@ class LiquidSheetBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onContentHeight = _LiquidSheetScope.of(context);
+    final onContentHeight = GlassMorphScope.maybeOf(context);
     Widget content = Padding(
       padding: EdgeInsets.fromLTRB(
         16,
@@ -228,7 +111,12 @@ class LiquidSheetBody extends StatelessWidget {
     }
     return Material(
       type: MaterialType.transparency,
-      child: SingleChildScrollView(child: content),
+      // Запас в пару пикселей не должен превращаться в прокрутку, которая
+      // забирает жест у стекла (см. SheetFitPhysics).
+      child: SingleChildScrollView(
+        physics: const SheetFitPhysics(),
+        child: content,
+      ),
     );
   }
 }
@@ -271,9 +159,17 @@ class _RenderHeightReporter extends RenderProxyBox {
 /// Подложка карточки — то же стекло, что у карточки подписки на дашборде.
 /// Material обрезает ripple строк по форме карточки.
 class LiquidCard extends StatelessWidget {
-  const LiquidCard({super.key, required this.child, this.flat = false});
+  const LiquidCard({
+    super.key,
+    required this.child,
+    this.flat = false,
+    this.radius = Lumina.radiusLg,
+  });
 
   final Widget child;
+
+  /// Радиус углов. Внутри шита берём концентричный внешнему: `radiusXl`.
+  final double radius;
 
   /// Плоская заливка вместо стекла — для карточек внутри стеклянного шита:
   /// стекло в стекло не вкладываем.
@@ -285,7 +181,7 @@ class LiquidCard extends StatelessWidget {
       return Material(
         color: context.colorScheme.onSurface.opacity10,
         shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(Lumina.radiusLg),
+          borderRadius: BorderRadius.circular(radius),
         ),
         clipBehavior: Clip.antiAlias,
         child: child,
@@ -295,12 +191,12 @@ class LiquidCard extends StatelessWidget {
       useOwnLayer: true,
       quality: GlassQuality.standard,
       padding: EdgeInsets.zero,
-      shape: const LiquidRoundedSuperellipse(borderRadius: Lumina.radiusLg),
+      shape: LiquidRoundedSuperellipse(borderRadius: radius),
       settings: Lumina.liquidCard,
       child: Material(
         type: MaterialType.transparency,
         shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(Lumina.radiusLg),
+          borderRadius: BorderRadius.circular(radius),
         ),
         clipBehavior: Clip.antiAlias,
         child: child,

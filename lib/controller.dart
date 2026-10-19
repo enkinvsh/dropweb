@@ -1090,6 +1090,7 @@ class AppController {
       'staticCountry': profile.staticCountry,
       // Rewrites the catch-all MATCH (applyFullTunnel) — same reason.
       'fullTunnel': profile.fullTunnel,
+      'haul': isHaulHeaderEnabled(profile.providerHeaders),
     };
 
     return computeSetupHash(
@@ -1743,7 +1744,11 @@ class AppController {
   }
 
   Future<void> _handlerDisclaimer() async {
-    if (_ref.read(appSettingProvider).disclaimerAccepted) {
+    // В магазинных сборках окна нет: унаследованный от FlClash текст
+    // («только некоммерческое использование») противоречит публикации в
+    // Google Play/App Store и путает ревьюера.
+    if (system.isStoreBuild ||
+        _ref.read(appSettingProvider).disclaimerAccepted) {
       return;
     }
     final isDisclaimerAccepted = await showDisclaimer();

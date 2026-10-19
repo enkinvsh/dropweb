@@ -1,0 +1,12 @@
+name: shell_executor
+description: A simple shell commands executor.
+version: 0.1.6
+homepage: https://distributor.leanflutter.dev
+repository: https://github.com/leanflutter/flutter_distributor/tree/main/packages/shell_executor
+
+environment:
+  sdk: ">=2.16.0 <4.0.0"
+
+dev_dependencies:
+  dependency_validator: ^3.0.0
+  test: ^1.23.1

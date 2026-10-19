@@ -21,6 +21,7 @@ import 'package:dropweb/state.dart';
 import 'package:dropweb/views/account/account_common.dart';
 import 'package:dropweb/views/account/account_login_sheet.dart';
 import 'package:dropweb/views/account/account_sheet.dart';
+import 'package:dropweb/widgets/glass_morph_route.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -366,7 +367,7 @@ Future<void> _frames(WidgetTester tester, [int count = 5]) async {
 }
 
 int _sheetCount() =>
-    find.byType(GlassModalSheetScaffold, skipOffstage: false).evaluate().length;
+    find.byType(GlassMorphScope, skipOffstage: false).evaluate().length;
 
 int _dialogCount() =>
     find.byType(AlertDialog, skipOffstage: false).evaluate().length;
@@ -1163,7 +1164,7 @@ void main() {
           expect(errors, isEmpty);
           expect(truncated, isEmpty);
           final scrollable = find.descendant(
-            of: find.byType(GlassModalSheetScaffold),
+            of: find.byType(GlassMorphScope),
             matching: find.byType(Scrollable),
           );
           final position = tester.state<ScrollableState>(scrollable.first);

@@ -22,7 +22,11 @@ import 'developer.dart';
 import 'theme.dart';
 
 class ToolsView extends ConsumerStatefulWidget {
-  const ToolsView({super.key});
+  const ToolsView({super.key, this.inSheet = false});
+
+  /// Список лежит в стеклянном шите, а не на странице под плавающей панелью
+  /// навигации: нижний запас под неё не нужен.
+  final bool inSheet;
 
   @override
   ConsumerState<ToolsView> createState() => _ToolboxViewState();
@@ -58,62 +62,118 @@ class _ToolboxViewState extends ConsumerState<ToolsView> {
         ],
       );
 
+  List<Widget> _otherItems(bool enableDeveloperMode) => [
+        // Surfaced out of the (previously buried) About → "More" section so
+        // updates + donations sit one tap deep in Settings, not three.
+        // Самопроверка обновлений и ссылка на донат скрыты во всех магазинных
+        // сборках: Play и App Store не допускают внешнюю оплату и
+        // пожертвования из приложения.
+        if (shouldShowCheckForUpdate()) const _UpdateItem(),
+        if (!system.isStoreBuild) const _SupportItem(),
+        // Disclaimer из FlClash в магазинных сборках не показываем — см.
+        // AppController._handlerDisclaimer.
+        if (!system.isStoreBuild) const _DisclaimerItem(),
+        if (enableDeveloperMode) const _DeveloperItem(),
+        const _InfoItem(),
+      ];
+
   List<Widget> _getOtherList(BuildContext context, bool enableDeveloperMode) =>
       generateSection(
         title: AppLocalizations.of(context).other,
-        items: [
-          // Surfaced out of the (previously buried) About → "More" section so
-          // updates + donations sit one tap deep in Settings, not three.
-          // Update self-check is hidden on store builds (store policy). The
-          // donation link stays on iOS and is hidden on the Play build.
-          if (shouldShowCheckForUpdate()) const _UpdateItem(),
-          if (!kIsPlayBuild) const _SupportItem(),
-          const _DisclaimerItem(),
-          if (enableDeveloperMode) const _DeveloperItem(),
-          const _InfoItem(),
+        items: _otherItems(enableDeveloperMode),
+      );
+
+  List<Widget> _settingItems(bool enableDeveloperMode) => [
+        const _LocaleItem(),
+        const _ThemeItem(),
+        // "Always-on VPN" is a system-settings shortcut most users never
+        // need and can mis-toggle into a confusing state; gated behind the
+        // developer-mode unlock (5 taps on the Settings title), same as
+        // _ConfigItem / _SettingItem / _AccessItem below.
+        if (Platform.isAndroid && enableDeveloperMode) const AlwaysOnVpnItem(),
+        // Hotkey Management entry was removed for the Play readiness
+        // wave together with the runtime global-hotkey registration
+        // (see `Application._buildPlatformState`). The `HotKeyView`
+        // source and persisted bindings remain on disk so the entry
+        // can be re-introduced cleanly when we ship a curated set.
+        // Loopback (UWP) unlock tool is hidden from the desktop UI: it's a
+        // niche Windows-only workaround that only confuses regular users.
+        // Access Control / per-app proxy is an advanced Android surface
+        // (installed-package enumeration + split-tunnel rules). Hidden by
+        // default on the Play target and only re-exposed after the
+        // existing developer-mode unlock — matches `_ConfigItem` /
+        // `_SettingItem` gating below. See `shouldShowAccessControl`.
+        if (shouldShowAccessControl(
+          isAndroid: Platform.isAndroid,
+          developerMode: enableDeveloperMode,
+        ))
+          const _AccessItem(),
+        // The settings-page Connect TV / Send to TV entry only ever
+        // lived on Android. Android (Play target) now hides the
+        // Send to TV / LAN subscription-sharing flow entirely (see
+        // `shouldShowSendToTv`), so the menu item is dropped here.
+        if (enableDeveloperMode) const _ConfigItem(),
+        if (enableDeveloperMode) const _SettingItem(),
+      ];
+
+  List<Widget> _getSettingList(bool enableDeveloperMode) => generateSection(
+        title: null,
+        items: _settingItems(enableDeveloperMode),
+      );
+
+  /// Группа строк как в «Подписке»: плоская карточка с отступом от краёв
+  /// шита и тонкими разделителями. Строки на всю ширину упирались бы в рим
+  /// стекла и в скруглённые углы.
+  Widget _sheetGroup(List<Widget> items, {String? title}) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (title != null)
+            ListHeader(
+              title: title,
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+            ),
+          LiquidCard(
+            flat: true,
+            radius: Lumina.radiusXl,
+            child: Column(
+              children: [
+                for (var i = 0; i < items.length; i++) ...[
+                  if (i > 0) const LiquidHairline(indent: 56),
+                  items[i],
+                ],
+              ],
+            ),
+          ),
         ],
       );
 
-  List<Widget> _getSettingList(
-    BuildContext context,
-    bool enableDeveloperMode,
-  ) =>
-      generateSection(
-        title: null,
-        items: [
-          const _LocaleItem(),
-          const _ThemeItem(),
-          // "Always-on VPN" is a system-settings shortcut most users never
-          // need and can mis-toggle into a confusing state; gated behind the
-          // developer-mode unlock (5 taps on the Settings title), same as
-          // _ConfigItem / _SettingItem / _AccessItem below.
-          if (Platform.isAndroid && enableDeveloperMode)
-            const AlwaysOnVpnItem(),
-          // Hotkey Management entry was removed for the Play readiness
-          // wave together with the runtime global-hotkey registration
-          // (see `Application._buildPlatformState`). The `HotKeyView`
-          // source and persisted bindings remain on disk so the entry
-          // can be re-introduced cleanly when we ship a curated set.
-          // Loopback (UWP) unlock tool is hidden from the desktop UI: it's a
-          // niche Windows-only workaround that only confuses regular users.
-          // Access Control / per-app proxy is an advanced Android surface
-          // (installed-package enumeration + split-tunnel rules). Hidden by
-          // default on the Play target and only re-exposed after the
-          // existing developer-mode unlock — matches `_ConfigItem` /
-          // `_SettingItem` gating below. See `shouldShowAccessControl`.
-          if (shouldShowAccessControl(
-            isAndroid: Platform.isAndroid,
-            developerMode: enableDeveloperMode,
-          ))
-            const _AccessItem(),
-          // The settings-page Connect TV / Send to TV entry only ever
-          // lived on Android. Android (Play target) now hides the
-          // Send to TV / LAN subscription-sharing flow entirely (see
-          // `shouldShowSendToTv`), so the menu item is dropped here.
-          if (enableDeveloperMode) const _ConfigItem(),
-          if (enableDeveloperMode) const _SettingItem(),
-        ],
-      );
+  List<Widget> _sheetItems(bool enableDeveloperMode) {
+    final settings = _settingItems(enableDeveloperMode);
+    return [
+      Consumer(
+        builder: (_, ref, __) {
+          final state = ref.watch(moreToolsSelectorStateProvider);
+          if (state.navigationItems.isEmpty) return const SizedBox.shrink();
+          return _sheetGroup(
+            [
+              for (final item in state.navigationItems)
+                _buildNavigationMenuItem(item)
+            ],
+            title: AppLocalizations.of(context).more,
+          );
+        },
+      ),
+      if (settings.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        _sheetGroup(settings),
+      ],
+      const SizedBox(height: 8),
+      _sheetGroup(
+        _otherItems(enableDeveloperMode),
+        title: AppLocalizations.of(context).other,
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,24 +183,26 @@ class _ToolboxViewState extends ConsumerState<ToolsView> {
       ),
     );
     final appLocale = AppLocalizations.of(context);
-    final items = [
-      Consumer(
-        builder: (_, ref, __) {
-          final state = ref.watch(moreToolsSelectorStateProvider);
-          if (state.navigationItems.isEmpty) {
-            return Container();
-          }
-          return Column(
-            children: [
-              ListHeader(title: appLocale.more),
-              _buildNavigationMenu(state.navigationItems)
-            ],
-          );
-        },
-      ),
-      ..._getSettingList(context, vm2.b),
-      ..._getOtherList(context, vm2.b),
-    ];
+    final items = widget.inSheet
+        ? _sheetItems(vm2.b)
+        : [
+            Consumer(
+              builder: (_, ref, __) {
+                final state = ref.watch(moreToolsSelectorStateProvider);
+                if (state.navigationItems.isEmpty) {
+                  return Container();
+                }
+                return Column(
+                  children: [
+                    ListHeader(title: appLocale.more),
+                    _buildNavigationMenu(state.navigationItems)
+                  ],
+                );
+              },
+            ),
+            ..._getSettingList(vm2.b),
+            ..._getOtherList(context, vm2.b),
+          ];
     // Bottom nav-bar (64px) + its 16px outer margin + system gesture
     // inset — leave enough space so the last list item doesn't sit
     // under the floating nav bar (visible after dev-mode unlocks extra
@@ -149,7 +211,48 @@ class _ToolboxViewState extends ConsumerState<ToolsView> {
     return ListView.builder(
       itemCount: items.length,
       itemBuilder: (_, index) => items[index],
-      padding: EdgeInsets.only(bottom: 96 + bottomInset),
+      padding: widget.inSheet
+          ? EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset)
+          : EdgeInsets.only(bottom: 96 + bottomInset),
+    );
+  }
+}
+
+/// Содержимое стеклянного шита «Настройки»: заголовок и список. Заголовок
+/// принимает быстрые тапы разблокировки режима разработчика
+/// ([onTitleTap]), как раньше заголовок страницы.
+class ToolsSheetBody extends StatelessWidget {
+  const ToolsSheetBody({super.key, required this.onTitleTap});
+
+  final VoidCallback onTitleTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // Ручка стоит на y 8–12, заголовок начинается под ней, как контент шитов.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          identifier: 'dw_settings_title',
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTitleTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                24,
+                kLiquidSheetTopInset + 4,
+                24,
+                8,
+              ),
+              child: Text(
+                AppLocalizations.of(context).tools,
+                style: context.textTheme.titleLarge,
+              ),
+            ),
+          ),
+        ),
+        const Expanded(child: ToolsView(inSheet: true)),
+      ],
     );
   }
 }
@@ -302,7 +405,10 @@ class _UpdateItem extends ConsumerWidget {
   const _UpdateItem();
 
   Future<void> _checkUpdate(BuildContext context, WidgetRef ref) async {
-    final commonScaffoldState = context.commonScaffoldState;
+    // В стеклянном шите настроек над списком нет CommonScaffold: индикатор
+    // загрузки показываем на домашнем.
+    final commonScaffoldState =
+        context.commonScaffoldState ?? globalState.homeScaffoldKey.currentState;
     if (commonScaffoldState?.mounted != true) return;
     // Android sideload: drive the in-app updater + reactive Lumina sheet.
     if (Platform.isAndroid) {

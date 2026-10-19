@@ -27,6 +27,7 @@ import (
 	"github.com/metacubex/mihomo/hub/executor"
 	"github.com/metacubex/mihomo/listener"
 	"github.com/metacubex/mihomo/log"
+	"github.com/metacubex/mihomo/transport/drophaul"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 )
 
@@ -342,6 +343,10 @@ func closeConnections() {
 		_ = c.Close()
 		return true
 	})
+	// Базовые TCP-соединения пула drophaul не лежат в statistic.DefaultManager
+	// (туда попадают только логические стримы), поэтому при смене сети их нужно
+	// принудительно закрывать вместе с трекерами.
+	drophaul.ResetAllPools()
 }
 
 func handleResetConnections() bool {

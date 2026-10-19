@@ -5,6 +5,7 @@ import 'package:dropweb/common/common.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/account/account_common.dart';
+import 'package:dropweb/widgets/glass_morph_route.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,12 +21,18 @@ final _emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
 const _emailMaxLength = 254;
 
 /// Вход по почте — стеклянный шит как «Подписка». [email] подставляется,
-/// когда вход повторяют из заблокированного аккаунта.
-Future<void> openAccountLoginSheet(BuildContext context, {String? email}) =>
+/// когда вход повторяют из заблокированного аккаунта. [origin] — откуда шит
+/// вырастает (панель меню); без него выезжает снизу.
+Future<void> openAccountLoginSheet(
+  BuildContext context, {
+  String? email,
+  GlassMorphOrigin? origin,
+}) =>
     showLiquidSheet<void>(
       context,
       builder: (_) => AccountLoginView(initialEmail: email),
       halfSize: _loginSheetHeight(context),
+      origin: origin,
     );
 
 /// Стартовая высота — первый шаг: одна строка ввода (круг 40 + паддинги 12).

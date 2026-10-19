@@ -132,14 +132,18 @@ Map<String, dynamic> _liteGroup(Map group, {required Set<String> keepAuto}) {
 }
 
 dynamic _withoutSmux(dynamic proxy) {
-  if (proxy is! Map || proxy['smux'] is! Map) return proxy;
-  return {
-    ...Map<String, dynamic>.from(proxy),
-    'smux': {
+  if (proxy is! Map) return proxy;
+  final hasSmux = proxy['smux'] is Map;
+  final hasHaul = proxy.containsKey('haul');
+  if (!hasSmux && !hasHaul) return proxy;
+  final copy = Map<String, dynamic>.from(proxy)..remove('haul');
+  if (hasSmux) {
+    copy['smux'] = {
       ...Map<String, dynamic>.from(proxy['smux'] as Map),
-      'enabled': false
-    },
-  };
+      'enabled': false,
+    };
+  }
+  return copy;
 }
 
 const _dnsServerLists = [

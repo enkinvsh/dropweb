@@ -47,6 +47,13 @@ Map<String, String> storeSafeProviderHeaders(
   };
 }
 
+/// Ссылки внутри текста `announce` кликабельны только вне магазинов. Текст
+/// объявления провайдера остаётся виден, но тап по нему не уводит на оплату,
+/// канал или бота: вычистить такие ссылки из чужого свободного текста на
+/// импорте нельзя, а гейт на тапе закрывает их независимо от панели.
+bool announceLinksTappable({bool? isStoreBuild}) =>
+    !(isStoreBuild ?? system.isStoreBuild);
+
 @freezed
 class SubscriptionInfo with _$SubscriptionInfo {
   const factory SubscriptionInfo({

@@ -6,16 +6,23 @@ import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/account/account_common.dart';
 import 'package:dropweb/views/account/account_login_sheet.dart';
+import 'package:dropweb/widgets/glass_morph_route.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-/// Аккаунт — стеклянный шит из тех же блоков, что и «Подписка».
-Future<void> openAccountSheet(BuildContext context) => showLiquidSheet<void>(
+/// Аккаунт — стеклянный шит из тех же блоков, что и «Подписка». [origin] —
+/// откуда он вырастает (панель меню); без него выезжает снизу.
+Future<void> openAccountSheet(
+  BuildContext context, {
+  GlassMorphOrigin? origin,
+}) =>
+    showLiquidSheet<void>(
       context,
       builder: (_) => const AccountView(),
       halfSize: _accountSheetHeight(context),
+      origin: origin,
     );
 
 /// Стартовая высота под текущий статус — суммой тех же констант, что у

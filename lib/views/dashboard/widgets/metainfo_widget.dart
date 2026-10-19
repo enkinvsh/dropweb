@@ -6,6 +6,7 @@ import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/views/dashboard/widgets/corner_badge.dart';
 import 'package:dropweb/views/subscription/subscription_page.dart';
+import 'package:dropweb/widgets/glass_morph_route.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -115,6 +116,10 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
       color: theme.colorScheme.onSurfaceVariant,
     );
 
+    if (!announceLinksTappable()) {
+      return [TextSpan(text: text, style: style)];
+    }
+
     for (final match in urlPattern.allMatches(text)) {
       if (match.start > lastIndex) {
         spans.add(TextSpan(
@@ -216,8 +221,10 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
     // Monetization buttons — gated by subscription state and driven by
     // dropweb-* headers (auto-collected lowercase in profile.dart). Mechanism
     // is ported from pluralplay/FlClashX; the Lumina visual treatment is ours.
-    final renewUrl = headers['dropweb-renew-url'];
-    final topUpUrl = headers['dropweb-topup-url'];
+    // В магазинных сборках кнопок оплаты нет, даже если ключи уже лежат в
+    // сохранённом профиле: при импорте они вырезаются, это второй рубеж.
+    final renewUrl = system.isStoreBuild ? null : headers['dropweb-renew-url'];
+    final topUpUrl = system.isStoreBuild ? null : headers['dropweb-topup-url'];
 
     final now = DateTime.now();
     final showRenew = renewUrl != null &&
@@ -236,7 +243,11 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
             subscriptionInfo.total * 0.1;
 
     return _GlassSubscriptionCard(
-      onTap: () => SubscriptionPage.open(context, source: context),
+      onOpen: (origin, card) => SubscriptionPage.open(
+        context,
+        source: card,
+        origin: origin,
+      ),
       child: Stack(
         children: [
           if (logoStyle == SubscriptionLogoStyle.watermark)
@@ -449,9 +460,11 @@ class _MetainfoWidgetState extends ConsumerState<MetainfoWidget> {
 /// text and buttons render crisp on top. Press response: a short scale-down
 /// on the house curve (skipped when the platform asks to reduce motion).
 class _GlassSubscriptionCard extends StatefulWidget {
-  const _GlassSubscriptionCard({required this.onTap, required this.child});
+  const _GlassSubscriptionCard({required this.onOpen, required this.child});
 
-  final VoidCallback onTap;
+  /// [origin] описывает карточку как источник стеклянного шита, [card] —
+  /// контекст самой карточки (для десктопного zoom-перехода).
+  final void Function(GlassMorphOrigin origin, BuildContext card) onOpen;
   final Widget child;
 
   @override
@@ -460,10 +473,17 @@ class _GlassSubscriptionCard extends StatefulWidget {
 
 class _GlassSubscriptionCardState extends State<_GlassSubscriptionCard> {
   bool _pressed = false;
+  final GlassMorphHide _hidden = GlassMorphHide();
 
   void _setPressed(bool value) {
     if (_pressed == value) return;
     setState(() => _pressed = value);
+  }
+
+  @override
+  void dispose() {
+    _hidden.dispose();
+    super.dispose();
   }
 
   @override
@@ -472,26 +492,43 @@ class _GlassSubscriptionCardState extends State<_GlassSubscriptionCard> {
     final shape = RoundedSuperellipseBorder(
       borderRadius: BorderRadius.circular(Lumina.radiusLg),
     );
-    return AnimatedScale(
-      scale: _pressed && !reduceMotion ? 0.98 : 1.0,
-      duration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
-      curve: Lumina.luminaCurve,
-      child: GlassCard(
-        useOwnLayer: true,
-        quality: GlassQuality.standard,
-        padding: EdgeInsets.zero,
-        shape: const LiquidRoundedSuperellipse(borderRadius: Lumina.radiusLg),
-        settings: Lumina.liquidCard,
-        child: Material(
-          type: MaterialType.transparency,
-          shape: shape,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            customBorder: shape,
-            onTap: widget.onTap,
-            onHighlightChanged: _setPressed,
-            child: widget.child,
+    return ValueListenableBuilder<bool>(
+      valueListenable: _hidden,
+      // Пока стекло маршрута стоит на месте карточки, сама карточка молчит.
+      builder: (context, hidden, child) => Opacity(
+        opacity: hidden ? 0 : 1,
+        child: IgnorePointer(ignoring: hidden, child: child),
+      ),
+      child: AnimatedScale(
+        scale: _pressed && !reduceMotion ? 0.98 : 1.0,
+        duration:
+            reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
+        curve: Lumina.luminaCurve,
+        child: GlassCard(
+          useOwnLayer: true,
+          quality: GlassQuality.standard,
+          padding: EdgeInsets.zero,
+          shape: const LiquidRoundedSuperellipse(borderRadius: Lumina.radiusLg),
+          settings: Lumina.liquidCard,
+          child: Material(
+            type: MaterialType.transparency,
+            shape: shape,
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              customBorder: shape,
+              onTap: () => widget.onOpen(
+                GlassMorphOrigin(
+                  rect: () => zoomSourceRectOf(context),
+                  ghost: widget.child,
+                  radius: Lumina.radiusLg,
+                  settings: Lumina.liquidCard,
+                  hide: _hidden,
+                ),
+                context,
+              ),
+              onHighlightChanged: _setPressed,
+              child: widget.child,
+            ),
           ),
         ),
       ),

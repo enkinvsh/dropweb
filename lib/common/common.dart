@@ -16,6 +16,7 @@ export 'function.dart';
 export 'future.dart';
 export 'geo_asset_installer.dart';
 export 'geodata.dart';
+export 'haul_patch.dart';
 export 'http.dart';
 export 'icons.dart';
 export 'iterable.dart';

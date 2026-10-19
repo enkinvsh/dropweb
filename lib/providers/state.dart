@@ -575,7 +575,10 @@ bool _isLocalHttpCabinetHost(String host) {
 /// Returns `null` for missing, invalid, or unsupported values
 /// (relative paths, hostless URIs, plain `http://` on public hosts,
 /// `tg://`, `intent://`, `javascript:` etc.).
-Uri? profileCabinetUri(Profile? profile) {
+Uri? profileCabinetUri(Profile? profile, {bool? isStoreBuild}) {
+  // Магазинная сборка не ведёт в кабинет провайдера ни по заголовку, ни по
+  // запасному адресу: заголовок вырезается при импорте, это второй рубеж.
+  if (isStoreBuild ?? system.isStoreBuild) return null;
   final raw = profile?.providerHeaders['dropweb-cabinet'];
   if (raw == null) return null;
   final trimmed = raw.trim();
