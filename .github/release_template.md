@@ -12,6 +12,7 @@
   <tr>
     <td align="center" width="130"><img src="https://raw.githubusercontent.com/enkinvsh/dropweb/main/docs/icons/android.svg" width="18" alt=""> <b>Android</b></td>
     <td>
+      <a href="https://play.google.com/store/apps/details?id=app.dropweb"><img src="https://img.shields.io/badge/Google_Play-Store-009938?style=for-the-badge&logo=google-play&logoColor=white" alt="Google Play"></a>
       <a href="https://github.com/enkinvsh/dropweb/releases/download/vVERSION/dropweb-VERSION-android-arm64-v8a.apk"><img src="https://img.shields.io/badge/arm64--v8a-APK-009938?style=for-the-badge&logo=android&logoColor=white" alt="arm64"></a>
       <a href="https://github.com/enkinvsh/dropweb/releases/download/vVERSION/dropweb-VERSION-android-universal.apk"><img src="https://img.shields.io/badge/universal-APK-30363d?style=for-the-badge&logo=android&logoColor=white" alt="universal"></a>
       <a href="https://github.com/enkinvsh/dropweb/releases/download/vVERSION/dropweb-VERSION-android-armeabi-v7a.apk"><img src="https://img.shields.io/badge/armeabi--v7a-APK-30363d?style=for-the-badge&logo=android&logoColor=white" alt="armeabi-v7a"></a>

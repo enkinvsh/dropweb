@@ -60,7 +60,7 @@ adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd start
 adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd stop
 adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd toggle
 
-# режим работы (как вкладка «Режимы»): standard | smart | country
+# режим выбора выхода (как на экране «Подписка»): standard | country
 adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd mode --es value standard
 # «Страна»: country = член основной группы (см. `groups group=<router из status>`)
 adb shell "am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd mode --es value country --es country 'Германия'"
@@ -99,7 +99,7 @@ adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd logs --es n 
 adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd loglevel --es value debug
 adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd loglevel --es value off
 
-# навигация: имя PageLabel (dashboard, cabinet, tools, ...) или developer
+# навигация: имя PageLabel (dashboard, subscription, tools, ...) или developer
 adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd nav --es page tools
 adb shell am broadcast -p app.dropweb -a app.dropweb.DEBUG --es cmd nav --es page developer
 ```
