@@ -66,7 +66,7 @@ dropweb shapes the TLS handshake of outbound connections after a current browser
 
 ### <img src="docs/icons/puzzle.svg" width="20" alt="" /> Connection resilience
 
-An optional feature improves the reliability of TLS connections on unstable and congested networks by splitting the initial handshake into segments. Enabled via a single toggle; no additional configuration required.
+An optional feature improves the reliability of TLS connections on unstable and congested networks by splitting the initial handshake into segments. The provider enables it in the subscription config; there is nothing to set up in the app.
 
 ### <img src="docs/icons/flash.svg" width="20" alt="" /> Accurate connection state
 
