@@ -1,6 +1,6 @@
 name: Багрепорт / Bug report
 title: "[BUG] "
-description: Сообщите о возникшей проблем / Report the issue you are experiencing
+description: Сообщите о возникшей проблеме / Report the issue you are experiencing
 
 body:
   - type: markdown
@@ -8,11 +8,11 @@ body:
       value: |
         ## Прежде чем создать проблему, пожалуйста, убедитесь, что:
         1. Вы указали четкий и краткий заголовок проблемы, чтобы другие могли быстро её найти.
-        2. Вы проверили, что похожей проблемы нет среди [существующих](https://github.com/enkinvsh/dropweb-app/issues?q=is%3Aissue), в противном случае, обсуждайте её там.
+        2. Вы проверили, что похожей проблемы нет среди [существующих](https://github.com/enkinvsh/dropweb/issues?q=is%3Aissue), в противном случае обсуждайте её там.
         3. Вы подробно описали проблему, следуя требованиям шаблона, иначе проблема будет закрыта без рассмотрения.
         ## Before submitting the issue, please make sure of the following checklist:
         1. Please be sure to fill in a concise and clear title for the issue so that others can quickly search
-        2. Please make sure there is no similar issue in the [existing issues](https://github.com/enkinvsh/dropweb-app/issues?q=is%3Aissue), otherwise please discuss under the existing issue
+        2. Please make sure there is no similar issue in the [existing issues](https://github.com/enkinvsh/dropweb/issues?q=is%3Aissue), otherwise please discuss under the existing issue
         3. Please describe the problem in detail according to the template specification, otherwise issue will be closed directly.
   - type: textarea
     id: description
@@ -45,7 +45,7 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: Логи (не прикрепляйте файл, вставьте содержимое логов напрямую) / Log (Do not upload the log file, paste the log content directly)
-      description: Пожалуйста, предоставьте полный или соответствующий отладочный лог (для этого установите уровень логирования в меню слева ПО-> Настройки-> Уровень логирования-> Debug) / Please provide a complete or relevant Debug log (please adjust it to debug in the left menu of software-> Settings-> Log Level)
+      label: Диагностика или логи / Diagnostics or logs
+      description: Приложите отчёт из приложения (MENU -> Настройки -> 5 нажатий по заголовку «Настройки» -> Режим разработчика -> Снять диагностику; секреты и IP серверов удаляются автоматически) / Attach the diagnostics report (MENU -> Settings -> 5 taps on the "Settings" title -> Developer Mode -> Export diagnostics; secrets and server IPs are redacted automatically)
     validations:
       required: true

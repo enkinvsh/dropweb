@@ -10,6 +10,8 @@
 *.class
 *.log
 *.pyc
+__pycache__/
+.ruff_cache/
 *.swp
 .DS_Store
 .atom/
@@ -103,6 +105,7 @@ opencode.json
 
 # code-graph-mcp local code index
 .code-graph/
+.codegraph
 
 # Android module build output (artifacts; never track)
 /android/build/

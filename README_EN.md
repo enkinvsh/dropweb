@@ -21,6 +21,9 @@
 
 <br>
 
+<a href="https://play.google.com/store/apps/details?id=app.dropweb">
+  <img src="https://img.shields.io/badge/Google_Play-414141?style=for-the-badge&logo=google-play&logoColor=white" alt="Google Play">
+</a>
 <a href="https://github.com/enkinvsh/dropweb/releases">
   <img src="https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android">
 </a>
@@ -64,9 +67,9 @@ The **Subscription** page fits on one screen: the subscription card, the current
 
 dropweb shapes the TLS handshake of outbound connections after a current browser profile, including custom **Firefox 148** and **Safari 26** profiles with the post-quantum **X25519MLKEM768** key exchange. These profiles are not available in upstream uTLS.
 
-### <img src="docs/icons/puzzle.svg" width="20" alt="" /> Connection resilience
+### <img src="docs/icons/puzzle.svg" width="20" alt="" /> Connection & subscription resilience
 
-An optional feature improves the reliability of TLS connections on unstable and congested networks by splitting the initial handshake into segments. The provider enables it in the subscription config; there is nothing to set up in the app.
+Optional TLS fragmentation improves handshake reliability on unstable and congested networks (enabled by the provider in the subscription config). The subscription itself updates even when the VPN is connected and its servers stop responding: after three seconds, the app races a direct request outside the tunnel. When the primary address is unreachable, the client rotates through mirror addresses and an **Ed25519**-signed beacon list.
 
 ### <img src="docs/icons/flash.svg" width="20" alt="" /> Accurate connection state
 
@@ -82,6 +85,7 @@ The indicator becomes active only when the tunnel is established: the core confi
 | TLS connection resilience (ClientHello fragmentation) | <img src="docs/icons/yes.svg" width="15" alt="yes" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> | <img src="docs/icons/partial.svg" width="15" alt="partial" /> in the core, usually manual JSON only |
 | Modern TLS profiles (Firefox 148 / Safari 26, post-quantum) | <img src="docs/icons/yes.svg" width="15" alt="yes" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> uTLS presets only | <img src="docs/icons/partial.svg" width="15" alt="partial" /> often incompatible |
 | One-tap country selection (the mode follows) | <img src="docs/icons/yes.svg" width="15" alt="yes" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> |
+| Subscription update outside a dead tunnel and mirror failover | <img src="docs/icons/yes.svg" width="15" alt="yes" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> | <img src="docs/icons/partial.svg" width="15" alt="partial" /> |
 | Accurate connection state (UI waits for the real tunnel) | <img src="docs/icons/yes.svg" width="15" alt="yes" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> | <img src="docs/icons/no.svg" width="15" alt="no" /> |
 | Android + Windows + macOS + Linux from one codebase | <img src="docs/icons/yes.svg" width="15" alt="yes" /> | partial | rare |
 
@@ -92,27 +96,31 @@ The indicator becomes active only when the tunnel is established: the core confi
 ## <img src="docs/icons/features.svg" width="24" alt="" /> Features
 
 **Connectivity**
-- Subscription import via URL and QR code, background auto-update
-- One-tap country selection: **Auto** keeps the fastest server, a chosen country carries the whole route
+- One-tap subscription import from the clipboard, via URL, QR code or email sign-in (in non-store builds); background auto-update without creating duplicates when re-adding
+- Subscription updates outside the tunnel when the active VPN stops responding, with failover across mirror URLs and an **Ed25519**-signed beacon list
+- Automatic recovery after freeing a device slot (`x-hwid-limit`)
+- One-tap country selection: **Auto** keeps the fastest server, a chosen country carries the route without breaking direct rules
 - An **All traffic through VPN** switch when the subscription supports it
 - Cascade routes; under mobile internet restrictions, the whitelist from the subscription
 - Core protocols: VLESS (Reality / Vision / XHTTP), VMess, Trojan, Hysteria2, TUIC, ShadowTLS, AnyTLS, WireGuard
-- sing-box config import
+- Import of sing-box configs and share-link lists (`vless://`, `trojan://`, `ss://`, `hy2://`, etc.)
 
 **Privacy & security**
 - Local proxy isolation: random port + authentication, routing through TUN only
 - Modern TLS profiles with post-quantum key exchange
 - Optional TLS fragmentation for connection resilience
 - Rule-based routing, geosite/geoip, per-app split tunneling
+- Diagnostics export with automatic redaction of passwords, keys, UUIDs and server IPs
 - mihomo (Clash.Meta) core v1.19.31 with up-to-date security fixes
 
 **Interface**
-- Dark **Lumina** theme with liquid glass: a glass connect button, MENU and swipe-to-dismiss notifications; pages open with a liquid zoom
+- Dark **Lumina** theme with liquid glass: a glass connect button, **MENU** pill and swipe-to-dismiss notifications; on mobile, the subscription, account and settings sheets grow directly out of the card or pill as one piece of glass, and on desktop pages open with a liquid zoom
+- 6 color presets, custom accent and background-orb colors, pure black OLED mode and text scaling
 - Rendering performance is maintained on mid-range hardware
 - One-screen Subscription page: switching, updating, support and deleting subscriptions live in one menu
 - Russian, English, Japanese and Chinese
 - Native system tray on Windows/Linux and status bar on macOS
-- Independent update delivery
+- Updates via Google Play, and for site/GitHub builds — parallel mirror checks (Yandex Cloud, GitHub, site) with APK signature verification
 
 ---
 
@@ -146,10 +154,11 @@ An operator defines the client's appearance and behavior through the subscriptio
 
 Through `dropweb-*` headers an operator can set:
 
-- **Single-header theme** — accent color, two background-orb colors, a color-scheme filter and blur (`dropweb-theme`)
+- **Single-header theme** — accent color, two background-orb colors, a color-scheme filter, blur and logo style — watermark or inline icon (`dropweb-theme`)
 - **Logo and service name** on the subscription card (`dropweb-logo`, `dropweb-servicename`)
-- **Account area and subscription management** — a cabinet link and contextual actions (`dropweb-cabinet`)
-- **Announcements and service metadata** (`announce`, `support-url`)
+- **Email sign-in and account area** (in site and GitHub builds) — sign-in by email code with biometrics, auto-imported subscription, pre-authenticated web cabinet and contextual renewal and top-up actions (`dropweb-account`, `dropweb-cabinet`, `dropweb-renew-url`, `dropweb-topup-url`)
+- **Subscription mirror failover** — mirror list, stable subscription ID against duplicates, and an **Ed25519**-signed beacon of new addresses (`dropweb-sub-mirrors`, `dropweb-sub-id`, `dropweb-sub-beacon`, `dropweb-sub-beacon-key`)
+- **Announcements, support and device-limit management** (`announce`, `support-url`, `dropweb-device-remove`)
 
 The user retains control of appearance: the **"Theme from subscription"** and **"Logo from subscription"** toggles (on by default) restore the default appearance at any time; operator-supplied values are not applied when these toggles are off.
 
