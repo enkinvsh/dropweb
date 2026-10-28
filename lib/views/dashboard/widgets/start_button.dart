@@ -114,11 +114,11 @@ class _StartButtonState extends ConsumerState<StartButton>
   /// write, we treat the attempt as cancelled so the dialog can re-prompt
   /// next time.
   Future<bool> _ensureVpnConsent() async {
-    // Flavor gating (Play-only disclosure) lives INSIDE vpnConsent.isAccepted()
-    // — the single source of truth shared with the controller's
-    // defense-in-depth check in updateStatus(true). Do NOT duplicate a
-    // kIsPlayBuild branch here: a dialog-only bypass leaves the controller
-    // refusing the start (the "VPN won't start on non-Play builds" bug).
+    // Где раскрытие нужно (только магазинные сборки), решает
+    // vpnConsent.isAccepted() — общий источник истины с проверкой в
+    // updateStatus(true). Не дублировать здесь проверку сборки: обход только
+    // диалога оставит контроллер отказывать в старте (так ломался запуск VPN
+    // вне Play).
     if (await vpnConsent.isAccepted()) return true;
     if (!mounted) return false;
     final accepted = await showVpnDisclosureDialog(context);

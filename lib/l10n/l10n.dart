@@ -3905,6 +3905,16 @@ class AppLocalizations {
     );
   }
 
+  /// `dropweb adds a VPN configuration to your iPhone to create a VPN tunnel on your device. Your network traffic is sent through the servers listed in the subscription or configuration that you added yourself, and those servers' operators handle it under their own policies. dropweb does not inspect, record or upload the contents of your traffic or the sites you visit, and it has no ads or analytics. When you add or refresh a subscription, its provider receives your IP address and, unless you turn it off in Settings, a device identifier (HWID) and the device model. You can disconnect at any time from this screen or your device's VPN settings.`
+  String get vpnDisclosureBodyIos {
+    return Intl.message(
+      'dropweb adds a VPN configuration to your iPhone to create a VPN tunnel on your device. Your network traffic is sent through the servers listed in the subscription or configuration that you added yourself, and those servers\' operators handle it under their own policies. dropweb does not inspect, record or upload the contents of your traffic or the sites you visit, and it has no ads or analytics. When you add or refresh a subscription, its provider receives your IP address and, unless you turn it off in Settings, a device identifier (HWID) and the device model. You can disconnect at any time from this screen or your device\'s VPN settings.',
+      name: 'vpnDisclosureBodyIos',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Continue`
   String get vpnDisclosureContinue {
     return Intl.message(

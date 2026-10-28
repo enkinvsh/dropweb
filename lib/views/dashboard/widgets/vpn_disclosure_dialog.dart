@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/widgets/dialog.dart';
@@ -41,7 +43,11 @@ class _VpnDisclosureDialog extends StatelessWidget {
         ),
       ],
       child: SelectableText(
-        appLocalizations.vpnDisclosureBody,
+        // App Store (правило 2.3.10) отклоняет упоминания других платформ,
+        // поэтому у iOS свой текст без «Android».
+        Platform.isIOS
+            ? appLocalizations.vpnDisclosureBodyIos
+            : appLocalizations.vpnDisclosureBody,
         style: textTheme.bodyMedium,
       ),
     );
