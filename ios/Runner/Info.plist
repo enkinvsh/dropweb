@@ -36,10 +36,15 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- Только стандартные алгоритмы (TLS и протоколы ядра mihomo) — так ответили в App Store Connect для 0.10.3; во Франции не распространяем (иначе нужны документы ANSSI). Без ключа App Store Connect спрашивает про шифрование у каждой сборки. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Scan a QR code to add a subscription.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID protects your dropweb account sign-in.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Pick a QR code image to add a subscription.</string>
 	<key>UIApplicationSceneManifest</key>

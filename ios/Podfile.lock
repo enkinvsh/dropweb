@@ -54,6 +54,9 @@ PODS:
     - FlutterMacOS
   - image_picker_ios (0.0.1):
     - Flutter
+  - local_auth_darwin (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - mobile_scanner (7.0.0):
     - Flutter
     - FlutterMacOS
@@ -85,6 +88,7 @@ DEPENDENCIES:
   - flutter_js (from `.symlinks/plugins/flutter_js/ios`)
   - flutter_secure_storage_darwin (from `.symlinks/plugins/flutter_secure_storage_darwin/darwin`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
+  - local_auth_darwin (from `.symlinks/plugins/local_auth_darwin/darwin`)
   - mobile_scanner (from `.symlinks/plugins/mobile_scanner/darwin`)
   - network_info_plus (from `.symlinks/plugins/network_info_plus/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
@@ -119,6 +123,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_secure_storage_darwin/darwin"
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
+  local_auth_darwin:
+    :path: ".symlinks/plugins/local_auth_darwin/darwin"
   mobile_scanner:
     :path: ".symlinks/plugins/mobile_scanner/darwin"
   network_info_plus:
@@ -144,6 +150,7 @@ SPEC CHECKSUMS:
   flutter_js: 867813c1830e1d9b2c5d547cdb6f61801e2f2145
   flutter_secure_storage_darwin: acdb3f316ed05a3e68f856e0353b133eec373a23
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
+  local_auth_darwin: c3ee6cce0a8d56be34c8ccb66ba31f7f180aaebb
   mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
   network_info_plus: cf61925ab5205dce05a4f0895989afdb6aade5fc
   OrderedSet: e539b66b644ff081c73a262d24ad552a69be3a94
