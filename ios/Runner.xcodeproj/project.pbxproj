@@ -622,6 +622,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.dropweb;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
+				STRIP_STYLE = "non-global";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -922,6 +923,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.dropweb;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
+				STRIP_STYLE = "non-global";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
