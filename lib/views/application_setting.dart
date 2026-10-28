@@ -501,10 +501,9 @@ class ApplicationSettingView extends StatelessWidget {
       OpenLogsItem(),
       CloseConnectionsItem(),
       UsageItem(),
-      // Android never runs the legacy browser-dialog update check (see
-      // `shouldRunAutoUpdateCheck`): the sideload build uses the in-app
-      // updater and Play has no self-update, so the toggle is desktop-only.
-      if (!Platform.isAndroid) AutoCheckUpdateItem(),
+      // Старая проверка обновлений с окном браузера идёт только на десктопе
+      // (см. `shouldRunAutoUpdateCheck`), поэтому и переключатель только там.
+      if (system.isDesktop) AutoCheckUpdateItem(),
       if (system.isDesktop) ...[
         Padding(
           padding: const EdgeInsets.only(top: 16),

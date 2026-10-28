@@ -88,21 +88,22 @@ bool shouldHandleUpdateResult({
   return handleError;
 }
 
-/// Whether [AppController.autoCheckUpdate] (the legacy "new version found →
-/// open the browser" check) runs on startup. Android NEVER runs it: the
-/// sideloaded build has the in-app updater (appUpdateProvider, fed by the
-/// update-manifest mirrors), so the legacy browser dialog was a duplicate
-/// prompt, and the Play build has no self-update at all. Desktop honours the
-/// user's `autoCheckUpdate` preference.
+/// Запускать ли при старте старую проверку [AppController.autoCheckUpdate]
+/// («нашлась новая версия → открыть браузер»). На Android никогда: у сборки
+/// с сайта свой апдейтер (appUpdateProvider на зеркалах update-манифеста), а
+/// у Play-сборки самообновления нет вовсе. В магазинных сборках (Play и iOS)
+/// тоже никогда: окно со ссылкой на скачивание с GitHub мимо магазина App
+/// Review не пропустит, а iPhone такую сборку и не установит. Десктоп
+/// слушается настройки `autoCheckUpdate`.
 ///
-/// Pure update policy shared by [AppController.autoCheckUpdate] (the facade)
-/// and its implementation in [AppUpdateService]; also unit-tested directly via
-/// `package:dropweb/controller.dart`.
+/// Чистая функция: её зовут фасад [AppController.autoCheckUpdate] и
+/// [AppUpdateService], тесты импортируют её из `package:dropweb/controller.dart`.
 bool shouldRunAutoUpdateCheck({
   required bool isAndroid,
+  required bool isStoreBuild,
   required bool autoCheckUpdate,
 }) {
-  if (isAndroid) return false;
+  if (isAndroid || isStoreBuild) return false;
   return autoCheckUpdate;
 }
 
