@@ -54,11 +54,6 @@ class FixedMap<K, V> {
     _adjustMap();
   }
 
-  void updateMap(Map<K, V> map) {
-    _map = map;
-    _adjustMap();
-  }
-
   void _adjustMap() {
     if (_map.length > maxLength) {
       _map = Map.fromEntries(

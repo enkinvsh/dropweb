@@ -3,7 +3,9 @@ import 'dart:math' as math;
 
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/providers/providers.dart';
+import 'package:dropweb/services/account/account_gate.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:dropweb/views/account/account_common.dart';
 import 'package:dropweb/widgets/glass_morph_route.dart';
 import 'package:dropweb/widgets/widgets.dart';
@@ -12,13 +14,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-/// Базовая проверка `x@y.z`: ровно одна «@», без пробелов, в домене есть
-/// точка. Кириллические домены и `+теги` проходят; остальное решает бэкенд
-/// (emailRejected).
-final _emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
-
-/// Предел длины адреса по RFC 5321: длиннее сервер всё равно отвергнет.
-const _emailMaxLength = 254;
+final _emailPattern = accountEmailPattern;
+const _emailMaxLength = accountEmailMaxLength;
 
 /// Вход по почте — стеклянный шит как «Подписка». [email] подставляется,
 /// когда вход повторяют из заблокированного аккаунта. [origin] — откуда шит
@@ -27,13 +24,18 @@ Future<void> openAccountLoginSheet(
   BuildContext context, {
   String? email,
   GlassMorphOrigin? origin,
-}) =>
-    showLiquidSheet<void>(
-      context,
-      builder: (_) => AccountLoginView(initialEmail: email),
-      halfSize: _loginSheetHeight(context),
-      origin: origin,
-    );
+}) {
+  // Магазинная сборка (решение владельца 2026-10-29) входа не открывает.
+  // `kIsPlayBuild` — const: в Play весь остальной код не попадает в AAB; на iOS
+  // срабатывает рантайм-проверка.
+  if (kIsPlayBuild || accountStoreBlocked) return Future<void>.value();
+  return showLiquidSheet<void>(
+    context,
+    builder: (_) => AccountLoginView(initialEmail: email),
+    halfSize: _loginSheetHeight(context),
+    origin: origin,
+  );
+}
 
 /// Стартовая высота — первый шаг: одна строка ввода (круг 40 + паддинги 12).
 /// Дальше шит сам подстраивается под шаг и строку ошибки.
@@ -165,12 +167,22 @@ class _AccountLoginViewState extends ConsumerState<AccountLoginView> {
     });
     try {
       final result = await account.verifyCode(_sentTo, _codeController.text);
-      _finish(container, account, accountSyncResultText(result));
+      _finish(
+        container,
+        account,
+        accountSyncResultText(result),
+        accountSyncResultKind(result),
+      );
     } catch (error) {
       // verifyCode сохраняет сессию раньше, чем подключает подписку: статус
       // ready значит, что вход состоялся и сорвался только импорт профиля.
       if (container.read(accountProvider).status == AccountStatus.ready) {
-        _finish(container, account, appLocalizations.accountSyncFailed);
+        _finish(
+          container,
+          account,
+          appLocalizations.accountSyncFailed,
+          M3eToastKind.alert,
+        );
         return;
       }
       if (!mounted) {
@@ -189,7 +201,12 @@ class _AccountLoginViewState extends ConsumerState<AccountLoginView> {
     }
   }
 
-  void _finish(ProviderContainer container, Account account, String message) {
+  void _finish(
+    ProviderContainer container,
+    Account account,
+    String message,
+    M3eToastKind kind,
+  ) {
     final state = container.read(accountProvider);
     final offerBiometric = state.biometricAvailable && !state.biometricEnabled;
     // Закрываем только свою шторку и только если она ещё сверху: снятый
@@ -197,7 +214,7 @@ class _AccountLoginViewState extends ConsumerState<AccountLoginView> {
     if (mounted && (ModalRoute.of(context)?.isCurrent ?? false)) {
       Navigator.of(context).pop();
     }
-    globalState.showNotifier(message);
+    globalState.showNotifier(message, kind: kind);
     if (offerBiometric) {
       unawaited(offerAccountBiometric(account));
     }

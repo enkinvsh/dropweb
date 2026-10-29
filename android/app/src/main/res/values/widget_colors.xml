@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- СГЕНЕРИРОВАНО tool/canon/gen_widget_assets.dart, руками не править. Цвета превью виджета: «Голубой», схема fidelity. -->
+<resources>
+    <color name="widget_preview_bg">#DEF0FE</color>
+    <color name="widget_preview_title">#1F3542</color>
+    <color name="widget_preview_sub">#4C6270</color>
+    <color name="widget_preview_offBg">#38BDF8</color>
+    <color name="widget_preview_offFg">#00354A</color>
+    <color name="widget_preview_onBg">#00354A</color>
+    <color name="widget_preview_onFg">#38BDF8</color>
+</resources>

@@ -132,7 +132,9 @@ class _AddProfileViewState extends State<AddProfileView> {
               // самый короткий путь, подписка импортируется сама. Строки нет,
               // если провайдер не объявил бэкенд входа или сессия уже есть
               // (условие — accountLoginEntryVisible).
-              if (Platform.isAndroid)
+              // `!kIsPlayBuild` — const: в Play аккаунта нет вовсе (решение
+              // владельца 2026-10-29), строка и вход выпадают из сборки.
+              if (!kIsPlayBuild && Platform.isAndroid)
                 Consumer(
                   builder: (context, ref, _) {
                     final status = ref.watch(

@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math';
 
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/models/models.dart';
+import 'package:dropweb/ui/m3e/theme/m3e_theme_scope.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart' show SpringDescription, SpringSimulation;
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
@@ -12,32 +15,92 @@ class MessageManager extends StatefulWidget {
   const MessageManager({
     super.key,
     required this.child,
+    this.useM3e,
   });
   final Widget child;
+
+  /// Рисовать сообщения плашкой M3E. `null` — только на Android; параметр нужен, чтобы
+  /// тест на macOS мог включить новый путь, а `lib/ui/m3e` при этом не читал `Platform`.
+  final bool? useM3e;
 
   @override
   State<MessageManager> createState() => MessageManagerState();
 }
 
 class MessageManagerState extends State<MessageManager> {
+  /// Минимум между показом сообщения и приходом следующего на его место (как 1 с в
+  /// старом `_showMessage`).
+  static const Duration _minGap = Duration(seconds: 1);
+
   final _messagesNotifier = ValueNotifier<List<CommonMessage>>([]);
   final List<CommonMessage> _bufferMessages = [];
   bool _pushing = false;
 
+  // Путь M3E. Сообщение на экране; презентер сам убирает его через `kM3eToastHold`.
+  final _toast = ValueNotifier<M3eToastMessage?>(null);
+  final List<M3eToastMessage> _toastQueue = [];
+
+  /// Таймер минимальной паузы живёт только секунду после показа. Время не меряем часами
+  /// (`DateTime.now`): таймер одинаково работает на устройстве и под fake async в тестах.
+  Timer? _gapTimer;
+  bool _gapOpen = true;
+
+  bool get _m3e => widget.useM3e ?? Platform.isAndroid;
+
   @override
   void dispose() {
+    _gapTimer?.cancel();
+    _toast.dispose();
     _messagesNotifier.dispose();
     super.dispose();
   }
 
-  Future<void> message(String text) async {
+  /// [kind] — значок плашки на Android. Без [kind] плашка идёт без значка.
+  Future<void> message(String text, {M3eToastKind? kind}) async {
+    commonPrint.log(text);
+    if (_m3e) {
+      _enqueueToast(M3eToastMessage(kind: kind, text: text));
+      return;
+    }
     final commonMessage = CommonMessage(
       id: utils.uuidV4,
       text: text,
     );
-    commonPrint.log(text);
     _bufferMessages.add(commonMessage);
     await _showMessage();
+  }
+
+  void _enqueueToast(M3eToastMessage message) {
+    if (!mounted) return;
+    _toastQueue.add(message);
+    // Заменяем показанное сразу, если плашки нет или пауза в 1 с уже прошла; иначе
+    // ждёт таймер паузы, он сам возьмёт очередь.
+    if (_toast.value == null || _gapOpen) _showNextToast();
+  }
+
+  void _showNextToast() {
+    if (!mounted || _toastQueue.isEmpty) return;
+    _toast.value = _toastQueue.removeAt(0);
+    _gapOpen = false;
+    _gapTimer?.cancel();
+    _gapTimer = Timer(_minGap, _onGapPassed);
+  }
+
+  void _onGapPassed() {
+    _gapTimer = null;
+    _gapOpen = true;
+    _showNextToast();
+  }
+
+  /// Презентер зовёт в начале ухода по истечении `hold`: если никого нет в очереди,
+  /// снимаем сообщение, иначе следующее уже заняло место.
+  void _onToastDismissed(M3eToastMessage message) {
+    if (!mounted || !identical(_toast.value, message)) return;
+    if (_toastQueue.isNotEmpty) {
+      _showNextToast();
+    } else {
+      _toast.value = null;
+    }
   }
 
   Future<void> _showMessage() async {
@@ -77,6 +140,26 @@ class MessageManagerState extends State<MessageManager> {
 
   @override
   Widget build(BuildContext context) {
+    if (_m3e) {
+      return Stack(
+        children: [
+          widget.child,
+          // Тема M3E ставится только вокруг плашки: старые экраны остаются на Lumina,
+          // а плашка получает цвета схемы. Презентер сам не перехватывает касания.
+          Positioned.fill(
+            child: M3eThemeScope(
+              child: ValueListenableBuilder<M3eToastMessage?>(
+                valueListenable: _toast,
+                builder: (_, message, __) => M3eToastPresenter(
+                  message: message,
+                  onDismissed: _onToastDismissed,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     final reduceMotion = MediaQuery.of(context).disableAnimations;
     final desktop = system.isDesktop;
     return Stack(

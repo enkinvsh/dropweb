@@ -1,11 +1,21 @@
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/providers/providers.dart';
+import 'package:dropweb/services/account/account_gate.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:dropweb/views/cabinet/cabinet_browser_entry.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hugeicons/hugeicons.dart';
+
+/// Базовая проверка `x@y.z`: ровно одна «@», без пробелов, в домене есть
+/// точка. Кириллические домены и `+теги` проходят; остальное решает бэкенд
+/// (emailRejected).
+final accountEmailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+
+/// Предел длины адреса по RFC 5321: длиннее сервер всё равно отвергнет.
+const accountEmailMaxLength = 254;
 
 /// Длина кода из письма: бэкенд шлёт ровно 6 цифр, на этой длине форма
 /// отправляет код сама.
@@ -74,6 +84,11 @@ String accountEmailDisplay(String email) {
   return '${email.substring(0, at + 1)}\u200B${email.substring(at + 1)}';
 }
 
+/// Значок итога синхронизации: подключили, уже было и «вошли, подписки нет» — вход
+/// удался, поэтому все три итога идут как успех.
+M3eToastKind accountSyncResultKind(SubscriptionSyncResult result) =>
+    M3eToastKind.check;
+
 String accountSyncResultText(SubscriptionSyncResult result) => switch (result) {
       SubscriptionSyncResult.imported =>
         appLocalizations.accountSubscriptionImported,
@@ -103,7 +118,10 @@ Future<void> offerAccountBiometric(Account account) async {
       appLocalizations.accountBiometricEnableReason,
     );
   } catch (error) {
-    globalState.showNotifier(accountErrorText(error));
+    globalState.showNotifier(
+      accountErrorText(error),
+      kind: M3eToastKind.alert,
+    );
   }
 }
 
@@ -115,6 +133,7 @@ bool accountLoginEntryVisible({
   required AccountStatus status,
   required bool loginAvailable,
 }) =>
+    !accountStoreBlocked &&
     isAndroid &&
     loginAvailable &&
     (status == AccountStatus.loggedOut || status == AccountStatus.unknown);
@@ -128,6 +147,7 @@ bool accountMenuEntryVisible({
   required AccountStatus status,
   required bool loginAvailable,
 }) =>
+    !accountStoreBlocked &&
     isAndroid &&
     (status == AccountStatus.ready ||
         status == AccountStatus.locked ||
@@ -145,6 +165,8 @@ Future<void> openAccountCabinet({
   required String? accountProfileId,
   required Uri fallback,
 }) async {
+  // В магазинной сборке кабинета нет (решение владельца 2026-10-29).
+  if (accountStoreBlocked) return;
   var target = fallback;
   if (profileId != null && profileId == accountProfileId) {
     try {

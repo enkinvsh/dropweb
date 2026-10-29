@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:dropweb/common/common.dart';
+import 'package:dropweb/ui/m3e/screens/m3e_scan.dart';
+import 'package:dropweb/ui/m3e/theme/m3e_theme_scope.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:image_picker/image_picker.dart';
@@ -35,7 +39,10 @@ class _ScanPageState extends State<ScanPage> {
   Future<void> _scanFromImage() async {
     if (!system.supportsQrFromImage) {
       if (mounted) {
-        context.showNotifier(appLocalizations.qrScanFromImageUnsupported);
+        context.showNotifier(
+          appLocalizations.qrScanFromImageUnsupported,
+          kind: M3eToastKind.alert,
+        );
       }
       return;
     }
@@ -63,23 +70,29 @@ class _ScanPageState extends State<ScanPage> {
         _handleBarcode(result);
       } else {
         if (mounted) {
-          context.showNotifier(appLocalizations.qrNotFound);
+          context.showNotifier(
+            appLocalizations.qrNotFound,
+            kind: M3eToastKind.alert,
+          );
         }
       }
     }
   }
 
+  // Replaces the plugin's hardcoded English default ("Camera permission
+  // denied.") with a localized string so the scanner isn't a lone English
+  // pane inside an otherwise Russian UI. Non-permission codes keep the
+  // plugin's own message (rare edge cases, not the audit finding).
+  String _errorMessage(MobileScannerException error) =>
+      error.errorCode == MobileScannerErrorCode.permissionDenied
+          ? appLocalizations.cameraPermissionDenied
+          : error.errorCode.message;
+
   Widget _buildScannerError(
     BuildContext context,
     MobileScannerException error,
   ) {
-    // Replaces the plugin's hardcoded English default ("Camera permission
-    // denied.") with a localized string so the scanner isn't a lone English
-    // pane inside an otherwise Russian UI. Non-permission codes keep the
-    // plugin's own message (rare edge cases, not the audit finding).
-    final message = error.errorCode == MobileScannerErrorCode.permissionDenied
-        ? appLocalizations.cameraPermissionDenied
-        : error.errorCode.message;
+    final message = _errorMessage(error);
     return ColoredBox(
       color: Colors.black,
       child: Center(
@@ -115,6 +128,37 @@ class _ScanPageState extends State<ScanPage> {
       width: sideLength,
       height: sideLength,
     );
+
+    // Android: та же камера и тот же контроллер, но в обвязке M3E. Ошибку камеры рисует
+    // сама обвязка (плагинный errorBuilder прячем), результат и разбор файла — прежние.
+    if (Platform.isAndroid) {
+      return M3eThemeScope(
+        child: ValueListenableBuilder<MobileScannerState>(
+          valueListenable: _scannerController,
+          builder: (context, state, _) {
+            final error = state.error;
+            return M3eScanView(
+              camera: MobileScanner(
+                controller: _scannerController,
+                scanWindow: scanWindow,
+                onDetect: _handleBarcode,
+                errorBuilder: (_, __) => const SizedBox.shrink(),
+              ),
+              window: scanWindow,
+              error: error == null ? null : _errorMessage(error),
+              torchOn: switch (state.torchState) {
+                TorchState.on => true,
+                TorchState.off => false,
+                _ => null,
+              },
+              onBack: () => Navigator.of(context).pop(),
+              onTorch: _scannerController.toggleTorch,
+              onGallery: _scanFromImage,
+            );
+          },
+        ),
+      );
+    }
 
     return Scaffold(
       body: Stack(

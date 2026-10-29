@@ -127,3 +127,19 @@ adb pull /sdcard/Android/data/app.dropweb/files/diag/ ./diag
 ## uiautomator
 
 Ключевые контролы имеют стабильные `Semantics(identifier:)` → `resource-id` в `adb shell uiautomator dump`: `dw_connect`, `dw_nav_<pageLabel>`, `dw_exit` (строка выхода на странице «Подписка», открывает выбор страны), `dw_tunnel` (строка «Весь трафик через VPN»), `dw_settings_title`, `dw_dev_diag`, `dw_dev_config`, `dw_dev_headers`, `dw_dev_adb`, `dw_dev_crash`, `dw_dev_clear`.
+
+### Android M3E (ветка android)
+
+На Android главная и экраны настроек, подписки, маршрута — M3E (`lib/ui/m3e/**`). Идентификаторы старого UI перенесены туда, где у элемента есть эквивалент; чего нет, того нет, имена не выдумывались.
+
+| Идентификатор | Где в M3E | Есть |
+|---|---|---|
+| `dw_connect` | главная, большая кнопка подключения (`M3eHeroButton`) | да |
+| `dw_exit` | главная, кнопка-глобус справа внизу: открывает лист «Маршрут» (выбор страны) | да, на кнопке, не на строке |
+| `dw_mode_standard` | лист «Маршрут», строка «Авто» (агрегатор → `WorkMode.standard`) | да |
+| `dw_mode_country` | лист «Маршрут», строки стран (→ `WorkMode.country`); id один на все строки, различать по `content-desc` | да |
+| `dw_tunnel` | лист «Маршрут», строка «Весь трафик через VPN» (только если доступна) | да |
+| `dw_settings_title` | заголовок страницы настроек (тап ×7 включает режим разработчика) | да |
+| `dw_dev_*` | экран разработчика остался старым (открывается из настроек) | да, без изменений |
+| `dw_nav_<pageLabel>` | нижней навигации на мобильном нет и в старом UI (там был только `dashboard`, `tools` — лишь на десктопе); кнопки главной «Настройки», «Подписка», «Маршрут» ищите по `content-desc` (`m3eA11ySettings`, `m3eA11ySubs`, `m3eA11yRoute`) | нет |
+| `dw_tunnel_list`, `dw_tunnel_full` | вкладок «Список/Весь трафик» в M3E нет: переключатель `dw_tunnel` заменил их | нет |

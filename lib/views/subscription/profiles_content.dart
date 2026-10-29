@@ -4,17 +4,10 @@ import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/error_mapper.dart';
 import 'package:dropweb/models/models.dart' hide Action;
 import 'package:dropweb/plugins/app.dart';
-import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
-import 'package:dropweb/views/profiles/profiles.dart' show ProfileItem;
-import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hugeicons/hugeicons.dart';
 
-// ── Profiles content ──────────────────────────────────────────────────────
-
-/// Refresh handler for the Profiles list pull-to-refresh.
+/// Обновление подписок: меню дашборда, жест «потянуть» и кнопка в листе.
 ///
 /// If [current] is non-null, refreshes ONLY that profile — this is what
 /// the user expects when they pull-to-refresh while viewing the active
@@ -96,107 +89,6 @@ Future<void> refreshProfiles(BuildContext context, [Profile? current]) async {
           for (final msg in messages)
             TextSpan(text: msg, style: Theme.of(context).textTheme.titleMedium),
         ],
-      ),
-    );
-  }
-}
-
-class ProfilesContent extends ConsumerStatefulWidget {
-  final VoidCallback onAdd;
-  const ProfilesContent({required this.onAdd});
-
-  @override
-  ConsumerState<ProfilesContent> createState() => _ProfilesContentState();
-}
-
-class _ProfilesContentState extends ConsumerState<ProfilesContent>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context); // Required for AutomaticKeepAliveClientMixin
-    final state = ref.watch(profilesSelectorStateProvider);
-    final current = ref.watch(currentProfileProvider);
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    if (state.profiles.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: AddProfileCard(onTap: widget.onAdd, isDark: isDark),
-        ),
-      );
-    }
-    return RefreshIndicator(
-      onRefresh: () => refreshProfiles(context, current),
-      color: colorScheme.primary,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 32),
-        children: [
-          Grid(
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            crossAxisCount: state.columns,
-            children: [
-              for (int i = 0; i < state.profiles.length; i++)
-                GridItem(
-                  child: ProfileItem(
-                    key: Key(state.profiles[i].id),
-                    profile: state.profiles[i],
-                    groupValue: state.currentProfileId,
-                    onChanged: (id) {
-                      ref.read(currentProfileIdProvider.notifier).value = id;
-                    },
-                  ),
-                ),
-              GridItem(
-                child: AddProfileCard(onTap: widget.onAdd, isDark: isDark),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class AddProfileCard extends StatelessWidget {
-  final VoidCallback onTap;
-  final bool isDark;
-  const AddProfileCard({required this.onTap, required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(Lumina.radiusLg),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(Lumina.radiusLg),
-        splashColor: colorScheme.primary.withValues(alpha: 0.08),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(Lumina.radiusLg),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : colorScheme.outlineVariant.withValues(alpha: 0.4),
-            ),
-          ),
-          child: Center(
-            child: HugeIcon(
-              icon: HugeIcons.strokeRoundedAdd01,
-              size: 22,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
       ),
     );
   }

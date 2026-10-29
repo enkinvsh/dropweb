@@ -6,11 +6,11 @@ import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/config.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:intl/intl.dart';
 import 'package:path/path.dart' hide context;
 
 class OpenLogsFolderItem extends ConsumerWidget {
@@ -385,7 +385,10 @@ class AlwaysOnVpnItem extends ConsumerWidget {
       onTap: () async {
         final ok = await app?.openVpnSettings() ?? false;
         if (!ok) {
-          globalState.showNotifier(l10n.alwaysOnVpnOpenFailed);
+          globalState.showNotifier(
+            l10n.alwaysOnVpnOpenFailed,
+            kind: M3eToastKind.alert,
+          );
         }
       },
     );
@@ -478,11 +481,6 @@ class AutoCheckUpdateItem extends ConsumerWidget {
 
 class ApplicationSettingView extends StatelessWidget {
   const ApplicationSettingView({super.key});
-
-  String getLocaleString(Locale? locale) {
-    if (locale == null) return appLocalizations.defaultText;
-    return Intl.message(locale.toString());
-  }
 
   @override
   Widget build(BuildContext context) {

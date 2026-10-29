@@ -25,21 +25,24 @@ typedef _FetchedSubscription = ({
 });
 
 /// Provider headers store builds ([System.isStoreBuild]: Google Play, iOS)
-/// drop at ingestion: payment and account-cabinet links. The store app is a
-/// neutral bring-your-own-config client — it must not steer users to a
-/// provider's checkout or cabinet, whatever panel the user imports. Provider
-/// support and device removal stay. Sideload builds keep every header.
+/// drop at ingestion: payment, account-cabinet links and the email-login
+/// gateway (`dropweb-account`: решение владельца 2026-10-29 — в магазинах
+/// аккаунта нет вовсе). The store app is a neutral bring-your-own-config
+/// client — it must not steer users to a provider's checkout or cabinet,
+/// whatever panel the user imports. Provider support and device removal stay.
+/// Sideload builds keep every header.
 const storeStrippedProviderHeaders = {
   'dropweb-renew-url',
   'dropweb-topup-url',
   'dropweb-cabinet',
+  'dropweb-account',
 };
 
 Map<String, String> storeSafeProviderHeaders(
   Map<String, String> headers, {
   bool? isStoreBuild,
 }) {
-  if (!(isStoreBuild ?? system.isStoreBuild)) return headers;
+  if (!(kIsPlayBuild || (isStoreBuild ?? system.isStoreBuild))) return headers;
   return {
     for (final entry in headers.entries)
       if (!storeStrippedProviderHeaders.contains(entry.key))
@@ -173,12 +176,6 @@ extension OverrideRuleExt on OverrideRule {
         false => addedRules,
       };
 
-  OverrideRule updateRules(List<Rule> Function(List<Rule> rules) builder) {
-    if (type == OverrideRuleType.added) {
-      return copyWith(addedRules: builder(addedRules));
-    }
-    return copyWith(overrideRules: builder(overrideRules));
-  }
 }
 
 extension ProfilesExt on List<Profile> {
@@ -191,8 +188,6 @@ extension ProfilesExt on List<Profile> {
 extension ProfileExtension on Profile {
   ProfileType get type =>
       url.isEmpty == true ? ProfileType.file : ProfileType.url;
-
-  bool get realAutoUpdate => url.isEmpty == true ? false : autoUpdate;
 
   /// Human-facing subscription/service name, mirroring the dashboard card
   /// resolution (MetainfoWidget.pickTitle): the Remnawave `profile-title`
@@ -615,30 +610,6 @@ extension ProfileExtension on Profile {
     // delete-then-rename.
     final tmp = File('${file.path}.tmp');
     await tmp.writeAsBytes(bytes, flush: true);
-    try {
-      await tmp.rename(file.path);
-    } catch (_) {
-      if (await file.exists()) {
-        await file.delete();
-      }
-      await tmp.rename(file.path);
-    }
-    return copyWith(lastUpdateDate: DateTime.now());
-  }
-
-  Future<Profile> saveFileWithString(String value) async {
-    final message = await clashCore.validateConfig(value);
-    if (message.isNotEmpty) {
-      throw message;
-    }
-    final file = await getFile();
-    // Atomic write: stage into a sibling temp file then rename over the target.
-    // A kill mid-write would otherwise leave the stored profile truncated/corrupt.
-    // File.rename is atomic on the same filesystem (macOS/Linux/Android); on
-    // Windows a rename onto an existing target can throw, so fall back to
-    // delete-then-rename.
-    final tmp = File('${file.path}.tmp');
-    await tmp.writeAsString(value, flush: true);
     try {
       await tmp.rename(file.path);
     } catch (_) {

@@ -12,7 +12,6 @@ import 'package:dropweb/models/models.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/state.dart';
 import 'package:ffi/ffi.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:win32/win32.dart';
 
@@ -490,19 +489,6 @@ class Request {
     return response;
   }
 
-  Future<MemoryImage?> getImage(String url) async {
-    if (url.isEmpty) return null;
-    final response = await _dio.get<Uint8List>(
-      url,
-      options: Options(
-        responseType: ResponseType.bytes,
-      ),
-    );
-    final data = response.data;
-    if (data == null) return null;
-    return MemoryImage(data);
-  }
-
   /// Update check against our own update manifest (raced across
   /// [kUpdateManifestSeeds] via [fetchFirstUpdateManifest]) instead of the
   /// GitHub API. The manifest is adapted to the shape
@@ -834,23 +820,6 @@ class Request {
   Future<HelperAppIdentity> _currentWindowsAppIdentity() =>
       _helperAppIdentityCache.current();
 
-  Future<Map<String, dynamic>?> getCoreVersion() async {
-    try {
-      final response = await _dio
-          .get<Map<String, dynamic>>(
-            "http://$defaultExternalController/version",
-            options: Options(
-              responseType: ResponseType.json,
-            ),
-          )
-          .timeout(const Duration(seconds: 2));
-
-      if (response.statusCode != HttpStatus.ok) return null;
-      return response.data;
-    } catch (_) {
-      return null;
-    }
-  }
 }
 
 final request = Request();

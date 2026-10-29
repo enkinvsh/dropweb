@@ -70,11 +70,6 @@ extension StringExtension on String {
     return sha256.convert(bytes).toString().substring(0, 32);
   }
 
-  /// Full SHA-256 hex digest, preferred for any new code.
-  String toSha256() {
-    final bytes = utf8.encode(this);
-    return sha256.convert(bytes).toString();
-  }
 }
 
 extension StringExtensionSafe on String? {

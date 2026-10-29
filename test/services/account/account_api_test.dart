@@ -198,23 +198,34 @@ void main() {
   });
 
   group('failover баз API', () {
+    // Failover проверяем на самом простом живом запросе — `fetchChallenge`:
+    // ему нужен лишь валидный JSON челленджа.
+    const challengePath = '/cabinet/auth/email/challenge';
+    Map<String, Object?> challengeJson() => {
+          'algorithm': 'SHA-256',
+          'challenge': 'c' * 64,
+          'salt': 'salt',
+          'signature': 's' * 64,
+          'maxnumber': 1,
+        };
+
     test('ошибка соединения → следующая база, она запоминается', () async {
       final adapter = FakeAdapter((o) {
         if (o.uri.toString().startsWith(_a)) {
           throw DioException.connectionError(
               requestOptions: o, reason: 'refused');
         }
-        return jsonResponse(200, {'enabled': true});
+        return jsonResponse(200, challengeJson());
       });
       final api = _api(adapter);
 
-      expect(await api.emailAuthEnabled(), isTrue);
-      expect(api.activeBaseUrl, _b);
-      expect(await api.emailAuthEnabled(), isTrue);
+      await api.fetchChallenge();
+      await api.fetchChallenge();
+      // Вторая база запомнена: третий запрос сразу идёт в неё.
       expect(adapter.paths, [
-        '$_a/cabinet/branding/email-auth',
-        '$_b/cabinet/branding/email-auth',
-        '$_b/cabinet/branding/email-auth',
+        '$_a$challengePath',
+        '$_b$challengePath',
+        '$_b$challengePath',
       ]);
     });
 
@@ -226,18 +237,18 @@ void main() {
             error: const HandshakeException('bad'),
           );
         }
-        return jsonResponse(200, {'enabled': false});
+        return jsonResponse(200, challengeJson());
       });
-      expect(await _api(adapter).emailAuthEnabled(), isFalse);
+      await _api(adapter).fetchChallenge();
       expect(adapter.requests, hasLength(2));
     });
 
     test('HTTP-статус не переключает базу', () async {
       final adapter = FakeAdapter(
           (o) => jsonResponse(503, {'detail': 'Service Unavailable'}));
-      final e = await _error(_api(adapter).emailAuthEnabled());
+      final e = await _error(_api(adapter).fetchChallenge());
       expect(e.kind, AccountApiErrorKind.unavailable);
-      expect(adapter.paths, ['$_a/cabinet/branding/email-auth']);
+      expect(adapter.paths, ['$_a$challengePath']);
     });
 
     test('receiveTimeout не переключает базу — сервер мог выполнить запрос',
@@ -252,7 +263,7 @@ void main() {
     test('все базы недоступны → network', () async {
       final adapter = FakeAdapter((o) => throw DioException.connectionTimeout(
           requestOptions: o, timeout: const Duration(seconds: 15)));
-      final e = await _error(_api(adapter).emailAuthEnabled());
+      final e = await _error(_api(adapter).fetchChallenge());
       expect(e.kind, AccountApiErrorKind.network);
       expect(adapter.requests, hasLength(2));
     });
@@ -260,7 +271,7 @@ void main() {
     test('дубликаты баз схлопываются', () async {
       final adapter = FakeAdapter((o) =>
           throw DioException.connectionError(requestOptions: o, reason: 'x'));
-      await _error(_api(adapter, bases: [_a, _a, '$_a/']).emailAuthEnabled());
+      await _error(_api(adapter, bases: [_a, _a, '$_a/']).fetchChallenge());
       expect(adapter.requests, hasLength(1));
     });
   });

@@ -2097,22 +2097,5 @@ final autoSetSystemDnsStateProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AutoSetSystemDnsStateRef = AutoDisposeProviderRef<VM2<bool, bool>>;
-String _$profileOverrideStateHash() =>
-    r'8d01dc59a6aa899d2865536fa45a4acb78aacb4c';
-
-/// See also [ProfileOverrideState].
-@ProviderFor(ProfileOverrideState)
-final profileOverrideStateProvider = AutoDisposeNotifierProvider<
-    ProfileOverrideState, ProfileOverrideStateModel>.internal(
-  ProfileOverrideState.new,
-  name: r'profileOverrideStateProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$profileOverrideStateHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-typedef _$ProfileOverrideState = AutoDisposeNotifier<ProfileOverrideStateModel>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

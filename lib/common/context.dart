@@ -1,11 +1,13 @@
 import 'package:dropweb/manager/message_manager.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:dropweb/widgets/scaffold.dart';
 import 'package:flutter/material.dart';
 
 extension BuildContextExtension on BuildContext {
   CommonScaffoldState? get commonScaffoldState => findAncestorStateOfType<CommonScaffoldState>();
 
-  Future<void>? showNotifier(String text) => findAncestorStateOfType<MessageManagerState>()?.message(text);
+  Future<void>? showNotifier(String text, {M3eToastKind? kind}) =>
+      findAncestorStateOfType<MessageManagerState>()?.message(text, kind: kind);
 
   void showSnackBar(
     String message, {

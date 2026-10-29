@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- До Android 12 системного радиуса виджета нет; 16 dp — значение по умолчанию у лаунчеров. -->
+    <dimen name="widget_background_radius">16dp</dimen>
+</resources>

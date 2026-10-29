@@ -8,6 +8,7 @@ import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:dropweb/views/account/account_common.dart';
 import 'package:dropweb/views/account/account_login_sheet.dart';
 import 'package:dropweb/views/account/account_sheet.dart';
@@ -552,5 +553,8 @@ void _onSettingsTitleTap(WidgetRef ref) {
   ref.read(appSettingProvider.notifier).updateState(
         (state) => state.copyWith(developerMode: true),
       );
-  globalState.showNotifier(appLocalizations.developerModeEnableTip);
+  globalState.showNotifier(
+    appLocalizations.developerModeEnableTip,
+    kind: M3eToastKind.check,
+  );
 }

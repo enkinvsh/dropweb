@@ -123,6 +123,13 @@ opencode.json
 # Подписант маяка — часть контракта для провайдеров, на него опирается
 # test/tool/sign_sub_beacon_test.dart.
 !/tool/sign_sub_beacon.dart
+# Генераторы редизайна Android (M3E): из них собираются lib/ui/m3e/**/*.g.dart
+# и эталоны test/m3e/**, руками эти файлы не правят.
+!/tool/canon/
+
+# Проекты Eclipse/Buildship, которые Android Studio создаёт сама: в репозитории им делать нечего
+android/.project
+android/.settings/
 
 # Orchestrator notepad directory
 .omo/

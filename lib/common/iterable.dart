@@ -39,10 +39,6 @@ extension IterableExt<T> on Iterable<T> {
     }
   }
 
-  Iterable<T> takeLast({int count = 50}) {
-    if (count <= 0) return Iterable.empty();
-    return count >= length ? this : toList().skip(length - count);
-  }
 }
 
 extension ListExt<T> on List<T> {
@@ -68,11 +64,6 @@ extension ListExt<T> on List<T> {
     return res;
   }
 
-  List<T> safeSublist(int start) {
-    if (start <= 0) return this;
-    if (start > length) return [];
-    return sublist(start);
-  }
 }
 
 extension DoubleListExt on List<double> {

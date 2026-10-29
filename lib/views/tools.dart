@@ -7,6 +7,8 @@ import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/screens/m3e_about.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_page.dart' show pushM3ePage;
 import 'package:dropweb/views/about.dart';
 import 'package:dropweb/views/access.dart';
 import 'package:dropweb/views/app_update_sheet.dart';
@@ -70,9 +72,6 @@ class _ToolboxViewState extends ConsumerState<ToolsView> {
         // пожертвования из приложения.
         if (shouldShowCheckForUpdate()) const _UpdateItem(),
         if (!system.isStoreBuild) const _SupportItem(),
-        // Disclaimer из FlClash в магазинных сборках не показываем — см.
-        // AppController._handlerDisclaimer.
-        if (!system.isStoreBuild) const _DisclaimerItem(),
         if (enableDeveloperMode) const _DeveloperItem(),
         const _InfoItem(),
       ];
@@ -108,10 +107,6 @@ class _ToolboxViewState extends ConsumerState<ToolsView> {
           developerMode: enableDeveloperMode,
         ))
           const _AccessItem(),
-        // The settings-page Connect TV / Send to TV entry only ever
-        // lived on Android. Android (Play target) now hides the
-        // Send to TV / LAN subscription-sharing flow entirely (see
-        // `shouldShowSendToTv`), so the menu item is dropped here.
         if (enableDeveloperMode) const _ConfigItem(),
         if (enableDeveloperMode) const _SettingItem(),
       ];
@@ -363,31 +358,22 @@ class _SettingItem extends StatelessWidget {
   }
 }
 
-class _DisclaimerItem extends StatelessWidget {
-  const _DisclaimerItem();
-
-  @override
-  Widget build(BuildContext context) {
-    final appLocale = AppLocalizations.of(context);
-    return ListItem(
-      leading:
-          const HugeIcon(icon: HugeIcons.strokeRoundedLegalHammer, size: 24),
-      title: Text(appLocale.disclaimer),
-      onTap: () {
-        // Informational re-read from settings — must never exit the app
-        // (the accept/exit choice belongs to the first-run flow only).
-        unawaited(globalState.appController.showDisclaimer(readOnly: true));
-      },
-    );
-  }
-}
-
 class _InfoItem extends StatelessWidget {
   const _InfoItem();
 
   @override
   Widget build(BuildContext context) {
     final appLocale = AppLocalizations.of(context);
+    if (Platform.isAndroid) {
+      // M3E-экран рисует собственную панель и фон: OpenDelegate обернул бы его
+      // в CommonScaffold со старым заголовком, поэтому открываем отдельным маршрутом.
+      return ListItem(
+        leading: const HugeIcon(
+            icon: HugeIcons.strokeRoundedInformationCircle, size: 24),
+        title: Text(appLocale.about),
+        onTap: () => pushM3ePage<void>(context, (_) => const M3eAbout()),
+      );
+    }
     return ListItem.open(
       leading: const HugeIcon(
           icon: HugeIcons.strokeRoundedInformationCircle, size: 24),

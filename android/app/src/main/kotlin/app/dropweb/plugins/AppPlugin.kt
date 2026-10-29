@@ -36,6 +36,8 @@ import app.dropweb.extensions.awaitResult
 import app.dropweb.extensions.getActionIntent
 import app.dropweb.extensions.getBase64
 import app.dropweb.models.Package
+import app.dropweb.widgets.DropwebWidgetProvider
+import app.dropweb.widgets.WidgetStyleStore
 import com.google.gson.Gson
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -212,6 +214,16 @@ class AppPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware 
                 val value = call.argument<Boolean>("value")
                 updateExcludeFromRecents(value)
                 result.success(true)
+            }
+
+            "updateWidgetStyle" -> {
+                val json = call.argument<String>("json")
+                if (json != null) {
+                    val context = DropwebApplication.getAppContext()
+                    WidgetStyleStore.save(context, json)
+                    DropwebWidgetProvider.updateAllWidgets(context)
+                }
+                result.success(json != null)
             }
 
             "initShortcuts" -> {

@@ -19,6 +19,8 @@ import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/plugins/ios_tunnel.dart';
 import 'package:dropweb/plugins/service.dart';
 import 'package:dropweb/providers/providers.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_dialog_skin.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:dropweb/widgets/dialog.dart';
 import 'package:dropweb/widgets/scaffold.dart';
 import 'package:flutter/material.dart';
@@ -56,7 +58,6 @@ class GlobalState {
   Map<CacheTag, FixedMap<String, double>> cacheHeightMap = {};
   bool isService = false;
   Timer? timer;
-  Timer? groupsUpdateTimer;
 
   /// Owns the mutable `Config` mirror. `config` below delegates to it so the
   /// ~58 `globalState.config` read/write sites stay untouched while the mirror
@@ -79,7 +80,6 @@ class GlobalState {
   String? coreSHA256;
   String? coreVersion;
   late PackageInfo packageInfo;
-  Function? updateCurrentDelayDebounce;
 
   /// Pause/resume hooks for the 20s proxy-group poll timer owned by
   /// `ApplicationState`. Wired in its initState and cleared in dispose so the
@@ -475,7 +475,7 @@ class GlobalState {
             commonPrint
                 .log('service.stopVpn() failed during TUN-ack rollback: $e');
           }
-          showNotifier(ackError);
+          showNotifier(ackError, kind: M3eToastKind.alert);
           return false;
         }
         // Ack succeeded: now it's honest to mark the connection as started.
@@ -590,6 +590,19 @@ class GlobalState {
     }
   }
 
+  /// Стиль текста сообщения. В диалоге M3E это body-medium (его цвет задаёт скин), в старых
+  /// диалогах прежний label-large.
+  /// Сообщение без цветов Lumina, если диалог M3E (подробности в `m3eDialogMessageSpan`).
+  InlineSpan _dialogMessageSpan(InlineSpan message) =>
+      CommonDialog.defaultUseM3e ? m3eDialogMessageSpan(message) : message;
+
+  TextStyle? _dialogMessageStyle(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return CommonDialog.defaultUseM3e
+        ? textTheme.bodyMedium
+        : textTheme.labelLarge;
+  }
+
   Future<bool?> showMessage({
     String? title,
     required InlineSpan message,
@@ -611,29 +624,37 @@ class GlobalState {
                   },
                   child: Text(appLocalizations.cancel),
                 ),
-              TextButton(
-                style: destructive
-                    ? TextButton.styleFrom(
-                        foregroundColor: context.colorScheme.error,
-                      )
-                    : null,
-                onPressed: () {
-                  Navigator.of(context).pop(true);
-                },
-                child: Text(confirmText ?? appLocalizations.confirm),
+              // Builder: цвет ошибки берётся из темы диалога, а не из окружающей
+              // (на Android диалог перекрашен в M3E, у него своя схема).
+              Builder(
+                builder: (dialogContext) => TextButton(
+                  style: destructive
+                      ? TextButton.styleFrom(
+                          foregroundColor:
+                              Theme.of(dialogContext).colorScheme.error,
+                        )
+                      : null,
+                  onPressed: () {
+                    Navigator.of(context).pop(true);
+                  },
+                  child: Text(confirmText ?? appLocalizations.confirm),
+                ),
               )
             ],
             child: Container(
               width: 300,
               constraints: const BoxConstraints(maxHeight: 200),
               child: SingleChildScrollView(
-                child: SelectableText.rich(
-                  TextSpan(
-                    style: Theme.of(context).textTheme.labelLarge,
-                    children: [message],
-                  ),
-                  style: const TextStyle(
-                    overflow: TextOverflow.visible,
+                // Builder: стиль текста из темы диалога (на Android светлой M3E).
+                child: Builder(
+                  builder: (dialogContext) => SelectableText.rich(
+                    TextSpan(
+                      style: _dialogMessageStyle(dialogContext),
+                      children: [_dialogMessageSpan(message)],
+                    ),
+                    style: const TextStyle(
+                      overflow: TextOverflow.visible,
+                    ),
                   ),
                 ),
               ),
@@ -668,12 +689,18 @@ class GlobalState {
                     operatingSystem: Platform.operatingSystem,
                   );
                   await Clipboard.setData(ClipboardData(text: bundle));
-                  showNotifier(appLocalizations.logsCopied);
+                  showNotifier(
+                    appLocalizations.logsCopied,
+                    kind: M3eToastKind.check,
+                  );
                 } catch (error, stackTrace) {
                   commonPrint.log(
                     '[diagnostics] copy failed: $error\n$stackTrace',
                   );
-                  showNotifier(appLocalizations.genericErrorMessage);
+                  showNotifier(
+                    appLocalizations.genericErrorMessage,
+                    kind: M3eToastKind.alert,
+                  );
                 }
               },
               child: Text(appLocalizations.copyLogs),
@@ -689,14 +716,16 @@ class GlobalState {
             width: 300,
             constraints: const BoxConstraints(maxHeight: 200),
             child: SingleChildScrollView(
-              child: SelectableText.rich(
-                TextSpan(
-                  style: Theme.of(context).textTheme.labelLarge,
-                  children: [message],
+              child: Builder(
+                builder: (dialogContext) => SelectableText.rich(
+                  TextSpan(
+                    style: _dialogMessageStyle(dialogContext),
+                    children: [_dialogMessageSpan(message)],
+                  ),
+                  style: _dialogMessageStyle(dialogContext)?.copyWith(
+                        overflow: TextOverflow.visible,
+                      ),
                 ),
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      overflow: TextOverflow.visible,
-                    ),
               ),
             ),
           ),
@@ -712,11 +741,13 @@ class GlobalState {
       showModal<T>(
         context: navigatorKey.currentState!.context,
         configuration: FadeScaleTransitionConfiguration(
-          barrierColor: Colors.black38,
+          // На Android затемнение как у диалога M3E и без блюра.
+          barrierColor:
+              CommonDialog.defaultUseM3e ? kM3eDialogBarrierColor : Colors.black38,
           barrierDismissible: dismissible,
         ),
         builder: (_) => child,
-        filter: commonFilter,
+        filter: CommonDialog.defaultUseM3e ? null : commonFilter,
       );
 
   Future<T?> safeRun<T>(
@@ -732,7 +763,7 @@ class GlobalState {
       final message = ErrorMapper.mapError(e.toString()) ??
           appLocalizations.genericErrorMessage;
       if (silence) {
-        showNotifier(message);
+        showNotifier(message, kind: M3eToastKind.alert);
       } else {
         showErrorMessage(
           title: title ?? appLocalizations.errorTitle,
@@ -745,11 +776,12 @@ class GlobalState {
     }
   }
 
-  void showNotifier(String text) {
+  /// [kind] — значок плашки на Android; старая плашка (не Android) его не рисует.
+  void showNotifier(String text, {M3eToastKind? kind}) {
     if (text.isEmpty) {
       return;
     }
-    navigatorKey.currentContext?.showNotifier(text);
+    navigatorKey.currentContext?.showNotifier(text, kind: kind);
   }
 
   Future<void> openUrl(String url) async {
@@ -1255,6 +1287,32 @@ class DetectionState {
       duration: const Duration(
         milliseconds: 1200,
       ),
+    );
+  }
+
+  /// Проверка сразу, без дебаунса `startCheck` и без лимита `forceCheck`: так M3E-главная
+  /// перепроверяет адрес после смены туннеля или узла (лимит в 15 с глушил бы повтор).
+  Future<void> checkNow() => _checkIp();
+
+  /// Проверка без промежуточных сбросов: `ipInfo`/`isLoading` не обнуляются, значение
+  /// меняется один раз по приходу ответа. Нужна M3E-главной: `_checkIp` сам стирает адрес,
+  /// и из-за этого один connect давал два «появления» одного и того же IP. Устаревший
+  /// (отменённый новой проверкой) ответ игнорируется.
+  Future<void> checkQuiet() async {
+    final appState = globalState.appState;
+    if (!appState.isInit) return;
+    _clearSetTimeoutTimer();
+    cancelToken?.cancel();
+    final token = cancelToken = CancelToken();
+    final res = await request.checkIp(cancelToken: token);
+    if (token.isCancelled || res.isError) return;
+    final ipInfo = res.data;
+    if (ipInfo == null) return;
+    _preIsStart = globalState.appState.runTime != null;
+    state.value = state.value.copyWith(
+      isLoading: false,
+      isTesting: false,
+      ipInfo: ipInfo,
     );
   }
 

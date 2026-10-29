@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- СГЕНЕРИРОВАНО tool/canon/gen_widget_assets.dart, руками не править. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M100,50 C100,55.215 99.184,60.43 97.553,65.451 C94.29,75.493 87.932,84.244 79.389,90.451 C70.847,96.657 60.559,100 50,100 C39.441,100 29.153,96.657 20.611,90.451 C12.068,84.244 5.71,75.493 2.447,65.451 C-0.816,55.409 -0.816,44.591 2.447,34.549 C5.71,24.507 12.068,15.756 20.611,9.549 C29.153,3.343 39.441,0 50,0 C60.559,0 70.847,3.343 79.389,9.549 C87.932,15.756 94.29,24.507 97.553,34.549 C99.184,39.57 100,44.785 100,50 Z" />
+</vector>

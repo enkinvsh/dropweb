@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Включение и выключение VPN</string>
+    <string name="widget_status_on">Подключено</string>
+    <string name="widget_status_off">Не подключено</string>
+    <string name="widget_status_pending">Подключение…</string>
+    <string name="widget_cd_connect">Подключить VPN</string>
+    <string name="widget_cd_disconnect">Отключить VPN</string>
+    <string name="widget_cd_cancel">Отменить подключение</string>
+</resources>

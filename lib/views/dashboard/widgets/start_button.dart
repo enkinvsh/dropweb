@@ -16,6 +16,63 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+/// Включает или выключает VPN: общий путь старой кнопки [StartButton] и кнопки M3E-главной.
+///
+/// Выключение подтверждается тактильным откликом и звуком сразу, без ожидания: отклик
+/// не должен задерживать смену статуса. При включении окно раскрытия VPN идёт ДО отклика
+/// и звука: если пользователь его отменил, ничто не должно намекать, что подключение
+/// вот-вот начнётся.
+///
+/// Возвращает `true`, только если запуск реально запрошен (окно раскрытия не отменено);
+/// при выключении и при отмене окна — `false`.
+Future<bool> toggleVpn(
+  BuildContext context, {
+  required bool currentlyRunning,
+}) async {
+  if (currentlyRunning) {
+    unawaited(App().performHapticFeedback(DropwebHapticCue.confirm));
+    unawaited(App().playUiSound(DropwebSoundCue.powerOff));
+    unawaited(globalState.appController.updateStatus(false));
+    return false;
+  }
+
+  final allowed = await _ensureVpnConsent(context);
+  if (!allowed) return false;
+
+  ConnectTrace.start();
+  unawaited(App().performHapticFeedback(DropwebHapticCue.confirm));
+  unawaited(App().playUiSound(DropwebSoundCue.powerOn));
+  unawaited(_maybeRequestNotificationPermission());
+  unawaited(globalState.appController.updateStatus(true));
+  return true;
+}
+
+/// Разовый запрос POST_NOTIFICATIONS при ПЕРВОМ успешном подключении (Android 13+).
+/// Без него уведомление foreground-сервиса VPN на свежей установке не видно. Не ждём
+/// результата, чтобы не задерживать туннель; уровень SDK и текущую выдачу проверяет
+/// нативная сторона.
+Future<void> _maybeRequestNotificationPermission() async {
+  if (!Platform.isAndroid) return;
+  if (await notificationPermissionPrompt.isRequested()) return;
+  await notificationPermissionPrompt.markRequested();
+  await App().requestNotificationsPermission();
+}
+
+/// true, если раскрытие уже принято раньше или принято сейчас в диалоге И флаг удалось
+/// сохранить. Вернуть true без сохранённого флага нельзя: кнопка сыграла бы отклик
+/// включения, а `AppController.updateStatus` молча отказал бы в старте. Если запись
+/// не удалась, считаем попытку отменённой, и диалог спросит снова.
+Future<bool> _ensureVpnConsent(BuildContext context) async {
+  // Где раскрытие нужно (только магазинные сборки), решает vpnConsent.isAccepted():
+  // это общий источник истины с проверкой в updateStatus(true). Сборку здесь не
+  // проверять: обход одного диалога оставит контроллер отказывать в старте.
+  if (await vpnConsent.isAccepted()) return true;
+  if (!context.mounted) return false;
+  final accepted = await showVpnDisclosureDialog(context);
+  if (accepted != true) return false;
+  return vpnConsent.markAccepted();
+}
+
 class StartButton extends ConsumerStatefulWidget {
   const StartButton({super.key, this.iconSize = 48.0});
 
@@ -67,65 +124,10 @@ class _StartButtonState extends ConsumerState<StartButton>
     super.dispose();
   }
 
-  Future<void> handleSwitchStart() async {
-    final currentlyRunning = ref.read(runTimeProvider) != null;
-    final next = !currentlyRunning;
-
-    // Disconnect keeps the existing feedback timing — play the power-off
-    // cue immediately so the user gets a confirmation tick on tap. Feedback
-    // is fire-and-forget so we don't block the status update.
-    if (!next) {
-      unawaited(App().performHapticFeedback(DropwebHapticCue.confirm));
-      unawaited(App().playUiSound(DropwebSoundCue.powerOff));
-      unawaited(globalState.appController.updateStatus(false));
-      return;
-    }
-
-    // First-start path: the disclosure gate runs BEFORE any confirm haptic
-    // and BEFORE the power-on cue. If the user cancels the dialog, no
-    // feedback should suggest a connection was about to happen.
-    final allowed = await _ensureVpnConsent();
-    if (!allowed) return;
-
-    ConnectTrace.start();
-    unawaited(App().performHapticFeedback(DropwebHapticCue.confirm));
-    unawaited(App().playUiSound(DropwebSoundCue.powerOn));
-    unawaited(_maybeRequestNotificationPermission());
-    unawaited(globalState.appController.updateStatus(true));
-  }
-
-  /// One-shot POST_NOTIFICATIONS ask on the FIRST successful connect (Android
-  /// 13+). Without it the foreground-service VPN notification (uptime/speed) is
-  /// invisible on fresh installs. Fire-and-forget so it never delays the tunnel;
-  /// the native side gates on SDK level + current grant.
-  Future<void> _maybeRequestNotificationPermission() async {
-    if (!Platform.isAndroid) return;
-    if (await notificationPermissionPrompt.isRequested()) return;
-    await notificationPermissionPrompt.markRequested();
-    await App().requestNotificationsPermission();
-  }
-
-  /// Returns true when the user has previously accepted the disclosure OR
-  /// just accepted it in the dialog AND the accepted flag was successfully
-  /// persisted. Returning true without a persisted flag would let the
-  /// dashboard play the power-on feedback while the central
-  /// `AppController.updateStatus` guard silently refuses the start, leaving
-  /// the user with a tick but no connection. If `markAccepted()` fails to
-  /// write, we treat the attempt as cancelled so the dialog can re-prompt
-  /// next time.
-  Future<bool> _ensureVpnConsent() async {
-    // Где раскрытие нужно (только магазинные сборки), решает
-    // vpnConsent.isAccepted() — общий источник истины с проверкой в
-    // updateStatus(true). Не дублировать здесь проверку сборки: обход только
-    // диалога оставит контроллер отказывать в старте (так ломался запуск VPN
-    // вне Play).
-    if (await vpnConsent.isAccepted()) return true;
-    if (!mounted) return false;
-    final accepted = await showVpnDisclosureDialog(context);
-    if (accepted != true) return false;
-    final persisted = await vpnConsent.markAccepted();
-    return persisted;
-  }
+  Future<void> handleSwitchStart() => toggleVpn(
+        context,
+        currentlyRunning: ref.read(runTimeProvider) != null,
+      );
 
   void _handleTapDown() {
     // Press-down only fires the gestureStart haptic — the audible cue was

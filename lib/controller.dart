@@ -16,6 +16,7 @@ import 'package:dropweb/services/connect_service.dart';
 import 'package:dropweb/services/profile_import_transaction.dart';
 import 'package:dropweb/services/profile_service.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:dropweb/widgets/dialog.dart';
 import 'package:dropweb/widgets/scaffold.dart';
 import 'package:flutter/foundation.dart';
@@ -27,7 +28,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'common/common.dart';
 import 'models/models.dart';
 import 'views/app_update_sheet.dart';
-import 'views/profiles/override_profile.dart';
 
 /// Decides whether a profile is eligible for automatic subscription update.
 ///
@@ -648,7 +648,10 @@ class AppController {
           // The device slot freed up and this fetch registered us — celebrate
           // instead of leaving the user guessing whether their cabinet dance
           // worked.
-          globalState.showNotifier(appLocalizations.hwidRecovered);
+          globalState.showNotifier(
+            appLocalizations.hwidRecovered,
+            kind: M3eToastKind.check,
+          );
           unawaited(App().performHapticFeedback(DropwebHapticCue.confirm));
         }
         return;
@@ -1378,29 +1381,6 @@ class AppController {
     await system.exit();
   }
 
-  Future<void> handleRestart() async {
-    commonPrint.log("Starting application restart...");
-
-    if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
-      final executablePath = Platform.resolvedExecutable;
-      commonPrint.log("Launching new process: $executablePath");
-
-      try {
-        await Process.start(
-          executablePath,
-          [],
-          mode: ProcessStartMode.detached,
-        );
-        commonPrint.log("New process started, exiting old process...");
-      } catch (e) {
-        commonPrint.log("Failed to start new process: $e");
-        return;
-      }
-    }
-
-    system.exit();
-  }
-
   Future handleClear() async {
     try {
       // Stop proxy/VPN first
@@ -1587,7 +1567,7 @@ class AppController {
     // Android sideload-апдейтер: сам гасится на Play/десктопе, при выключенной
     // настройке autoCheckUpdate и до истечения kUpdateCheckInterval. Сеть идёт
     // параллельно с диалогами первого запуска, а шит предлагается только после
-    // них (initProvider=true ниже), иначе лёг бы поверх дисклеймера.
+    // них (initProvider=true ниже), иначе лёг бы поверх этих диалогов.
     final appUpdateOffer = _ref.read(appUpdateProvider.notifier).autoCheck();
     // Сессия аккаунта поднимается в фоне: сеть до кабинета может быть
     // медленной, а старт приложения и VPN от неё не зависят.
@@ -1597,7 +1577,6 @@ class AppController {
           ),
     );
     await _handlePreference();
-    await _handlerDisclaimer();
     _ref.read(initProvider.notifier).value = true;
     unawaited(appUpdateOffer.then(_offerAppUpdate));
 
@@ -1662,10 +1641,6 @@ class AppController {
     _ref.read(currentPageLabelProvider.notifier).value = pageLabel;
   }
 
-  void toProfiles() {
-    toPage(PageLabel.profiles);
-  }
-
   void initLink() {
     linkManager.initAppLinksListen(
       (url) async {
@@ -1700,63 +1675,6 @@ class AppController {
         addProfileFormURL(url);
       },
     );
-  }
-
-  /// [readOnly] — informational mode for the settings entry: a single
-  /// "Close" action, dismissible, and never exits the app. The first-run
-  /// accept/exit flow keeps the default (false).
-  Future<bool> showDisclaimer({bool readOnly = false}) async {
-    final accepted = await globalState.showCommonDialog<bool>(
-      dismissible: readOnly,
-      child: CommonDialog(
-        title: appLocalizations.disclaimer,
-        actions: readOnly
-            ? [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop<bool>(true);
-                  },
-                  child: Text(appLocalizations.close),
-                ),
-              ]
-            : [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop<bool>(false);
-                  },
-                  child: Text(appLocalizations.exit),
-                ),
-                TextButton(
-                  onPressed: () {
-                    _ref.read(appSettingProvider.notifier).updateState(
-                          (state) => state.copyWith(disclaimerAccepted: true),
-                        );
-                    Navigator.of(context).pop<bool>(true);
-                  },
-                  child: Text(appLocalizations.agree),
-                )
-              ],
-        child: SelectableText(
-          appLocalizations.disclaimerDesc,
-        ),
-      ),
-    );
-    return accepted ?? readOnly;
-  }
-
-  Future<void> _handlerDisclaimer() async {
-    // В магазинных сборках окна нет: унаследованный от FlClash текст
-    // («только некоммерческое использование») противоречит публикации в
-    // Google Play/App Store и путает ревьюера.
-    if (system.isStoreBuild ||
-        _ref.read(appSettingProvider).disclaimerAccepted) {
-      return;
-    }
-    final isDisclaimerAccepted = await showDisclaimer();
-    if (!isDisclaimerAccepted) {
-      await handleExit();
-    }
-    return;
   }
 
   Future<CommonScaffoldState> waitForImportScaffold() async {
@@ -1888,7 +1806,10 @@ class AppController {
           unawaited(
             App().performHapticFeedback(DropwebHapticCue.gestureStart),
           );
-          globalState.showNotifier(appLocalizations.onboardingImported);
+          globalState.showNotifier(
+            appLocalizations.onboardingImported,
+            kind: M3eToastKind.check,
+          );
         }
         return Future<void>.value();
       },
@@ -1905,67 +1826,6 @@ class AppController {
       log: commonPrint.log,
     );
     await transaction.run();
-  }
-
-  Future<Null> addProfileFormFile() async {
-    final platformFile = await globalState.safeRun(picker.pickerFile);
-    final bytes = platformFile?.bytes;
-    if (bytes == null) {
-      return null;
-    }
-    globalState.navigatorKey.currentState?.popUntil((route) => route.isFirst);
-    toPage(PageLabel.dashboard);
-    CommonScaffoldState? commonScaffoldState;
-    final transaction = ProfileImportTransaction<Profile>(
-      ensureUiReady: () async {
-        commonScaffoldState = await waitForImportScaffold();
-      },
-      ensureCoreReady: () async {
-        final ready = await commonScaffoldState!.loadingRun<bool>(
-          () async {
-            if (clashCore.hasCoreReadinessFailure) {
-              await restartCore();
-            }
-            await clashCore.ensureCoreReady();
-            return true;
-          },
-          title: appLocalizations.startingVpnCore,
-        );
-        return ready == true;
-      },
-      downloadAndValidate: () => commonScaffoldState!.loadingRun<Profile?>(
-        () async {
-          await Future.delayed(const Duration(milliseconds: 300));
-          return Profile.normal(label: platformFile?.name).saveFile(bytes);
-        },
-        title: appLocalizations.addProfile,
-      ),
-      commitProfile: addProfile,
-      applyHeaderSettings: (profile) async {
-        _importProfileSideEffects(resetTheme: true);
-      },
-      handleHwidHeaders: (profile) => Future<void>.value(),
-      applyProfile: (profile) async {
-        await _applyProfile();
-        addCheckIpNumDebounce();
-      },
-      reportSuccess: (profile) {
-        _importSuccessCleanup();
-        return Future<void>.value();
-      },
-      reportFailure: (error, stackTrace) async {
-        commonPrint.log('Add File Profile Failed: $error\n$stackTrace');
-        final message = ErrorMapper.mapError(error.toString()) ??
-            appLocalizations.genericErrorMessage;
-        await globalState.showErrorMessage(
-          message: TextSpan(text: message),
-          diagnosticPhase: 'import',
-        );
-      },
-      log: commonPrint.log,
-    );
-    await transaction.run();
-    return null;
   }
 
   Future<void> addProfileFormQrCode() async {
@@ -2246,6 +2106,7 @@ class AppController {
         if (!hasNodes) {
           globalState.showNotifier(
             appLocalizations.workModeResetNotice,
+            kind: M3eToastKind.alert,
           );
           final selectedMap = Map<String, String>.from(profile.selectedMap)
             ..remove(GroupName.GLOBAL.name);
@@ -2274,6 +2135,7 @@ class AppController {
         if (!smartGroupWillInject(cfg)) {
           globalState.showNotifier(
             appLocalizations.workModeResetNotice,
+            kind: M3eToastKind.alert,
           );
           return profile.copyWith(workMode: WorkMode.standard);
         }
@@ -2310,10 +2172,6 @@ class AppController {
         );
   }
 
-  void updateTheme(ThemeProps themeProps) {
-    _ref.read(themeSettingProvider.notifier).updateState((_) => themeProps);
-  }
-
   Future<void> updateVisible() async {
     if (Platform.isMacOS) return;
 
@@ -2327,38 +2185,6 @@ class AppController {
 
   // updateMode removed: mode is derived (see _setupClashConfig). The desktop
   // hotkey (HotAction.mode) is now a no-op and the tray submenu is gone.
-
-  Future<void> handleAddOrUpdate(WidgetRef ref, [Rule? rule]) async {
-    final res = await globalState.showCommonDialog<Rule>(
-      child: AddRuleDialog(
-        rule: rule,
-        snippet: ref.read(
-          profileOverrideStateProvider.select(
-            (state) => state.snippet!,
-          ),
-        ),
-      ),
-    );
-    if (res == null) {
-      return;
-    }
-    ref.read(profileOverrideStateProvider.notifier).updateState(
-      (state) {
-        final model = state.copyWith.overrideData!(
-          rule: state.overrideData!.rule.updateRules(
-            (rules) {
-              final index = rules.indexWhere((item) => item.id == res.id);
-              if (index == -1) {
-                return List.from([res, ...rules]);
-              }
-              return List.from(rules)..[index] = res;
-            },
-          ),
-        );
-        return model;
-      },
-    );
-  }
 
   Future<bool> exportLogs() async {
     final logsRaw = _ref.read(logsProvider).list.map(

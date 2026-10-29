@@ -278,7 +278,7 @@ void main() {
     );
   });
 
-  test('URL and file imports share switch side effects and success cleanup',
+  test('URL import runs switch side effects and success cleanup',
       () {
     final source = File('lib/controller.dart').readAsStringSync();
 
@@ -286,11 +286,11 @@ void main() {
       RegExp(r'_importProfileSideEffects\(resetTheme: true\);')
           .allMatches(source)
           .length,
-      2,
+      1,
     );
     expect(
       RegExp(r'_importSuccessCleanup\(\);').allMatches(source).length,
-      2,
+      1,
     );
 
     final sideEffectsStart = source.indexOf(

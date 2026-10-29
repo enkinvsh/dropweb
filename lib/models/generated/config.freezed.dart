@@ -54,7 +54,6 @@ mixin _$AppSettingProps {
   String get updateSnoozedVersion => throw _privateConstructorUsedError;
   int get updateSnoozedUntilMs => throw _privateConstructorUsedError;
   bool get showLabel => throw _privateConstructorUsedError;
-  bool get disclaimerAccepted => throw _privateConstructorUsedError;
   bool get minimizeOnExit => throw _privateConstructorUsedError;
   bool get hidden => throw _privateConstructorUsedError;
   bool get developerMode => throw _privateConstructorUsedError;
@@ -97,7 +96,6 @@ abstract class $AppSettingPropsCopyWith<$Res> {
       String updateSnoozedVersion,
       int updateSnoozedUntilMs,
       bool showLabel,
-      bool disclaimerAccepted,
       bool minimizeOnExit,
       bool hidden,
       bool developerMode,
@@ -138,7 +136,6 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
     Object? updateSnoozedVersion = null,
     Object? updateSnoozedUntilMs = null,
     Object? showLabel = null,
-    Object? disclaimerAccepted = null,
     Object? minimizeOnExit = null,
     Object? hidden = null,
     Object? developerMode = null,
@@ -212,10 +209,6 @@ class _$AppSettingPropsCopyWithImpl<$Res, $Val extends AppSettingProps>
           ? _value.showLabel
           : showLabel // ignore: cast_nullable_to_non_nullable
               as bool,
-      disclaimerAccepted: null == disclaimerAccepted
-          ? _value.disclaimerAccepted
-          : disclaimerAccepted // ignore: cast_nullable_to_non_nullable
-              as bool,
       minimizeOnExit: null == minimizeOnExit
           ? _value.minimizeOnExit
           : minimizeOnExit // ignore: cast_nullable_to_non_nullable
@@ -274,7 +267,6 @@ abstract class _$$AppSettingPropsImplCopyWith<$Res>
       String updateSnoozedVersion,
       int updateSnoozedUntilMs,
       bool showLabel,
-      bool disclaimerAccepted,
       bool minimizeOnExit,
       bool hidden,
       bool developerMode,
@@ -313,7 +305,6 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
     Object? updateSnoozedVersion = null,
     Object? updateSnoozedUntilMs = null,
     Object? showLabel = null,
-    Object? disclaimerAccepted = null,
     Object? minimizeOnExit = null,
     Object? hidden = null,
     Object? developerMode = null,
@@ -387,10 +378,6 @@ class __$$AppSettingPropsImplCopyWithImpl<$Res>
           ? _value.showLabel
           : showLabel // ignore: cast_nullable_to_non_nullable
               as bool,
-      disclaimerAccepted: null == disclaimerAccepted
-          ? _value.disclaimerAccepted
-          : disclaimerAccepted // ignore: cast_nullable_to_non_nullable
-              as bool,
       minimizeOnExit: null == minimizeOnExit
           ? _value.minimizeOnExit
           : minimizeOnExit // ignore: cast_nullable_to_non_nullable
@@ -444,7 +431,6 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
       this.updateSnoozedVersion = '',
       this.updateSnoozedUntilMs = 0,
       this.showLabel = false,
-      this.disclaimerAccepted = false,
       this.minimizeOnExit = true,
       this.hidden = false,
       this.developerMode = false,
@@ -539,9 +525,6 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
   final bool showLabel;
   @override
   @JsonKey()
-  final bool disclaimerAccepted;
-  @override
-  @JsonKey()
   final bool minimizeOnExit;
   @override
   @JsonKey()
@@ -564,7 +547,7 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
 
   @override
   String toString() {
-    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, lastUpdateCheckMs: $lastUpdateCheckMs, updateMirrors: $updateMirrors, updateSnoozedVersion: $updateSnoozedVersion, updateSnoozedUntilMs: $updateSnoozedUntilMs, showLabel: $showLabel, disclaimerAccepted: $disclaimerAccepted, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, applySubscriptionLogo: $applySubscriptionLogo, overrideNetworkSettings: $overrideNetworkSettings)';
+    return 'AppSettingProps(locale: $locale, dashboardWidgets: $dashboardWidgets, onlyStatisticsProxy: $onlyStatisticsProxy, autoLaunch: $autoLaunch, silentLaunch: $silentLaunch, autoRun: $autoRun, openLogs: $openLogs, closeConnections: $closeConnections, testUrl: $testUrl, isAnimateToPage: $isAnimateToPage, autoCheckUpdate: $autoCheckUpdate, lastUpdateCheckMs: $lastUpdateCheckMs, updateMirrors: $updateMirrors, updateSnoozedVersion: $updateSnoozedVersion, updateSnoozedUntilMs: $updateSnoozedUntilMs, showLabel: $showLabel, minimizeOnExit: $minimizeOnExit, hidden: $hidden, developerMode: $developerMode, overrideProviderSettings: $overrideProviderSettings, applySubscriptionTheme: $applySubscriptionTheme, applySubscriptionLogo: $applySubscriptionLogo, overrideNetworkSettings: $overrideNetworkSettings)';
   }
 
   @override
@@ -601,8 +584,6 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
                 other.updateSnoozedUntilMs == updateSnoozedUntilMs) &&
             (identical(other.showLabel, showLabel) ||
                 other.showLabel == showLabel) &&
-            (identical(other.disclaimerAccepted, disclaimerAccepted) ||
-                other.disclaimerAccepted == disclaimerAccepted) &&
             (identical(other.minimizeOnExit, minimizeOnExit) ||
                 other.minimizeOnExit == minimizeOnExit) &&
             (identical(other.hidden, hidden) || other.hidden == hidden) &&
@@ -640,7 +621,6 @@ class _$AppSettingPropsImpl implements _AppSettingProps {
         updateSnoozedVersion,
         updateSnoozedUntilMs,
         showLabel,
-        disclaimerAccepted,
         minimizeOnExit,
         hidden,
         developerMode,
@@ -686,7 +666,6 @@ abstract class _AppSettingProps implements AppSettingProps {
       final String updateSnoozedVersion,
       final int updateSnoozedUntilMs,
       final bool showLabel,
-      final bool disclaimerAccepted,
       final bool minimizeOnExit,
       final bool hidden,
       final bool developerMode,
@@ -747,8 +726,6 @@ abstract class _AppSettingProps implements AppSettingProps {
   int get updateSnoozedUntilMs;
   @override
   bool get showLabel;
-  @override
-  bool get disclaimerAccepted;
   @override
   bool get minimizeOnExit;
   @override
@@ -2168,7 +2145,7 @@ class __$$TextScaleImplCopyWithImpl<$Res>
 /// @nodoc
 @JsonSerializable()
 class _$TextScaleImpl implements _TextScale {
-  const _$TextScaleImpl({this.enable = false, this.scale = 1.0});
+  const _$TextScaleImpl({this.enable = true, this.scale = 1.0});
 
   factory _$TextScaleImpl.fromJson(Map<String, dynamic> json) =>
       _$$TextScaleImplFromJson(json);
@@ -2253,7 +2230,11 @@ mixin _$ThemeProps {
   @JsonKey(unknownEnumValue: DynamicSchemeVariant.fidelity)
   DynamicSchemeVariant get schemeVariant => throw _privateConstructorUsedError;
   bool get pureBlack => throw _privateConstructorUsedError;
-  TextScale get textScale => throw _privateConstructorUsedError;
+  TextScale get textScale =>
+      throw _privateConstructorUsedError; // Свой цвет новых экранов Android лежит отдельно от primaryColor: заголовок
+// dropweb-theme перезаписывает primaryColor при каждом обновлении профиля.
+  bool get m3eOwnColorEnabled => throw _privateConstructorUsedError;
+  int? get m3eOwnColor => throw _privateConstructorUsedError;
 
   /// Serializes this ThemeProps to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -2281,7 +2262,9 @@ abstract class $ThemePropsCopyWith<$Res> {
       @JsonKey(unknownEnumValue: DynamicSchemeVariant.fidelity)
       DynamicSchemeVariant schemeVariant,
       bool pureBlack,
-      TextScale textScale});
+      TextScale textScale,
+      bool m3eOwnColorEnabled,
+      int? m3eOwnColor});
 
   $TextScaleCopyWith<$Res> get textScale;
 }
@@ -2310,6 +2293,8 @@ class _$ThemePropsCopyWithImpl<$Res, $Val extends ThemeProps>
     Object? schemeVariant = null,
     Object? pureBlack = null,
     Object? textScale = null,
+    Object? m3eOwnColorEnabled = null,
+    Object? m3eOwnColor = freezed,
   }) {
     return _then(_value.copyWith(
       primaryColor: freezed == primaryColor
@@ -2348,6 +2333,14 @@ class _$ThemePropsCopyWithImpl<$Res, $Val extends ThemeProps>
           ? _value.textScale
           : textScale // ignore: cast_nullable_to_non_nullable
               as TextScale,
+      m3eOwnColorEnabled: null == m3eOwnColorEnabled
+          ? _value.m3eOwnColorEnabled
+          : m3eOwnColorEnabled // ignore: cast_nullable_to_non_nullable
+              as bool,
+      m3eOwnColor: freezed == m3eOwnColor
+          ? _value.m3eOwnColor
+          : m3eOwnColor // ignore: cast_nullable_to_non_nullable
+              as int?,
     ) as $Val);
   }
 
@@ -2380,7 +2373,9 @@ abstract class _$$ThemePropsImplCopyWith<$Res>
       @JsonKey(unknownEnumValue: DynamicSchemeVariant.fidelity)
       DynamicSchemeVariant schemeVariant,
       bool pureBlack,
-      TextScale textScale});
+      TextScale textScale,
+      bool m3eOwnColorEnabled,
+      int? m3eOwnColor});
 
   @override
   $TextScaleCopyWith<$Res> get textScale;
@@ -2408,6 +2403,8 @@ class __$$ThemePropsImplCopyWithImpl<$Res>
     Object? schemeVariant = null,
     Object? pureBlack = null,
     Object? textScale = null,
+    Object? m3eOwnColorEnabled = null,
+    Object? m3eOwnColor = freezed,
   }) {
     return _then(_$ThemePropsImpl(
       primaryColor: freezed == primaryColor
@@ -2446,6 +2443,14 @@ class __$$ThemePropsImplCopyWithImpl<$Res>
           ? _value.textScale
           : textScale // ignore: cast_nullable_to_non_nullable
               as TextScale,
+      m3eOwnColorEnabled: null == m3eOwnColorEnabled
+          ? _value.m3eOwnColorEnabled
+          : m3eOwnColorEnabled // ignore: cast_nullable_to_non_nullable
+              as bool,
+      m3eOwnColor: freezed == m3eOwnColor
+          ? _value.m3eOwnColor
+          : m3eOwnColor // ignore: cast_nullable_to_non_nullable
+              as int?,
     ));
   }
 }
@@ -2464,7 +2469,9 @@ class _$ThemePropsImpl implements _ThemeProps {
       @JsonKey(unknownEnumValue: DynamicSchemeVariant.fidelity)
       this.schemeVariant = DynamicSchemeVariant.fidelity,
       this.pureBlack = true,
-      this.textScale = const TextScale()})
+      this.textScale = const TextScale(),
+      this.m3eOwnColorEnabled = false,
+      this.m3eOwnColor})
       : _primaryColors = primaryColors;
 
   factory _$ThemePropsImpl.fromJson(Map<String, dynamic> json) =>
@@ -2500,10 +2507,17 @@ class _$ThemePropsImpl implements _ThemeProps {
   @override
   @JsonKey()
   final TextScale textScale;
+// Свой цвет новых экранов Android лежит отдельно от primaryColor: заголовок
+// dropweb-theme перезаписывает primaryColor при каждом обновлении профиля.
+  @override
+  @JsonKey()
+  final bool m3eOwnColorEnabled;
+  @override
+  final int? m3eOwnColor;
 
   @override
   String toString() {
-    return 'ThemeProps(primaryColor: $primaryColor, orbColorPrimary: $orbColorPrimary, orbColorSecondary: $orbColorSecondary, orbBlur: $orbBlur, primaryColors: $primaryColors, themeMode: $themeMode, schemeVariant: $schemeVariant, pureBlack: $pureBlack, textScale: $textScale)';
+    return 'ThemeProps(primaryColor: $primaryColor, orbColorPrimary: $orbColorPrimary, orbColorSecondary: $orbColorSecondary, orbBlur: $orbBlur, primaryColors: $primaryColors, themeMode: $themeMode, schemeVariant: $schemeVariant, pureBlack: $pureBlack, textScale: $textScale, m3eOwnColorEnabled: $m3eOwnColorEnabled, m3eOwnColor: $m3eOwnColor)';
   }
 
   @override
@@ -2527,7 +2541,11 @@ class _$ThemePropsImpl implements _ThemeProps {
             (identical(other.pureBlack, pureBlack) ||
                 other.pureBlack == pureBlack) &&
             (identical(other.textScale, textScale) ||
-                other.textScale == textScale));
+                other.textScale == textScale) &&
+            (identical(other.m3eOwnColorEnabled, m3eOwnColorEnabled) ||
+                other.m3eOwnColorEnabled == m3eOwnColorEnabled) &&
+            (identical(other.m3eOwnColor, m3eOwnColor) ||
+                other.m3eOwnColor == m3eOwnColor));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2542,7 +2560,9 @@ class _$ThemePropsImpl implements _ThemeProps {
       themeMode,
       schemeVariant,
       pureBlack,
-      textScale);
+      textScale,
+      m3eOwnColorEnabled,
+      m3eOwnColor);
 
   /// Create a copy of ThemeProps
   /// with the given fields replaced by the non-null parameter values.
@@ -2571,7 +2591,9 @@ abstract class _ThemeProps implements ThemeProps {
       @JsonKey(unknownEnumValue: DynamicSchemeVariant.fidelity)
       final DynamicSchemeVariant schemeVariant,
       final bool pureBlack,
-      final TextScale textScale}) = _$ThemePropsImpl;
+      final TextScale textScale,
+      final bool m3eOwnColorEnabled,
+      final int? m3eOwnColor}) = _$ThemePropsImpl;
 
   factory _ThemeProps.fromJson(Map<String, dynamic> json) =
       _$ThemePropsImpl.fromJson;
@@ -2595,7 +2617,13 @@ abstract class _ThemeProps implements ThemeProps {
   @override
   bool get pureBlack;
   @override
-  TextScale get textScale;
+  TextScale
+      get textScale; // Свой цвет новых экранов Android лежит отдельно от primaryColor: заголовок
+// dropweb-theme перезаписывает primaryColor при каждом обновлении профиля.
+  @override
+  bool get m3eOwnColorEnabled;
+  @override
+  int? get m3eOwnColor;
 
   /// Create a copy of ThemeProps
   /// with the given fields replaced by the non-null parameter values.

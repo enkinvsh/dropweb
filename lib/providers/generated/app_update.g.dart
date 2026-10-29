@@ -6,7 +6,7 @@ part of '../app_update.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$appUpdateHash() => r'4095fc179257de7697b4fcfd01c995e6154fdc69';
+String _$appUpdateHash() => r'f4d3553a96bfd4c44f8f0d351ad09a9b74f9ac0e';
 
 /// In-app updater state machine (sideloaded Android only). Inert on the Play
 /// build (kIsPlayBuild). keepAlive so an in-flight download survives navigation

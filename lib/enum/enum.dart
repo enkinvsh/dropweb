@@ -69,12 +69,6 @@ extension GroupTypeExtension on GroupType {
   bool get isComputedSelected =>
       [GroupType.URLTest, GroupType.Fallback, GroupType.Smart].contains(this);
 
-  static GroupType? getGroupType(String value) {
-    final index = GroupTypeExtension.valueList.indexOf(value);
-    if (index == -1) return null;
-    return GroupType.values[index];
-  }
-
   String get value => GroupTypeExtension.valueList[index];
 }
 
@@ -244,7 +238,7 @@ enum FontFamily {
   twEmoji("Twemoji"),
   jetBrainsMono("JetBrainsMono"),
   onest("Onest"),
-  icon("Icons");
+  robotoFlex("RobotoFlex");
 
   final String value;
 

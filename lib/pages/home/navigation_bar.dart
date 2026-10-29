@@ -5,6 +5,7 @@ import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,7 +46,10 @@ void _handleDevTap(BuildContext context, WidgetRef ref) {
     ref.read(appSettingProvider.notifier).updateState(
           (state) => state.copyWith(developerMode: true),
         );
-    globalState.showNotifier(appLocalizations.developerModeEnableTip);
+    globalState.showNotifier(
+      appLocalizations.developerModeEnableTip,
+      kind: M3eToastKind.check,
+    );
   }
 }
 

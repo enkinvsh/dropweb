@@ -56,7 +56,7 @@ fun Service.createDropwebNotificationBuilder(): Deferred<NotificationCompat.Buil
                 this@createDropwebNotificationBuilder, GlobalState.NOTIFICATION_CHANNEL
             )
         ) {
-            setSmallIcon(R.drawable.ic_launcher_monochrome)
+            setSmallIcon(R.drawable.ic_stat_dropweb)
             setContentTitle("dropweb")
             setContentIntent(pendingIntent)
             setCategory(NotificationCompat.CATEGORY_SERVICE)

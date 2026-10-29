@@ -1,12 +1,4 @@
-/// Deterministic text-splice helpers for additively patching a Mihomo/Clash
-/// YAML document while preserving the rest of the file — comments, formatting,
-/// key order — byte-for-byte.
-///
-/// These intentionally do NOT use `package:yaml_edit` for list appends:
-/// yaml_edit mis-indents a complex map appended to a list whose final item
-/// carries an empty/comment-only nested block (the mihomo
-/// `proxies:\n  # LEAVE THIS LINE!` placeholder). Rendering blocks to
-/// correctly-indented YAML text and splicing them in avoids that.
+/// Разбор правил и узлов Mihomo/Clash: маршрутизируемость узла и цель правила.
 library;
 
 /// Built-in rule targets that are not proxy-groups.
@@ -38,61 +30,6 @@ bool isRoutableProxy(Map proxy) {
   final uuid = proxy['uuid']?.toString();
   if (uuid == '00000000-0000-0000-0000-000000000000') return false;
   return true;
-}
-
-/// Inserts [ruleLines] (rendered block-list items at correct indentation) at the
-/// TOP of the top-level `rules` block so they take precedence (mihomo evaluates
-/// rules top-down, first match wins). Creates a `rules` block at end of document
-/// if one is absent.
-String prependRules(String yaml, String ruleLines) {
-  final items = ruleLines.split('\n');
-  if (items.isNotEmpty && items.last.isEmpty) items.removeLast();
-  if (items.isEmpty) return yaml;
-
-  final lines = yaml.split('\n');
-  for (var i = 0; i < lines.length; i++) {
-    final line = lines[i];
-    if ((line == 'rules:' || line.startsWith('rules:')) &&
-        !line.startsWith(' ') &&
-        !line.startsWith('\t')) {
-      lines.insertAll(i + 1, items);
-      return lines.join('\n');
-    }
-  }
-  final buf = StringBuffer(yaml);
-  if (!yaml.endsWith('\n')) buf.write('\n');
-  buf
-    ..write('rules:\n')
-    ..write(ruleLines);
-  return buf.toString();
-}
-
-/// Render [s] as a YAML scalar, single-quoting + escaping when the value could
-/// otherwise change YAML semantics. Mirrors the conservative quoting used by
-/// the share-link emitter so emitted nodes parse back identically.
-String yamlScalar(String s) {
-  if (s.isEmpty) return "''";
-  if (_needsQuoting(s)) {
-    return "'${s.replaceAll("'", "''")}'";
-  }
-  return s;
-}
-
-bool _needsQuoting(String s) {
-  if (s != s.trim()) return true;
-  if (s.contains('#')) return true;
-  if (s.contains(': ')) return true;
-  if (s.contains(' #')) return true;
-  if (s.contains('\n') || s.contains('\t') || s.contains('\r')) return true;
-  const reserved = {'true', 'false', 'null', 'yes', 'no', 'on', 'off', '~'};
-  if (reserved.contains(s.toLowerCase())) return true;
-  const indicators = {
-    '?', ':', '-', ',', '[', ']', '{', '}', '&', '*',
-    '!', '|', '>', "'", '"', '%', '@', '`',
-  };
-  if (indicators.contains(s[0])) return true;
-  if (RegExp(r'^-?\d').hasMatch(s) && double.tryParse(s) != null) return true;
-  return false;
 }
 
 /// Extracts the TARGET token of a mihomo rule string.

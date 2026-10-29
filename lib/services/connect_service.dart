@@ -12,6 +12,7 @@ import 'package:dropweb/plugins/vpn.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/services/tun_start_recovery.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/widgets.dart';
 
@@ -68,10 +69,9 @@ class ConnectService {
     _coreRealignAttempts = 0;
   }
 
-  /// Update cached server name in VPN plugin for foreground notification
-  /// Also sends IPC message to service isolate to update selectedMap
+  /// Шлёт сервисному изоляту выбранный сервер для уведомления переднего плана
+  /// (обновляет его selectedMap).
   void updateForegroundServerName(String groupName, String serverName) {
-    vpn?.updateServerName(serverName);
     // Send IPC message to service isolate (Android only)
     clashLib?.sendIpcMessage({
       'action': 'updateForegroundServer',
@@ -82,7 +82,7 @@ class ConnectService {
 
   /// Initialize foreground notification cache with current profile and server.
   ///
-  /// Pushes profileName / serviceName / serverName into the VPN plugin's
+  /// Pushes profileName / serviceName into the VPN plugin's
   /// in-memory cache that feeds the Android foreground notification. Call sites:
   ///   • connect ([updateStatus] `isStart==true`) — seed the cache before the
   ///     service comes up.
@@ -93,7 +93,7 @@ class ConnectService {
   ///   • current-profile update ([AppController.updateProfile], active-profile
   ///     branch) — a subscription refresh can change `dropweb-servicename` /
   ///     the label rendered in the notification.
-  /// The plugin setters (`updateProfileInfo`/`updateServerName`) are pure
+  /// The plugin setter (`updateProfileInfo`) is pure
   /// in-memory writes with no MethodChannel/notification side effect, so calling
   /// this while disconnected is a cheap, harmless cache prime (never flashes a
   /// notification).
@@ -114,14 +114,6 @@ class ConnectService {
       profileName: profileName,
       serviceName: serviceName,
     );
-
-    // Get current server name from selectedMap
-    final groupName = profile.providerHeaders['dropweb-serverinfo'];
-    if (groupName != null && groupName.isNotEmpty) {
-      final decodedGroupName = decodeMaybeBase64(groupName).trim();
-      final serverName = profile.selectedMap[decodedGroupName] ?? "";
-      vpn?.updateServerName(serverName);
-    }
 
     // The plugin cache writes above only feed the notification when the MAIN
     // isolate composes foreground params. In Android service mode the title is
@@ -184,7 +176,10 @@ class ConnectService {
         '[core-bridge] within cooldown — failing honest (stopped)',
       );
       await updateStatus(false);
-      globalState.showNotifier(ErrorMapper.vpnStartFailed);
+      globalState.showNotifier(
+        ErrorMapper.vpnStartFailed,
+        kind: M3eToastKind.alert,
+      );
       return;
     }
     _lastCoreDeathRecovery = now;
@@ -366,6 +361,7 @@ class ConnectService {
         );
         globalState.showNotifier(
           ErrorMapper.mapError(error.toString()) ?? ErrorMapper.vpnStartFailed,
+          kind: M3eToastKind.alert,
         );
         return;
       } on TunStartException catch (error) {
@@ -379,6 +375,7 @@ class ConnectService {
         );
         globalState.showNotifier(
           ErrorMapper.mapError(error.cause) ?? error.cause,
+          kind: M3eToastKind.alert,
         );
         return;
       } on CoreBootException catch (error) {
@@ -390,6 +387,7 @@ class ConnectService {
         );
         globalState.showNotifier(
           ErrorMapper.mapError(error.toString()) ?? error.toString(),
+          kind: M3eToastKind.alert,
         );
         return;
       }
@@ -406,7 +404,10 @@ class ConnectService {
         commonPrint.log(
           '[connect] start failed after ${startStopwatch.elapsedMilliseconds}ms: handleStart returned false',
         );
-        globalState.showNotifier(ErrorMapper.vpnStartFailed);
+        globalState.showNotifier(
+          ErrorMapper.vpnStartFailed,
+          kind: M3eToastKind.alert,
+        );
         return;
       }
       // true => connected. Only now is it honest to show the connected icon.

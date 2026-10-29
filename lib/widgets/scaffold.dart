@@ -33,6 +33,7 @@ class CommonScaffold extends ConsumerStatefulWidget {
     this.appBarEditState,
     this.floatingActionButton,
     this.disableBackground = false,
+    this.fullBleed = false,
   });
 
   CommonScaffold.open({
@@ -82,6 +83,11 @@ class CommonScaffold extends ConsumerStatefulWidget {
   final FloatingActionButton? floatingActionButton;
   final bool disableBackground;
 
+  /// Тело на весь экран: без панели, SafeArea и фона Lumina. Нужен M3E-главной, которая
+  /// сама рисует фон и сама считает отступы системных полос. Ключ и `loadingRun`
+  /// остаются рабочими: на них опираются `controller.dart` и редактор профиля.
+  final bool fullBleed;
+
   @override
   ConsumerState<CommonScaffold> createState() => CommonScaffoldState();
 }
@@ -126,16 +132,6 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
     _appBarState.value = _appBarState.value.copyWith(
       searchState: builder(
         _appBarState.value.searchState,
-      ),
-    );
-  }
-
-  void updateEditState(
-    AppBarEditState? Function(AppBarEditState? state) builder,
-  ) {
-    _appBarState.value = _appBarState.value.copyWith(
-      editState: builder(
-        _appBarState.value.editState,
       ),
     );
   }
@@ -467,6 +463,22 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
     );
   }
 
+  Widget _buildFullBleed(BuildContext context) => Scaffold(
+        backgroundColor: Colors.transparent,
+        // Клавиатуры на главной нет; сдвиг тела сломал бы привязку нижнего ряда.
+        resizeToAvoidBottomInset: false,
+        // Полосы загрузки здесь нет по решению владельца (2026-10-29): у M3E свои
+        // тосты и плашка листа «Подписка». `loadingRun` и `_loading` работают как раньше.
+        body: Stack(
+          // Без непозиционированных детей loose Stack схлопывается в 0x0 и тело
+          // получает нулевой размер (чёрный экран), поэтому expand обязателен.
+          fit: StackFit.expand,
+          children: [
+            Positioned.fill(child: widget.body),
+          ],
+        ),
+      );
+
   Widget _buildBackground(BuildContext context, String? backgroundUrl) {
     if (backgroundUrl == null || backgroundUrl.isEmpty) {
       return const SizedBox.shrink();
@@ -509,6 +521,7 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
   @override
   Widget build(BuildContext context) {
     assert(widget.appBar != null || widget.title != null);
+    if (widget.fullBleed) return _buildFullBleed(context);
     final backgroundUrl =
         widget.disableBackground ? null : ref.watch(backgroundUrlProvider);
 

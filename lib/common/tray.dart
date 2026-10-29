@@ -106,7 +106,6 @@ class Tray {
     }
   }
 
-  Future<void> updateTrayTitle([Traffic? traffic]) async {}
 }
 
 final tray = Tray();

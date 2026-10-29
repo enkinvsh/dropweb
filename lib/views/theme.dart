@@ -7,6 +7,7 @@ import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/selector.dart';
 import 'package:dropweb/providers/config.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -399,6 +400,7 @@ class _PrimaryColorItemState extends ConsumerState<_PrimaryColorItem> {
         appLocalizations.existsTip(
           appLocalizations.colorSchemes,
         ),
+        kind: M3eToastKind.alert,
       );
       return;
     }

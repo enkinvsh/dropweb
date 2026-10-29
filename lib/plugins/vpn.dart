@@ -138,17 +138,9 @@ class Vpn {
   late MethodChannel methodChannel;
   FutureOr<String> Function()? handleGetStartForegroundParams;
 
-  /// Cached server name for foreground notification (updated via updateServerName)
-  String _cachedServerName = "";
-
   /// Cached profile info for foreground notification
   String _cachedProfileName = "dropweb";
   String _cachedServiceName = "";
-
-  /// Update cached server name (called from UI when proxy changes)
-  void updateServerName(String serverName) {
-    _cachedServerName = serverName;
-  }
 
   /// Update cached profile info (called when profile changes or on init)
   void updateProfileInfo({
@@ -158,15 +150,6 @@ class Vpn {
     _cachedProfileName = profileName;
     _cachedServiceName = serviceName;
   }
-
-  /// Get cached server name
-  String get cachedServerName => _cachedServerName;
-
-  /// Get cached profile name
-  String get cachedProfileName => _cachedProfileName;
-
-  /// Get cached service name
-  String get cachedServiceName => _cachedServiceName;
 
   /// Default foreground params when running in UI mode.
   /// Shows: title = panel profile title (else selected server, else cached

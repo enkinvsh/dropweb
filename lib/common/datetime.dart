@@ -3,13 +3,6 @@ import 'package:dropweb/common/app_localizations.dart';
 extension DateTimeExtension on DateTime {
   bool get isBeforeNow => isBefore(DateTime.now());
 
-  bool isBeforeSecure(DateTime? dateTime) {
-    if (dateTime == null) {
-      return false;
-    }
-    return true;
-  }
-
   String get lastUpdateTimeDesc {
     final currentDateTime = DateTime.now();
     final difference = currentDateTime.difference(this);

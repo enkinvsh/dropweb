@@ -168,12 +168,4 @@ class SubscriptionNotificationService {
   static String _getPrefsKey(String profileId, int days) =>
       '$_prefsKeyPrefix${profileId}_${days}d';
 
-  /// Reset notification state for a profile (call when subscription is renewed)
-  static Future<void> resetNotifications(String profileId) async {
-    final prefs = await SharedPreferences.getInstance();
-    for (final days in notificationDays) {
-      final key = _getPrefsKey(profileId, days);
-      await prefs.remove(key);
-    }
-  }
 }

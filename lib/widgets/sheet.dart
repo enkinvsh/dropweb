@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_sheet_skin.dart';
 import 'package:flutter/material.dart';
 
 import 'deferred_page_body.dart';
@@ -44,12 +47,27 @@ enum SheetType {
 
 typedef SheetBuilder = Widget Function(BuildContext context, SheetType type);
 
+/// Переключатель M3E-рамки у нижних листов: на Android нижний лист рисуется листом M3E,
+/// содержимое остаётся прежним. По образцу `CommonDialog.defaultUseM3e`: тесты меняют
+/// значение, а код `lib/ui/m3e/**` платформу не читает. Боковые панели, страницы
+/// (`showExtend`), iOS и десктоп не затрагиваются.
+abstract final class SheetSkin {
+  static bool defaultUseM3e = Platform.isAndroid;
+}
+
 Future<T?> showSheet<T>({
   required BuildContext context,
   required SheetBuilder builder,
   SheetProps props = const SheetProps(),
+  bool? useM3e,
 }) {
   final isMobile = globalState.appState.viewMode == ViewMode.mobile;
+  if (isMobile && (useM3e ?? SheetSkin.defaultUseM3e)) {
+    return showM3eSheetSkin<T>(
+      context,
+      builder: (_) => builder(context, SheetType.bottomSheet),
+    );
+  }
   return switch (isMobile) {
     true => showModalBottomSheet<T>(
         context: context,
@@ -120,6 +138,7 @@ class AdaptiveSheetScaffold extends StatefulWidget {
     this.actions = const [],
     this.disableBackground = true,
     this.onTitleTap,
+    this.useM3e,
   });
   final SheetType type;
   final Widget body;
@@ -137,6 +156,9 @@ class AdaptiveSheetScaffold extends StatefulWidget {
   /// the screen header (see `DevUnlockCounter`).
   final VoidCallback? onTitleTap;
 
+  /// Нижний лист в рамке M3E; `null` — по [SheetSkin.defaultUseM3e].
+  final bool? useM3e;
+
   @override
   State<AdaptiveSheetScaffold> createState() => _AdaptiveSheetScaffoldState();
 }
@@ -149,6 +171,14 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
     final bottomSheet = widget.type == SheetType.bottomSheet;
     final sideSheet = widget.type == SheetType.sideSheet;
     final page = widget.type == SheetType.page;
+    if (bottomSheet && (widget.useM3e ?? SheetSkin.defaultUseM3e)) {
+      return M3eSheetSkinScaffold(
+        title: title,
+        actions: widget.actions,
+        onTitleTap: widget.onTitleTap,
+        body: widget.body,
+      );
+    }
     // Page names next to the back arrow and on bottom sheets. An Android
     // page keeps its bar empty for notifications.
     final showTitle = system.showsPageHeader || bottomSheet;

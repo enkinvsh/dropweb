@@ -207,14 +207,6 @@ extension PackageListSelectorStateExt on PackageListSelectorState {
 }
 
 @freezed
-class ProxiesListHeaderSelectorState with _$ProxiesListHeaderSelectorState {
-  const factory ProxiesListHeaderSelectorState({
-    required double offset,
-    required int currentIndex,
-  }) = _ProxiesListHeaderSelectorState;
-}
-
-@freezed
 class ProxiesActionsState with _$ProxiesActionsState {
   const factory ProxiesActionsState({
     required PageLabel pageLabel,
@@ -265,13 +257,4 @@ class VpnState with _$VpnState {
     required TunStack stack,
     required VpnProps vpnProps,
   }) = _VpnState;
-}
-
-@freezed
-class ProfileOverrideStateModel with _$ProfileOverrideStateModel {
-  const factory ProfileOverrideStateModel({
-    ClashConfigSnippet? snippet,
-    required Set<String> selectedRules,
-    OverrideData? overrideData,
-  }) = _ProfileOverrideStateModel;
 }

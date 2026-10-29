@@ -35,9 +35,4 @@ extension OffsetExt on Offset {
 }
 
 extension RectExt on Rect {
-  bool doRectIntersect(Rect rect) =>
-      left < rect.right &&
-      right > rect.left &&
-      top < rect.bottom &&
-      bottom > rect.top;
 }

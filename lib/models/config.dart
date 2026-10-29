@@ -105,7 +105,6 @@ class AppSettingProps with _$AppSettingProps {
     @Default('') String updateSnoozedVersion,
     @Default(0) int updateSnoozedUntilMs,
     @Default(false) bool showLabel,
-    @Default(false) bool disclaimerAccepted,
     @Default(true) bool minimizeOnExit,
     @Default(false) bool hidden,
     @Default(false) bool developerMode,
@@ -216,10 +215,12 @@ class ProxiesStyle with _$ProxiesStyle {
       json == null ? defaultProxiesStyle : _$ProxiesStyleFromJson(json);
 }
 
+// По умолчанию масштаб включён: ThemeManager тогда берёт процент человека (100 %), а не
+// системный размер шрифта. Ранее сохранённое `enable: false` остаётся как есть.
 @freezed
 class TextScale with _$TextScale {
   const factory TextScale({
-    @Default(false) enable,
+    @Default(true) enable,
     @Default(1.0) scale,
   }) = _TextScale;
 
@@ -243,6 +244,10 @@ class ThemeProps with _$ThemeProps {
     DynamicSchemeVariant schemeVariant,
     @Default(true) bool pureBlack,
     @Default(TextScale()) TextScale textScale,
+    // Свой цвет новых экранов Android лежит отдельно от primaryColor: заголовок
+    // dropweb-theme перезаписывает primaryColor при каждом обновлении профиля.
+    @Default(false) bool m3eOwnColorEnabled,
+    int? m3eOwnColor,
   }) = _ThemeProps;
 
   factory ThemeProps.fromJson(Map<String, Object?> json) =>

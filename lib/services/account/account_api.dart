@@ -33,8 +33,6 @@ class AccountApi {
   /// перезапуска процесса, чтобы не тратить 15 с на мёртвый адрес каждый раз.
   String? _lastWorkingBase;
 
-  String? get activeBaseUrl => _lastWorkingBase;
-
   /// Кандидаты без дублей; последняя рабочая база — первой.
   List<String> candidateBases() {
     final seen = <String>{};
@@ -144,11 +142,6 @@ class AccountApi {
         message: 'malformed response: $e',
       );
     }
-  }
-
-  Future<bool> emailAuthEnabled() async {
-    final json = await _send('GET', '/cabinet/branding/email-auth');
-    return json['enabled'] == true;
   }
 
   Future<PowChallenge> fetchChallenge() async {

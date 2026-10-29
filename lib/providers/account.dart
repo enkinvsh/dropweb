@@ -6,8 +6,10 @@ import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/config.dart';
 import 'package:dropweb/providers/state.dart';
 import 'package:dropweb/services/account/account_api.dart';
+import 'package:dropweb/services/account/account_api_exception.dart';
 import 'package:dropweb/services/account/account_biometrics.dart';
 import 'package:dropweb/services/account/account_controller.dart';
+import 'package:dropweb/services/account/account_gate.dart';
 import 'package:dropweb/services/account/account_models.dart';
 import 'package:dropweb/services/account/account_profiles.dart';
 import 'package:dropweb/services/account/account_state.dart';
@@ -23,12 +25,12 @@ export 'package:dropweb/services/account/account_state.dart';
 part 'generated/account.g.dart';
 
 /// Аккаунт есть только в сборках вне магазинов. В Google Play и на iOS
-/// ([System.isStoreBuild]) приложение остаётся чистым клиентом, как
+/// ([accountStoreBlocked]) приложение остаётся чистым клиентом, как
 /// RabbitHole: вход по почте создаёт аккаунт, а это тянет удаление в
 /// приложении, демо-доступ для ревью и другую декларацию данных. Провайдером —
 /// чтобы тесты подменяли тип сборки.
 @riverpod
-bool accountFeatureEnabled(Ref ref) => !system.isStoreBuild;
+bool accountFeatureEnabled(Ref ref) => !accountStoreBlocked;
 
 /// Бэкенд аккаунта по умолчанию из `--dart-define=DROPWEB_ACCOUNT_API`.
 /// Провайдером, а не константой — чтобы тесты подменяли дефолт сборки.
@@ -80,7 +82,19 @@ Profile? accountProfile(Ref ref) {
 class Account extends _$Account {
   AccountController? _controller;
 
-  AccountController get _account => _controller ??= AccountController(
+  AccountController get _account {
+    // Магазинная сборка (решение владельца 2026-10-29) не создаёт контроллер
+    // вовсе: ни сети шлюза, ни хранилища сессии. Все методы ниже идут через
+    // этот геттер, поэтому закрыты разом; в Play гейт const и код ниже
+    // выпадает из AAB. Android-телефон (решение владельца 2026-10-29) закрыт
+    // тем же гейтом: входов там нет, значит и контроллер не нужен.
+    if (accountBackgroundBlocked) {
+      throw const AccountApiException(AccountApiErrorKind.disabled);
+    }
+    return _controller ??= _createController();
+  }
+
+  AccountController _createController() => AccountController(
         api: (bases) => AccountApi(
           baseUrls: bases,
           userAgent: () => globalState.ua,
@@ -120,8 +134,11 @@ class Account extends _$Account {
   /// Один раз при старте приложения; не блокирует запуск и VPN.
   Future<void> restore() async {
     // Магазинная сборка не трогает ни хранилище сессии, ни сеть; статус
-    // остаётся unknown, и без входа пункты аккаунта не показываются.
-    if (!ref.read(accountFeatureEnabledProvider)) return;
+    // остаётся unknown, и без входа пункты аккаунта не показываются. Так же
+    // молчит Android-телефон: сохранённая сессия остаётся нетронутой.
+    if (accountBackgroundBlocked || !ref.read(accountFeatureEnabledProvider)) {
+      return;
+    }
     await _account.restore();
   }
 
@@ -137,15 +154,19 @@ class Account extends _$Account {
   /// Тихая починка адреса подписки профиля аккаунта; false — нечего чинить
   /// или нельзя (нет сессии, замок, пауза между попытками, сбой сети).
   Future<bool> repairSubscription() async {
-    if (!ref.read(accountFeatureEnabledProvider)) return false;
+    if (accountBackgroundBlocked || !ref.read(accountFeatureEnabledProvider)) {
+      return false;
+    }
     return _account.repairSubscription();
   }
 
   /// Зовёт AppController.updateProfile, когда загрузка профиля упала.
-  /// Магазинная сборка и процесс без restore() — no-op: сессии там нет, и
-  /// хранилище аккаунта трогать незачем.
+  /// Магазинная сборка, Android-телефон и процесс без restore() — no-op:
+  /// сессии там нет или она не используется, хранилище аккаунта трогать незачем.
   Future<void> onProfileUpdateFailed(String profileId) async {
-    if (!ref.read(accountFeatureEnabledProvider)) return;
+    if (accountBackgroundBlocked || !ref.read(accountFeatureEnabledProvider)) {
+      return;
+    }
     final controller = _controller;
     if (controller == null) return;
     await controller.onProfileUpdateFailed(profileId);

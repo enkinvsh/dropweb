@@ -214,6 +214,11 @@ class App {
         "value": value,
       });
 
+  /// Стиль виджета рабочего стола (цвета M3E и подписи) одной JSON-строкой:
+  /// нативная часть кладёт её в SharedPreferences и перерисовывает виджеты.
+  Future<bool?> updateWidgetStyle(String json) async =>
+      methodChannel.invokeMethod<bool>("updateWidgetStyle", {"json": json});
+
   /// Pixel-tuned native haptic cues for the dashboard power button.
   ///
   /// On Android the call routes through `AppPlugin.performHapticFeedback`,

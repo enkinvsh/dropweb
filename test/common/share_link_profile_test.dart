@@ -182,7 +182,7 @@ void main() {
         '${sid == null ? '' : '&sid=$sid'}#$name';
 
     test('share links: odd/overlong/non-hex short id and bad key dropped', () {
-      final names = parseSubscriptionToProxies([
+      final names = _proxiesByName([
         link('ok', sid: '0123abcd'),
         link('nosid'),
         link('upper', sid: 'ABCDEF01'),
@@ -191,22 +191,8 @@ void main() {
         link('nonhex', sid: 'zz'),
         link('shortkey', pbk: _pbk.substring(1)),
         link('padded', pbk: '${_pbk.substring(1)}='),
-      ].join('\n'))
-          .map((p) => p['name'])
-          .toList();
+      ].join('\n')).keys.toList();
       expect(names, ['ok', 'nosid', 'upper']);
-    });
-
-    test('YAML pool: invalid REALITY node dropped, others kept', () {
-      const pool = '''
-proxies:
-  - {name: good, type: vless, server: a.example, port: 443, uuid: $_uuid, reality-opts: {public-key: $_pbk, short-id: "01"}}
-  - {name: bad, type: vless, server: b.example, port: 443, uuid: $_uuid, reality-opts: {public-key: $_pbk, short-id: abc}}
-  - {name: plain, type: trojan, server: c.example, port: 443, password: x}
-''';
-      final names =
-          parseSubscriptionToProxies(pool).map((p) => p['name']).toList();
-      expect(names, ['good', 'plain']);
     });
   });
 }

@@ -1,6 +1,7 @@
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
+import 'package:dropweb/services/account/account_gate.dart';
 import 'package:dropweb/state.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/foundation.dart';
@@ -537,16 +538,6 @@ bool _isCabinetHeaderTruthy(String? value) {
   return normalized.contains('кабинет');
 }
 
-bool profileHasCabinetMarker(Profile? profile) {
-  final headers = profile?.providerHeaders;
-  if (headers == null) return false;
-  if (_isCabinetHeaderTruthy(headers['dropweb-cabinet'])) return true;
-  // Legacy fallback: older profiles may carry the Cyrillic marker in any header.
-  return headers.values.any(
-    (value) => value.toLowerCase().contains('кабинет'),
-  );
-}
-
 /// Default cabinet URL used as a fallback when the legacy marker value
 /// `cabinet` (or its truthy aliases) is present without an explicit URL.
 const String defaultCabinetUrl = 'https://cab.dropweb.org';
@@ -578,7 +569,8 @@ bool _isLocalHttpCabinetHost(String host) {
 Uri? profileCabinetUri(Profile? profile, {bool? isStoreBuild}) {
   // Магазинная сборка не ведёт в кабинет провайдера ни по заголовку, ни по
   // запасному адресу: заголовок вырезается при импорте, это второй рубеж.
-  if (isStoreBuild ?? system.isStoreBuild) return null;
+  // kIsPlayBuild — const, в Play остальное тело уходит из AAB.
+  if (kIsPlayBuild || (isStoreBuild ?? accountStoreBlocked)) return null;
   final raw = profile?.providerHeaders['dropweb-cabinet'];
   if (raw == null) return null;
   final trimmed = raw.trim();
@@ -631,8 +623,13 @@ List<String> parseAccountApiBases(String? raw) {
 /// `dropweb-account`. Как и `dropweb-cabinet`, читается без гейта
 /// `dropweb-custom`: это адрес сервиса, а не настройка внешнего вида.
 /// Пустой список — провайдер вход в приложении не предлагает.
-List<String> profileAccountApiBases(Profile? profile) =>
-    parseAccountApiBases(profile?.providerHeaders['dropweb-account']);
+///
+/// В магазинной сборке заголовок игнорируется (решение владельца 2026-10-29):
+/// профиль мог быть импортирован до вырезания, а входа там нет вовсе.
+List<String> profileAccountApiBases(Profile? profile) {
+  if (kIsPlayBuild || accountStoreBlocked) return const [];
+  return parseAccountApiBases(profile?.providerHeaders['dropweb-account']);
+}
 
 @riverpod
 bool globalModeEnabled(Ref ref) {
@@ -742,25 +739,6 @@ String getProxyDesc(Ref ref, Proxy proxy) {
     if (index == -1) return proxy.serverDescription ?? proxy.type;
     final state = ref.watch(getProxyCardStateProvider(proxy.name));
     return "${proxy.serverDescription ?? proxy.type}(${state.proxyName.isNotEmpty ? state.proxyName : '*'})";
-  }
-}
-
-@riverpod
-class ProfileOverrideState extends _$ProfileOverrideState {
-  @override
-  ProfileOverrideStateModel build() => const ProfileOverrideStateModel(
-        selectedRules: {},
-      );
-
-  void updateState(
-    ProfileOverrideStateModel? Function(ProfileOverrideStateModel state)
-        builder,
-  ) {
-    final value = builder(state);
-    if (value == null) {
-      return;
-    }
-    state = value;
   }
 }
 

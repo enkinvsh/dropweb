@@ -4,13 +4,11 @@ import 'dart:ui';
 
 import 'package:collection/collection.dart';
 import 'package:dropweb/common/common.dart';
-import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:flutter/material.dart';
 
 const appName = "dropweb";
 const appHelperService = "DropwebHelperService";
-const coreName = "clashx.meta";
 const browserUa =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const packageName = "app.dropweb";
@@ -31,8 +29,6 @@ final baseInfoEdgeInsets = EdgeInsets.symmetric(
 final defaultTextScaleFactor =
     WidgetsBinding.instance.platformDispatcher.textScaleFactor;
 const httpTimeoutDuration = Duration(milliseconds: 5000);
-const moreDuration = Duration(milliseconds: 100);
-const animateDuration = Duration(milliseconds: 100);
 const midDuration = Duration(milliseconds: 200);
 const commonDuration = Duration(milliseconds: 300);
 const defaultUpdateDuration = Duration(days: 1);
@@ -64,11 +60,9 @@ const configKey = "config";
 const configBackupKey = "config_corrupt_backup";
 const clashConfigBackupKey = "clash_config_corrupt_backup";
 const socksPortKey = "socks_port";
-const double dialogCommonWidth = 300;
 const repository = "enkinvsh/dropweb";
 const defaultExternalController = "127.0.0.1:9090";
 const maxMobileWidth = 600;
-const maxLaptopWidth = 840;
 const defaultTestUrl = "https://www.gstatic.com/generate_204";
 
 // ─── In-app auto-update (sideloaded Android) — single source of truth ─────────
@@ -143,27 +137,9 @@ final commonFilter = ImageFilter.blur(
   tileMode: TileMode.mirror,
 );
 
-const navigationItemListEquality = ListEquality<NavigationItem>();
 const connectionListEquality = ListEquality<Connection>();
-const stringListEquality = ListEquality<String>();
 const intListEquality = ListEquality<int>();
 const logListEquality = ListEquality<Log>();
-const groupListEquality = ListEquality<Group>();
-const externalProviderListEquality = ListEquality<ExternalProvider>();
-const packageListEquality = ListEquality<Package>();
-const hotKeyActionListEquality = ListEquality<HotKeyAction>();
-const stringAndStringMapEquality = MapEquality<String, String>();
-const stringAndStringMapEntryIterableEquality =
-    IterableEquality<MapEntry<String, String>>();
-const delayMapEquality = MapEquality<String, Map<String, int?>>();
-const stringSetEquality = SetEquality<String>();
-const keyboardModifierListEquality = SetEquality<KeyboardModifier>();
-
-const viewModeColumnsMap = {
-  ViewMode.mobile: [2, 1],
-  ViewMode.laptop: [3, 2],
-  ViewMode.desktop: [4, 3],
-};
 
 const defaultPrimaryColor = 0xFF29FF76;
 
@@ -207,8 +183,3 @@ const themePresets = <ThemePreset>[
   ThemePreset('presetAmber', 0xFFF59E0B, 0xFFFBBF24, 0xFFB45309),
   ThemePreset('presetStealth', 0xFF64748B, 0xFF94A3B8, 0xFF475569),
 ];
-
-const scriptTemplate = """
-const main = (config) => {
-  return config;
-}""";

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- СГЕНЕРИРОВАНО tool/canon/gen_widget_assets.dart, руками не править. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1dp"
+    android:height="1dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <group
+        android:scaleX="0.042614"
+        android:scaleY="0.042614"
+        android:translateX="29.5455"
+        android:translateY="70.4545">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M480 -80Q397 -80 324 -111.5Q251 -143 197 -197Q143 -251 111.5 -324Q80 -397 80 -480Q80 -553 104.5 -618.5Q129 -684 172 -736Q183 -750 198.5 -749Q214 -748 225 -738Q236 -728 239.5 -712Q243 -696 229 -679Q197 -638 178.5 -587.5Q160 -537 160 -480Q160 -346 253 -253Q346 -160 480 -160Q614 -160 707 -253Q800 -346 800 -480Q800 -537 781.5 -587.5Q763 -638 731 -679Q717 -696 720.5 -712Q724 -728 735 -738Q746 -748 761.5 -749Q777 -750 788 -736Q831 -684 855.5 -618.5Q880 -553 880 -480Q880 -397 848.5 -324Q817 -251 763 -197Q709 -143 636 -111.5Q563 -80 480 -80ZM440 -480V-840Q440 -857 451.5 -868.5Q463 -880 480 -880Q497 -880 508.5 -868.5Q520 -857 520 -840V-480Q520 -463 508.5 -451.5Q497 -440 480 -440Q463 -440 451.5 -451.5Q440 -463 440 -480Z" />
+    </group>
+</vector>

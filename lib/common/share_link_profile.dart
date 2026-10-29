@@ -54,46 +54,6 @@ String? subscriptionBodyRejectReason(String body) {
   return null;
 }
 
-/// Extracts proxy maps from a subscription body for downstream merging.
-///
-/// Two input shapes are supported, in priority order:
-/// 1. A raw, newline-separated list of `vless://` / `trojan://` share links
-///    (same parsing + name-dedup path used by
-///    [convertShareLinkSubscriptionToMihomo]).
-/// 2. A Mihomo/Clash YAML document with a top-level `proxies:` list.
-///
-/// Each returned map carries the full proxy fields including a `name` key.
-/// Returns `[]` when neither shape yields a usable proxy.
-List<Map<String, Object>> parseSubscriptionToProxies(String content) {
-  final shareLinkProxies = _parseShareLinkProxies(content);
-  if (shareLinkProxies.isNotEmpty) {
-    return [
-      for (final p in shareLinkProxies)
-        <String, Object>{'name': p.name, ...p.data},
-    ];
-  }
-
-  final Object? doc;
-  try {
-    doc = loadYaml(content);
-  } catch (_) {
-    return const [];
-  }
-  if (doc is! Map) return const [];
-  final rawProxies = doc['proxies'];
-  if (rawProxies is! List) return const [];
-
-  final result = <Map<String, Object>>[];
-  for (final entry in rawProxies) {
-    if (entry is! Map) continue;
-    final map = _yamlMapToObjectMap(entry);
-    if (map['name'] is! String) continue;
-    if (!_isValidRealityOpts(map['reality-opts'])) continue;
-    result.add(map);
-  }
-  return result;
-}
-
 /// Shared share-link parsing path: scans [content] for supported share-link
 /// lines, parses each, and applies name deduplication. Returns `[]` when no
 /// share-link line is present (caller decides the fallback behavior).
@@ -235,31 +195,6 @@ void _applyTransportOptions(
       if (mode != null) opts['mode'] = mode;
       if (opts.isNotEmpty) data['xhttp-opts'] = opts;
   }
-}
-
-/// Recursively converts a parsed YAML node into plain Dart `Object` values,
-/// so the result is a `Map<String, Object>` free of `YamlMap`/`YamlList`.
-Map<String, Object> _yamlMapToObjectMap(Map source) {
-  final result = <String, Object>{};
-  source.forEach((key, value) {
-    final converted = _yamlNodeToObject(value);
-    if (converted != null) {
-      result[key.toString()] = converted;
-    }
-  });
-  return result;
-}
-
-Object? _yamlNodeToObject(Object? node) {
-  if (node == null) return null;
-  if (node is Map) return _yamlMapToObjectMap(node);
-  if (node is List) {
-    return [
-      for (final item in node)
-        if (_yamlNodeToObject(item) case final v?) v,
-    ];
-  }
-  return node;
 }
 
 class _ProxyEntry {

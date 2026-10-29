@@ -9,6 +9,7 @@ import 'package:dropweb/providers/config.dart';
 import 'package:dropweb/providers/state.dart';
 import 'package:dropweb/services/diagnostics_service.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,7 +18,10 @@ import 'package:hugeicons/hugeicons.dart';
 
 Future<void> _copy(String text) async {
   await Clipboard.setData(ClipboardData(text: text));
-  globalState.showNotifier(appLocalizations.copySuccess);
+  globalState.showNotifier(
+    appLocalizations.copySuccess,
+    kind: M3eToastKind.check,
+  );
 }
 
 class DeveloperView extends ConsumerWidget {
@@ -35,6 +39,7 @@ class DeveloperView extends ConsumerWidget {
       );
       globalState.showNotifier(
         appLocalizations.devDiagnosticsWritten(saved ?? result.diagPath),
+        kind: M3eToastKind.check,
       );
     });
   }

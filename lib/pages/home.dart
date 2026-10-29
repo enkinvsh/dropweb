@@ -1,16 +1,21 @@
+import 'dart:io';
+
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/pages/home/connect_circle.dart';
 import 'package:dropweb/pages/home/home_overlays.dart';
 import 'package:dropweb/pages/home/navigation_bar.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/home/m3e_actions.dart';
+import 'package:dropweb/ui/m3e/screens/m3e_empty_home.dart';
+import 'package:dropweb/ui/m3e/screens/m3e_home.dart';
+import 'package:dropweb/ui/m3e/theme/m3e_theme_scope.dart';
+import 'package:dropweb/ui/m3e/widget/m3e_widget_sync.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 export 'package:dropweb/pages/home/connect_circle.dart' show connectButtonCenter;
-
-typedef OnSelected = void Function(int index);
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -18,11 +23,19 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => HomeBackScope(
         child: Consumer(
-          builder: (_, ref, child) {
+          builder: (context, ref, child) {
             final state = ref.watch(homeStateProvider);
             final viewMode = state.viewMode;
             final navigationItems = state.navigationItems;
             final pageLabel = state.pageLabel;
+            // M3E-экраны только на телефоне с Android: у планшетной раскладки есть
+            // боковая навигация, которой fullBleed не рисует. Главная и пустой экран
+            // меняются сами по `profilesProvider`: после добавления первой подписки
+            // перезапуск не нужен.
+            final useM3eHome =
+                Platform.isAndroid && viewMode == ViewMode.mobile;
+            final hasProfiles =
+                ref.watch(profilesProvider.select((p) => p.isNotEmpty));
             final index = navigationItems.lastIndexWhere(
               (element) => element.label == pageLabel,
             );
@@ -41,7 +54,21 @@ class HomePage extends StatelessWidget {
                   ? ''
                   : navigationLabel(pageLabel),
               sideNavigationBar: sideNavigationBar,
-              body: child!,
+              fullBleed: useM3eHome,
+              body: useM3eHome
+                  ? M3eThemeScope(
+                      child: M3eWidgetStyleSync(
+                        child: hasProfiles
+                            ? const M3eHome()
+                            // Те же «Настройки», что у кнопки на главной.
+                            : M3eEmptyHome(
+                                onSettings: () => ref
+                                    .read(m3eHomeActionsProvider)
+                                    .openSettings(context, ref),
+                              ),
+                      ),
+                    )
+                  : child!,
             );
           },
           child: const _HomePageView(),

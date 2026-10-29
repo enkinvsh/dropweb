@@ -146,13 +146,6 @@ void main() {
           'developer');
       expect(_err({'cmd': 'nav'}), 'missing-arg page');
     });
-
-    test('help lists every command', () {
-      final help = debugRemoteHelpLines.join('\n');
-      for (final name in debugRemoteCommandNames) {
-        expect(help, contains(name));
-      }
-    });
   });
 
   group('resolveDebugName', () {

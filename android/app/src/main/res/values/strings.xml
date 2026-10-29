@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">dropweb</string>
-    <string name="widget_description">Toggle VPN on/off</string>
+    <string name="widget_description">Turn VPN on and off</string>
+    <!-- Запасные подписи виджета до первого запуска приложения; потом приходят из Dart. -->
+    <string name="widget_status_on">Connected</string>
+    <string name="widget_status_off">Not connected</string>
+    <string name="widget_status_pending">Connecting…</string>
+    <string name="widget_cd_connect">Connect VPN</string>
+    <string name="widget_cd_disconnect">Disconnect VPN</string>
+    <string name="widget_cd_cancel">Cancel connection</string>
 </resources>

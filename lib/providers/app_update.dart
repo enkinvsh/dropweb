@@ -214,21 +214,28 @@ class AppUpdate extends _$AppUpdate {
     state = state.copyWith(status: AppUpdateStatus.readyToInstall, progress: 1);
   }
 
-  /// Launches the system installer. If unknown-sources isn't granted, routes to
-  /// settings and returns (the UI re-arms install on resume).
-  Future<void> install() async {
+  /// Запускает системный установщик. true — установщик запущен. Если разрешения на
+  /// установку из неизвестных источников нет, ведёт в настройки и возвращает false (UI
+  /// остаётся на месте, чтобы нажать «Установить» ещё раз после выдачи разрешения);
+  /// ошибка `installApk` тоже даёт false.
+  Future<bool> install() async {
     final info = state.info;
-    if (info == null || state.status != AppUpdateStatus.readyToInstall) return;
+    if (info == null || state.status != AppUpdateStatus.readyToInstall) {
+      return false;
+    }
     if (!(await app?.canInstallUnknownApps() ?? false)) {
       await app?.openUnknownSourcesSettings();
-      return;
+      return false;
     }
-    await app?.installApk(await _stagedApkPath(info.version));
+    try {
+      return await app?.installApk(await _stagedApkPath(info.version)) ?? false;
+    } catch (e) {
+      debugPrint('updater: installApk failed: $e');
+      return false;
+    }
   }
 
   void cancel() => _cancelToken?.cancel();
-
-  void dismiss() => state = state.copyWith(dismissed: true);
 
   void reset() {
     _cancelToken?.cancel();

@@ -3,7 +3,9 @@ import 'dart:math' as math;
 
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/providers/providers.dart';
+import 'package:dropweb/services/account/account_gate.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:dropweb/views/account/account_common.dart';
 import 'package:dropweb/views/account/account_login_sheet.dart';
 import 'package:dropweb/widgets/glass_morph_route.dart';
@@ -17,13 +19,18 @@ import 'package:hugeicons/hugeicons.dart';
 Future<void> openAccountSheet(
   BuildContext context, {
   GlassMorphOrigin? origin,
-}) =>
-    showLiquidSheet<void>(
-      context,
-      builder: (_) => const AccountView(),
-      halfSize: _accountSheetHeight(context),
-      origin: origin,
-    );
+}) {
+  // Магазинная сборка (решение владельца 2026-10-29) аккаунт не открывает.
+  // `kIsPlayBuild` — const: в Play остальной код не попадает в AAB; на iOS
+  // срабатывает рантайм-проверка.
+  if (kIsPlayBuild || accountStoreBlocked) return Future<void>.value();
+  return showLiquidSheet<void>(
+    context,
+    builder: (_) => const AccountView(),
+    halfSize: _accountSheetHeight(context),
+    origin: origin,
+  );
+}
 
 /// Стартовая высота под текущий статус — суммой тех же констант, что у
 /// контента. Дальше шит подстраивается сам, например после разблокировки.
@@ -217,7 +224,10 @@ class _AccountViewState extends ConsumerState<AccountView> {
     try {
       await body();
     } catch (error) {
-      globalState.showNotifier(accountErrorText(error));
+      globalState.showNotifier(
+        accountErrorText(error),
+        kind: M3eToastKind.alert,
+      );
     } finally {
       if (mounted) {
         setState(() => _busy = null);
@@ -264,7 +274,10 @@ class _AccountViewState extends ConsumerState<AccountView> {
         () async {
           final result =
               await ref.read(accountProvider.notifier).syncSubscription();
-          globalState.showNotifier(accountSyncResultText(result));
+          globalState.showNotifier(
+            accountSyncResultText(result),
+            kind: accountSyncResultKind(result),
+          );
         },
       );
 
@@ -294,12 +307,18 @@ class _AccountViewState extends ConsumerState<AccountView> {
       if (mounted) {
         setState(() => _busy = null);
       }
-      globalState.showNotifier(accountErrorText(error));
+      globalState.showNotifier(
+        accountErrorText(error),
+        kind: M3eToastKind.alert,
+      );
       return;
     }
     // Сессия уже стёрта: уезжающий шит держит снимок аккаунта до выхода.
     _close(shown);
-    globalState.showNotifier(appLocalizations.accountLoggedOut);
+    globalState.showNotifier(
+      appLocalizations.accountLoggedOut,
+      kind: M3eToastKind.check,
+    );
   }
 
   /// Подтверждение обязательно: в отличие от выхода, с устройства пропадёт
@@ -322,7 +341,10 @@ class _AccountViewState extends ConsumerState<AccountView> {
     await _run(_AccountAction.remove, () async {
       await account.removeFromDevice();
       // Итог показываем и тогда, когда шит уже закрыли: тост глобальный.
-      globalState.showNotifier(appLocalizations.accountRemovedFromDevice);
+      globalState.showNotifier(
+        appLocalizations.accountRemovedFromDevice,
+        kind: M3eToastKind.check,
+      );
       _close(shown);
     });
   }

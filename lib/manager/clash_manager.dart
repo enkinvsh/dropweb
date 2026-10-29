@@ -10,6 +10,7 @@ import 'package:dropweb/providers/config.dart';
 import 'package:dropweb/providers/state.dart';
 import 'package:dropweb/services/debug_remote.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -136,7 +137,7 @@ class _ClashContainerState extends ConsumerState<ClashManager>
       // fall back to the REDACTED payload, never the raw one, so a
       // surfaced notifier cannot leak credentials or tokens.
       final message = ErrorMapper.mapError(log.payload) ?? redactedPayload;
-      globalState.showNotifier(message);
+      globalState.showNotifier(message, kind: M3eToastKind.alert);
     }
     super.onLog(log);
   }

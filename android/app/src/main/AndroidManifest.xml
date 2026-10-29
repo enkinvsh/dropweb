@@ -171,7 +171,7 @@
         <service
             android:name=".services.DropwebTileService"
             android:exported="true"
-            android:icon="@drawable/ic_launcher_monochrome"
+            android:icon="@drawable/ic_stat_dropweb"
             android:label="dropweb"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
             tools:targetApi="n">

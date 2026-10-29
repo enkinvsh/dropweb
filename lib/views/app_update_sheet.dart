@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/providers/providers.dart';
+import 'package:dropweb/ui/m3e/screens/m3e_update_sheet.dart';
 import 'package:dropweb/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +17,8 @@ int _openUpdateSheets = 0;
 /// readyToInstall → error. При закрытии с ещё не применённым обновлением эта
 /// версия откладывается (см. [AppUpdate.snoozeIfPending]).
 Future<void> showUpdateSheet(BuildContext context) async {
+  // На Android лист рисует M3E; он сам ведёт счётчик открытых листов и откладывает версию.
+  if (Platform.isAndroid) return showM3eUpdateSheet(context);
   final container = ProviderScope.containerOf(context, listen: false);
   _openUpdateSheets++;
   try {
@@ -38,7 +43,7 @@ Future<void> showUpdateSheet(BuildContext context) async {
 /// остаётся в настройках, а следующая проверка предложит его снова.
 /// [context] — корневой навигатор, чтобы шит не зависел от текущего экрана.
 Future<void> offerUpdateSheet(BuildContext context) async {
-  if (_openUpdateSheets > 0 || !context.mounted) return;
+  if (_openUpdateSheets > 0 || isM3eUpdateSheetOpen || !context.mounted) return;
   final navigator = Navigator.maybeOf(context, rootNavigator: true);
   if (navigator == null || navigator.canPop()) return;
   await showUpdateSheet(context);

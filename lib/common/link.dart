@@ -4,8 +4,6 @@ import 'package:app_links/app_links.dart';
 
 import 'print.dart';
 
-typedef InstallConfigCallBack = void Function(String url);
-
 class LinkManager {
 
   factory LinkManager() {

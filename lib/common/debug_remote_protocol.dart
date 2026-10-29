@@ -125,26 +125,6 @@ class DebugParseResult {
   final String? error;
 }
 
-const List<String> debugRemoteCommandNames = [
-  'help',
-  'status',
-  'start',
-  'stop',
-  'toggle',
-  'mode',
-  'tunnel',
-  'select',
-  'groups',
-  'ping',
-  'update',
-  'diag',
-  'config',
-  'headers',
-  'logs',
-  'loglevel',
-  'nav',
-];
-
 const List<String> debugRemoteHelpLines = [
   'help',
   'status',

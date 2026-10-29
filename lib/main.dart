@@ -89,18 +89,6 @@ Future<void> main(List<String> arguments) async {
     );
   }
   await globalState.initApp(version);
-  if (ciE2ePlanPath != null &&
-      !globalState.config.appSetting.disclaimerAccepted) {
-    // The CI journey is deliberately not a first-start disclaimer test. It
-    // suppresses only this persisted UI precondition so normal bootstrap can
-    // finish without a robot; import, core, helper, listeners, and TUN remain
-    // the unchanged production paths below the hook.
-    globalState.config = globalState.config.copyWith(
-      appSetting: globalState.config.appSetting.copyWith(
-        disclaimerAccepted: true,
-      ),
-    );
-  }
   await android?.init();
   await window?.init(version);
 

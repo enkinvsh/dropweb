@@ -315,9 +315,6 @@ class TrafficValue {
 
   String get show => "$showValue $showUnit";
 
-  String get shortShow =>
-      "${trafficValueShow.value.fixed(decimals: 1)} $showUnit";
-
   String get showValue => trafficValueShow.value.fixed();
 
   String get showUnit => trafficValueShow.unit.name;
@@ -363,44 +360,6 @@ class TrafficValue {
 
   @override
   int get hashCode => _value.hashCode;
-}
-
-@freezed
-class ColorSchemes with _$ColorSchemes {
-  const factory ColorSchemes({
-    ColorScheme? lightColorScheme,
-    ColorScheme? darkColorScheme,
-  }) = _ColorSchemes;
-}
-
-extension ColorSchemesExt on ColorSchemes {
-  ColorScheme getColorSchemeForBrightness(
-    Brightness brightness,
-    DynamicSchemeVariant schemeVariant,
-  ) {
-    if (brightness == Brightness.dark) {
-      return darkColorScheme != null
-          ? ColorScheme.fromSeed(
-              seedColor: darkColorScheme!.primary,
-              brightness: Brightness.dark,
-              dynamicSchemeVariant: schemeVariant,
-            )
-          : ColorScheme.fromSeed(
-              seedColor: const Color(defaultPrimaryColor),
-              brightness: Brightness.dark,
-              dynamicSchemeVariant: schemeVariant,
-            );
-    }
-    return lightColorScheme != null
-        ? ColorScheme.fromSeed(
-            seedColor: lightColorScheme!.primary,
-            dynamicSchemeVariant: schemeVariant,
-          )
-        : ColorScheme.fromSeed(
-            seedColor: const Color(defaultPrimaryColor),
-            dynamicSchemeVariant: schemeVariant,
-          );
-  }
 }
 
 class IpInfo {
@@ -515,10 +474,6 @@ class TextPainterParams with _$TextPainterParams {
 
   factory TextPainterParams.fromJson(Map<String, Object?> json) =>
       _$TextPainterParamsFromJson(json);
-}
-
-class CloseWindowIntent extends Intent {
-  const CloseWindowIntent();
 }
 
 @freezed

@@ -1,0 +1,45 @@
+Порт цветовой спецификации Material Color Utilities 2025/2026 (TypeScript) на Dart.
+
+Репозиторий: https://github.com/material-foundation/material-color-utilities
+Коммит:      bd811e4ca2ab94c4ce3cadc89c19b1820b9704b3 (каталог typescript/)
+Лицензия:    Apache-2.0 (LICENSE рядом). Исходные заголовки Google: 2021, 2022, 2023, 2025, 2026.
+
+Зачем порт: в Dart-пакете material_color_utilities 0.13.0 (его закрепляет Flutter 3.41.6)
+есть только spec 2021: нет SchemeCmf, нет spec 2025 и 2026. Доска canon/dropweb считает
+цвет именно по ним (vendor/mcu/mcu.js собран из того же коммита без правок).
+
+Портированные файлы (typescript/ -> lib/ui/m3e/color/mcu/):
+  dynamiccolor/contrast_curve.ts        -> contrast_curve.dart
+  dynamiccolor/tone_delta_pair.ts       -> tone_delta_pair.dart
+  dynamiccolor/variant.ts               -> variant.dart
+  dynamiccolor/dynamic_color.ts         -> dynamic_color.dart   (только расчёт 2025/2026)
+  dynamiccolor/dynamic_scheme.ts        -> dynamic_scheme.dart  (палитры spec 2025, платформа phone)
+  dynamiccolor/color_spec.ts            -> color_spec_2025.dart / color_spec_2026.dart (см. ниже)
+  dynamiccolor/color_spec_2025.ts       -> color_spec_2025.dart
+  dynamiccolor/color_spec_2026.ts       -> color_spec_2026.dart
+  dynamiccolor/color_spec_2021.ts       -> только shadow, scrim, highestSurface (их 2025 не переопределяет)
+  dynamiccolor/material_dynamic_colors.ts -> color_spec_2025.dart (McuColorSpec.byRole)
+  scheme/scheme_cmf.ts                  -> schemes.dart (mcuSchemeCmf)
+  scheme/scheme_{tonal_spot,vibrant,expressive,neutral}.ts -> schemes.dart
+  palettes/tonal_palette.ts             -> tonal_palette.dart   (см. «Отличие примитива»)
+
+Что сознательно НЕ портировано (дока и доска это не используют):
+  - платформа watch (mainTone/dimTone/containerTone/findDesiredChromaByTone и ветки 'watch');
+  - spec 2021 целиком, кроме shadow/scrim/highestSurface; вариант fidelity/content/и др.;
+  - роли *Fixed, *FixedDim, *Dim и ключевые цвета палитр (в ROLES доски их нет);
+  - несколько исходных цветов (sourceColorHcts из одного элемента; второй цвет не поддержан);
+  - contrastLevel != 0 не проверялся тестом (код расчёта портирован полностью).
+
+Структура классов отличается от TS: вместо цепочки extendSpecVersion(2021 -> 2025 -> 2026)
+McuColorSpec2026 наследует McuColorSpec2025 и переопределяет роли. Для схемы spec 2025
+берётся McuColorSpec2025, для CMF (spec 2026) — McuColorSpec2026: это даёт то же поведение,
+потому что extendSpecVersion выбирает цвет по s.specVersion, а ссылки this.X() внутри цветов
+в TS уже динамически диспетчатся по spec схемы. Равенство доказано тестом test/m3e/color_test.dart.
+
+Примитивы Dart берутся из material_color_utilities 0.13.0: Hct, Contrast, ColorUtils, MathUtils.
+
+Отличие примитива (порт сделан здесь, а не импорт из пакета):
+  TonalPalette. В TS getHct(tone) = Hct.fromInt(tone(tone)), а tone(99) для жёлтого оттенка
+  возвращает среднее tone(98) и tone(100). В Dart-пакете TonalPalette.getHct(tone) =
+  Hct.from(hue, chroma, tone) без этого особого случая, поэтому свой McuTonalPalette.
+  Ключевой цвет палитры (KeyColor) не считается: на выходные цвета он не влияет.

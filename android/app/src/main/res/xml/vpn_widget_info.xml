@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 2×1 по умолчанию (плашка с именем и статусом), сжимается до 1×1 (одна кнопка).
+     Размеры по гайдам виджетов: ячейка n занимает 70n − 30 dp. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:initialLayout="@layout/widget_vpn"
-    android:targetCellWidth="1"
-    android:targetCellHeight="1"
-    android:minWidth="40dp"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/widget_vpn_wide"
+    android:minWidth="110dp"
     android:minHeight="40dp"
-    android:resizeMode="none"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
+    android:previewImage="@drawable/widget_preview"
+    android:previewLayout="@layout/widget_vpn_preview"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
     android:updatePeriodMillis="0"
-    android:widgetCategory="home_screen"
-    android:description="@string/widget_description" />
+    android:widgetCategory="home_screen" />

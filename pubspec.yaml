@@ -73,13 +73,15 @@ dependencies:
   crypto: ^3.0.7
   hugeicons: ^1.1.6
   flutter_secure_storage: ^10.0.0
-  flutter_inappwebview: ^6.1.5
   yaml: ^3.1.3
-  yaml_edit: ^2.2.4
   flutter_colorpicker: ^1.1.0
   liquid_glass_widgets: ^1.7.2
   local_auth: ^3.0.2
   cryptography: ^2.9.0
+  # any: версию закрепляет Flutter SDK (0.13.0), свой диапазон конфликтовал бы с ним
+  material_color_utilities: any
+  material_new_shapes: ^1.0.0
+  expressive_loading_indicator: ^0.0.1
 
 dev_dependencies:
   flutter_test:
@@ -98,7 +100,12 @@ flutter:
   assets:
     - assets/data/
     - assets/fonts/
-    - assets/images/
+    # Только то, что читает приложение (трей, «О программе», аватар). header.png и wordmark-*
+    # нужны README и TG-посту по raw-ссылке, в сборку им попадать незачем.
+    - assets/images/icon.png
+    - assets/images/icon.ico
+    - assets/images/icon_inactive.ico
+    - assets/images/icon_white.png
     - assets/sounds/
   fonts:
     - family: JetBrainsMono
@@ -107,15 +114,8 @@ flutter:
     - family: Twemoji
       fonts:
         - asset: assets/fonts/Twemoji.Mozilla.ttf
-    - family: Icons
-      fonts:
-        - asset: assets/fonts/Icons.ttf
     - family: Onest
       fonts:
-        - asset: assets/fonts/Onest-Thin.ttf
-          weight: 100
-        - asset: assets/fonts/Onest-ExtraLight.ttf
-          weight: 200
         - asset: assets/fonts/Onest-Light.ttf
           weight: 300
         - asset: assets/fonts/Onest-Regular.ttf
@@ -126,10 +126,10 @@ flutter:
           weight: 600
         - asset: assets/fonts/Onest-Bold.ttf
           weight: 700
-        - asset: assets/fonts/Onest-ExtraBold.ttf
-          weight: 800
-        - asset: assets/fonts/Onest-Black.ttf
-          weight: 900
+    # Переменный шрифт: один файл, оси wght/wdth задаются в коде через FontVariation
+    - family: RobotoFlex
+      fonts:
+        - asset: assets/fonts/RobotoFlex.ttf
 
 ffigen:
   name: "ClashFFI"

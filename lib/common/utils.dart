@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
@@ -36,33 +35,6 @@ class Utils {
     return "$timestamp$randomStr";
   }
 
-  String getDateStringLast2(int value) {
-    final valueRaw = "0$value";
-    return valueRaw.substring(
-      valueRaw.length - 2,
-    );
-  }
-
-  String generateRandomString({int minLength = 10, int maxLength = 100}) {
-    const latinChars =
-        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final random = Random();
-
-    final length = minLength + random.nextInt(maxLength - minLength + 1);
-
-    var result = '';
-    for (var i = 0; i < length; i++) {
-      if (random.nextBool()) {
-        result +=
-            String.fromCharCode(0x4E00 + random.nextInt(0x9FA5 - 0x4E00 + 1));
-      } else {
-        result += latinChars[random.nextInt(latinChars.length)];
-      }
-    }
-
-    return result;
-  }
-
   String get uuidV4 {
     final random = Random();
     final bytes = List.generate(16, (_) => random.nextInt(256));
@@ -74,40 +46,6 @@ class Utils {
         bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
 
     return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20, 32)}';
-  }
-
-  String getTimeDifference(DateTime dateTime) {
-    final currentDateTime = DateTime.now();
-    final difference = currentDateTime.difference(dateTime);
-    final inHours = difference.inHours;
-    final inMinutes = difference.inMinutes;
-    final inSeconds = difference.inSeconds;
-
-    return "${getDateStringLast2(inHours)}:${getDateStringLast2(inMinutes)}:${getDateStringLast2(inSeconds)}";
-  }
-
-  String getTimeText(int? timeStamp) {
-    if (timeStamp == null) {
-      return '00:00:00';
-    }
-    final diff = timeStamp / 1000;
-    final totalSeconds = diff.floor();
-
-    const maxSeconds = 31 * 86400 + 23 * 3600 + 59 * 60 + 59;
-    if (totalSeconds >= maxSeconds) {
-      return "Seriously?";
-    }
-
-    final days = (totalSeconds / 86400).floor();
-    final hours = ((totalSeconds % 86400) / 3600).floor();
-    final minutes = ((totalSeconds % 3600) / 60).floor();
-    final seconds = (totalSeconds % 60).floor();
-
-    if (days == 0) {
-      return "${getDateStringLast2(hours)}:${getDateStringLast2(minutes)}:${getDateStringLast2(seconds)}";
-    }
-
-    return "${days}d ${getDateStringLast2(hours)}:${getDateStringLast2(minutes)}:${getDateStringLast2(seconds)}";
   }
 
   Locale? getLocaleForString(String? localString) {
@@ -256,9 +194,6 @@ class Utils {
     return parameters[fileNameKey];
   }
 
-  FlutterView getScreen() =>
-      WidgetsBinding.instance.platformDispatcher.views.first;
-
   List<String> parseReleaseBody(String? body) {
     if (body == null) return [];
     const pattern = r'- \s*(.*)';
@@ -287,63 +222,6 @@ class Utils {
   }
 
   int getProfilesColumns(double viewWidth) => max((viewWidth / 320).floor(), 1);
-
-  final _indexPrimary = [
-    50,
-    100,
-    200,
-    300,
-    400,
-    500,
-    600,
-    700,
-    800,
-    850,
-    900,
-  ];
-
-  MaterialColor _createPrimarySwatch(Color color) {
-    final swatch = <int, Color>{};
-    final a = color.alpha8bit;
-    final r = color.red8bit;
-    final g = color.green8bit;
-    final b = color.blue8bit;
-    for (final strength in _indexPrimary) {
-      final ds = 0.5 - strength / 1000;
-      swatch[strength] = Color.fromARGB(
-        a,
-        r + ((ds < 0 ? r : (255 - r)) * ds).round(),
-        g + ((ds < 0 ? g : (255 - g)) * ds).round(),
-        b + ((ds < 0 ? b : (255 - b)) * ds).round(),
-      );
-    }
-    swatch[50] = swatch[50]!.lighten(18);
-    swatch[100] = swatch[100]!.lighten(16);
-    swatch[200] = swatch[200]!.lighten(14);
-    swatch[300] = swatch[300]!.lighten(10);
-    swatch[400] = swatch[400]!.lighten(6);
-    swatch[700] = swatch[700]!.darken(2);
-    swatch[800] = swatch[800]!.darken(3);
-    swatch[900] = swatch[900]!.darken(4);
-    return MaterialColor(color.value32bit, swatch);
-  }
-
-  List<Color> getMaterialColorShades(Color color) {
-    final swatch = _createPrimarySwatch(color);
-    return <Color>[
-      if (swatch[50] != null) swatch[50]!,
-      if (swatch[100] != null) swatch[100]!,
-      if (swatch[200] != null) swatch[200]!,
-      if (swatch[300] != null) swatch[300]!,
-      if (swatch[400] != null) swatch[400]!,
-      if (swatch[500] != null) swatch[500]!,
-      if (swatch[600] != null) swatch[600]!,
-      if (swatch[700] != null) swatch[700]!,
-      if (swatch[800] != null) swatch[800]!,
-      if (swatch[850] != null) swatch[850]!,
-      if (swatch[900] != null) swatch[900]!,
-    ];
-  }
 
   String get logFile => "${appName}_${DateTime.now().show}.log";
 

@@ -31,7 +31,6 @@ _$AppSettingPropsImpl _$$AppSettingPropsImplFromJson(
       updateSnoozedUntilMs:
           (json['updateSnoozedUntilMs'] as num?)?.toInt() ?? 0,
       showLabel: json['showLabel'] as bool? ?? false,
-      disclaimerAccepted: json['disclaimerAccepted'] as bool? ?? false,
       minimizeOnExit: json['minimizeOnExit'] as bool? ?? true,
       hidden: json['hidden'] as bool? ?? false,
       developerMode: json['developerMode'] as bool? ?? false,
@@ -64,7 +63,6 @@ Map<String, dynamic> _$$AppSettingPropsImplToJson(
       'updateSnoozedVersion': instance.updateSnoozedVersion,
       'updateSnoozedUntilMs': instance.updateSnoozedUntilMs,
       'showLabel': instance.showLabel,
-      'disclaimerAccepted': instance.disclaimerAccepted,
       'minimizeOnExit': instance.minimizeOnExit,
       'hidden': instance.hidden,
       'developerMode': instance.developerMode,
@@ -259,7 +257,7 @@ const _$ProxyCardTypeEnumMap = {
 
 _$TextScaleImpl _$$TextScaleImplFromJson(Map<String, dynamic> json) =>
     _$TextScaleImpl(
-      enable: json['enable'] ?? false,
+      enable: json['enable'] ?? true,
       scale: json['scale'] ?? 1.0,
     );
 
@@ -290,6 +288,8 @@ _$ThemePropsImpl _$$ThemePropsImplFromJson(Map<String, dynamic> json) =>
       textScale: json['textScale'] == null
           ? const TextScale()
           : TextScale.fromJson(json['textScale'] as Map<String, dynamic>),
+      m3eOwnColorEnabled: json['m3eOwnColorEnabled'] as bool? ?? false,
+      m3eOwnColor: (json['m3eOwnColor'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$$ThemePropsImplToJson(_$ThemePropsImpl instance) =>
@@ -303,6 +303,8 @@ Map<String, dynamic> _$$ThemePropsImplToJson(_$ThemePropsImpl instance) =>
       'schemeVariant': _$DynamicSchemeVariantEnumMap[instance.schemeVariant]!,
       'pureBlack': instance.pureBlack,
       'textScale': instance.textScale,
+      'm3eOwnColorEnabled': instance.m3eOwnColorEnabled,
+      'm3eOwnColor': instance.m3eOwnColor,
     };
 
 const _$ThemeModeEnumMap = {

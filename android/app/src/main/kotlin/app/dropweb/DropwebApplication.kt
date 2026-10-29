@@ -2,6 +2,7 @@ package app.dropweb;
 
 import android.app.Application
 import android.content.Context
+import android.content.res.Configuration
 import androidx.lifecycle.Observer
 import app.dropweb.widgets.DropwebWidgetProvider
 
@@ -21,5 +22,11 @@ class DropwebApplication : Application() {
         super.onCreate()
         instance = this
         GlobalState.runState.observeForever(widgetObserver)
+    }
+
+    /** До Android 12 виджет не знает о ночи сам, поэтому перекрашиваем при смене темы системы. */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        DropwebWidgetProvider.updateAllWidgets(this)
     }
 }
