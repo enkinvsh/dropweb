@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:dropweb/common/error_mapper.dart';
 import 'package:dropweb/plugins/ios_tunnel.dart';
@@ -7,6 +6,8 @@ import 'package:dropweb/plugins/ios_tunnel_forwarder.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/fake_path_provider.dart';
 
 const _channel = MethodChannel('dropweb/ios_tunnel');
 
@@ -82,20 +83,14 @@ class _Harness {
 }
 
 void main() {
+  // commonPrint.log пишет и в файловый журнал: ему нужен каталог приложения.
+  // Мок канала path_provider не годится: на Linux `getDownloadsDirectory()` бросает
+  // UnsupportedError раньше канала, и ошибка падает на первый тест файла.
+  useFakePathProvider();
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late _Harness h;
   late DateTime sessionStart;
-
-  // commonPrint.log пишет и в файловый журнал: ему нужен каталог приложения.
-  setUpAll(() {
-    final dir = Directory.systemTemp.createTempSync('ios_tunnel_sync_test');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/path_provider'),
-      (_) async => dir.path,
-    );
-  });
 
   setUp(() {
     h = _Harness()..install();

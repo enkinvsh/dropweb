@@ -4,8 +4,11 @@
 // который проходит проверку тела, поэтому загрузка «успешна». Ручное «Обновить» обязано
 // сказать про лимит заново (окно или плашка) даже при уже идущем эпизоде, а автоповторы
 // (опрос, возврат в приложение, таймер) молчат: окно один раз на эпизод.
+import 'dart:async';
 import 'dart:io';
 
+import 'package:dropweb/clash/clash.dart';
+import 'package:dropweb/clash/interface.dart';
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/common/secure_profile_store.dart';
 import 'package:dropweb/controller.dart';
@@ -24,6 +27,29 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/fake_path_provider.dart';
 import '../support/fake_secure_profile_store.dart';
+
+/// Подмена ядра: сохранение подписки (`Profile.saveFile`) проверяет конфиг через ядро.
+///
+/// Без подмены `ClashCore` на десктопе запускает настоящий `DropwebCore` из каталога
+/// установленного приложения. На Mac разработчика он есть и отвечает, на Linux CI его нет, и
+/// проверка падает по таймауту «core did not answer». Тест не должен зависеть от того,
+/// установлено ли приложение на машине, поэтому проверка синтаксиса здесь всегда проходит.
+class _AcceptAllCore extends ClashHandlerInterface {
+  @override
+  FutureOr<String> validateConfig(String data) => '';
+  @override
+  Future<StartListenerOutcome> startListener() async => const StartListenerOk();
+  @override
+  Future<bool> stopListener() async => true;
+  @override
+  void sendMessage(String message) {}
+  @override
+  void reStart() {}
+  @override
+  FutureOr<bool> destroy() => true;
+  @override
+  Future<bool> preload() async => true;
+}
 
 /// Содержит пробел и двоеточие: это не base64, значит окно покажет текст как есть.
 const _announce = 'Device limit: free a slot';
@@ -47,6 +73,7 @@ void main() {
   late HttpServer server;
   late String base;
   late FakeSecureProfileStore store;
+  late ClashHandlerInterface originalCore;
 
   // Что панель отвечает на следующую загрузку.
   var limited = true;
@@ -95,6 +122,8 @@ void main() {
   tearDownAll(() => server.close(force: true));
 
   setUp(() {
+    originalCore = clashCore.clashInterface;
+    clashCore.clashInterface = _AcceptAllCore();
     store = FakeSecureProfileStore();
     preferences.secureStore = store;
     limited = true;
@@ -105,7 +134,10 @@ void main() {
     debugPrint = (message, {wrapWidth}) => logs.add(message ?? '');
   });
 
-  tearDown(() => preferences.secureStore = secureProfileUrlStore);
+  tearDown(() {
+    preferences.secureStore = secureProfileUrlStore;
+    clashCore.clashInterface = originalCore;
+  });
 
   /// Плашки с текстом [text] (журнал пишет их строкой `[dropweb] <text>`).
   int toasts(String text) => logs.where((l) => l == '[dropweb] $text').length;

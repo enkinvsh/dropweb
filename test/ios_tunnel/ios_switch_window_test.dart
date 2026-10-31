@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:dropweb/clash/lib.dart';
 import 'package:dropweb/common/error_mapper.dart';
 import 'package:dropweb/enum/enum.dart';
@@ -11,6 +9,8 @@ import 'package:dropweb/plugins/ios_tunnel_forwarder.dart';
 import 'package:dropweb/state.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/fake_path_provider.dart';
 
 const _channel = MethodChannel('dropweb/ios_tunnel');
 
@@ -48,16 +48,11 @@ const _eofPayload = '[UrlTest] 🇩🇪 Germany health check failed: '
 final _lostText = ErrorMapper.mapError('read: EOF');
 
 void main() {
+  // Журнал приложения пишет в каталог из path_provider. Мок канала не годится: на Linux
+  // `getDownloadsDirectory()` бросает UnsupportedError раньше канала, и ошибка падает на
+  // первый тест, который тронул `appPath`.
+  useFakePathProvider();
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  setUpAll(() {
-    final dir = Directory.systemTemp.createTempSync('ios_switch_window_test');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/path_provider'),
-      (_) async => dir.path,
-    );
-  });
 
   setUp(IosPlannedSwitchWindow.reset);
   tearDown(IosPlannedSwitchWindow.reset);

@@ -18,6 +18,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/fake_path_provider.dart';
 import 'support/golden.dart';
 import 'support/layer_harness.dart';
 
@@ -51,6 +52,10 @@ Future<void> _settle(WidgetTester tester, [int ms = 1000]) async {
 }
 
 void main() {
+  // commonPrint.log пишет в файловый журнал, которому нужен appPath. Без подмены на Linux
+  // `getDownloadsDirectory()` бросает UnsupportedError раньше канала, и ошибка падает на
+  // тест, который первым вывел плашку или строку журнала.
+  useFakePathProvider();
   late bool savedDialog;
   late bool savedM3eDialog;
   late bool savedSheet;

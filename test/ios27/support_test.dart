@@ -98,8 +98,10 @@ void main() {
         const TextStyle(
             fontFamily: 'Onest', fontSize: 17, fontWeight: FontWeight.w600),
       );
-      // Ahem: каждый символ ровно в кегль, 18 знаков × 17.
-      expect(ahem, text.length * 17.0);
+      // Ahem: каждый символ в кегль, 18 знаков × 17. Допуск 1e-2: на Linux раскладка даёт
+      // 305.9991 вместо 306 (шум float32, около 1e-3), на macOS ровно 306; другой шрифт
+      // отличался бы на целые пиксели, а не на сотые.
+      expect(ahem, closeTo(text.length * 17.0, 1e-2));
       expect(onest, isNot(closeTo(ahem, 1)));
       // Разные веса — разные файлы шрифта: полужирный шире обычного.
       expect(semibold, greaterThan(onest));

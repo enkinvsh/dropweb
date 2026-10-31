@@ -20,6 +20,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/fake_path_provider.dart';
 import 'support/golden.dart';
 import 'support/home_harness.dart';
 import 'support/surface.dart';
@@ -84,6 +85,10 @@ Future<void> _pump(
 }
 
 void main() {
+  // commonPrint.log пишет в файловый журнал, которому нужен appPath. Без подмены на Linux
+  // `getDownloadsDirectory()` бросает UnsupportedError раньше канала, и ошибка падает на
+  // тест, который первым вывел плашку или строку журнала.
+  useFakePathProvider();
   testWidgets('тело fullBleed занимает весь экран, карточка и ряд на месте',
       (tester) async {
     final calls = _Calls();

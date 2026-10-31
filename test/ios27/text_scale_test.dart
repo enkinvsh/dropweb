@@ -174,12 +174,15 @@ void main() {
           )),
         ),
       );
-      // Ahem: глиф квадратный, ширина равна кеглю.
-      expect(tester.getSize(find.byKey(key)).width, closeTo(10, 1e-9));
+      // Ahem: глиф квадратный, ширина равна кеглю. Допуск 1e-2: на Linux раскладка текста
+      // даёт 9.99998 вместо 10 (шум float32, 1.5e-5), на macOS ровно 10; масштаб 1.4
+      // от этого отличается на 4 пикселя, а не на сотые.
+      expect(tester.getSize(find.byKey(key)).width, closeTo(10, 1e-2));
 
       _platformScale(tester, 2.0);
       await tester.pump();
-      expect(tester.getSize(find.byKey(key)).width, closeTo(20, 1e-9));
+      // Тот же допуск: 19.99998 на Linux против 20 на macOS.
+      expect(tester.getSize(find.byKey(key)).width, closeTo(20, 1e-2));
     });
   });
 

@@ -6,6 +6,7 @@ import 'package:dropweb/widgets/scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/fake_path_provider.dart';
 import 'support/board_fixtures.dart';
 import 'support/golden.dart';
 import 'support/surface.dart';
@@ -38,6 +39,10 @@ Future<void> _pump(
 }
 
 void main() {
+  // commonPrint.log пишет в файловый журнал, которому нужен appPath. Без подмены на Linux
+  // `getDownloadsDirectory()` бросает UnsupportedError раньше канала, и ошибка падает на
+  // тест, который первым вывел плашку или строку журнала.
+  useFakePathProvider();
   testWidgets('тело fullBleed занимает весь экран', (tester) async {
     await _pump(tester, const SizedBox.expand(key: _bodyKey));
     expect(tester.getSize(find.byKey(_bodyKey)), kM3eBoardSize);

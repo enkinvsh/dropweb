@@ -10,6 +10,7 @@ import 'package:dropweb/ui/m3e/theme/m3e_theme_source.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/fake_path_provider.dart';
 import 'home_scenes.dart';
 import 'support/board_fixtures.dart';
 import 'support/golden.dart';
@@ -54,6 +55,10 @@ Future<MessageManagerState> _pump(
 }
 
 void main() {
+  // commonPrint.log пишет в файловый журнал, которому нужен appPath. Без подмены на Linux
+  // `getDownloadsDirectory()` бросает UnsupportedError раньше канала, и ошибка падает на
+  // тест, который первым вывел плашку или строку журнала.
+  useFakePathProvider();
   setUp(() => debugDisableShadows = true);
 
   final screens = <String, Widget Function(BuildContext)>{
