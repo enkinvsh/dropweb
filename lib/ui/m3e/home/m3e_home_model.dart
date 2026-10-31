@@ -6,6 +6,7 @@
 
 import 'package:intl/intl.dart';
 
+import '../../../common/country_name.dart';
 import '../../../l10n/l10n.dart';
 import '../m3e_format.dart';
 import '../widgets/m3e_hero_button.dart';
@@ -270,11 +271,21 @@ M3eHomeView buildM3eHomeView(
   // Без сети проверять нечего — прочерк без анимации, как на доске.
   final ipLoading = input.online &&
       (conn || ipSettling || (input.ipAddress == null && ipPending));
-  // «Трафик» — то, что насчитала панель (`upload + download` подписки). Счётчик ядра
-  // не прибавляем: панель считает тот же трафик, после обновления подписки вышел бы
-  // двойной счёт. Нет данных подписки — прочерк.
-  final usedGb =
-      subscription == null ? null : subscription.usedBytes / kM3eGigabyte;
+  // Решение владельца 2026-10-30: на главной не светим IP целиком (он попадает на
+  // скриншоты и в запись экрана), вместо него страна выхода. Код страны валиден, когда из
+  // него строится флаг; без кода показываем только маску адреса, чтобы было видно, что
+  // проверка прошла. Колонка «Трафик» убрана: расход остаётся в полосе под тарифом.
+  final String countryText;
+  if (none) {
+    countryText = l.m3eStatNone;
+  } else if (m3eFlagFromCode(input.ipCountryCode) != null) {
+    countryText = countryDisplayName(
+      input.ipCountryCode!,
+      locale ?? Intl.getCurrentLocale(),
+    );
+  } else {
+    countryText = maskIpAddress(address);
+  }
 
   final card = M3eCardData(
     providerName: input.providerName,
@@ -295,9 +306,7 @@ M3eHomeView buildM3eHomeView(
         traffic == null ? M3eMeterTone.normal : meterToneFor(traffic.pct),
     ipFlag: none ? null : m3eFlagFromCode(input.ipCountryCode),
     ipAddress: address,
-    ipLong: address.contains(':'),
-    trafficText:
-        usedGb == null ? l.m3eStatNone : gbText(l, usedGb, locale: locale),
+    countryText: countryText,
     ipLoading: ipLoading,
     announce: input.announce ?? '',
     showRefresh: plan.needsRefresh,

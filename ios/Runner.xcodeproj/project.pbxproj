@@ -14,6 +14,8 @@
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		37E3DBFAD2025DC3CAB6767B /* IosTunnelPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DFCB5BE0B97356896C8190 /* IosTunnelPlugin.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
+		4198774033BBAADDC59743B0 /* DropwebGlassFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F06F794A1E34C8227B72193 /* DropwebGlassFactory.swift */; };
+		4C178DA6ABB1F6A4130DF3C3 /* DropwebAccessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAA5AF2D4EB28C31DAC4F4E /* DropwebAccessibility.swift */; };
 		6066396B19EEF4FE4AD964EE /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A57A03F88650447FF024AB3F /* NetworkExtension.framework */; };
 		68EC76E2E62F808A7310279A /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 96798A006EBBFE557B3E8A67 /* Pods_RunnerTests.framework */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
@@ -23,6 +25,8 @@
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		990AD25394F72E5F2577D91F /* PacketTunnel.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 9F13A9B11569BB3EB00BDB8A /* PacketTunnel.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A7BA6146076E34D96C45193A /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D3D6040C5D6DFC656EBB46C1 /* Pods_Runner.framework */; };
+		C23A72B2FE99F96F68A09767 /* dropweb.icon in Resources */ = {isa = PBXBuildFile; fileRef = 236321F0627987CBC547833E /* dropweb.icon */; };
+		E78158C53946E69396B18247 /* DropwebGlassView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2201F3B20C1B3050651A6DB5 /* DropwebGlassView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,13 +75,17 @@
 		0EE160A2FD3C7C7FC2592F0D /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
+		2201F3B20C1B3050651A6DB5 /* DropwebGlassView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DropwebGlassView.swift; sourceTree = "<group>"; };
+		236321F0627987CBC547833E /* dropweb.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = dropweb.icon; sourceTree = "<group>"; };
 		2DF27B3499BAFAF645F07FB6 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
+		2EAA5AF2D4EB28C31DAC4F4E /* DropwebAccessibility.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DropwebAccessibility.swift; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
 		432F5E2C80A2D7E4F567C36B /* PacketTunnel.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = PacketTunnel.xcconfig; sourceTree = "<group>"; };
 		4576DEC2E6F7CFA8EDB2C678 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		4E12C1451FDC82697D9EE6BD /* ru */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		4F06F794A1E34C8227B72193 /* DropwebGlassFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DropwebGlassFactory.swift; sourceTree = "<group>"; };
 		607CD634E08853C6DC6AD014 /* Runner.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		67F735A27D0A02B5E90790E2 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
 		6C794BFFEC0C5F841C03D138 /* PacketTunnel.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = PacketTunnel.entitlements; sourceTree = "<group>"; };
@@ -216,6 +224,7 @@
 			children = (
 				97C146FA1CF9000F007C117D /* Main.storyboard */,
 				97C146FD1CF9000F007C117D /* Assets.xcassets */,
+				236321F0627987CBC547833E /* dropweb.icon */,
 				97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */,
 				97C147021CF9000F007C117D /* Info.plist */,
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
@@ -224,10 +233,21 @@
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				C7DFCB5BE0B97356896C8190 /* IosTunnelPlugin.swift */,
+				7D8737F7DB70096C50EDEA66 /* Glass */,
 				607CD634E08853C6DC6AD014 /* Runner.entitlements */,
 				1AA63F4048471B923892C22E /* InfoPlist.strings */,
 			);
 			path = Runner;
+			sourceTree = "<group>";
+		};
+		7D8737F7DB70096C50EDEA66 /* Glass */ = {
+			isa = PBXGroup;
+			children = (
+				2201F3B20C1B3050651A6DB5 /* DropwebGlassView.swift */,
+				4F06F794A1E34C8227B72193 /* DropwebGlassFactory.swift */,
+				2EAA5AF2D4EB28C31DAC4F4E /* DropwebAccessibility.swift */,
+			);
+			path = Glass;
 			sourceTree = "<group>";
 		};
 		BB1D927F26AA39BE11C9AF3A /* Frameworks */ = {
@@ -366,6 +386,7 @@
 				97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */,
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
+				C23A72B2FE99F96F68A09767 /* dropweb.icon in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
 				002E18FFBF108F7297D66336 /* InfoPlist.strings in Resources */,
 			);
@@ -485,6 +506,9 @@
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				37E3DBFAD2025DC3CAB6767B /* IosTunnelPlugin.swift in Sources */,
+				E78158C53946E69396B18247 /* DropwebGlassView.swift in Sources */,
+				4198774033BBAADDC59743B0 /* DropwebGlassFactory.swift in Sources */,
+				4C178DA6ABB1F6A4130DF3C3 /* DropwebAccessibility.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -598,7 +622,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = dropweb;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
@@ -865,7 +889,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = dropweb;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
@@ -899,7 +923,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = dropweb;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";

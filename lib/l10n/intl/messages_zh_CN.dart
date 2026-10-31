@@ -38,60 +38,73 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m8(label) => "${label}当前已存在";
 
-  static String m9(version) => "Version ${version} is available";
+  static String m9(name) => "Route: ${name}. Open list";
 
-  static String m10(version, core) => "Version ${version}, core ${core}";
+  static String m10(slot) => "Color: ${slot}";
 
-  static String m11(n) => "Color ${n}";
+  static String m11(count) =>
+      "${Intl.plural(count, one: '${count} day ago', other: '${count} days ago')}";
 
-  static String m12(n) => "Shade ${n}";
+  static String m12(count) =>
+      "${Intl.plural(count, one: '${count} hour ago', other: '${count} hours ago')}";
 
-  static String m13(name) => "Delete “${name}”?";
+  static String m13(count) =>
+      "${Intl.plural(count, one: '${count} minute ago', other: '${count} minutes ago')}";
 
-  static String m14(count) =>
-      "${Intl.plural(count, one: '${count} day left', other: '${count} days left')}";
+  static String m14(version) => "Version ${version} is available";
 
-  static String m15(traffic, term) => "${traffic} · ${term}";
+  static String m15(version, core) => "Version ${version}, core ${core}";
 
-  static String m16(left) => "${left} GB left";
+  static String m16(n) => "Color ${n}";
 
-  static String m17(used, total) => "${used} of ${total} GB";
+  static String m17(n) => "Shade ${n}";
 
-  static String m18(date) => "until ${date}";
+  static String m18(name) => "Delete “${name}”?";
 
   static String m19(count) =>
-      "${Intl.plural(count, one: '${count} group', other: '${count} groups')}";
+      "${Intl.plural(count, one: '${count} day left', other: '${count} days left')}";
 
-  static String m20(version) => "Version ${version}";
+  static String m20(traffic, term) => "${traffic} · ${term}";
 
-  static String m21(percent) => "Downloading… ${percent}%";
+  static String m21(left) => "${left} GB left";
 
-  static String m22(version) => "dropweb ${version}";
+  static String m22(used, total) => "${used} of ${total} GB";
 
-  static String m23(count) =>
-      "${Intl.plural(count, one: 'Updated ${count} day ago', other: 'Updated ${count} days ago')}";
+  static String m23(date) => "until ${date}";
 
   static String m24(count) =>
+      "${Intl.plural(count, one: '${count} group', other: '${count} groups')}";
+
+  static String m25(version) => "Version ${version}";
+
+  static String m26(percent) => "Downloading… ${percent}%";
+
+  static String m27(version) => "dropweb ${version}";
+
+  static String m28(count) =>
+      "${Intl.plural(count, one: 'Updated ${count} day ago', other: 'Updated ${count} days ago')}";
+
+  static String m29(count) =>
       "${Intl.plural(count, one: 'Updated ${count} hour ago', other: 'Updated ${count} hours ago')}";
 
-  static String m25(count) =>
+  static String m30(count) =>
       "${Intl.plural(count, one: 'Updated ${count} minute ago', other: 'Updated ${count} minutes ago')}";
 
-  static String m26(value) => "${value} GB";
+  static String m31(value) => "${value} GB";
 
-  static String m27(value) => "${value} ms";
+  static String m32(value) => "${value} ms";
 
-  static String m28(label) => "${label}必须为数字";
+  static String m33(label) => "${label}必须为数字";
 
-  static String m29(label) => "${label} 必须在 1024 到 49151 之间";
+  static String m34(label) => "${label} 必须在 1024 到 49151 之间";
 
-  static String m30(count) => "已选择 ${count} 项";
+  static String m35(count) => "已选择 ${count} 项";
 
-  static String m31(days) => "您的订阅将在${days}天后到期";
+  static String m36(days) => "您的订阅将在${days}天后到期";
 
-  static String m32(label) => "${label}必须为URL";
+  static String m37(label) => "${label}必须为URL";
 
-  static String m33(date) => "至 ${date}";
+  static String m38(date) => "至 ${date}";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
@@ -211,9 +224,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "changeServer": MessageLookupByLibrary.simpleMessage("切换服务器"),
     "checkUpdate": MessageLookupByLibrary.simpleMessage("检查更新"),
     "checkUpdateError": MessageLookupByLibrary.simpleMessage("当前应用已经是最新版了"),
-    "checkUpdateFailed": MessageLookupByLibrary.simpleMessage(
-      "无法检查更新。请检查网络连接后重试",
-    ),
+    "checkUpdateFailed": MessageLookupByLibrary.simpleMessage("无法检查更新"),
     "checking": MessageLookupByLibrary.simpleMessage("检测中..."),
     "clearData": MessageLookupByLibrary.simpleMessage("清除数据"),
     "clearDataTip": MessageLookupByLibrary.simpleMessage(
@@ -304,7 +315,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "fullTunnelTitle": MessageLookupByLibrary.simpleMessage("所有流量通过 VPN"),
     "general": MessageLookupByLibrary.simpleMessage("常规"),
     "generalDesc": MessageLookupByLibrary.simpleMessage("修改通用设置"),
-    "genericErrorMessage": MessageLookupByLibrary.simpleMessage("出了点问题，请重试。"),
+    "genericErrorMessage": MessageLookupByLibrary.simpleMessage("出了点问题"),
     "geodataLoader": MessageLookupByLibrary.simpleMessage("Geo低内存模式"),
     "geodataLoaderDesc": MessageLookupByLibrary.simpleMessage("开启将使用Geo低内存加载器"),
     "geoipCode": MessageLookupByLibrary.simpleMessage("Geoip代码"),
@@ -317,6 +328,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "hoursGenitive": MessageLookupByLibrary.simpleMessage("小时"),
     "hoursPlural": MessageLookupByLibrary.simpleMessage("小时"),
     "hwidFreeSlot": MessageLookupByLibrary.simpleMessage("释放设备位"),
+    "hwidLimitReached": MessageLookupByLibrary.simpleMessage(
+      "已达到设备数量上限\n请先在服务商处释放名额，然后刷新订阅",
+    ),
     "hwidRecovered": MessageLookupByLibrary.simpleMessage("设备已注册\n订阅已更新"),
     "icon": MessageLookupByLibrary.simpleMessage("图片"),
     "iconStyle": MessageLookupByLibrary.simpleMessage("图标样式"),
@@ -334,6 +348,52 @@ class MessageLookup extends MessageLookupByLibrary {
     "invalidProfileUrl": MessageLookupByLibrary.simpleMessage(
       "订阅链接无效,请使用 http:// 或 https://",
     ),
+    "ios27A11yJoy": MessageLookupByLibrary.simpleMessage(
+      "Connection and country",
+    ),
+    "ios27A11yRoute": m9,
+    "ios27AppearanceColors": MessageLookupByLibrary.simpleMessage("Colors"),
+    "ios27AppearanceOwn": MessageLookupByLibrary.simpleMessage("Custom"),
+    "ios27AppearanceProvider": MessageLookupByLibrary.simpleMessage("Provider"),
+    "ios27AppearanceThemes": MessageLookupByLibrary.simpleMessage("主题"),
+    "ios27ColorSheetLabel": m10,
+    "ios27ColorSlotAccent": MessageLookupByLibrary.simpleMessage("Buttons"),
+    "ios27ColorSlotOrb1": MessageLookupByLibrary.simpleMessage(
+      "Background top",
+    ),
+    "ios27ColorSlotOrb2": MessageLookupByLibrary.simpleMessage(
+      "Background bottom",
+    ),
+    "ios27DisclosureBody": MessageLookupByLibrary.simpleMessage(
+      "dropweb 通过 VPN 配置创建 VPN 隧道，iPhone 会请求您允许添加该配置。流量会经由您订阅的服务器传输。dropweb 不会查看或记录您在网络上的活动。订阅提供方会获取您的 IP 地址和设备标识符。",
+    ),
+    "ios27DisclosurePolicy": MessageLookupByLibrary.simpleMessage("隐私政策"),
+    "ios27DisclosureTitle": MessageLookupByLibrary.simpleMessage("连接之前"),
+    "ios27GlassCapClear": MessageLookupByLibrary.simpleMessage("Clear"),
+    "ios27GlassClearer": MessageLookupByLibrary.simpleMessage("Clearer"),
+    "ios27GlassDenser": MessageLookupByLibrary.simpleMessage("Denser"),
+    "ios27GlassStandard": MessageLookupByLibrary.simpleMessage("Standard"),
+    "ios27GlassTinted": MessageLookupByLibrary.simpleMessage("Tinted"),
+    "ios27GlassTitle": MessageLookupByLibrary.simpleMessage("Glass"),
+    "ios27PresetBlue": MessageLookupByLibrary.simpleMessage("Blue"),
+    "ios27PresetGraphite": MessageLookupByLibrary.simpleMessage("Graphite"),
+    "ios27PresetGreen": MessageLookupByLibrary.simpleMessage("Green"),
+    "ios27PresetOrange": MessageLookupByLibrary.simpleMessage("Orange"),
+    "ios27PresetPink": MessageLookupByLibrary.simpleMessage("Pink"),
+    "ios27PresetPurple": MessageLookupByLibrary.simpleMessage("Purple"),
+    "ios27PresetRed": MessageLookupByLibrary.simpleMessage("Red"),
+    "ios27PresetYellow": MessageLookupByLibrary.simpleMessage("Yellow"),
+    "ios27StatCountry": MessageLookupByLibrary.simpleMessage("国家"),
+    "ios27ToastLink": MessageLookupByLibrary.simpleMessage(
+      "Opens in the browser",
+    ),
+    "ios27ToastQr": MessageLookupByLibrary.simpleMessage(
+      "The QR code camera will open here",
+    ),
+    "ios27UpdatedDaysAgo": m11,
+    "ios27UpdatedHoursAgo": m12,
+    "ios27UpdatedJustNow": MessageLookupByLibrary.simpleMessage("just now"),
+    "ios27UpdatedMinutesAgo": m13,
     "ipcidr": MessageLookupByLibrary.simpleMessage("IP/掩码"),
     "ipv6Desc": MessageLookupByLibrary.simpleMessage("开启后将可以接收IPv6流量"),
     "ipv6InboundDesc": MessageLookupByLibrary.simpleMessage("允许IPv6入站"),
@@ -371,8 +431,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "m3eAboutSite": MessageLookupByLibrary.simpleMessage("Project website"),
     "m3eAboutTitle": MessageLookupByLibrary.simpleMessage("About"),
     "m3eAboutUpdate": MessageLookupByLibrary.simpleMessage("Update"),
-    "m3eAboutUpdateAvailable": m9,
-    "m3eAboutVersion": m10,
+    "m3eAboutUpdateAvailable": m14,
+    "m3eAboutVersion": m15,
     "m3eAddFieldError": MessageLookupByLibrary.simpleMessage(
       "The link must start with https://",
     ),
@@ -396,15 +456,15 @@ class MessageLookup extends MessageLookupByLibrary {
       "As in the subscription",
     ),
     "m3eAppearanceTitle": MessageLookupByLibrary.simpleMessage("Appearance"),
-    "m3eColorN": m11,
-    "m3eColorShade": m12,
+    "m3eColorN": m16,
+    "m3eColorShade": m17,
     "m3eColorTitle": MessageLookupByLibrary.simpleMessage("Other color"),
     "m3eDeleteBody": MessageLookupByLibrary.simpleMessage(
       "The paid subscription stays with your provider.",
     ),
-    "m3eDeleteTitle": m13,
+    "m3eDeleteTitle": m18,
     "m3eDisclosureBody": MessageLookupByLibrary.simpleMessage(
-      "dropweb creates a VPN tunnel using Android\'s system VPN permission. Your traffic goes through your subscription\'s servers. dropweb does not see or log what you do online. The subscription provider receives your IP address and, unless disabled in settings, your device ID.",
+      "dropweb creates a VPN tunnel using Android\'s system VPN permission. Your traffic goes through your subscription\'s servers. dropweb does not see or log what you do online. The subscription provider receives your IP address and device ID.",
     ),
     "m3eDisclosureTitle": MessageLookupByLibrary.simpleMessage(
       "Before connecting",
@@ -414,24 +474,24 @@ class MessageLookup extends MessageLookupByLibrary {
     "m3eEmptyTitle": MessageLookupByLibrary.simpleMessage("Add a subscription"),
     "m3eLangSystem": MessageLookupByLibrary.simpleMessage("Same as system"),
     "m3eMsNoAnswer": MessageLookupByLibrary.simpleMessage("no response"),
-    "m3ePlanDaysLeft": m14,
+    "m3ePlanDaysLeft": m19,
     "m3ePlanExpired": MessageLookupByLibrary.simpleMessage(
       "Subscription expired",
     ),
     "m3ePlanForever": MessageLookupByLibrary.simpleMessage("no expiry"),
-    "m3ePlanLine": m15,
-    "m3ePlanTrafficLeft": m16,
-    "m3ePlanTrafficOf": m17,
+    "m3ePlanLine": m20,
+    "m3ePlanTrafficLeft": m21,
+    "m3ePlanTrafficOf": m22,
     "m3ePlanTrafficOut": MessageLookupByLibrary.simpleMessage("Out of traffic"),
     "m3ePlanUnlimited": MessageLookupByLibrary.simpleMessage("Unlimited"),
-    "m3ePlanUntil": m18,
+    "m3ePlanUntil": m23,
     "m3eRefresh": MessageLookupByLibrary.simpleMessage("Refresh"),
     "m3eRouteAllTraffic": MessageLookupByLibrary.simpleMessage(
       "All traffic through VPN",
     ),
     "m3eRouteAuto": MessageLookupByLibrary.simpleMessage("Auto"),
     "m3eRouteCountries": MessageLookupByLibrary.simpleMessage("Country"),
-    "m3eRouteGroupsCount": m19,
+    "m3eRouteGroupsCount": m24,
     "m3eRouteTitle": MessageLookupByLibrary.simpleMessage("Route"),
     "m3eScanGallery": MessageLookupByLibrary.simpleMessage(
       "Choose from gallery",
@@ -440,7 +500,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "m3eServersTitle": MessageLookupByLibrary.simpleMessage(
       "Servers and groups",
     ),
-    "m3eSettingsAboutVersion": m20,
+    "m3eSettingsAboutVersion": m25,
+    "m3eStatCountry": MessageLookupByLibrary.simpleMessage("国家"),
     "m3eStatIp": MessageLookupByLibrary.simpleMessage("IP address"),
     "m3eStatNone": MessageLookupByLibrary.simpleMessage("—"),
     "m3eStatPing": MessageLookupByLibrary.simpleMessage("Ping"),
@@ -470,7 +531,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Subscription updated",
     ),
     "m3eToastSupport": MessageLookupByLibrary.simpleMessage("Opening help"),
-    "m3eUpdateDownloading": m21,
+    "m3eUpdateDownloading": m26,
     "m3eUpdateFailed": MessageLookupByLibrary.simpleMessage("Update failed"),
     "m3eUpdateNotes": MessageLookupByLibrary.simpleMessage("What\'s new"),
     "m3eUpdateProgressLabel": MessageLookupByLibrary.simpleMessage(
@@ -479,16 +540,16 @@ class MessageLookup extends MessageLookupByLibrary {
     "m3eUpdateReady": MessageLookupByLibrary.simpleMessage(
       "Downloaded, ready to install",
     ),
-    "m3eUpdateTitle": m22,
+    "m3eUpdateTitle": m27,
     "m3eUpdateVerifying": MessageLookupByLibrary.simpleMessage("Verifying…"),
-    "m3eUpdatedDaysAgo": m23,
-    "m3eUpdatedHoursAgo": m24,
+    "m3eUpdatedDaysAgo": m28,
+    "m3eUpdatedHoursAgo": m29,
     "m3eUpdatedJustNow": MessageLookupByLibrary.simpleMessage(
       "Updated just now",
     ),
-    "m3eUpdatedMinutesAgo": m25,
-    "m3eValueGb": m26,
-    "m3eValueMs": m27,
+    "m3eUpdatedMinutesAgo": m30,
+    "m3eValueGb": m31,
+    "m3eValueMs": m32,
     "managedByProvider": MessageLookupByLibrary.simpleMessage("这些设置由您的提供商管理"),
     "memoryInfo": MessageLookupByLibrary.simpleMessage("内存信息"),
     "menu": MessageLookupByLibrary.simpleMessage("菜单"),
@@ -515,7 +576,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "noResolve": MessageLookupByLibrary.simpleMessage("不解析IP"),
     "none": MessageLookupByLibrary.simpleMessage("无"),
     "nullProfileDesc": MessageLookupByLibrary.simpleMessage("没有配置文件,请先添加配置文件"),
-    "numberTip": m28,
+    "numberTip": m33,
     "ok": MessageLookupByLibrary.simpleMessage("OK"),
     "onboardingClipboardImport": MessageLookupByLibrary.simpleMessage(
       "从剪贴板粘贴订阅",
@@ -557,7 +618,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "port": MessageLookupByLibrary.simpleMessage("端口"),
     "portConflictTip": MessageLookupByLibrary.simpleMessage("请输入不同的端口"),
-    "portTip": m29,
+    "portTip": m34,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage("优先使用DOH的http/3"),
     "presetAmber": MessageLookupByLibrary.simpleMessage("琥珀"),
     "presetAmethyst": MessageLookupByLibrary.simpleMessage("紫晶"),
@@ -580,7 +641,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pureBlackMode": MessageLookupByLibrary.simpleMessage("纯黑模式"),
     "qrNotFound": MessageLookupByLibrary.simpleMessage("未找到二维码"),
     "qrScanFromImageUnsupported": MessageLookupByLibrary.simpleMessage(
-      "此平台不支持从图片扫描二维码，请改用订阅链接。",
+      "不支持从图片扫描二维码",
     ),
     "qrcode": MessageLookupByLibrary.simpleMessage("二维码"),
     "receiveSubscriptionTitle": MessageLookupByLibrary.simpleMessage("接收订阅"),
@@ -629,7 +690,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("全选"),
     "selectProfile": MessageLookupByLibrary.simpleMessage("选择配置"),
     "selected": MessageLookupByLibrary.simpleMessage("已选择"),
-    "selectedCountTitle": m30,
+    "selectedCountTitle": m35,
     "serversAndGroups": MessageLookupByLibrary.simpleMessage("服务器与分组"),
     "settings": MessageLookupByLibrary.simpleMessage("设置"),
     "settingsSendDeviceDataSubtitle": MessageLookupByLibrary.simpleMessage(
@@ -665,7 +726,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscription": MessageLookupByLibrary.simpleMessage("订阅"),
     "subscriptionEternal": MessageLookupByLibrary.simpleMessage("永久订阅"),
     "subscriptionExpired": MessageLookupByLibrary.simpleMessage("您的订阅已过期"),
-    "subscriptionExpiresInDays": m31,
+    "subscriptionExpiresInDays": m36,
     "subscriptionExpiresToday": MessageLookupByLibrary.simpleMessage(
       "您的订阅今天到期",
     ),
@@ -721,10 +782,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "updated": MessageLookupByLibrary.simpleMessage("已更新"),
     "upload": MessageLookupByLibrary.simpleMessage("上传"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
-    "urlTip": m32,
+    "urlTip": m37,
     "useHosts": MessageLookupByLibrary.simpleMessage("使用Hosts"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("使用系统Hosts"),
-    "validUntil": m33,
+    "validUntil": m38,
     "value": MessageLookupByLibrary.simpleMessage("值"),
     "view": MessageLookupByLibrary.simpleMessage("查看"),
     "vpnDisclosureBody": MessageLookupByLibrary.simpleMessage(

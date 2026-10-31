@@ -254,6 +254,12 @@ List<String> smartInterceptGroups(Map<String, dynamic> rawConfig) {
 /// `proxy-groups` declaration order) when there is no `MATCH` rule, or it
 /// targets a builtin / a non-intercept group. Returns null when nothing
 /// qualifies (smart unavailable — mirrors the country-no-nodes path).
+///
+/// Исключение — шаблон «рубильник обхода» ([_vpnHubBehindBypass]): `MATCH`
+/// ведёт в `select`, который по умолчанию отдаёт трафик напрямую
+/// («Остальные сайты» → «Без VPN»), а настоящий выбор выхода живёт в группе-члене
+/// («Недоступные сайты»). Тогда роутер — эта группа: через неё идут и сервисные
+/// группы, и проверка внешнего адреса, и выбор страны не оказывается «мимо».
 String? detectPrimaryRouter(Map<String, dynamic> rawConfig) {
   final qualifying = smartInterceptGroups(rawConfig);
   if (qualifying.isEmpty) return null;
@@ -266,11 +272,71 @@ String? detectPrimaryRouter(Map<String, dynamic> rawConfig) {
       if (fields.isEmpty || fields.first.trim() != 'MATCH') continue;
       final target = ruleTarget(text);
       if (target != null && qualifyingSet.contains(target)) {
-        return target;
+        return _vpnHubBehindBypass(rawConfig, target, qualifyingSet) ?? target;
       }
     }
   }
   return qualifying.first;
+}
+
+/// Группа, в которую «рубильник обхода» [matchTarget] передаёт трафик, когда
+/// обход выключен; null — [matchTarget] сам и есть роутер.
+///
+/// Форма: [matchTarget] — `select`, первый член (тот, что ядро берёт без пина)
+/// — прямой выход (`DIRECT` или узел `type: direct`), а среди остальных членов
+/// есть qualifying-группа с настоящими узлами. Имена не сравниваются: «Без VPN»
+/// узнаётся по типу узла. Пример — SPACE VPN: `MATCH` ведёт в «Остальные сайты»
+/// [«Без VPN», «Недоступные сайты», узлы…], а домены IP-проверок (все четыре
+/// источника карточки адреса), YouTube, Telegram и «заблокированные» наборы
+/// правил — в «Недоступные сайты». Пин страны на `MATCH`-группе не доходил до
+/// этих правил: карточка адреса и сервисы оставались на авто-выходе.
+///
+/// Группа без узлов (`RU сайты` с одним «Без VPN») хабом не считается: через неё
+/// VPN-выхода нет.
+String? _vpnHubBehindBypass(
+  Map<String, dynamic> rawConfig,
+  String matchTarget,
+  Set<String> qualifying,
+) {
+  final groups = rawConfig['proxy-groups'];
+  if (groups is! List) return null;
+  Map? matchGroup;
+  for (final g in groups) {
+    if (g is Map && g['name']?.toString() == matchTarget) {
+      matchGroup = g;
+      break;
+    }
+  }
+  if (matchGroup == null || matchGroup['type']?.toString() != 'select') {
+    return null;
+  }
+  final rawMembers = matchGroup['proxies'];
+  if (rawMembers is! List) return null;
+  final members = [
+    for (final m in rawMembers)
+      if (m != null) m.toString(),
+  ];
+  if (members.isEmpty) return null;
+
+  final directNames = <String>{'DIRECT'};
+  final proxies = rawConfig['proxies'];
+  if (proxies is List) {
+    for (final p in proxies) {
+      if (p is Map &&
+          p['name'] != null &&
+          p['type']?.toString().toLowerCase() == 'direct') {
+        directNames.add(p['name'].toString());
+      }
+    }
+  }
+  if (!directNames.contains(members.first)) return null;
+
+  for (final member in members.skip(1)) {
+    if (member == matchTarget || !qualifying.contains(member)) continue;
+    if (_smartLeafNodes(rawConfig, member).isEmpty) continue;
+    return member;
+  }
+  return null;
 }
 
 /// The de-duplicated UNION of the leaf nodes routed through EVERY
@@ -488,8 +554,9 @@ String? countryTargetName(
 ///
 /// Снимает всё, чем владеет work mode: значения `Умный` / `Страна *` (в т.ч.
 /// многогрупповые ключи прежнего fork-Б), ключ `GLOBAL` (прежний
-/// `Mode.global`-фолбэк) и сам ключ [router]. Ручные выборы юзера в прочих
-/// группах не трогаются. PURE.
+/// `Mode.global`-фолбэк); ключ [router] перезаписывается [target], а при
+/// `target == null` остаётся как был. Ручные выборы юзера в прочих группах не
+/// трогаются. PURE.
 ///
 /// Ключ `GLOBAL` берётся из [GroupName.GLOBAL] (`enum.dart:57`), а не литералом:
 /// имя ядровой группы должно ехать за enum'ом, иначе переименование enum'а молча
@@ -504,7 +571,10 @@ Map<String, String> reconcileCountrySelectedMap({
         v == workModeSmartGroupName ||
         v.startsWith('$workModeCountryGroupPrefix '))
     ..remove(GroupName.GLOBAL.name);
-  if (router != null) desired.remove(router);
+  // Без цели ключ роутера не трогаем: там может лежать ручной пин юзера
+  // (узел из include-all / use:-роутера, который interceptLeafNodes не видит).
+  // Снятие такого пина уводило трафик в первого члена роутера («Авто»).
+  // Значения режима (`Страна *` / `Умный`) уже сняты выше по значению.
   if (router != null && target != null) desired[router] = target;
   return desired;
 }

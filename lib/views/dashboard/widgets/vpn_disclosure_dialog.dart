@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/ios27/layers/ios27_disclosure.dart';
 import 'package:dropweb/ui/m3e/screens/m3e_dialogs.dart';
 import 'package:dropweb/widgets/dialog.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,7 @@ import 'package:flutter/material.dart';
 /// живут по своим правилам. Меняешь текст — сверь с политикой.
 Future<bool?> showVpnDisclosureDialog(BuildContext context) {
   if (Platform.isAndroid) return showM3eVpnDisclosure(context);
+  if (Platform.isIOS) return showIos27VpnDisclosure(context);
   return globalState.showCommonDialog<bool>(
     dismissible: false,
     child: const _VpnDisclosureDialog(),

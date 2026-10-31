@@ -143,6 +143,9 @@ Profile applyFetchedProfileFields({
     mirrorUrls:
         fetched.mirrorUrls.isNotEmpty ? fetched.mirrorUrls : fresh.mirrorUrls,
     subId: fetched.subId ?? fresh.subId,
+    // Загрузка отказа по лимиту или без `x-hwid` возвращает прежнее значение
+    // (см. [hwidToRemember]), так что берём её результат как есть.
+    fetchedHwid: fetched.fetchedHwid ?? fresh.fetchedHwid,
     isUpdating: false,
   );
 }
@@ -512,7 +515,24 @@ class AppController {
   /// so the staying caller ([handleChangeProfile]) stays unchanged.
   void _resetSubscriptionTheme() => _profileService.resetSubscriptionTheme();
 
+  /// Фоновое обновление (таймер, опрос лимита устройств, возврат в приложение):
+  /// о лимите устройств молчит, кроме первого окна на эпизод.
   Future<void> updateProfile(Profile profile) async {
+    await _updateProfile(profile, userInitiated: false);
+  }
+
+  /// Обновление по нажатию пользователя («Обновить» на главной и в листе
+  /// «Подписка»). Возвращает вердикт по лимиту устройств: если панель всё ещё
+  /// отказывает, пользователь видит причину заново (окно или плашка) даже при
+  /// уже идущем эпизоде, а вызывающий не рапортует «Подписка обновлена» —
+  /// загрузка прошла, но в файле заглушка вместо серверов.
+  Future<HwidVerdict> updateProfileByUser(Profile profile) =>
+      _updateProfile(profile, userInitiated: true);
+
+  Future<HwidVerdict> _updateProfile(
+    Profile profile, {
+    required bool userInitiated,
+  }) async {
     // Re-read the latest profile state by id rather than trusting the passed
     // snapshot. Callers (auto-update timer loop, dashboard pull-to-refresh,
     // card/subscription/profiles/edit menus) capture a Profile possibly long
@@ -542,20 +562,28 @@ class AppController {
     if (fresh == null) {
       commonPrint.log(
           '[profile] ${profile.id} deleted during update, dropping result');
-      return;
+      return HwidVerdict.clean;
     }
+    // Лимит мог быть записан в профиль прошлой загрузкой, а эпизод в памяти уже
+    // закрыт (потолок 10 минут, перезапуск приложения): без этого снятый лимит
+    // после ручного «Обновить» выглядел бы как обычное обновление.
+    final wasLimited = _isHwidLimited(fresh.providerHeaders);
     final newProfile =
         applyFetchedProfileFields(fresh: fresh, fetched: fetched);
 
     final headers = newProfile.providerHeaders;
 
-    _handleHwidHeaders(newProfile);
+    final hwidVerdict = _handleHwidHeaders(
+      newProfile,
+      userInitiated: userInitiated,
+      wasLimited: wasLimited,
+    );
 
     final finalProfile = await _revalidateWorkMode(newProfile);
     // _revalidateWorkMode may await a config read; don't resurrect a profile
     // deleted during it (synchronous check + write, no gap).
     if (_ref.read(profilesProvider).getProfile(profile.id) == null) {
-      return;
+      return hwidVerdict;
     }
     _ref.read(profilesProvider.notifier).setProfile(finalProfile);
 
@@ -582,6 +610,7 @@ class AppController {
         .catchError((e) {
       commonPrint.log("Error checking subscription: $e");
     }));
+    return hwidVerdict;
   }
 
   /// Тихо переводит профиль [profileId] на новый основной адрес подписки и
@@ -637,14 +666,32 @@ class AppController {
     await updateProfile(profile);
   }
 
+  static bool _isHwidLimited(Map<String, String> headers) =>
+      isHwidLimitFlagged(headers);
+
   /// Routes a subscription fetch's HWID verdict into the recovery episode.
   /// Called from every path that parses provider headers (update + import).
-  void _handleHwidHeaders(Profile profile) {
+  ///
+  /// [userInitiated] — загрузку запросил пользователь (кнопка «Обновить»).
+  /// Автоповторы (опрос, возврат в приложение, 20-минутный таймер) молчат: окно
+  /// лимита один раз на эпизод. Ручное же обновление, на которое панель снова
+  /// ответила лимитом, обязано сказать об этом заново: иначе пользователь после
+  /// «освободил устройство в кабинете, нажал обновить» не видит ни реакции, ни
+  /// причины. [wasLimited] — прошлая загрузка этого профиля несла лимит.
+  HwidVerdict _handleHwidHeaders(
+    Profile profile, {
+    bool userInitiated = false,
+    bool wasLimited = false,
+  }) {
+    var verdict = HwidVerdict.clean;
     try {
       final headers = profile.providerHeaders;
-      final limited = headers['x-hwid-limit']?.toLowerCase() == 'true';
-      if (!limited) {
-        if (_hwidRecovery.onRecovered(profile.id)) {
+      if (!_isHwidLimited(headers)) {
+        final episodeClosed = _hwidRecovery.onRecovered(profile.id);
+        // Эпизод в памяти не пережил перезапуск или потолок опроса — тогда о
+        // снятом лимите знает только сохранённый заголовок прошлой загрузки.
+        if (episodeClosed || (userInitiated && wasLimited)) {
+          verdict = HwidVerdict.recovered;
           // The device slot freed up and this fetch registered us — celebrate
           // instead of leaving the user guessing whether their cabinet dance
           // worked.
@@ -654,26 +701,44 @@ class AppController {
           );
           unawaited(App().performHapticFeedback(DropwebHapticCue.confirm));
         }
-        return;
+        return verdict;
       }
+      verdict = HwidVerdict.limited;
       final isNewEpisode = _hwidRecovery.onHwidLimit(profile.id);
       final announceText = headers['announce'];
-      // Dialog ONCE per episode; while the poll keeps hitting the limit the
-      // retries stay silent (no dialog stacking).
-      if (isNewEpisode && announceText != null && announceText.isNotEmpty) {
-        _showHwidLimitNotice(
-          announceText,
-          supportUrl: headers['support-url'],
-          // Panel-supplied deep link straight to the device-management page
-          // (e.g. the cabinet's /devices). Provider-neutral: whatever URL the
-          // panel advertises, nothing is baked into the app.
-          deviceRemoveUrl: headers['dropweb-device-remove'],
+      if (announceText != null && announceText.isNotEmpty) {
+        // Dialog ONCE per episode; while the poll keeps hitting the limit the
+        // retries stay silent (no dialog stacking). Нажатие пользователя — не
+        // «повтор»: ответ нужен каждый раз.
+        if (isNewEpisode || userInitiated) {
+          _showHwidLimitNotice(
+            announceText,
+            supportUrl: headers['support-url'],
+            // Panel-supplied deep link straight to the device-management page
+            // (e.g. the cabinet's /devices). Provider-neutral: whatever URL the
+            // panel advertises, nothing is baked into the app.
+            deviceRemoveUrl: headers['dropweb-device-remove'],
+          );
+        }
+      } else if (userInitiated) {
+        // Панель не прислала объявления — без текста пользователь остался бы с
+        // тишиной после нажатия.
+        globalState.showNotifier(
+          appLocalizations.hwidLimitReached,
+          kind: M3eToastKind.alert,
         );
       }
+      return verdict;
     } catch (error, stackTrace) {
       commonPrint.log(
         '[import] hwid failed: $error\n$stackTrace',
       );
+      return verdict;
+    } finally {
+      // Одна строка на ручное обновление; адрес и токен в журнал не попадают.
+      if (userInitiated) {
+        commonPrint.log('[hwid] manual refresh ${profile.id}: ${verdict.name}');
+      }
     }
   }
 
@@ -878,6 +943,10 @@ class AppController {
       ),
     );
     if (message.isNotEmpty) throw message;
+    // На iOS updateConfig меняет только офлайновое ядро приложения; расширение
+    // получит изменения лишь при перезапуске. Без ожидания: перезапуск до ~45 с
+    // не должен держать индикатор loadingRun, состояние видно по isConnecting.
+    unawaited(_syncIosTunnel('updateClashConfig'));
   }
 
   /// Delegates to [ConnectService.requestAdmin].
@@ -1135,6 +1204,22 @@ class AppController {
       });
     }
     addCheckIpNumDebounce();
+    await _syncIosTunnel('applyProfile');
+  }
+
+  /// iOS: после применения профиля в ядре приложения доводит до этого же конфига
+  /// работающее расширение (оно читает `setup.json` только при старте). Через
+  /// `applyProfile` проходят смена страны и режима, «Весь трафик через VPN», смена
+  /// и импорт подписки. На остальных платформах — пустая операция.
+  /// `_lastSetupHash == null` значит, что разбор конфига в приложении не удался:
+  /// расширению такой конфиг отдавать нельзя.
+  Future<void> _syncIosTunnel(String reason) async {
+    if (!Platform.isIOS || _lastSetupHash == null) return;
+    try {
+      await globalState.syncIosTunnelConfig(reason: reason);
+    } catch (e, st) {
+      commonPrint.log('[ios-tunnel] sync ($reason) failed: $e\n$st');
+    }
   }
 
   Future<void> handleChangeProfile() async {
@@ -1793,6 +1878,7 @@ class AppController {
       applyProfile: (profile) async {
         await _applyProfile();
         addCheckIpNumDebounce();
+        await _syncIosTunnel('importProfile');
       },
       reportSuccess: (profile) {
         _importSuccessCleanup();
@@ -1999,12 +2085,26 @@ class AppController {
       commonPrint.log('applyWorkMode: failed to read profile config: $e');
     }
 
+    // «Страна» без цели при тапе конкретного члена — это Standard с пином
+    // (см. [effectiveWorkModeForPick]), иначе пин теряется и трафик уходит
+    // в первого члена роутера.
+    final effective = effectiveWorkModeForPick(
+      mode: mode,
+      staticCountry: staticCountry,
+      countryTarget: countryTarget,
+      routerPin: routerPin,
+    );
+    if (effective.mode != mode) {
+      commonPrint.log(
+          'applyWorkMode: no country target for "$staticCountry", applying standard with router pin');
+    }
+
     // Вся арифметика ключей — в чистой [resolveWorkModeSelectedMap]: результат
     // (куда ядро в итоге маршрутизирует) обязан быть покрыт тестом, а не только
     // промежуточная классификация члена роутера.
     final selectedMap = resolveWorkModeSelectedMap(
       current: currentProfile.selectedMap,
-      mode: mode,
+      mode: effective.mode,
       ownedRouter:
           countryRouter ?? (smartGroups.isEmpty ? null : smartGroups.first),
       countryTarget: countryTarget,
@@ -2024,8 +2124,8 @@ class AppController {
     try {
       _ref.read(profilesProvider.notifier).setProfile(
             currentProfile.copyWith(
-              workMode: mode,
-              staticCountry: staticCountry,
+              workMode: effective.mode,
+              staticCountry: effective.staticCountry,
               selectedMap: selectedMap,
             ),
           );

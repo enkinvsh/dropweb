@@ -1,5 +1,5 @@
-// Главная целиком: один connect — один индикатор в слоте IP и одно появление итогового
-// адреса (владелец 2026-10-29: «обновление ip дважды при подключении»).
+// Главная целиком: один connect — один индикатор в слоте страны и одно появление итоговой
+// страны (владелец 2026-10-29: «обновление ip дважды при подключении»).
 
 import 'package:dropweb/ui/m3e/home/m3e_home_model.dart';
 import 'package:dropweb/ui/m3e/home/m3e_home_providers.dart';
@@ -14,6 +14,10 @@ import 'support/golden.dart';
 
 const _before = '95.24.118.7';
 const _vpn = '185.107.56.12';
+
+// На карточке адрес не рисуется (решение владельца 2026-10-30): смену адреса видно по стране.
+const _beforeCountry = 'Россия';
+const _vpnCountry = 'Нидерланды';
 
 final _on = StateProvider<bool>((ref) => false);
 final _addr = StateProvider<String?>((ref) => _before);
@@ -48,7 +52,7 @@ class _Flow {
                 vpnOn: on,
                 runTime: on ? const Duration(seconds: 5) : null,
                 ipAddress: ref.watch(_addr),
-                ipCountryCode: 'NL',
+                ipCountryCode: ref.watch(_addr) == _vpn ? 'NL' : 'RU',
                 subscription: const M3eHomeSubscription(),
                 providerName: 'dropweb',
                 announce: 'dropweb.org',
@@ -89,7 +93,7 @@ class _Flow {
     }
   }
 
-  Finder get slot => find.byKey(M3eCardKeys.statValue(0));
+  Finder get slot => find.byKey(M3eCardKeys.country);
   Finder get indicator =>
       find.descendant(of: slot, matching: find.byKey(_loading));
 }
@@ -101,7 +105,7 @@ void main() {
     final f = _Flow(tester, [_before, _vpn]);
     await f.mount();
     await f.wait(300);
-    expect(find.text(_before), findsOneWidget,
+    expect(find.text(_beforeCountry), findsOneWidget,
         reason: 'до подключения — свой адрес');
     expect(f.indicator, findsNothing);
 
@@ -110,7 +114,7 @@ void main() {
     await f.wait(200);
     expect(f.resets, 1);
     expect(f.indicator, findsOneWidget);
-    expect(find.text(_before), findsNothing);
+    expect(find.text(_beforeCountry), findsNothing);
 
     // T+1,33 с: переприменение профиля подставило узел и сообщило о готовности.
     await f.wait(700);
@@ -124,22 +128,22 @@ void main() {
     // всё ещё индикатор, прежний адрес не мигает.
     expect(f.checks, 1);
     expect(f.indicator, findsOneWidget);
-    expect(find.text(_before), findsNothing);
-    expect(find.text(_vpn), findsNothing);
+    expect(find.text(_beforeCountry), findsNothing);
+    expect(find.text(_vpnCountry), findsNothing);
 
     // Повтор через 2 с даёт итоговый адрес.
     await f.wait(2100);
     expect(f.checks, 2);
     await f.wait(400);
     expect(f.indicator, findsNothing);
-    expect(find.text(_vpn), findsOneWidget);
+    expect(find.text(_vpnCountry), findsOneWidget);
     expect(f.resets, 1, reason: 'адрес сброшен один раз');
 
     // Дальше ничего не перерисовывается: ни сброса, ни индикатора.
     await f.wait(10000);
     expect(f.resets, 1);
     expect(f.indicator, findsNothing);
-    expect(find.text(_vpn), findsOneWidget);
+    expect(find.text(_vpnCountry), findsOneWidget);
   });
 
   testWidgets('сигнал контроллера после появления адреса не гасит значение',
@@ -149,15 +153,15 @@ void main() {
     f.signal(0, on: true);
     await f.wait(3100);
     await f.wait(400);
-    expect(find.text(_vpn), findsOneWidget);
+    expect(find.text(_vpnCountry), findsOneWidget);
     // Поздний сигнал: тихая сверка с тем же адресом.
     f.signal(1, on: true);
     await f.wait(30);
     expect(f.indicator, findsNothing);
-    expect(find.text(_vpn), findsOneWidget);
+    expect(find.text(_vpnCountry), findsOneWidget);
     await f.wait(500);
     expect(f.resets, 1);
-    expect(find.text(_vpn), findsOneWidget);
+    expect(find.text(_vpnCountry), findsOneWidget);
   });
 
   testWidgets(
@@ -167,14 +171,14 @@ void main() {
     await f.mount();
     f.signal(0, on: true);
     await f.wait(3500);
-    expect(find.text(_vpn), findsOneWidget);
+    expect(find.text(_vpnCountry), findsOneWidget);
     f.signal(0, on: false);
     await f.wait(200);
     expect(f.resets, 2);
-    expect(find.text(_vpn), findsNothing);
+    expect(find.text(_vpnCountry), findsNothing);
     expect(f.indicator, findsOneWidget);
     await f.wait(1000);
     expect(f.indicator, findsNothing);
-    expect(find.text(_before), findsOneWidget);
+    expect(find.text(_beforeCountry), findsOneWidget);
   });
 }

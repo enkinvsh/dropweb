@@ -1,7 +1,7 @@
 name: dropweb
 description: Multi-platform VPN client based on mihomo core. Open-source and ad-free.
 publish_to: "none"
-version: 0.10.3+2050000023
+version: 1.0.0+2050000036
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -106,7 +106,13 @@ flutter:
     - assets/images/icon.ico
     - assets/images/icon_inactive.ico
     - assets/images/icon_white.png
+    - assets/images/ios27/about_icon_default.png
+    - assets/images/ios27/about_icon_dark.png
     - assets/sounds/
+
+  # Фон главной iOS (порт bg.js): один шейдер с плавными uniform вместо смешения кадров.
+  shaders:
+    - shaders/ios27_backdrop.frag
   fonts:
     - family: JetBrainsMono
       fonts:

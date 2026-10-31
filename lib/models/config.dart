@@ -248,6 +248,14 @@ class ThemeProps with _$ThemeProps {
     // dropweb-theme перезаписывает primaryColor при каждом обновлении профиля.
     @Default(false) bool m3eOwnColorEnabled,
     int? m3eOwnColor,
+    // «Свои» цвета фона iOS: верхний и нижний орб. Третий слот доски, акцент, общий
+    // с Android (`m3eOwnColor`). null = орб провайдера; Android эти поля не читает.
+    int? ios27OwnOrb1,
+    int? ios27OwnOrb2,
+    // Степень прозрачности стекла iOS, 0..100 (ползунок «Стекло», app.js:213). null = как в
+    // системе: iOS 26+ рисует родное стекло, iOS 13–25 берут стандарт доски (25). Число
+    // записывается, только когда пользователь сам двинул ползунок. Android поле не читает.
+    int? ios27GlassLevel,
   }) = _ThemeProps;
 
   factory ThemeProps.fromJson(Map<String, Object?> json) =>

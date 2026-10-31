@@ -253,7 +253,14 @@ mixin _$Profile {
   String? get staticCountry =>
       throw _privateConstructorUsedError; // Send everything the provider's rules do not name through the VPN
 // (`applyFullTunnel`). Independent of [workMode].
-  bool get fullTunnel => throw _privateConstructorUsedError;
+  bool get fullTunnel =>
+      throw _privateConstructorUsedError; // HWID (`x-hwid`), под которым подписка скачана в последний раз без
+// отказа по лимиту устройств. Профиль едет на другой телефон вместе с
+// копией приложения, а Keychain с HWID нет: расхождение с HWID этого
+// телефона значит «скачано не здесь», и iOS перед подключением обязана
+// скачать подписку заново (см. `IosConnectHwidGate`). Не секрет, но и в
+// журнал не пишется.
+  String? get fetchedHwid => throw _privateConstructorUsedError;
 
   /// Serializes this Profile to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -288,7 +295,8 @@ abstract class $ProfileCopyWith<$Res> {
       String? subId,
       @JsonKey(unknownEnumValue: WorkMode.standard) WorkMode workMode,
       String? staticCountry,
-      bool fullTunnel});
+      bool fullTunnel,
+      String? fetchedHwid});
 
   $SubscriptionInfoCopyWith<$Res>? get subscriptionInfo;
   $OverrideDataCopyWith<$Res> get overrideData;
@@ -328,6 +336,7 @@ class _$ProfileCopyWithImpl<$Res, $Val extends Profile>
     Object? workMode = null,
     Object? staticCountry = freezed,
     Object? fullTunnel = null,
+    Object? fetchedHwid = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -406,6 +415,10 @@ class _$ProfileCopyWithImpl<$Res, $Val extends Profile>
           ? _value.fullTunnel
           : fullTunnel // ignore: cast_nullable_to_non_nullable
               as bool,
+      fetchedHwid: freezed == fetchedHwid
+          ? _value.fetchedHwid
+          : fetchedHwid // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 
@@ -460,7 +473,8 @@ abstract class _$$ProfileImplCopyWith<$Res> implements $ProfileCopyWith<$Res> {
       String? subId,
       @JsonKey(unknownEnumValue: WorkMode.standard) WorkMode workMode,
       String? staticCountry,
-      bool fullTunnel});
+      bool fullTunnel,
+      String? fetchedHwid});
 
   @override
   $SubscriptionInfoCopyWith<$Res>? get subscriptionInfo;
@@ -500,6 +514,7 @@ class __$$ProfileImplCopyWithImpl<$Res>
     Object? workMode = null,
     Object? staticCountry = freezed,
     Object? fullTunnel = null,
+    Object? fetchedHwid = freezed,
   }) {
     return _then(_$ProfileImpl(
       id: null == id
@@ -578,6 +593,10 @@ class __$$ProfileImplCopyWithImpl<$Res>
           ? _value.fullTunnel
           : fullTunnel // ignore: cast_nullable_to_non_nullable
               as bool,
+      fetchedHwid: freezed == fetchedHwid
+          ? _value.fetchedHwid
+          : fetchedHwid // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -606,7 +625,8 @@ class _$ProfileImpl implements _Profile {
       @JsonKey(unknownEnumValue: WorkMode.standard)
       this.workMode = WorkMode.standard,
       this.staticCountry,
-      this.fullTunnel = false})
+      this.fullTunnel = false,
+      this.fetchedHwid})
       : _selectedMap = selectedMap,
         _unfoldSet = unfoldSet,
         _providerHeaders = providerHeaders,
@@ -695,10 +715,18 @@ class _$ProfileImpl implements _Profile {
   @override
   @JsonKey()
   final bool fullTunnel;
+// HWID (`x-hwid`), под которым подписка скачана в последний раз без
+// отказа по лимиту устройств. Профиль едет на другой телефон вместе с
+// копией приложения, а Keychain с HWID нет: расхождение с HWID этого
+// телефона значит «скачано не здесь», и iOS перед подключением обязана
+// скачать подписку заново (см. `IosConnectHwidGate`). Не секрет, но и в
+// журнал не пишется.
+  @override
+  final String? fetchedHwid;
 
   @override
   String toString() {
-    return 'Profile(id: $id, label: $label, currentGroupName: $currentGroupName, url: $url, lastUpdateDate: $lastUpdateDate, autoUpdateDuration: $autoUpdateDuration, subscriptionInfo: $subscriptionInfo, autoUpdate: $autoUpdate, selectedMap: $selectedMap, unfoldSet: $unfoldSet, overrideData: $overrideData, isUpdating: $isUpdating, providerHeaders: $providerHeaders, fallbackUrl: $fallbackUrl, mirrorUrls: $mirrorUrls, subId: $subId, workMode: $workMode, staticCountry: $staticCountry, fullTunnel: $fullTunnel)';
+    return 'Profile(id: $id, label: $label, currentGroupName: $currentGroupName, url: $url, lastUpdateDate: $lastUpdateDate, autoUpdateDuration: $autoUpdateDuration, subscriptionInfo: $subscriptionInfo, autoUpdate: $autoUpdate, selectedMap: $selectedMap, unfoldSet: $unfoldSet, overrideData: $overrideData, isUpdating: $isUpdating, providerHeaders: $providerHeaders, fallbackUrl: $fallbackUrl, mirrorUrls: $mirrorUrls, subId: $subId, workMode: $workMode, staticCountry: $staticCountry, fullTunnel: $fullTunnel, fetchedHwid: $fetchedHwid)';
   }
 
   @override
@@ -739,7 +767,9 @@ class _$ProfileImpl implements _Profile {
             (identical(other.staticCountry, staticCountry) ||
                 other.staticCountry == staticCountry) &&
             (identical(other.fullTunnel, fullTunnel) ||
-                other.fullTunnel == fullTunnel));
+                other.fullTunnel == fullTunnel) &&
+            (identical(other.fetchedHwid, fetchedHwid) ||
+                other.fetchedHwid == fetchedHwid));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -764,7 +794,8 @@ class _$ProfileImpl implements _Profile {
         subId,
         workMode,
         staticCountry,
-        fullTunnel
+        fullTunnel,
+        fetchedHwid
       ]);
 
   /// Create a copy of Profile
@@ -804,7 +835,8 @@ abstract class _Profile implements Profile {
       final String? subId,
       @JsonKey(unknownEnumValue: WorkMode.standard) final WorkMode workMode,
       final String? staticCountry,
-      final bool fullTunnel}) = _$ProfileImpl;
+      final bool fullTunnel,
+      final String? fetchedHwid}) = _$ProfileImpl;
 
   factory _Profile.fromJson(Map<String, dynamic> json) = _$ProfileImpl.fromJson;
 
@@ -852,7 +884,15 @@ abstract class _Profile implements Profile {
       get staticCountry; // Send everything the provider's rules do not name through the VPN
 // (`applyFullTunnel`). Independent of [workMode].
   @override
-  bool get fullTunnel;
+  bool
+      get fullTunnel; // HWID (`x-hwid`), под которым подписка скачана в последний раз без
+// отказа по лимиту устройств. Профиль едет на другой телефон вместе с
+// копией приложения, а Keychain с HWID нет: расхождение с HWID этого
+// телефона значит «скачано не здесь», и iOS перед подключением обязана
+// скачать подписку заново (см. `IosConnectHwidGate`). Не секрет, но и в
+// журнал не пишется.
+  @override
+  String? get fetchedHwid;
 
   /// Create a copy of Profile
   /// with the given fields replaced by the non-null parameter values.

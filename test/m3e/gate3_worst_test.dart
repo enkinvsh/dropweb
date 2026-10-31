@@ -144,10 +144,8 @@ void main() {
             tag,
             ellipsisByDesign: {M3eCardKeys.name},
           );
-          // Числа карточки: два показателя и таймер.
-          for (var i = 0; i < 2; i++) {
-            _expectFits(tester, tag, M3eCardKeys.statValue(i));
-          }
+          // Показатель карточки (страна) и таймер.
+          _expectFits(tester, tag, M3eCardKeys.country);
           if (find.byKey(M3eCardKeys.timer).evaluate().isNotEmpty) {
             _expectFits(tester, tag, M3eCardKeys.timer);
           }
@@ -158,6 +156,47 @@ void main() {
             reason: '$tag: карточка наехала на кнопки',
           );
         });
+      }
+    }
+  });
+
+  group('ворота 3: NORMAL, карточка с подвалом выше ряда кнопок', () {
+    // Размеры телефонов: компактный, доска и крупный; масштаб текста системы 0,8–2,0.
+    const sizes = [
+      (name: '360x640', size: Size(360, 640), top: 24.0, bottom: 24.0),
+      (name: '411x914', size: kM3eBoardSize, top: 44.0, bottom: 24.0),
+      (name: '440x956', size: Size(440, 956), top: 48.0, bottom: 24.0),
+    ];
+    for (final d in sizes) {
+      for (final scale in const [0.8, 1.0, 1.4, 2.0]) {
+        for (final scene in const ['home-on', 'error', 'expired']) {
+          testWidgets('${d.name} x$scale $scene', (tester) async {
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(
+                tester.platformDispatcher.clearTextScaleFactorTestValue);
+            await pumpM3eBoard(
+              tester,
+              gateHomeApp(scene, brightness: Brightness.dark),
+            );
+            final padding = FakeViewPadding(
+              top: d.top * kM3eBoardDpr,
+              bottom: d.bottom * kM3eBoardDpr,
+            );
+            tester.view
+              ..physicalSize = d.size * kM3eBoardDpr
+              ..padding = padding
+              ..viewPadding = padding;
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 100));
+            expect(tester.takeException(), isNull);
+            final footer = find.byKey(M3eCardKeys.footer).evaluate().isNotEmpty
+                ? tester.getRect(find.byKey(M3eCardKeys.footer)).bottom
+                : tester.getRect(find.byKey(M3eCardKeys.card)).bottom;
+            final joy = tester.getRect(find.byKey(kM3eJoyKey));
+            expect(footer, lessThanOrEqualTo(joy.top),
+                reason: 'карточка с подвалом наезжает на ряд кнопок');
+          });
+        }
       }
     }
   });

@@ -4,6 +4,8 @@ import 'dart:math';
 
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/models/models.dart';
+import 'package:dropweb/ui/ios27/layers/ios27_toast.dart';
+import 'package:dropweb/ui/ios27/theme/ios27_theme_scope.dart';
 import 'package:dropweb/ui/m3e/theme/m3e_theme_scope.dart';
 import 'package:dropweb/ui/m3e/widgets/m3e_toast.dart';
 import 'package:flutter/material.dart';
@@ -16,12 +18,18 @@ class MessageManager extends StatefulWidget {
     super.key,
     required this.child,
     this.useM3e,
+    this.useIos27,
   });
   final Widget child;
 
   /// Рисовать сообщения плашкой M3E. `null` — только на Android; параметр нужен, чтобы
   /// тест на macOS мог включить новый путь, а `lib/ui/m3e` при этом не читал `Platform`.
   final bool? useM3e;
+
+  /// Рисовать сообщения стеклянным тостом iOS-редизайна в строке кнопок панели. `null` —
+  /// только на iOS; параметр нужен по той же причине, что и [useM3e]. Если включён и
+  /// [useM3e], первым идёт путь M3E.
+  final bool? useIos27;
 
   @override
   State<MessageManager> createState() => MessageManagerState();
@@ -47,6 +55,8 @@ class MessageManagerState extends State<MessageManager> {
 
   bool get _m3e => widget.useM3e ?? Platform.isAndroid;
 
+  bool get _ios27 => widget.useIos27 ?? Platform.isIOS;
+
   @override
   void dispose() {
     _gapTimer?.cancel();
@@ -58,7 +68,7 @@ class MessageManagerState extends State<MessageManager> {
   /// [kind] — значок плашки на Android. Без [kind] плашка идёт без значка.
   Future<void> message(String text, {M3eToastKind? kind}) async {
     commonPrint.log(text);
-    if (_m3e) {
+    if (_m3e || _ios27) {
       _enqueueToast(M3eToastMessage(kind: kind, text: text));
       return;
     }
@@ -151,6 +161,26 @@ class MessageManagerState extends State<MessageManager> {
               child: ValueListenableBuilder<M3eToastMessage?>(
                 valueListenable: _toast,
                 builder: (_, message, __) => M3eToastPresenter(
+                  message: message,
+                  onDismissed: _onToastDismissed,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    if (_ios27) {
+      return Stack(
+        children: [
+          widget.child,
+          // Тост лежит над навигатором в собственной теме iOS: сообщение приходит из любого
+          // места, в том числе выше областей темы экранов. Презентер касания не перехватывает.
+          Positioned.fill(
+            child: Ios27ThemeScope(
+              child: ValueListenableBuilder<M3eToastMessage?>(
+                valueListenable: _toast,
+                builder: (_, message, __) => Ios27ToastPresenter(
                   message: message,
                   onDismissed: _onToastDismissed,
                 ),

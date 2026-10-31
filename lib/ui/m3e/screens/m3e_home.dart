@@ -295,15 +295,22 @@ class M3eHomeScreen extends StatelessWidget {
             left: _kSidePad,
             right: _kSidePad,
             top: safe.top + _kCardTop,
-            child: Semantics(
-              container: true,
-              label: l.m3eA11yCard,
-              child: M3eSubCard(
-                data: view.card,
-                onRefresh: onRefresh,
-                onLink: linksTappable ? onLink : null,
-                liveTimer: liveTimer,
-              ),
+            // Карточка и подвал с объявлением — один блок: раскладка мерит их вместе, а
+            // подвал всегда стоит вплотную под карточкой, как бы она ни выросла.
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                M3eSubCard(
+                  data: view.card,
+                  onRefresh: onRefresh,
+                  liveTimer: liveTimer,
+                ),
+                M3eCardFooter(
+                  text: view.card.announce,
+                  onLink: linksTappable ? onLink : null,
+                ),
+              ],
             ),
           ),
           Positioned(

@@ -13,6 +13,8 @@ import 'package:dropweb/services/ci_e2e_plan.dart';
 import 'package:dropweb/services/debug_remote.dart';
 import 'package:dropweb/services/deep_link_handler.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/ios27/a11y/ios27_a11y.dart';
+import 'package:dropweb/ui/ios27/home/widgets/ios27_backdrop.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,6 +65,13 @@ Future<void> main(List<String> arguments) async {
   globalState.isService = false;
   WidgetsFlutterBinding.ensureInitialized();
   _installGlobalErrorHandlers();
+  // Канал «Уменьшить прозрачность» читаем до первого кадра: иначе при включённой настройке
+  // первый кадр мигнёт нативным стеклом. На не-iOS вызов ничего не делает.
+  Ios27A11y.start();
+  // Шейдер фона главной грузим и собираем до первого кадра, чтобы он не мигнул плоским --bg (iOS).
+  if (Platform.isIOS) {
+    unawaited(warmUpIos27Backdrop().catchError((Object _) {}));
+  }
 
   if (Platform.isWindows || Platform.isLinux) {
     DartPluginRegistrant.ensureInitialized();

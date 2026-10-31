@@ -50,6 +50,27 @@ Map<String, String> storeSafeProviderHeaders(
   };
 }
 
+/// Панель отказала в подписке по лимиту устройств (`x-hwid-limit: true`).
+/// Один критерий и для вердикта контроллера, и для записи HWID в профиль.
+bool isHwidLimitFlagged(Map<String, String> providerHeaders) =>
+    providerHeaders['x-hwid-limit']?.toLowerCase() == 'true';
+
+/// HWID, который профиль должен запомнить после загрузки подписки.
+///
+/// Запоминаем отправленный [sentHwid] только когда панель не отказала по
+/// лимиту: при отказе в файле заглушка, а не конфиг для этого устройства, и
+/// отметка «скачано здесь» была бы ложью. Заголовок `x-hwid` не отправляли
+/// (отправка выключена или HWID неизвестен) — остаётся [previous].
+String? hwidToRemember({
+  required String? sentHwid,
+  required Map<String, String> providerHeaders,
+  required String? previous,
+}) {
+  if (sentHwid == null || sentHwid.isEmpty) return previous;
+  if (isHwidLimitFlagged(providerHeaders)) return previous;
+  return sentHwid;
+}
+
 /// Ссылки внутри текста `announce` кликабельны только вне магазинов. Текст
 /// объявления провайдера остаётся виден, но тап по нему не уводит на оплату,
 /// канал или бота: вычистить такие ссылки из чужого свободного текста на
@@ -121,6 +142,13 @@ class Profile with _$Profile {
     // Send everything the provider's rules do not name through the VPN
     // (`applyFullTunnel`). Independent of [workMode].
     @Default(false) bool fullTunnel,
+    // HWID (`x-hwid`), под которым подписка скачана в последний раз без
+    // отказа по лимиту устройств. Профиль едет на другой телефон вместе с
+    // копией приложения, а Keychain с HWID нет: расхождение с HWID этого
+    // телефона значит «скачано не здесь», и iOS перед подключением обязана
+    // скачать подписку заново (см. `IosConnectHwidGate`). Не секрет, но и в
+    // журнал не пишется.
+    String? fetchedHwid,
   }) = _Profile;
 
   factory Profile.fromJson(Map<String, Object?> json) =>
@@ -247,11 +275,15 @@ extension ProfileExtension on Profile {
   Future<Profile> update({bool shouldSendHeaders = true}) async {
     final headers = <String, dynamic>{};
 
+    String? sentHwid;
     if (shouldSendHeaders) {
       final deviceInfoService = DeviceInfoService();
       final details = await deviceInfoService.getDeviceDetails();
 
-      if (details.hwid != null) headers['x-hwid'] = details.hwid;
+      if (details.hwid != null) {
+        headers['x-hwid'] = details.hwid;
+        sentHwid = details.hwid;
+      }
       if (details.os != null) headers['x-device-os'] = details.os;
       if (details.osVersion != null) headers['x-ver-os'] = details.osVersion;
       if (details.model != null) headers['x-device-model'] = details.model;
@@ -396,6 +428,11 @@ extension ProfileExtension on Profile {
           (newFallbackUrl?.isNotEmpty ?? false) ? newFallbackUrl : fallbackUrl,
       mirrorUrls: nextMirrors,
       subId: newSubId ?? subId,
+      fetchedHwid: hwidToRemember(
+        sentHwid: sentHwid,
+        providerHeaders: providerHeaders,
+        previous: fetchedHwid,
+      ),
     ).saveFile(bytesToSave);
     await _storeBeaconHeaders(
       urlsHeader: beaconUrlsHeader,

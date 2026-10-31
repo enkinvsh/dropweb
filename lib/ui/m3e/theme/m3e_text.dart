@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../../enum/enum.dart';
@@ -6,8 +9,31 @@ import 'tokens.g.dart';
 /// Семейство plain-ролей: на Android это системный Roboto, в приложение он не кладётся.
 const String m3ePlainFamily = 'Roboto';
 
+/// Имя системного текстового семейства в `fonts.xml` Android: именно `sans-serif`
+/// (Roboto или шрифт оболочки производителя), а семейства `Roboto` там нет.
+const String m3eAndroidTextFamily = 'sans-serif';
+
 /// Запасные гарнитуры: флаги и эмодзи в названиях групп рисует Twemoji, а не системный набор.
-final List<String> m3eFontFallback = [FontFamily.twEmoji.value];
+///
+/// На Android перед Twemoji стоит системное текстовое семейство. Без него, если у
+/// устройства нет семейства с именем `Roboto` (на эмуляторе Android 15 и на части
+/// оболочек его нет, проверено по `/system/etc/fonts.xml`), Flutter не находит
+/// [m3ePlainFamily] и берёт первое найденное из списка, то есть Twemoji. У Twemoji
+/// есть глифы цифр и пробела (основы keycap-эмодзи), поэтому в листах и страницах
+/// пропадали цифры («мс» вместо «45 мс», «%» вместо «100%») и пробелы становились
+/// огромными. С `sans-serif` впереди цифры и буквы идут из настоящего шрифта, а
+/// флаги, которых в нём нет, Flutter по-символьно берёт из следующего Twemoji.
+List<String> m3eFontFallbackFor({required bool android}) => [
+      if (android) m3eAndroidTextFamily,
+      FontFamily.twEmoji.value,
+    ];
+
+/// Запасные гарнитуры текущей системы, см. [m3eFontFallbackFor].
+///
+/// Признак берётся из `Platform.isAndroid`, а не из `defaultTargetPlatform`: flutter_test
+/// отдаёт Android на любом хосте, и 'sans-serif' подменил бы шрифт в golden-тестах.
+final List<String> m3eFontFallback =
+    m3eFontFallbackFor(android: !kIsWeb && Platform.isAndroid);
 
 /// Роль типошкалы как [TextStyle]: brand-роли (display, headline, title-large) идут
 /// в Onest, остальные в Roboto, как `--dr-brand-font` и `--md-sys-typescale-font` на доске.

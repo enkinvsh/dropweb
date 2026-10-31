@@ -18,18 +18,25 @@ void main() {
     final listenerTimeout =
         StartListenerTimeoutException(const Duration(seconds: 30)).toString();
 
-    test('maps TUN listener timeout to patient retry guidance', () {
+    test('maps TUN listener timeout to a short wait hint', () {
       expect(
         ErrorMapper.mapError(listenerTimeout),
-        'The VPN interface is taking longer than usual. Wait a moment and try again.',
+        'VPN is taking longer than usual to start',
       );
     });
 
-    test('maps TUN listener timeout to patient retry guidance in Russian', () {
+    test('maps TUN listener timeout to a short wait hint in Russian', () {
       Intl.defaultLocale = 'ru';
       expect(
         ErrorMapper.mapError(listenerTimeout),
-        'VPN-интерфейс поднимается дольше обычного. Подождите и попробуйте ещё раз.',
+        'VPN запускается дольше обычного',
+      );
+    });
+
+    test('maps our Android TUN-ack timeout', () {
+      expect(
+        ErrorMapper.mapError('tun start timeout'),
+        'VPN is taking longer than usual to start',
       );
     });
 
@@ -41,7 +48,7 @@ void main() {
       expect(mapped, isNotNull);
       expect(
         mapped,
-        'Server is not responding. Check your internet connection and try again.',
+        'Server is not responding',
       );
     });
 
@@ -52,28 +59,28 @@ void main() {
           'longer than 0:00:15.000000. It was aborted.';
       expect(
         ErrorMapper.mapError(raw),
-        'Сервер не отвечает. Проверьте подключение к интернету и попробуйте ещё раз.',
+        'Сервер не отвечает',
       );
     });
 
     test('maps receive timeout', () {
       expect(
         ErrorMapper.mapError('DioException [receive timeout]: ...'),
-        'Server is not responding. Check your internet connection and try again.',
+        'Server is not responding',
       );
     });
 
     test('maps send timeout', () {
       expect(
         ErrorMapper.mapError('DioException [send timeout]: ...'),
-        'Server is not responding. Check your internet connection and try again.',
+        'Server is not responding',
       );
     });
 
     test('maps Dart TimeoutException', () {
       expect(
         ErrorMapper.mapError('TimeoutException after 0:00:30.000000'),
-        'Server is not responding. Check your internet connection and try again.',
+        'Server is not responding',
       );
     });
   });
@@ -82,7 +89,7 @@ void main() {
     test('maps Dio connection error', () {
       expect(
         ErrorMapper.mapError('DioException [connection error]: ...'),
-        'No internet connection. Check your connection and try again.',
+        'No internet connection',
       );
     });
 
@@ -90,7 +97,7 @@ void main() {
       expect(
         ErrorMapper.mapError(
             "SocketException: Failed host lookup: 'example.com'"),
-        'No internet connection. Check your connection and try again.',
+        'No internet connection',
       );
     });
 
@@ -98,7 +105,7 @@ void main() {
       Intl.defaultLocale = 'ru';
       expect(
         ErrorMapper.mapError('DioException [connection error]: ...'),
-        'Нет подключения к интернету. Проверьте соединение и попробуйте ещё раз.',
+        'Нет подключения к интернету',
       );
     });
   });
@@ -108,7 +115,7 @@ void main() {
       expect(
         ErrorMapper.mapError(
             'DioException [bad response]: ... status code of 404 ...'),
-        'Subscription not found. Check the link.',
+        'Subscription not found',
       );
     });
 
@@ -116,7 +123,7 @@ void main() {
       expect(
         ErrorMapper.mapError(
             'DioException [bad response]: ... status code of 429 ...'),
-        'Server returned error 429. Try again later.',
+        'Server returned error 429',
       );
     });
 
@@ -125,7 +132,7 @@ void main() {
       expect(
         ErrorMapper.mapError(
             'DioException [bad response]: ... status code of 429 ...'),
-        'Сервер вернул ошибку 429. Попробуйте позже.',
+        'Сервер вернул ошибку 429',
       );
     });
   });
@@ -134,7 +141,7 @@ void main() {
     test('maps bad certificate', () {
       expect(
         ErrorMapper.mapError('DioException [bad certificate]: ...'),
-        'Could not verify the server certificate. Check your device date and time or try a different server.',
+        'Server certificate check failed',
       );
     });
 
@@ -142,7 +149,7 @@ void main() {
       expect(
         ErrorMapper.mapError(
             'HandshakeException: Handshake error in client (CERTIFICATE_VERIFY_FAILED)'),
-        'Could not verify the server certificate. Check your device date and time or try a different server.',
+        'Server certificate check failed',
       );
     });
   });
@@ -152,7 +159,7 @@ void main() {
       expect(
         ErrorMapper.mapError(
             'FormatException: Unexpected character (at line 1)'),
-        'Received an invalid response. Check the link or configuration.',
+        'Invalid server response',
       );
     });
 
@@ -162,7 +169,7 @@ void main() {
           'dev.steenbakker.mobile_scanner/scanner/method)';
       expect(
         ErrorMapper.mapError(raw),
-        'This feature is not available on your platform.',
+        'Not available on this platform',
       );
     });
 
@@ -173,7 +180,7 @@ void main() {
           'dev.steenbakker.mobile_scanner/scanner/method)';
       expect(
         ErrorMapper.mapError(raw),
-        'Эта функция недоступна на вашей платформе.',
+        'Недоступно на этой платформе',
       );
     });
   });
@@ -183,26 +190,26 @@ void main() {
         'error: core did not answer (timeout) — config not validated';
     const coreCallTimedOut = 'error: core call timed out (setupConfig)';
 
-    test('maps fail-closed core timeouts to restart guidance', () {
+    test('maps fail-closed core timeouts', () {
       expect(
         ErrorMapper.mapError(coreDidNotAnswer),
-        'VPN core is not responding. Restart the app.',
+        'VPN core is not responding',
       );
       expect(
         ErrorMapper.mapError(coreCallTimedOut),
-        'VPN core is not responding. Restart the app.',
+        'VPN core is not responding',
       );
     });
 
-    test('maps fail-closed core timeouts to restart guidance in Russian', () {
+    test('maps fail-closed core timeouts in Russian', () {
       Intl.defaultLocale = 'ru';
       expect(
         ErrorMapper.mapError(coreDidNotAnswer),
-        'VPN-ядро не отвечает. Перезапустите приложение.',
+        'VPN-ядро не отвечает',
       );
       expect(
         ErrorMapper.mapError(coreCallTimedOut),
-        'VPN-ядро не отвечает. Перезапустите приложение.',
+        'VPN-ядро не отвечает',
       );
     });
 
@@ -210,7 +217,7 @@ void main() {
       expect(
         ErrorMapper.mapError(
             'Exception: Subscription too large (5242880 bytes)'),
-        'Subscription file is too large — contact your provider.',
+        'Subscription is too large',
       );
     });
 
@@ -219,7 +226,7 @@ void main() {
       expect(
         ErrorMapper.mapError(
             'Exception: Subscription too large (5242880 bytes)'),
-        'Подписка слишком большая — обратитесь к провайдеру.',
+        'Подписка слишком большая',
       );
     });
 
@@ -227,7 +234,7 @@ void main() {
       expect(
         ErrorMapper.mapError(
             'Exception: Redirect detected, but no location header'),
-        'Subscription server returned an invalid response. Try later.',
+        'Subscription server replied incorrectly',
       );
     });
 
@@ -236,8 +243,58 @@ void main() {
       expect(
         ErrorMapper.mapError(
             'Exception: Redirect detected, but no location header'),
-        'Сервер подписки вернул некорректный ответ. Попробуйте позже.',
+        'Сервер подписки ответил некорректно',
       );
+    });
+  });
+
+  group('ErrorMapper — тост короткий', () {
+    // По одному сырому тексту на каждую ветку шаблонов и на динамический код.
+    const samples = <String>[
+      'activeInAnotherSession',
+      'TUN listener start timed out',
+      'core did not answer (timeout)',
+      'dial tcp: network is unreachable',
+      'lookup host: no such host',
+      'dial tcp 1.2.3.4:443: i/o timeout',
+      'DioException [receive timeout]: ...',
+      'dial tcp 1.2.3.4:443: connection refused',
+      'read tcp: connection reset by peer',
+      'read tcp: unexpected EOF',
+      'DioException [bad certificate]: ...',
+      'tls: handshake failure',
+      'proxy [Germany] not found',
+      'listen tcp: address already in use',
+      'accept: too many open files',
+      'authentication failed',
+      'status code of 404',
+      'status code of 403',
+      'status code of 503',
+      'status code of 429',
+      'yaml: unmarshal errors: line 1',
+      'yaml: found character that cannot start any token',
+      'Subscription too large (5242880 bytes)',
+      'Redirect detected, but no location header',
+      'SocketException: Failed host lookup',
+      'MissingPluginException(No implementation found)',
+      'FormatException: Unexpected character',
+    ];
+
+    test('каждый текст во всех локалях — одна короткая фраза', () {
+      for (final locale in ['ru', 'en', 'ja', 'zh_CN']) {
+        Intl.defaultLocale = locale;
+        final texts = <String>[
+          ...samples.map((raw) => ErrorMapper.mapError(raw)!),
+          ErrorMapper.generic,
+          ErrorMapper.vpnStartFailed,
+          ErrorMapper.vpnPermissionDenied,
+        ];
+        for (final text in texts) {
+          // Тост вмещает две строки; совет вторым предложением — это уже длинный тост.
+          expect(text.length, lessThanOrEqualTo(45), reason: '$locale: $text');
+          expect(text, isNot(contains('. ')), reason: '$locale: $text');
+        }
+      }
     });
   });
 
@@ -250,18 +307,18 @@ void main() {
       final message = ErrorMapper.mapError('some totally unknown gibberish') ??
           ErrorMapper.generic;
 
-      expect(message, 'Something went wrong. Please try again.');
+      expect(message, 'Something went wrong');
     });
   });
 
   group('ErrorMapper.generic', () {
     test('returns the English generic fallback by default', () {
-      expect(ErrorMapper.generic, 'Something went wrong. Please try again.');
+      expect(ErrorMapper.generic, 'Something went wrong');
     });
 
     test('returns the Russian generic fallback for ru locale', () {
       Intl.defaultLocale = 'ru';
-      expect(ErrorMapper.generic, 'Что-то пошло не так. Попробуйте ещё раз.');
+      expect(ErrorMapper.generic, 'Что-то пошло не так');
     });
   });
 
@@ -272,29 +329,28 @@ void main() {
       Intl.defaultLocale = 'ja_JP';
       expect(
         ErrorMapper.mapError(raw),
-        'サーバーが接続を拒否しました。別のサーバーを試してください。',
+        'サーバーが接続を拒否しました',
       );
-      expect(ErrorMapper.generic, '問題が発生しました。もう一度お試しください。');
+      expect(ErrorMapper.generic, '問題が発生しました');
       expect(
         ErrorMapper.mapError('status code of 418'),
-        'サーバーがエラー418を返しました。後でもう一度お試しください。',
+        'サーバーがエラー418を返しました',
       );
     });
 
     test('maps patterns and getters to Simplified Chinese for zh locale', () {
       Intl.defaultLocale = 'zh_CN';
-      expect(ErrorMapper.mapError(raw), '服务器拒绝了连接。请尝试其他服务器。');
-      expect(ErrorMapper.vpnPermissionDenied, '没有 VPN 权限。请在下次提示时允许连接。');
+      expect(ErrorMapper.mapError(raw), '服务器拒绝了连接');
+      expect(ErrorMapper.vpnPermissionDenied, '没有 VPN 权限');
     });
 
     test('falls back to English for other locales', () {
       Intl.defaultLocale = 'de';
       expect(
         ErrorMapper.mapError(raw),
-        'Server refused the connection. Try a different server.',
+        'Server refused the connection',
       );
-      expect(ErrorMapper.vpnStartFailed,
-          'Failed to start VPN. Another VPN app may be active.');
+      expect(ErrorMapper.vpnStartFailed, 'Could not start VPN');
     });
   });
 }

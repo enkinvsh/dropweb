@@ -8,6 +8,7 @@ import 'package:dropweb/ui/m3e/home/m3e_home_providers.dart';
 import 'package:dropweb/ui/m3e/screens/m3e_home.dart';
 import 'package:dropweb/ui/m3e/theme/m3e_theme_scope.dart';
 import 'package:dropweb/ui/m3e/widgets/m3e_sub_card.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,8 +25,8 @@ final _header = parseDropwebTheme(kBoardProviders[0].theme);
 Finder _inTimer(Finder what) =>
     find.descendant(of: find.byKey(M3eCardKeys.timer), matching: what);
 
-Finder _inIp(Finder what) =>
-    find.descendant(of: find.byKey(M3eCardKeys.statValue(0)), matching: what);
+Finder _inCountry(Finder what) =>
+    find.descendant(of: find.byKey(M3eCardKeys.country), matching: what);
 
 /// Прозрачность ближайшего `FadeTransition` над [of].
 double _opacityOf(WidgetTester tester, Finder of) {
@@ -74,6 +75,8 @@ Widget _cardApp(
   M3eDotState dot, {
   bool reduced = false,
   bool tickers = true,
+  ValueListenable<String?>? liveTimer,
+  bool pending = false,
 }) =>
     m3eBoardApp(
       seed: _header.accent,
@@ -93,6 +96,7 @@ Widget _cardApp(
                   child: SizedBox(
                     width: 379,
                     child: M3eSubCard(
+                      liveTimer: liveTimer,
                       data: M3eCardData(
                         providerName: 'dropweb',
                         dot: dot,
@@ -102,7 +106,8 @@ Widget _cardApp(
                         planText: 'Безлимит',
                         ipFlag: '🇳🇱',
                         ipAddress: '185.107.56.12',
-                        trafficText: '0,8 ГБ',
+                        countryText: 'Нидерланды',
+                        ipLoading: pending,
                         announce: 'dropweb.org',
                       ),
                     ),
@@ -114,6 +119,31 @@ Widget _cardApp(
         ),
       ),
     );
+
+int _frames = 0;
+bool _metered = false;
+bool _meterOn = false;
+
+/// Сколько кадров реально отрисовано за [ms] модельных миллисекунд (шаг 16 мс): `pump`
+/// рисует кадр только если его кто-то запросил, так что число — это нагрузка дерева.
+Future<int> _framesOver(WidgetTester tester, int ms) async {
+  if (!_metered) {
+    _metered = true;
+    tester.binding.addPersistentFrameCallback((_) {
+      if (_meterOn) _frames++;
+    });
+  }
+  _frames = 0;
+  _meterOn = true;
+  try {
+    for (var i = 0; i < ms ~/ 16; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+  } finally {
+    _meterOn = false;
+  }
+  return _frames;
+}
 
 void main() {
   group('часы сеанса: M3eElapsedClock', () {
@@ -186,37 +216,19 @@ void main() {
   });
 
   group('таймер на главной', () {
-    testWidgets('с анимациями цифры меняются раз в секунду, по одной',
+    testWidgets('с анимациями секунды идут простым текстом, без перекатов',
         (tester) async {
       await pumpM3eBoard(tester, _homeWithSource(tester));
       expect(find.text('12:49'), findsOneWidget);
 
       await tester.pump(_sec);
-      await tester.pump(const Duration(milliseconds: 50));
-      // Менялись «4» → «5» и «9» → «0»: пока идёт переход, обе пары в дереве.
-      expect(_inTimer(find.text('4')), findsOneWidget);
-      expect(_inTimer(find.text('5')), findsOneWidget);
-      expect(_inTimer(find.text('9')), findsOneWidget);
-      expect(_inTimer(find.text('0')), findsOneWidget);
-      // Остальные символы не двигаются и не гаснут.
-      for (final stay in ['1', '2', ':']) {
-        expect(_inTimer(find.text(stay)), findsOneWidget);
-        expect(_opacityOf(tester, _inTimer(find.text(stay))), 1.0,
-            reason: '«$stay» не менялся');
-      }
-      final entering = _opacityOf(tester, _inTimer(find.text('5')));
-      final leaving = _opacityOf(tester, _inTimer(find.text('4')));
-      expect(entering, inExclusiveRange(0, 1));
-      expect(leaving, inExclusiveRange(0, 1));
-
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(_inTimer(find.text('4')), findsNothing);
-      expect(_inTimer(find.text('9')), findsNothing);
-      expect(find.text('12:50'), findsOneWidget,
-          reason: 'полный текст на месте: размер и поиск по тексту');
+      // Текст меняется целиком и сразу: никаких пар старой и новой цифры в дереве.
+      expect(find.text('12:50'), findsOneWidget);
+      expect(find.text('12:49'), findsNothing);
+      expect(_inTimer(find.byType(AnimatedSwitcher)), findsNothing);
+      expect(_inTimer(find.byType(FadeTransition)), findsNothing);
 
       await tester.pump(_sec);
-      await tester.pump(const Duration(milliseconds: 400));
       expect(find.text('12:51'), findsOneWidget);
     });
 
@@ -247,105 +259,125 @@ void main() {
     });
   });
 
-  group('точка подключения', () {
-    Finder ring() => find.descendant(
-          of: find.byKey(M3eCardKeys.dot),
-          matching: find.byType(Transform),
-        );
+  group('точка состояния', () {
+    // Бесконечное движение на карточке убрано решением владельца 2026-10-30 (карточка №4):
+    // точка стоит при любом состоянии и любом режиме движения.
+    for (final dot in M3eDotState.values) {
+      for (final (name, reduced, tickers) in const [
+        ('с анимациями', false, true),
+        ('«меньше движения»', true, true),
+        ('TickerMode выключен', false, false),
+      ]) {
+        testWidgets('$dot, $name: точка стоит, кадров нет', (tester) async {
+          await pumpM3eBoard(
+            tester,
+            _cardApp(dot, reduced: reduced, tickers: tickers),
+          );
+          await tester.pump(const Duration(seconds: 3));
+          expect(
+            find.descendant(
+              of: find.byKey(M3eCardKeys.dot),
+              matching: find.byType(Transform),
+            ),
+            findsNothing,
+            reason: 'кольца и масштаба нет',
+          );
+          expect(tester.binding.transientCallbackCount, 0);
+          expect(tester.binding.hasScheduledFrame, isFalse);
+        });
+      }
+    }
+  });
 
-    testWidgets('подключено: кольцо расходится от точки и гаснет',
+  group('батарея: карточка не оживает сама', () {
+    // Решение владельца 2026-10-30 (карточка №4): ни кольца, ни переката цифр. Дерево
+    // карточки живёт только секундным таймером, остальное время кадров не просит.
+    testWidgets('home-on: секундный таймер, ≈ 1 кадр/с и ни одного тикера',
         (tester) async {
-      await pumpM3eBoard(tester, _cardApp(M3eDotState.on));
-      expect(tester.binding.transientCallbackCount, greaterThan(0));
-
-      await tester.pump(const Duration(milliseconds: 600));
-      final mid = tester.widget<Transform>(ring().first);
-      expect(mid.transform.storage[0], greaterThan(1.3),
-          reason: 'кольцо шире точки');
-
-      // К концу периода (2 с) прозрачность кольца падает к нулю.
-      await tester.pump(const Duration(milliseconds: 1300));
-      final late = tester.widget<Transform>(ring().first);
-      expect(late.transform.storage[0], greaterThan(mid.transform.storage[0]));
-
-      // Цикл повторяется, а не останавливается.
-      await tester.pump(const Duration(seconds: 6));
-      expect(tester.binding.transientCallbackCount, greaterThan(0));
-    });
-
-    testWidgets('«меньше движения»: точка стоит, кадров нет', (tester) async {
-      await pumpM3eBoard(tester, _cardApp(M3eDotState.on, reduced: true));
-      await tester.pump(const Duration(seconds: 3));
-      expect(ring(), findsNothing);
-      expect(tester.binding.transientCallbackCount, 0);
-      expect(tester.binding.hasScheduledFrame, isFalse);
-    });
-
-    testWidgets('TickerMode выключен: пульс замер', (tester) async {
-      await pumpM3eBoard(tester, _cardApp(M3eDotState.on, tickers: false));
-      await tester.pump(const Duration(seconds: 3));
-      expect(tester.binding.transientCallbackCount, 0);
-      expect(tester.binding.hasScheduledFrame, isFalse);
-    });
-
-    testWidgets('выключено и ошибка: точка статична', (tester) async {
-      for (final dot in [M3eDotState.off, M3eDotState.bad]) {
-        await pumpM3eBoard(tester, _cardApp(dot));
-        await tester.pump(const Duration(seconds: 2));
-        expect(ring(), findsNothing, reason: '$dot');
-        expect(tester.binding.transientCallbackCount, 0, reason: '$dot');
+      final clock = M3eElapsedClock(tester.binding.clock.now)
+        ..update(kHomeRunTime)
+        ..setTick(tick: true);
+      try {
+        await pumpM3eBoard(
+          tester,
+          _cardApp(M3eDotState.on, liveTimer: clock),
+        );
+        await tester.pump(const Duration(seconds: 3));
+        expect(tester.binding.transientCallbackCount, 0);
+        final frames = await _framesOver(tester, 5000);
+        expect(frames, inInclusiveRange(4, 6),
+            reason: 'за 5 с — по кадру на секунду таймера');
+        expect(tester.binding.transientCallbackCount, 0);
+      } finally {
+        clock.dispose();
       }
     });
 
-    testWidgets('подключение (busy) по-прежнему «дышит»', (tester) async {
-      await pumpM3eBoard(tester, _cardApp(M3eDotState.busy));
-      await tester.pump(const Duration(milliseconds: 450));
-      expect(tester.binding.transientCallbackCount, greaterThan(0));
-      expect(ring(), findsWidgets);
+    testWidgets('home-on без таймера (экран закрыт): 0 кадров', (tester) async {
+      await pumpM3eBoard(
+        tester,
+        _cardApp(M3eDotState.on, tickers: false),
+      );
+      await tester.pump(const Duration(seconds: 1));
+      expect(await _framesOver(tester, 5000), 0);
+    });
+
+    testWidgets('«меньше движения»: connecting 0 кадров, спиннера нет',
+        (tester) async {
+      await pumpM3eBoard(
+        tester,
+        _cardApp(M3eDotState.busy, reduced: true, pending: true),
+      );
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.binding.transientCallbackCount, 0);
+      expect(await _framesOver(tester, 3000), 0);
     });
   });
 
-  group('смена IP', () {
+  group('смена страны', () {
     testWidgets(
         'старое гаснет, новое проявляется, ширина плывёт, потом оседает',
         (tester) async {
       await pumpM3eBoard(tester, _homeWithSource(tester));
       await tester.pump(const Duration(milliseconds: 500));
-      expect(_inIp(find.text('91.12.4.9')), findsOneWidget);
+      expect(_inCountry(find.text('Германия')), findsOneWidget);
       final start =
-          tester.getSize(_inIp(find.byType(AnimatedSize)).first).width;
+          tester.getSize(_inCountry(find.byType(AnimatedSize)).first).width;
 
       _setInput(tester, _on('185.107.56.12', 'NL'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 60));
 
-      expect(_inIp(find.text('91.12.4.9')), findsOneWidget,
+      expect(_inCountry(find.text('Германия')), findsOneWidget,
           reason: 'уходящее ещё в дереве');
-      expect(_inIp(find.text('185.107.56.12')), findsOneWidget,
+      expect(_inCountry(find.text('Нидерланды')), findsOneWidget,
           reason: 'входящее уже в дереве');
-      expect(_opacityOf(tester, _inIp(find.text('91.12.4.9'))),
+      expect(_opacityOf(tester, _inCountry(find.text('Германия'))),
           inExclusiveRange(0, 1));
-      expect(_opacityOf(tester, _inIp(find.text('185.107.56.12'))),
+      expect(_opacityOf(tester, _inCountry(find.text('Нидерланды'))),
           inExclusiveRange(0, 1));
 
       await tester.pump(const Duration(milliseconds: 60));
-      final slide = _inIp(find.byType(SlideTransition));
+      final slide = _inCountry(find.byType(SlideTransition));
       expect(slide, findsWidgets,
           reason: 'входящее въезжает короткой пружиной');
-      expect(_opacityOf(tester, _inIp(find.text('185.107.56.12'))),
+      expect(_opacityOf(tester, _inCountry(find.text('Нидерланды'))),
           inExclusiveRange(0, 1));
-      final mid = tester.getSize(_inIp(find.byType(AnimatedSize)).first).width;
+      final mid =
+          tester.getSize(_inCountry(find.byType(AnimatedSize)).first).width;
 
       await tester.pump(const Duration(milliseconds: 1000));
-      final end = tester.getSize(_inIp(find.byType(AnimatedSize)).first).width;
-      expect(_inIp(find.text('91.12.4.9')), findsNothing);
-      expect(_opacityOf(tester, _inIp(find.text('185.107.56.12'))), 1.0);
-      expect(end, greaterThan(start), reason: 'новый адрес шире');
+      final end =
+          tester.getSize(_inCountry(find.byType(AnimatedSize)).first).width;
+      expect(_inCountry(find.text('Германия')), findsNothing);
+      expect(_opacityOf(tester, _inCountry(find.text('Нидерланды'))), 1.0);
+      expect(end, greaterThan(start), reason: 'новая страна шире');
       expect(mid, inExclusiveRange(start, end),
           reason: 'на середине перехода ширина между старой и новой');
 
       await tester.pump(const Duration(seconds: 1));
-      expect(tester.getSize(_inIp(find.byType(AnimatedSize)).first).width, end,
+      expect(tester.getSize(_inCountry(find.byType(AnimatedSize)).first).width,
+          end,
           reason: 'после пружины ширина не плывёт');
     });
 
@@ -356,12 +388,12 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 20));
 
-      expect(_inIp(find.byType(AnimatedSize)), findsNothing);
-      expect(_inIp(find.byType(SlideTransition)), findsNothing);
+      expect(_inCountry(find.byType(AnimatedSize)), findsNothing);
+      expect(_inCountry(find.byType(SlideTransition)), findsNothing);
       // Перекрёстное проявление не длиннее 150 мс.
       await tester.pump(const Duration(milliseconds: 150));
-      expect(_inIp(find.text('91.12.4.9')), findsNothing);
-      expect(_opacityOf(tester, _inIp(find.text('185.107.56.12'))), 1.0);
+      expect(_inCountry(find.text('Германия')), findsNothing);
+      expect(_opacityOf(tester, _inCountry(find.text('Нидерланды'))), 1.0);
     });
 
     testWidgets('TickerMode выключен: значение подставляется сразу',
@@ -373,8 +405,8 @@ void main() {
       _setInput(tester, _on('185.107.56.12', 'NL'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 20));
-      expect(_inIp(find.text('91.12.4.9')), findsNothing);
-      expect(_inIp(find.text('185.107.56.12')), findsOneWidget);
+      expect(_inCountry(find.text('Германия')), findsNothing);
+      expect(_inCountry(find.text('Нидерланды')), findsOneWidget);
       expect(tester.binding.hasScheduledFrame, isFalse);
     });
   });

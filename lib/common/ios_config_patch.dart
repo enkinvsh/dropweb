@@ -114,16 +114,75 @@ Map<String, dynamic> applyIosLitePatch(Map<String, dynamic> rawConfig) {
   return config;
 }
 
+/// Все версии iOS, только конфиг РАСШИРЕНИЯ (ядро приложения не трогаем: им
+/// пользуются экранные замеры). Шаблон панели держит авто-группы с
+/// `interval: 30, lazy: false`, и расширение в фоне, с выключенным экраном,
+/// круглые сутки каждые 30 с будит радио пробами по всем узлам — заметный
+/// расход батареи. Здесь только та же правка проверок, что lite делает для
+/// оставленных авто-групп: интервал не меньше [iosLiteMinAutoInterval] и
+/// `lazy: true` (группа, которой никто не пользуется, не проверяется).
+/// Остальное от lite (select вместо авто, smux, DNS) не применяется.
+///
+/// Переключение при отказе узла не страдает: mihomo запускает внеочередную
+/// проверку сам после `max-failed-times` (по умолчанию 5) ошибок соединения
+/// подряд, а при `connection refused` — сразу
+/// (core/Clash.Meta/adapter/outboundgroup/groupbase.go:265-300, :97-98;
+/// вызовы из urltest.go:63,71, fallback.go:38,46, loadbalance.go:91,99,
+/// smart.go:1386). `lazy` пропускает плановую проверку только у группы, которую
+/// не трогали дольше интервала (adapter/provider/healthcheck.go:52); рабочая
+/// группа трогается каждым соединением (urltest.go:145).
+///
+/// Проверки провайдеров остаются включёнными (выключает их только lite ради
+/// памяти); выключенные не трогаем. Функция идемпотентна: повтор не меняет
+/// результат, поэтому подпись туннеля не скачет.
+Map<String, dynamic> applyIosHealthCheckPatch(Map<String, dynamic> rawConfig) {
+  final config = Map<String, dynamic>.from(rawConfig);
+  final groups = config['proxy-groups'];
+  if (groups is List) {
+    config['proxy-groups'] = [
+      for (final g in groups)
+        g is Map && _autoGroupTypes.contains(g['type'])
+            ? _slowHealthCheck(g)
+            : g,
+    ];
+  }
+  final providers = config['proxy-providers'];
+  if (providers is Map) {
+    config['proxy-providers'] = {
+      for (final entry in providers.entries)
+        entry.key: _slowProviderHealthCheck(entry.value),
+    };
+  }
+  return config;
+}
+
+dynamic _slowProviderHealthCheck(dynamic provider) {
+  if (provider is! Map) return provider;
+  final hc = provider['health-check'];
+  if (hc is! Map || !_isTrue(hc['enable'])) return provider;
+  return <String, dynamic>{
+    ...Map<String, dynamic>.from(provider),
+    'health-check': _slowHealthCheck(hc),
+  };
+}
+
+bool _isTrue(dynamic value) => value == true || '$value' == 'true';
+
+/// Интервал не меньше [iosLiteMinAutoInterval], `lazy: true`. Интервал 0 у
+/// mihomo и так значит 300 (adapter/outboundgroup/parser.go:171-172).
+Map<String, dynamic> _slowHealthCheck(Map source) {
+  final copy = Map<String, dynamic>.from(source);
+  final interval = int.tryParse('${copy['interval']}') ?? 0;
+  copy['interval'] =
+      interval < iosLiteMinAutoInterval ? iosLiteMinAutoInterval : interval;
+  copy['lazy'] = true;
+  return copy;
+}
+
 Map<String, dynamic> _liteGroup(Map group, {required Set<String> keepAuto}) {
   final copy = Map<String, dynamic>.from(group);
   if (!_autoGroupTypes.contains(copy['type'])) return copy;
-  if (keepAuto.contains(copy['name'])) {
-    final interval = int.tryParse('${copy['interval']}') ?? 0;
-    copy['interval'] =
-        interval < iosLiteMinAutoInterval ? iosLiteMinAutoInterval : interval;
-    copy['lazy'] = true;
-    return copy;
-  }
+  if (keepAuto.contains(copy['name'])) return _slowHealthCheck(copy);
   copy['type'] = 'select';
   for (final key in _healthCheckKeys) {
     copy.remove(key);

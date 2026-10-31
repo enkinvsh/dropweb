@@ -38,60 +38,73 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m8(label) => "現在の${label}は既に存在しています";
 
-  static String m9(version) => "Version ${version} is available";
+  static String m9(name) => "Route: ${name}. Open list";
 
-  static String m10(version, core) => "Version ${version}, core ${core}";
+  static String m10(slot) => "Color: ${slot}";
 
-  static String m11(n) => "Color ${n}";
+  static String m11(count) =>
+      "${Intl.plural(count, one: '${count} day ago', other: '${count} days ago')}";
 
-  static String m12(n) => "Shade ${n}";
+  static String m12(count) =>
+      "${Intl.plural(count, one: '${count} hour ago', other: '${count} hours ago')}";
 
-  static String m13(name) => "Delete “${name}”?";
+  static String m13(count) =>
+      "${Intl.plural(count, one: '${count} minute ago', other: '${count} minutes ago')}";
 
-  static String m14(count) =>
-      "${Intl.plural(count, one: '${count} day left', other: '${count} days left')}";
+  static String m14(version) => "Version ${version} is available";
 
-  static String m15(traffic, term) => "${traffic} · ${term}";
+  static String m15(version, core) => "Version ${version}, core ${core}";
 
-  static String m16(left) => "${left} GB left";
+  static String m16(n) => "Color ${n}";
 
-  static String m17(used, total) => "${used} of ${total} GB";
+  static String m17(n) => "Shade ${n}";
 
-  static String m18(date) => "until ${date}";
+  static String m18(name) => "Delete “${name}”?";
 
   static String m19(count) =>
-      "${Intl.plural(count, one: '${count} group', other: '${count} groups')}";
+      "${Intl.plural(count, one: '${count} day left', other: '${count} days left')}";
 
-  static String m20(version) => "Version ${version}";
+  static String m20(traffic, term) => "${traffic} · ${term}";
 
-  static String m21(percent) => "Downloading… ${percent}%";
+  static String m21(left) => "${left} GB left";
 
-  static String m22(version) => "dropweb ${version}";
+  static String m22(used, total) => "${used} of ${total} GB";
 
-  static String m23(count) =>
-      "${Intl.plural(count, one: 'Updated ${count} day ago', other: 'Updated ${count} days ago')}";
+  static String m23(date) => "until ${date}";
 
   static String m24(count) =>
+      "${Intl.plural(count, one: '${count} group', other: '${count} groups')}";
+
+  static String m25(version) => "Version ${version}";
+
+  static String m26(percent) => "Downloading… ${percent}%";
+
+  static String m27(version) => "dropweb ${version}";
+
+  static String m28(count) =>
+      "${Intl.plural(count, one: 'Updated ${count} day ago', other: 'Updated ${count} days ago')}";
+
+  static String m29(count) =>
       "${Intl.plural(count, one: 'Updated ${count} hour ago', other: 'Updated ${count} hours ago')}";
 
-  static String m25(count) =>
+  static String m30(count) =>
       "${Intl.plural(count, one: 'Updated ${count} minute ago', other: 'Updated ${count} minutes ago')}";
 
-  static String m26(value) => "${value} GB";
+  static String m31(value) => "${value} GB";
 
-  static String m27(value) => "${value} ms";
+  static String m32(value) => "${value} ms";
 
-  static String m28(label) => "${label}は数字でなければなりません";
+  static String m33(label) => "${label}は数字でなければなりません";
 
-  static String m29(label) => "${label} は 1024 から 49151 の間でなければなりません";
+  static String m34(label) => "${label} は 1024 から 49151 の間でなければなりません";
 
-  static String m30(count) => "${count} 項目が選択されています";
+  static String m35(count) => "${count} 項目が選択されています";
 
-  static String m31(days) => "サブスクリプションは${days}日後に期限切れになります";
+  static String m36(days) => "サブスクリプションは${days}日後に期限切れになります";
 
-  static String m32(label) => "${label}はURLである必要があります";
+  static String m37(label) => "${label}はURLである必要があります";
 
-  static String m33(date) => "${date}まで";
+  static String m38(date) => "${date}まで";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
@@ -240,7 +253,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "checkUpdate": MessageLookupByLibrary.simpleMessage("更新を確認"),
     "checkUpdateError": MessageLookupByLibrary.simpleMessage("アプリは最新版です"),
     "checkUpdateFailed": MessageLookupByLibrary.simpleMessage(
-      "アップデートを確認できませんでした。接続を確認して、もう一度お試しください",
+      "アップデートを確認できませんでした",
     ),
     "checking": MessageLookupByLibrary.simpleMessage("確認中..."),
     "clearData": MessageLookupByLibrary.simpleMessage("データを消去"),
@@ -344,9 +357,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "fullTunnelTitle": MessageLookupByLibrary.simpleMessage("すべての通信をVPN経由"),
     "general": MessageLookupByLibrary.simpleMessage("一般"),
     "generalDesc": MessageLookupByLibrary.simpleMessage("一般設定を変更"),
-    "genericErrorMessage": MessageLookupByLibrary.simpleMessage(
-      "問題が発生しました。もう一度お試しください。",
-    ),
+    "genericErrorMessage": MessageLookupByLibrary.simpleMessage("問題が発生しました"),
     "geodataLoader": MessageLookupByLibrary.simpleMessage("Geo低メモリモード"),
     "geodataLoaderDesc": MessageLookupByLibrary.simpleMessage(
       "有効化するとGeo低メモリローダーを使用",
@@ -361,6 +372,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "hoursGenitive": MessageLookupByLibrary.simpleMessage("時間"),
     "hoursPlural": MessageLookupByLibrary.simpleMessage("時間"),
     "hwidFreeSlot": MessageLookupByLibrary.simpleMessage("デバイス枠を空ける"),
+    "hwidLimitReached": MessageLookupByLibrary.simpleMessage(
+      "デバイス数の上限に達しました\nプロバイダー側で枠を空けてから更新してください",
+    ),
     "hwidRecovered": MessageLookupByLibrary.simpleMessage(
       "デバイスを登録しました\nサブスクリプションを更新しました",
     ),
@@ -380,6 +394,52 @@ class MessageLookup extends MessageLookupByLibrary {
     "invalidProfileUrl": MessageLookupByLibrary.simpleMessage(
       "サブスクリプションのURLが無効です。http:// または https:// を使用してください",
     ),
+    "ios27A11yJoy": MessageLookupByLibrary.simpleMessage(
+      "Connection and country",
+    ),
+    "ios27A11yRoute": m9,
+    "ios27AppearanceColors": MessageLookupByLibrary.simpleMessage("Colors"),
+    "ios27AppearanceOwn": MessageLookupByLibrary.simpleMessage("Custom"),
+    "ios27AppearanceProvider": MessageLookupByLibrary.simpleMessage("Provider"),
+    "ios27AppearanceThemes": MessageLookupByLibrary.simpleMessage("テーマ"),
+    "ios27ColorSheetLabel": m10,
+    "ios27ColorSlotAccent": MessageLookupByLibrary.simpleMessage("Buttons"),
+    "ios27ColorSlotOrb1": MessageLookupByLibrary.simpleMessage(
+      "Background top",
+    ),
+    "ios27ColorSlotOrb2": MessageLookupByLibrary.simpleMessage(
+      "Background bottom",
+    ),
+    "ios27DisclosureBody": MessageLookupByLibrary.simpleMessage(
+      "dropwebはVPN構成を使ってVPNトンネルを作成します。構成の追加には、iPhoneが許可を求めます。通信はご利用のサブスクリプションのサーバーを経由します。dropwebがネットワーク上での操作を見たり記録したりすることはありません。サブスクリプションの提供元は、お使いのIPアドレスとデバイス識別子を受け取ります。",
+    ),
+    "ios27DisclosurePolicy": MessageLookupByLibrary.simpleMessage("プライバシーポリシー"),
+    "ios27DisclosureTitle": MessageLookupByLibrary.simpleMessage("接続する前に"),
+    "ios27GlassCapClear": MessageLookupByLibrary.simpleMessage("Clear"),
+    "ios27GlassClearer": MessageLookupByLibrary.simpleMessage("Clearer"),
+    "ios27GlassDenser": MessageLookupByLibrary.simpleMessage("Denser"),
+    "ios27GlassStandard": MessageLookupByLibrary.simpleMessage("Standard"),
+    "ios27GlassTinted": MessageLookupByLibrary.simpleMessage("Tinted"),
+    "ios27GlassTitle": MessageLookupByLibrary.simpleMessage("Glass"),
+    "ios27PresetBlue": MessageLookupByLibrary.simpleMessage("Blue"),
+    "ios27PresetGraphite": MessageLookupByLibrary.simpleMessage("Graphite"),
+    "ios27PresetGreen": MessageLookupByLibrary.simpleMessage("Green"),
+    "ios27PresetOrange": MessageLookupByLibrary.simpleMessage("Orange"),
+    "ios27PresetPink": MessageLookupByLibrary.simpleMessage("Pink"),
+    "ios27PresetPurple": MessageLookupByLibrary.simpleMessage("Purple"),
+    "ios27PresetRed": MessageLookupByLibrary.simpleMessage("Red"),
+    "ios27PresetYellow": MessageLookupByLibrary.simpleMessage("Yellow"),
+    "ios27StatCountry": MessageLookupByLibrary.simpleMessage("国"),
+    "ios27ToastLink": MessageLookupByLibrary.simpleMessage(
+      "Opens in the browser",
+    ),
+    "ios27ToastQr": MessageLookupByLibrary.simpleMessage(
+      "The QR code camera will open here",
+    ),
+    "ios27UpdatedDaysAgo": m11,
+    "ios27UpdatedHoursAgo": m12,
+    "ios27UpdatedJustNow": MessageLookupByLibrary.simpleMessage("just now"),
+    "ios27UpdatedMinutesAgo": m13,
     "ipcidr": MessageLookupByLibrary.simpleMessage("IPCIDR"),
     "ipv6Desc": MessageLookupByLibrary.simpleMessage("有効化するとIPv6トラフィックを受信可能"),
     "ipv6InboundDesc": MessageLookupByLibrary.simpleMessage("IPv6インバウンドを許可"),
@@ -419,8 +479,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "m3eAboutSite": MessageLookupByLibrary.simpleMessage("Project website"),
     "m3eAboutTitle": MessageLookupByLibrary.simpleMessage("About"),
     "m3eAboutUpdate": MessageLookupByLibrary.simpleMessage("Update"),
-    "m3eAboutUpdateAvailable": m9,
-    "m3eAboutVersion": m10,
+    "m3eAboutUpdateAvailable": m14,
+    "m3eAboutVersion": m15,
     "m3eAddFieldError": MessageLookupByLibrary.simpleMessage(
       "The link must start with https://",
     ),
@@ -444,15 +504,15 @@ class MessageLookup extends MessageLookupByLibrary {
       "As in the subscription",
     ),
     "m3eAppearanceTitle": MessageLookupByLibrary.simpleMessage("Appearance"),
-    "m3eColorN": m11,
-    "m3eColorShade": m12,
+    "m3eColorN": m16,
+    "m3eColorShade": m17,
     "m3eColorTitle": MessageLookupByLibrary.simpleMessage("Other color"),
     "m3eDeleteBody": MessageLookupByLibrary.simpleMessage(
       "The paid subscription stays with your provider.",
     ),
-    "m3eDeleteTitle": m13,
+    "m3eDeleteTitle": m18,
     "m3eDisclosureBody": MessageLookupByLibrary.simpleMessage(
-      "dropweb creates a VPN tunnel using Android\'s system VPN permission. Your traffic goes through your subscription\'s servers. dropweb does not see or log what you do online. The subscription provider receives your IP address and, unless disabled in settings, your device ID.",
+      "dropweb creates a VPN tunnel using Android\'s system VPN permission. Your traffic goes through your subscription\'s servers. dropweb does not see or log what you do online. The subscription provider receives your IP address and device ID.",
     ),
     "m3eDisclosureTitle": MessageLookupByLibrary.simpleMessage(
       "Before connecting",
@@ -462,24 +522,24 @@ class MessageLookup extends MessageLookupByLibrary {
     "m3eEmptyTitle": MessageLookupByLibrary.simpleMessage("Add a subscription"),
     "m3eLangSystem": MessageLookupByLibrary.simpleMessage("Same as system"),
     "m3eMsNoAnswer": MessageLookupByLibrary.simpleMessage("no response"),
-    "m3ePlanDaysLeft": m14,
+    "m3ePlanDaysLeft": m19,
     "m3ePlanExpired": MessageLookupByLibrary.simpleMessage(
       "Subscription expired",
     ),
     "m3ePlanForever": MessageLookupByLibrary.simpleMessage("no expiry"),
-    "m3ePlanLine": m15,
-    "m3ePlanTrafficLeft": m16,
-    "m3ePlanTrafficOf": m17,
+    "m3ePlanLine": m20,
+    "m3ePlanTrafficLeft": m21,
+    "m3ePlanTrafficOf": m22,
     "m3ePlanTrafficOut": MessageLookupByLibrary.simpleMessage("Out of traffic"),
     "m3ePlanUnlimited": MessageLookupByLibrary.simpleMessage("Unlimited"),
-    "m3ePlanUntil": m18,
+    "m3ePlanUntil": m23,
     "m3eRefresh": MessageLookupByLibrary.simpleMessage("Refresh"),
     "m3eRouteAllTraffic": MessageLookupByLibrary.simpleMessage(
       "All traffic through VPN",
     ),
     "m3eRouteAuto": MessageLookupByLibrary.simpleMessage("Auto"),
     "m3eRouteCountries": MessageLookupByLibrary.simpleMessage("Country"),
-    "m3eRouteGroupsCount": m19,
+    "m3eRouteGroupsCount": m24,
     "m3eRouteTitle": MessageLookupByLibrary.simpleMessage("Route"),
     "m3eScanGallery": MessageLookupByLibrary.simpleMessage(
       "Choose from gallery",
@@ -488,7 +548,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "m3eServersTitle": MessageLookupByLibrary.simpleMessage(
       "Servers and groups",
     ),
-    "m3eSettingsAboutVersion": m20,
+    "m3eSettingsAboutVersion": m25,
+    "m3eStatCountry": MessageLookupByLibrary.simpleMessage("国"),
     "m3eStatIp": MessageLookupByLibrary.simpleMessage("IP address"),
     "m3eStatNone": MessageLookupByLibrary.simpleMessage("—"),
     "m3eStatPing": MessageLookupByLibrary.simpleMessage("Ping"),
@@ -518,7 +579,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Subscription updated",
     ),
     "m3eToastSupport": MessageLookupByLibrary.simpleMessage("Opening help"),
-    "m3eUpdateDownloading": m21,
+    "m3eUpdateDownloading": m26,
     "m3eUpdateFailed": MessageLookupByLibrary.simpleMessage("Update failed"),
     "m3eUpdateNotes": MessageLookupByLibrary.simpleMessage("What\'s new"),
     "m3eUpdateProgressLabel": MessageLookupByLibrary.simpleMessage(
@@ -527,16 +588,16 @@ class MessageLookup extends MessageLookupByLibrary {
     "m3eUpdateReady": MessageLookupByLibrary.simpleMessage(
       "Downloaded, ready to install",
     ),
-    "m3eUpdateTitle": m22,
+    "m3eUpdateTitle": m27,
     "m3eUpdateVerifying": MessageLookupByLibrary.simpleMessage("Verifying…"),
-    "m3eUpdatedDaysAgo": m23,
-    "m3eUpdatedHoursAgo": m24,
+    "m3eUpdatedDaysAgo": m28,
+    "m3eUpdatedHoursAgo": m29,
     "m3eUpdatedJustNow": MessageLookupByLibrary.simpleMessage(
       "Updated just now",
     ),
-    "m3eUpdatedMinutesAgo": m25,
-    "m3eValueGb": m26,
-    "m3eValueMs": m27,
+    "m3eUpdatedMinutesAgo": m30,
+    "m3eValueGb": m31,
+    "m3eValueMs": m32,
     "managedByProvider": MessageLookupByLibrary.simpleMessage(
       "これらの設定はプロバイダーによって管理されています",
     ),
@@ -571,7 +632,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "nullProfileDesc": MessageLookupByLibrary.simpleMessage(
       "プロファイルがありません。追加してください",
     ),
-    "numberTip": m28,
+    "numberTip": m33,
     "ok": MessageLookupByLibrary.simpleMessage("OK"),
     "onboardingClipboardImport": MessageLookupByLibrary.simpleMessage(
       "クリップボードから貼り付け",
@@ -619,7 +680,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "port": MessageLookupByLibrary.simpleMessage("ポート"),
     "portConflictTip": MessageLookupByLibrary.simpleMessage("別のポートを入力してください"),
-    "portTip": m29,
+    "portTip": m34,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage("DOHのHTTP/3を優先使用"),
     "presetAmber": MessageLookupByLibrary.simpleMessage("アンバー"),
     "presetAmethyst": MessageLookupByLibrary.simpleMessage("アメジスト"),
@@ -644,7 +705,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pureBlackMode": MessageLookupByLibrary.simpleMessage("純黒モード"),
     "qrNotFound": MessageLookupByLibrary.simpleMessage("QRコードが見つかりません"),
     "qrScanFromImageUnsupported": MessageLookupByLibrary.simpleMessage(
-      "この環境では画像からのQRコード読み取りに対応していません。サブスクリプションURLをご利用ください。",
+      "画像からのQR読み取りには対応していません",
     ),
     "qrcode": MessageLookupByLibrary.simpleMessage("QRコード"),
     "receiveSubscriptionTitle": MessageLookupByLibrary.simpleMessage(
@@ -697,7 +758,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("すべて選択"),
     "selectProfile": MessageLookupByLibrary.simpleMessage("プロファイルを選択"),
     "selected": MessageLookupByLibrary.simpleMessage("選択済み"),
-    "selectedCountTitle": m30,
+    "selectedCountTitle": m35,
     "serversAndGroups": MessageLookupByLibrary.simpleMessage("サーバーとグループ"),
     "settings": MessageLookupByLibrary.simpleMessage("設定"),
     "settingsSendDeviceDataSubtitle": MessageLookupByLibrary.simpleMessage(
@@ -735,7 +796,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscriptionExpired": MessageLookupByLibrary.simpleMessage(
       "サブスクリプションが期限切れになりました",
     ),
-    "subscriptionExpiresInDays": m31,
+    "subscriptionExpiresInDays": m36,
     "subscriptionExpiresToday": MessageLookupByLibrary.simpleMessage(
       "サブスクリプションは本日期限切れになります",
     ),
@@ -801,10 +862,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "updated": MessageLookupByLibrary.simpleMessage("更新しました"),
     "upload": MessageLookupByLibrary.simpleMessage("アップロード"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
-    "urlTip": m32,
+    "urlTip": m37,
     "useHosts": MessageLookupByLibrary.simpleMessage("ホストを使用"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage("システムホストを使用"),
-    "validUntil": m33,
+    "validUntil": m38,
     "value": MessageLookupByLibrary.simpleMessage("値"),
     "view": MessageLookupByLibrary.simpleMessage("表示"),
     "vpnDisclosureBody": MessageLookupByLibrary.simpleMessage(

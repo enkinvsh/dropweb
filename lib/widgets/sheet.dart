@@ -4,6 +4,7 @@ import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/ios27/layers/ios27_sheet.dart';
 import 'package:dropweb/ui/m3e/widgets/m3e_sheet_skin.dart';
 import 'package:flutter/material.dart';
 
@@ -53,6 +54,10 @@ typedef SheetBuilder = Widget Function(BuildContext context, SheetType type);
 /// (`showExtend`), iOS и десктоп не затрагиваются.
 abstract final class SheetSkin {
   static bool defaultUseM3e = Platform.isAndroid;
+
+  /// Нижние листы iOS-редизайна: на iOS мобильный нижний лист рисуется стеклянным листом
+  /// (`showIos27Sheet`), содержимое остаётся прежним. M3E, если он включён, идёт первым.
+  static bool defaultUseIos27 = Platform.isIOS;
 }
 
 Future<T?> showSheet<T>({
@@ -60,11 +65,22 @@ Future<T?> showSheet<T>({
   required SheetBuilder builder,
   SheetProps props = const SheetProps(),
   bool? useM3e,
+  bool? useIos27,
 }) {
   final isMobile = globalState.appState.viewMode == ViewMode.mobile;
   if (isMobile && (useM3e ?? SheetSkin.defaultUseM3e)) {
     return showM3eSheetSkin<T>(
       context,
+      builder: (_) => builder(context, SheetType.bottomSheet),
+    );
+  }
+  if (isMobile &&
+      !(useM3e ?? SheetSkin.defaultUseM3e) &&
+      (useIos27 ?? SheetSkin.defaultUseIos27)) {
+    // Старые листы разной высоты: по содержимому, не выше 560 доски.
+    return showIos27Sheet<T>(
+      context,
+      detent: Ios27SheetDetent.fit,
       builder: (_) => builder(context, SheetType.bottomSheet),
     );
   }
@@ -139,6 +155,7 @@ class AdaptiveSheetScaffold extends StatefulWidget {
     this.disableBackground = true,
     this.onTitleTap,
     this.useM3e,
+    this.useIos27,
   });
   final SheetType type;
   final Widget body;
@@ -159,6 +176,9 @@ class AdaptiveSheetScaffold extends StatefulWidget {
   /// Нижний лист в рамке M3E; `null` — по [SheetSkin.defaultUseM3e].
   final bool? useM3e;
 
+  /// Нижний лист iOS-редизайна; `null` — по [SheetSkin.defaultUseIos27].
+  final bool? useIos27;
+
   @override
   State<AdaptiveSheetScaffold> createState() => _AdaptiveSheetScaffoldState();
 }
@@ -173,6 +193,16 @@ class _AdaptiveSheetScaffoldState extends State<AdaptiveSheetScaffold> {
     final page = widget.type == SheetType.page;
     if (bottomSheet && (widget.useM3e ?? SheetSkin.defaultUseM3e)) {
       return M3eSheetSkinScaffold(
+        title: title,
+        actions: widget.actions,
+        onTitleTap: widget.onTitleTap,
+        body: widget.body,
+      );
+    }
+    if (bottomSheet &&
+        !(widget.useM3e ?? SheetSkin.defaultUseM3e) &&
+        (widget.useIos27 ?? SheetSkin.defaultUseIos27)) {
+      return Ios27SheetScaffold(
         title: title,
         actions: widget.actions,
         onTitleTap: widget.onTitleTap,

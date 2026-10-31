@@ -81,8 +81,16 @@ Map<String, String> resolveWorkModeSelectedMap({
       // гарантировал, что countryTarget — его прямой член (select), либо
       // схлопнул состав роутера до него (не-select). Пер-сервисные группы
       // (YouTube / Discord / Telegram) сохраняют маршрут провайдера.
-      if (ownedRouter != null && countryTarget != null) {
-        selectedMap[ownedRouter] = countryTarget;
+      // countryTarget == null — узел не нашёлся среди «листьев» конфига
+      // (роутер собран через include-all / use: / filter, а
+      // interceptLeafNodes видит только явные `proxies:`). Тогда ПИН юзера и
+      // есть маршрут: без него селектор падает на первого члена («Авто»), а на
+      // iOS расширение стартует из setup.json, где пина уже нет (баг
+      // TestFlight 2050000031: «выбираю Польшу — подключает к авто»).
+      final target = countryTarget ??
+          (routerPin != null && routerPin.isNotEmpty ? routerPin : null);
+      if (ownedRouter != null && target != null) {
+        selectedMap[ownedRouter] = target;
       }
       break;
     case WorkMode.standard:
@@ -97,6 +105,30 @@ Map<String, String> resolveWorkModeSelectedMap({
       break;
   }
   return selectedMap;
+}
+
+/// Режим, который реально применять к профилю после тапа в списке роутера.
+///
+/// [WorkMode.country] без разрешённой цели ([countryTarget] == null) — пустой
+/// режим: `applyWorkModePatch` ничего не привязывает, reconcile в
+/// `_setupClashConfig` не знает цели, а `_revalidateWorkMode` после обновления
+/// подписки сбросит его в Standard с тостом. Если юзер при этом ткнул
+/// конкретного члена роутера ([routerPin]), честнее сразу применить Standard с
+/// этим пином: маршрут тот же, а режим не «висит» без цели.
+/// В остальных случаях возвращает исходные [mode] / [staticCountry]. PURE.
+({WorkMode mode, String? staticCountry}) effectiveWorkModeForPick({
+  required WorkMode mode,
+  required String? staticCountry,
+  required String? countryTarget,
+  String? routerPin,
+}) {
+  if (mode == WorkMode.country &&
+      countryTarget == null &&
+      routerPin != null &&
+      routerPin.isNotEmpty) {
+    return (mode: WorkMode.standard, staticCountry: null);
+  }
+  return (mode: mode, staticCountry: staticCountry);
 }
 
 /// Group names whose saved pin the core has already abandoned.

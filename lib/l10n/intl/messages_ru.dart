@@ -38,60 +38,73 @@ class MessageLookup extends MessageLookupByLibrary {
 
   static String m8(label) => "Текущий ${label} уже существует";
 
-  static String m9(version) => "Доступна версия ${version}";
+  static String m9(name) => "Маршрут: ${name}. Открыть список";
 
-  static String m10(version, core) => "Версия ${version}, ядро ${core}";
+  static String m10(slot) => "Цвет: ${slot}";
 
-  static String m11(n) => "Цвет ${n}";
+  static String m11(count) =>
+      "${Intl.plural(count, one: '${count} день назад', few: '${count} дня назад', many: '${count} дней назад', other: '${count} дня назад')}";
 
-  static String m12(n) => "Оттенок ${n}";
+  static String m12(count) =>
+      "${Intl.plural(count, one: '${count} час назад', few: '${count} часа назад', many: '${count} часов назад', other: '${count} часа назад')}";
 
-  static String m13(name) => "Удалить «${name}»?";
+  static String m13(count) =>
+      "${Intl.plural(count, one: '${count} минуту назад', few: '${count} минуты назад', many: '${count} минут назад', other: '${count} минуты назад')}";
 
-  static String m14(count) =>
-      "${Intl.plural(count, one: 'Остался ${count} день', few: 'Осталось ${count} дня', many: 'Осталось ${count} дней', other: 'Осталось ${count} дня')}";
+  static String m14(version) => "Доступна версия ${version}";
 
-  static String m15(traffic, term) => "${traffic} · ${term}";
+  static String m15(version, core) => "Версия ${version}, ядро ${core}";
 
-  static String m16(left) => "Осталось ${left} ГБ";
+  static String m16(n) => "Цвет ${n}";
 
-  static String m17(used, total) => "${used} из ${total} ГБ";
+  static String m17(n) => "Оттенок ${n}";
 
-  static String m18(date) => "до ${date}";
+  static String m18(name) => "Удалить «${name}»?";
 
   static String m19(count) =>
-      "${Intl.plural(count, one: '${count} группа', few: '${count} группы', many: '${count} групп', other: '${count} группы')}";
+      "${Intl.plural(count, one: 'Остался ${count} день', few: 'Осталось ${count} дня', many: 'Осталось ${count} дней', other: 'Осталось ${count} дня')}";
 
-  static String m20(version) => "Версия ${version}";
+  static String m20(traffic, term) => "${traffic} · ${term}";
 
-  static String m21(percent) => "Загрузка… ${percent}%";
+  static String m21(left) => "Осталось ${left} ГБ";
 
-  static String m22(version) => "dropweb ${version}";
+  static String m22(used, total) => "${used} из ${total} ГБ";
 
-  static String m23(count) =>
-      "${Intl.plural(count, one: 'Обновлено ${count} день назад', few: 'Обновлено ${count} дня назад', many: 'Обновлено ${count} дней назад', other: 'Обновлено ${count} дня назад')}";
+  static String m23(date) => "до ${date}";
 
   static String m24(count) =>
+      "${Intl.plural(count, one: '${count} группа', few: '${count} группы', many: '${count} групп', other: '${count} группы')}";
+
+  static String m25(version) => "Версия ${version}";
+
+  static String m26(percent) => "Загрузка… ${percent}%";
+
+  static String m27(version) => "dropweb ${version}";
+
+  static String m28(count) =>
+      "${Intl.plural(count, one: 'Обновлено ${count} день назад', few: 'Обновлено ${count} дня назад', many: 'Обновлено ${count} дней назад', other: 'Обновлено ${count} дня назад')}";
+
+  static String m29(count) =>
       "${Intl.plural(count, one: 'Обновлено ${count} час назад', few: 'Обновлено ${count} часа назад', many: 'Обновлено ${count} часов назад', other: 'Обновлено ${count} часа назад')}";
 
-  static String m25(count) =>
+  static String m30(count) =>
       "${Intl.plural(count, one: 'Обновлено ${count} минуту назад', few: 'Обновлено ${count} минуты назад', many: 'Обновлено ${count} минут назад', other: 'Обновлено ${count} минуты назад')}";
 
-  static String m26(value) => "${value} ГБ";
+  static String m31(value) => "${value} ГБ";
 
-  static String m27(value) => "${value} мс";
+  static String m32(value) => "${value} мс";
 
-  static String m28(label) => "${label} должно быть числом";
+  static String m33(label) => "${label} должно быть числом";
 
-  static String m29(label) => "${label} должен быть числом от 1024 до 49151";
+  static String m34(label) => "${label} должен быть числом от 1024 до 49151";
 
-  static String m30(count) => "Выбрано ${count} элементов";
+  static String m35(count) => "Выбрано ${count} элементов";
 
-  static String m31(days) => "Ваша подписка истекает через ${days} дн.";
+  static String m36(days) => "Ваша подписка истекает через ${days} дн.";
 
-  static String m32(label) => "${label} должен быть URL";
+  static String m37(label) => "${label} должен быть URL";
 
-  static String m33(date) => "до ${date}";
+  static String m38(date) => "до ${date}";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
@@ -280,7 +293,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Текущее приложение уже является последней версией",
     ),
     "checkUpdateFailed": MessageLookupByLibrary.simpleMessage(
-      "Не удалось проверить обновления. Проверьте интернет и попробуйте ещё раз",
+      "Не удалось проверить обновления",
     ),
     "checking": MessageLookupByLibrary.simpleMessage("Проверка..."),
     "clearData": MessageLookupByLibrary.simpleMessage("Очистить данные"),
@@ -417,7 +430,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Изменение общих настроек",
     ),
     "genericErrorMessage": MessageLookupByLibrary.simpleMessage(
-      "Что-то пошло не так. Попробуйте ещё раз.",
+      "Что-то пошло не так",
     ),
     "geodataLoader": MessageLookupByLibrary.simpleMessage(
       "Экономия памяти для геоданных",
@@ -435,6 +448,9 @@ class MessageLookup extends MessageLookupByLibrary {
     "hoursGenitive": MessageLookupByLibrary.simpleMessage("часов"),
     "hoursPlural": MessageLookupByLibrary.simpleMessage("часа"),
     "hwidFreeSlot": MessageLookupByLibrary.simpleMessage("Освободить лимит"),
+    "hwidLimitReached": MessageLookupByLibrary.simpleMessage(
+      "Достигнут лимит устройств\nОсвободите место у провайдера и обновите подписку",
+    ),
     "hwidRecovered": MessageLookupByLibrary.simpleMessage(
       "Устройство зарегистрировано\nПодписка обновлена",
     ),
@@ -456,6 +472,54 @@ class MessageLookup extends MessageLookupByLibrary {
     "invalidProfileUrl": MessageLookupByLibrary.simpleMessage(
       "Некорректная ссылка на подписку. Используйте http:// или https://",
     ),
+    "ios27A11yJoy": MessageLookupByLibrary.simpleMessage(
+      "Подключение и страна",
+    ),
+    "ios27A11yRoute": m9,
+    "ios27AppearanceColors": MessageLookupByLibrary.simpleMessage("Цвета"),
+    "ios27AppearanceOwn": MessageLookupByLibrary.simpleMessage("Свои"),
+    "ios27AppearanceProvider": MessageLookupByLibrary.simpleMessage(
+      "Провайдер",
+    ),
+    "ios27AppearanceThemes": MessageLookupByLibrary.simpleMessage("Темы"),
+    "ios27ColorSheetLabel": m10,
+    "ios27ColorSlotAccent": MessageLookupByLibrary.simpleMessage("Кнопки"),
+    "ios27ColorSlotOrb1": MessageLookupByLibrary.simpleMessage("Фон сверху"),
+    "ios27ColorSlotOrb2": MessageLookupByLibrary.simpleMessage("Фон снизу"),
+    "ios27DisclosureBody": MessageLookupByLibrary.simpleMessage(
+      "dropweb создаёт VPN-туннель через конфигурацию VPN, iPhone попросит разрешить её добавить. Трафик идёт через серверы вашей подписки. dropweb не видит и не записывает, что вы делаете в сети. Провайдер подписки получает ваш IP-адрес и идентификатор устройства.",
+    ),
+    "ios27DisclosurePolicy": MessageLookupByLibrary.simpleMessage(
+      "Политика конфиденциальности",
+    ),
+    "ios27DisclosureTitle": MessageLookupByLibrary.simpleMessage(
+      "Перед подключением",
+    ),
+    "ios27GlassCapClear": MessageLookupByLibrary.simpleMessage("Прозрачное"),
+    "ios27GlassClearer": MessageLookupByLibrary.simpleMessage("Прозрачнее"),
+    "ios27GlassDenser": MessageLookupByLibrary.simpleMessage("Плотнее"),
+    "ios27GlassStandard": MessageLookupByLibrary.simpleMessage("Стандартное"),
+    "ios27GlassTinted": MessageLookupByLibrary.simpleMessage("Тонированное"),
+    "ios27GlassTitle": MessageLookupByLibrary.simpleMessage("Стекло"),
+    "ios27PresetBlue": MessageLookupByLibrary.simpleMessage("Синий"),
+    "ios27PresetGraphite": MessageLookupByLibrary.simpleMessage("Графитовый"),
+    "ios27PresetGreen": MessageLookupByLibrary.simpleMessage("Зелёный"),
+    "ios27PresetOrange": MessageLookupByLibrary.simpleMessage("Оранжевый"),
+    "ios27PresetPink": MessageLookupByLibrary.simpleMessage("Розовый"),
+    "ios27PresetPurple": MessageLookupByLibrary.simpleMessage("Фиолетовый"),
+    "ios27PresetRed": MessageLookupByLibrary.simpleMessage("Красный"),
+    "ios27PresetYellow": MessageLookupByLibrary.simpleMessage("Жёлтый"),
+    "ios27StatCountry": MessageLookupByLibrary.simpleMessage("Страна"),
+    "ios27ToastLink": MessageLookupByLibrary.simpleMessage(
+      "Откроется в браузере",
+    ),
+    "ios27ToastQr": MessageLookupByLibrary.simpleMessage(
+      "Здесь откроется камера для QR-кода",
+    ),
+    "ios27UpdatedDaysAgo": m11,
+    "ios27UpdatedHoursAgo": m12,
+    "ios27UpdatedJustNow": MessageLookupByLibrary.simpleMessage("только что"),
+    "ios27UpdatedMinutesAgo": m13,
     "ipcidr": MessageLookupByLibrary.simpleMessage("IPCIDR"),
     "ipv6Desc": MessageLookupByLibrary.simpleMessage(
       "При включении будет возможно получать IPv6 трафик",
@@ -509,8 +573,8 @@ class MessageLookup extends MessageLookupByLibrary {
     "m3eAboutSite": MessageLookupByLibrary.simpleMessage("Сайт проекта"),
     "m3eAboutTitle": MessageLookupByLibrary.simpleMessage("О программе"),
     "m3eAboutUpdate": MessageLookupByLibrary.simpleMessage("Обновление"),
-    "m3eAboutUpdateAvailable": m9,
-    "m3eAboutVersion": m10,
+    "m3eAboutUpdateAvailable": m14,
+    "m3eAboutVersion": m15,
     "m3eAddFieldError": MessageLookupByLibrary.simpleMessage(
       "Ссылка должна начинаться с https://",
     ),
@@ -534,15 +598,15 @@ class MessageLookup extends MessageLookupByLibrary {
       "Как в подписке",
     ),
     "m3eAppearanceTitle": MessageLookupByLibrary.simpleMessage("Оформление"),
-    "m3eColorN": m11,
-    "m3eColorShade": m12,
+    "m3eColorN": m16,
+    "m3eColorShade": m17,
     "m3eColorTitle": MessageLookupByLibrary.simpleMessage("Другой цвет"),
     "m3eDeleteBody": MessageLookupByLibrary.simpleMessage(
       "Оплаченная подписка у провайдера останется.",
     ),
-    "m3eDeleteTitle": m13,
+    "m3eDeleteTitle": m18,
     "m3eDisclosureBody": MessageLookupByLibrary.simpleMessage(
-      "dropweb создаёт VPN-туннель через системное разрешение Android. Трафик идёт через серверы вашей подписки. dropweb не видит и не записывает, что вы делаете в сети. Провайдер подписки получает ваш IP-адрес и, если это не отключено в настройках, идентификатор устройства.",
+      "dropweb создаёт VPN-туннель через системное разрешение Android. Трафик идёт через серверы вашей подписки. dropweb не видит и не записывает, что вы делаете в сети. Провайдер подписки получает ваш IP-адрес и идентификатор устройства.",
     ),
     "m3eDisclosureTitle": MessageLookupByLibrary.simpleMessage(
       "Перед подключением",
@@ -554,33 +618,34 @@ class MessageLookup extends MessageLookupByLibrary {
     "m3eEmptyTitle": MessageLookupByLibrary.simpleMessage("Добавьте подписку"),
     "m3eLangSystem": MessageLookupByLibrary.simpleMessage("Как в системе"),
     "m3eMsNoAnswer": MessageLookupByLibrary.simpleMessage("нет ответа"),
-    "m3ePlanDaysLeft": m14,
+    "m3ePlanDaysLeft": m19,
     "m3ePlanExpired": MessageLookupByLibrary.simpleMessage(
       "Подписка закончилась",
     ),
     "m3ePlanForever": MessageLookupByLibrary.simpleMessage("бессрочно"),
-    "m3ePlanLine": m15,
-    "m3ePlanTrafficLeft": m16,
-    "m3ePlanTrafficOf": m17,
+    "m3ePlanLine": m20,
+    "m3ePlanTrafficLeft": m21,
+    "m3ePlanTrafficOf": m22,
     "m3ePlanTrafficOut": MessageLookupByLibrary.simpleMessage(
       "Трафик закончился",
     ),
     "m3ePlanUnlimited": MessageLookupByLibrary.simpleMessage("Безлимит"),
-    "m3ePlanUntil": m18,
+    "m3ePlanUntil": m23,
     "m3eRefresh": MessageLookupByLibrary.simpleMessage("Обновить"),
     "m3eRouteAllTraffic": MessageLookupByLibrary.simpleMessage(
       "Весь трафик через VPN",
     ),
     "m3eRouteAuto": MessageLookupByLibrary.simpleMessage("Авто"),
     "m3eRouteCountries": MessageLookupByLibrary.simpleMessage("Страна"),
-    "m3eRouteGroupsCount": m19,
+    "m3eRouteGroupsCount": m24,
     "m3eRouteTitle": MessageLookupByLibrary.simpleMessage("Маршрут"),
     "m3eScanGallery": MessageLookupByLibrary.simpleMessage(
       "Выбрать из галереи",
     ),
     "m3eScanTorch": MessageLookupByLibrary.simpleMessage("Фонарик"),
     "m3eServersTitle": MessageLookupByLibrary.simpleMessage("Серверы и группы"),
-    "m3eSettingsAboutVersion": m20,
+    "m3eSettingsAboutVersion": m25,
+    "m3eStatCountry": MessageLookupByLibrary.simpleMessage("Страна"),
     "m3eStatIp": MessageLookupByLibrary.simpleMessage("IP-адрес"),
     "m3eStatNone": MessageLookupByLibrary.simpleMessage("—"),
     "m3eStatPing": MessageLookupByLibrary.simpleMessage("Пинг"),
@@ -612,7 +677,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "m3eToastSupport": MessageLookupByLibrary.simpleMessage(
       "Открываем справочную",
     ),
-    "m3eUpdateDownloading": m21,
+    "m3eUpdateDownloading": m26,
     "m3eUpdateFailed": MessageLookupByLibrary.simpleMessage(
       "Не удалось обновить",
     ),
@@ -623,16 +688,16 @@ class MessageLookup extends MessageLookupByLibrary {
     "m3eUpdateReady": MessageLookupByLibrary.simpleMessage(
       "Загружено, можно установить",
     ),
-    "m3eUpdateTitle": m22,
+    "m3eUpdateTitle": m27,
     "m3eUpdateVerifying": MessageLookupByLibrary.simpleMessage("Проверка…"),
-    "m3eUpdatedDaysAgo": m23,
-    "m3eUpdatedHoursAgo": m24,
+    "m3eUpdatedDaysAgo": m28,
+    "m3eUpdatedHoursAgo": m29,
     "m3eUpdatedJustNow": MessageLookupByLibrary.simpleMessage(
       "Обновлено только что",
     ),
-    "m3eUpdatedMinutesAgo": m25,
-    "m3eValueGb": m26,
-    "m3eValueMs": m27,
+    "m3eUpdatedMinutesAgo": m30,
+    "m3eValueGb": m31,
+    "m3eValueMs": m32,
     "managedByProvider": MessageLookupByLibrary.simpleMessage(
       "Заблокированными настройками управляет ваш провайдер",
     ),
@@ -675,7 +740,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "nullProfileDesc": MessageLookupByLibrary.simpleMessage(
       "Профиль отсутствует. Пожалуйста, добавьте профиль",
     ),
-    "numberTip": m28,
+    "numberTip": m33,
     "ok": MessageLookupByLibrary.simpleMessage("OK"),
     "onboardingClipboardImport": MessageLookupByLibrary.simpleMessage(
       "Вставить подписку из буфера",
@@ -733,7 +798,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "portConflictTip": MessageLookupByLibrary.simpleMessage(
       "Введите другой порт",
     ),
-    "portTip": m29,
+    "portTip": m34,
     "preferH3Desc": MessageLookupByLibrary.simpleMessage(
       "Использовать HTTP/3 для DOH (если доступно)",
     ),
@@ -764,7 +829,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pureBlackMode": MessageLookupByLibrary.simpleMessage("Чисто черный режим"),
     "qrNotFound": MessageLookupByLibrary.simpleMessage("QR-код не найден"),
     "qrScanFromImageUnsupported": MessageLookupByLibrary.simpleMessage(
-      "Сканирование QR-кода из изображения не поддерживается на этой платформе. Используйте ссылку на подписку.",
+      "Сканирование QR из фото недоступно",
     ),
     "qrcode": MessageLookupByLibrary.simpleMessage("QR-код"),
     "receiveSubscriptionTitle": MessageLookupByLibrary.simpleMessage(
@@ -825,7 +890,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "selectAll": MessageLookupByLibrary.simpleMessage("Выбрать все"),
     "selectProfile": MessageLookupByLibrary.simpleMessage("Выбрать профиль"),
     "selected": MessageLookupByLibrary.simpleMessage("Выбрано"),
-    "selectedCountTitle": m30,
+    "selectedCountTitle": m35,
     "serversAndGroups": MessageLookupByLibrary.simpleMessage(
       "Серверы и группы",
     ),
@@ -873,7 +938,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "subscriptionExpired": MessageLookupByLibrary.simpleMessage(
       "Ваша подписка истекла",
     ),
-    "subscriptionExpiresInDays": m31,
+    "subscriptionExpiresInDays": m36,
     "subscriptionExpiresToday": MessageLookupByLibrary.simpleMessage(
       "Ваша подписка истекает сегодня",
     ),
@@ -955,19 +1020,19 @@ class MessageLookup extends MessageLookupByLibrary {
     "updated": MessageLookupByLibrary.simpleMessage("Обновлено"),
     "upload": MessageLookupByLibrary.simpleMessage("Отправка"),
     "url": MessageLookupByLibrary.simpleMessage("URL"),
-    "urlTip": m32,
+    "urlTip": m37,
     "useHosts": MessageLookupByLibrary.simpleMessage("Использовать hosts"),
     "useSystemHosts": MessageLookupByLibrary.simpleMessage(
       "Использовать системные hosts",
     ),
-    "validUntil": m33,
+    "validUntil": m38,
     "value": MessageLookupByLibrary.simpleMessage("Значение"),
     "view": MessageLookupByLibrary.simpleMessage("Просмотр"),
     "vpnDisclosureBody": MessageLookupByLibrary.simpleMessage(
-      "dropweb использует системное VPN-разрешение Android, чтобы создать VPN-туннель на вашем устройстве. Ваш сетевой трафик идёт через серверы из подписки или конфигурации, которую вы добавили сами, и их операторы обрабатывают его по своим правилам. dropweb не просматривает, не записывает и не отправляет содержимое вашего трафика и посещаемые сайты, в нём нет рекламы и аналитики. Когда вы добавляете или обновляете подписку, её провайдер получает ваш IP-адрес и, если вы не отключили это в настройках, идентификатор устройства (HWID) и модель устройства. Вы можете в любой момент отключиться с этого экрана или из системных настроек VPN.",
+      "dropweb использует системное VPN-разрешение Android, чтобы создать VPN-туннель на вашем устройстве. Ваш сетевой трафик идёт через серверы из подписки или конфигурации, которую вы добавили сами, и их операторы обрабатывают его по своим правилам. dropweb не просматривает, не записывает и не отправляет содержимое вашего трафика и посещаемые сайты, в нём нет рекламы и аналитики. Когда вы добавляете или обновляете подписку, её провайдер получает ваш IP-адрес, идентификатор устройства (HWID) и модель устройства. Вы можете в любой момент отключиться с этого экрана или из системных настроек VPN.",
     ),
     "vpnDisclosureBodyIos": MessageLookupByLibrary.simpleMessage(
-      "dropweb добавляет на iPhone конфигурацию VPN, чтобы создать VPN-туннель на вашем устройстве. Ваш сетевой трафик идёт через серверы из подписки или конфигурации, которую вы добавили сами, и их операторы обрабатывают его по своим правилам. dropweb не просматривает, не записывает и не отправляет содержимое вашего трафика и посещаемые сайты, в нём нет рекламы и аналитики. Когда вы добавляете или обновляете подписку, её провайдер получает ваш IP-адрес и, если вы не отключили это в настройках, идентификатор устройства (HWID) и модель устройства. Вы можете в любой момент отключиться с этого экрана или из системных настроек VPN.",
+      "dropweb добавляет на iPhone конфигурацию VPN, чтобы создать VPN-туннель на вашем устройстве. Ваш сетевой трафик идёт через серверы из подписки или конфигурации, которую вы добавили сами, и их операторы обрабатывают его по своим правилам. dropweb не просматривает, не записывает и не отправляет содержимое вашего трафика и посещаемые сайты, в нём нет рекламы и аналитики. Когда вы добавляете или обновляете подписку, её провайдер получает ваш IP-адрес, идентификатор устройства (HWID) и модель устройства. Вы можете в любой момент отключиться с этого экрана или из системных настроек VPN.",
     ),
     "vpnDisclosureContinue": MessageLookupByLibrary.simpleMessage("Продолжить"),
     "vpnDisclosureTitle": MessageLookupByLibrary.simpleMessage(

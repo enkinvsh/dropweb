@@ -156,22 +156,53 @@ void main() {
       expect(v.scene, M3eHomeScene.homeOff);
     });
 
-    test('трафик на карточке — только upload+download подписки', () {
-      // Владелец: 0,06 ГБ в заголовке панели, а карточка показывала 344,1 ГБ —
-      // счётчик ядра нельзя прибавлять к цифре панели.
-      final v = buildM3eHomeView(
-        l,
-        const M3eHomeInput(
-          subscription: M3eHomeSubscription(usedBytes: 60440536),
-        ),
-        now: kHomeNow,
-      );
-      expect(v.card.trafficText, '0,06\u00a0ГБ');
+    test('страна выхода вместо адреса: короткое название на языке экрана', () {
+      M3eHomeView withCode(String? code, {String? locale}) => buildM3eHomeView(
+            l,
+            M3eHomeInput(ipAddress: '185.107.56.12', ipCountryCode: code),
+            now: kHomeNow,
+            locale: locale,
+          );
+      expect(withCode('NL').card.countryText, 'Нидерланды');
+      expect(withCode('us').card.countryText, 'США');
+      expect(withCode('US', locale: 'en').card.countryText, 'United States');
+      expect(withCode('NL', locale: 'en').card.countryText, 'Netherlands');
     });
 
-    test('нет данных подписки — прочерк вместо трафика', () {
-      final v = buildM3eHomeView(l, const M3eHomeInput(), now: kHomeNow);
-      expect(v.card.trafficText, l.m3eStatNone);
+    test('нет адреса, нет сети или подключение: прочерк', () {
+      expect(
+        buildM3eHomeView(l, const M3eHomeInput(), now: kHomeNow)
+            .card
+            .countryText,
+        l.m3eStatNone,
+      );
+      for (final scene in ['offline', 'connecting', 'switching']) {
+        expect(viewOf(scene).card.countryText, l.m3eStatNone, reason: scene);
+      }
+    });
+
+    test('адрес есть, кода страны нет: только маска адреса', () {
+      String masked(String ip, [String? code]) => buildM3eHomeView(
+            l,
+            M3eHomeInput(ipAddress: ip, ipCountryCode: code),
+            now: kHomeNow,
+          ).card.countryText;
+      expect(masked('94.183.247.4'), '94.183.•••.•••');
+      expect(masked('2a0e:97c0:3e3:4f1::1c'), '2a0e:97c0:•••');
+      // Код неверного формата флага не даёт: считаем, что страны нет.
+      expect(masked('94.183.247.4', 'RUS'), '94.183.•••.•••');
+      expect(masked('94.183.247.4', ''), '94.183.•••.•••');
+    });
+
+    test('полный адрес не попадает в текст страны ни в одной сцене', () {
+      for (final worst in [false, true]) {
+        for (final id in kHomeSceneIds) {
+          final c = viewOf(id, worst: worst).card;
+          if (c.ipAddress == l.m3eStatNone) continue;
+          expect(c.countryText, isNot(contains(c.ipAddress)),
+              reason: '$id worst=$worst');
+        }
+      }
     });
 
     test('флаг по коду страны', () {

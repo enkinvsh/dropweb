@@ -1,0 +1,106 @@
+{
+  "fill-specializations": [
+    {
+      "value": "system-dark"
+    },
+    {
+      "appearance": "dark",
+      "value": "system-dark"
+    }
+  ],
+  "groups": [
+    {
+      "name": "Буквы",
+      "layers": [
+        {
+          "image-name": "letters.svg",
+          "name": "letters",
+          "fill-specializations": [
+            {
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.48627,1.00000,0.65882,1.00000",
+                  "srgb:0.07843,0.82745,0.36863,1.00000"
+                ]
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.48627,1.00000,0.65882,1.00000",
+                  "srgb:0.07843,0.82745,0.36863,1.00000"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "specular": true,
+      "translucency": {
+        "enabled": true,
+        "value": 0.2
+      }
+    },
+    {
+      "name": "Тень ANSI",
+      "layers": [
+        {
+          "image-name": "shadow.svg",
+          "name": "shadow",
+          "fill-specializations": [
+            {
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.30980,0.85098,0.50980,1.00000",
+                  "srgb:0.13725,0.58039,0.29804,1.00000"
+                ]
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "linear-gradient": [
+                  "srgb:0.30980,0.85098,0.50980,1.00000",
+                  "srgb:0.13725,0.58039,0.29804,1.00000"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "opacity-specializations": [
+        {
+          "value": 0.75
+        },
+        {
+          "appearance": "dark",
+          "value": 0.8
+        },
+        {
+          "appearance": "tinted",
+          "value": 0.5
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.3
+      },
+      "specular": true,
+      "translucency": {
+        "enabled": true,
+        "value": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "circles": [
+      "watchOS"
+    ],
+    "squares": "shared"
+  }
+}

@@ -57,6 +57,28 @@ abstract final class M3eFlex {
       tabular: true,
       color: color);
 
+  /// Время сеанса в шапке компактной карточки: 15/20, цифры моноширинные. Спокойнее
+  /// старого [cardTimer] (17/22, wdth 118): имя в шапке остаётся главным, а секунда
+  /// раз в секунду меняет только цифры, без перекатов.
+  static TextStyle cardClock({Color? color}) =>
+      _style(size: 15, lineHeight: 20, wght: 450, tabular: true, color: color);
+
+  /// Название страны в нижней строке карточки, 15/20, wght 560.
+  static TextStyle cardCountry({Color? color}) =>
+      _style(size: 15, lineHeight: 20, wght: 560, color: color);
+
+  /// Акцентное «Обновить» в нижней строке карточки, 15/20, wght 620.
+  static TextStyle cardAction({Color? color}) =>
+      _style(size: 15, lineHeight: 20, wght: 620, color: color);
+
+  /// Слово статуса в нижней строке карточки, 13/18, wght 520.
+  static TextStyle cardState({Color? color}) =>
+      _style(size: 13, lineHeight: 18, wght: 520, color: color);
+
+  /// Объявление под карточкой, 13/18, wght 400.
+  static TextStyle cardFooter({Color? color}) =>
+      _style(size: 13, lineHeight: 18, wght: 400, color: color);
+
   /// `.dr-stat__k`: подпись показателя, 13/18, wght 500.
   static TextStyle statKey({Color? color}) =>
       _style(size: 13, lineHeight: 18, wght: 500, color: color);

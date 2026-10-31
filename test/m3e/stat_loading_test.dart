@@ -14,7 +14,7 @@ import 'gate_support.dart';
 import 'support/board_fixtures.dart';
 import 'support/golden.dart';
 
-/// Карточка с готовыми строками; загрузка подменяет адрес прочерком, как модель.
+/// Карточка с готовыми строками; загрузка подменяет страну прочерком, как модель.
 /// Точка «выключено»: у подключённой бежит бесконечный пульс, и счётчик тикеров не
 /// отличил бы его от незаконченной смены значения.
 M3eCardData _card({
@@ -30,7 +30,7 @@ M3eCardData _card({
       planText: 'Безлимит · до 13 января 2027',
       ipFlag: ipLoading ? null : '🇳🇱',
       ipAddress: ipLoading ? '—' : '185.107.56.12',
-      trafficText: '0,8 ГБ',
+      countryText: ipLoading ? '—' : 'Нидерланды',
       ipLoading: ipLoading,
       announce: 'dropweb.org',
     );
@@ -82,7 +82,7 @@ Widget _host(
 }
 
 Finder _inValue(int i, Finder what) =>
-    find.descendant(of: find.byKey(M3eCardKeys.statValue(i)), matching: what);
+    find.descendant(of: find.byKey(M3eCardKeys.country), matching: what);
 
 Future<void> _pump(WidgetTester tester, Widget app) async {
   await pumpM3eBoard(tester, app);
@@ -118,10 +118,6 @@ void main() {
       await _pump(tester, _host(data, reduced: false));
       expect(
           _inValue(0, find.byType(ExpressiveLoadingIndicator)), findsOneWidget);
-      // Трафик не ждёт ничего: обычный текст.
-      expect(
-          _inValue(1, find.byType(ExpressiveLoadingIndicator)), findsNothing);
-      expect(_inValue(1, find.text('0,8 ГБ')), findsOneWidget);
     });
 
     testWidgets('значение приходит fade-ом, после него ни одного тикера',
@@ -134,12 +130,12 @@ void main() {
       await tester.pump();
       // Уход старого 100 мс, приход нового 350 мс: через 20 мс значение уже в дереве.
       await tester.pump(const Duration(milliseconds: 20));
-      expect(_inValue(0, find.text('185.107.56.12')), findsOneWidget);
+      expect(_inValue(0, find.text('Нидерланды')), findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 400));
       expect(
           _inValue(0, find.byType(ExpressiveLoadingIndicator)), findsNothing);
-      expect(_inValue(0, find.text('185.107.56.12')), findsOneWidget);
+      expect(_inValue(0, find.text('Нидерланды')), findsOneWidget);
       expect(tester.binding.transientCallbackCount, 0,
           reason: 'после загрузки живых тикеров нет');
       expect(tester.takeException(), isNull);
@@ -149,7 +145,7 @@ void main() {
       final data = ValueNotifier(_card(dot: M3eDotState.off));
       addTearDown(data.dispose);
       await _pump(tester, _host(data, reduced: false));
-      expect(_inValue(1, find.text('0,8 ГБ')), findsOneWidget);
+      expect(_inValue(0, find.text('Нидерланды')), findsOneWidget);
 
       data.value = const M3eCardData(
         providerName: 'dropweb',
@@ -160,17 +156,16 @@ void main() {
         planText: 'Безлимит · до 13 января 2027',
         ipFlag: '🇩🇪',
         ipAddress: '91.12.4.9',
-        trafficText: '1,2 ГБ',
+        countryText: 'Германия',
         announce: 'dropweb.org',
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 20));
       // Старое значение ещё уходит, новое уже приходит.
-      expect(_inValue(1, find.text('1,2 ГБ')), findsOneWidget);
+      expect(_inValue(0, find.text('Германия')), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 400));
-      expect(_inValue(1, find.text('0,8 ГБ')), findsNothing);
-      expect(_inValue(0, find.text('185.107.56.12')), findsNothing);
-      expect(_inValue(0, find.text('91.12.4.9')), findsOneWidget);
+      expect(_inValue(0, find.text('Нидерланды')), findsNothing);
+      expect(_inValue(0, find.text('Германия')), findsOneWidget);
       expect(tester.binding.transientCallbackCount, 0);
     });
 
@@ -180,17 +175,14 @@ void main() {
       addTearDown(data.dispose);
       await _pump(tester, _host(data, reduced: false));
       final card = tester.getSize(find.byKey(M3eCardKeys.card));
-      final ip = tester.getSize(find.byKey(M3eCardKeys.statValue(0)));
-      final traffic = tester.getSize(find.byKey(M3eCardKeys.statValue(1)));
+      final row = tester.getSize(find.byKey(M3eCardKeys.country));
 
       data.value = _card(dot: M3eDotState.off);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(tester.getSize(find.byKey(M3eCardKeys.card)).height, card.height);
-      expect(tester.getSize(find.byKey(M3eCardKeys.statValue(0))).height,
-          ip.height);
-      expect(tester.getSize(find.byKey(M3eCardKeys.statValue(1))).height,
-          traffic.height);
+      expect(
+          tester.getSize(find.byKey(M3eCardKeys.country)).height, row.height);
     });
   });
 
@@ -229,7 +221,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 20));
       expect(_inValue(0, find.byType(CustomPaint)), findsNothing);
-      expect(_inValue(0, find.text('185.107.56.12')), findsOneWidget);
+      expect(_inValue(0, find.text('Нидерланды')), findsOneWidget);
     });
   });
 
@@ -243,7 +235,7 @@ void main() {
         await _pump(tester, _host(data, scale: scale));
         expect(tester.takeException(), isNull);
         for (final i in [0]) {
-          final row = tester.getRect(find.byKey(M3eCardKeys.statValue(i)));
+          final row = tester.getRect(find.byKey(M3eCardKeys.country));
           final shapes = _inValue(i, find.byType(CustomPaint));
           expect(shapes, findsWidgets, reason: 'значение $i: нет индикатора');
           final r = tester.getRect(shapes.first);

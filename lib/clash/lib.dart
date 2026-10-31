@@ -6,9 +6,12 @@ import 'dart:isolate';
 import 'dart:ui';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:dropweb/common/common.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/models/models.dart';
+import 'package:dropweb/plugins/ios_switch_window.dart';
+import 'package:dropweb/plugins/ios_tunnel_forwarder.dart';
 import 'package:dropweb/plugins/service.dart';
 import 'package:dropweb/state.dart';
 
@@ -460,10 +463,33 @@ class ClashLibIos extends ClashHandlerInterface {
     _clashFFI.initNativeApiBridge(NativeApi.initializeApiDLData);
     _receiverPort.listen((message) {
       if (message is String) {
-        handleResult(ActionResult.fromJson(json.decode(message)));
+        handleResult(filterPlannedSwitchResult(
+          ActionResult.fromJson(json.decode(message)),
+          inWindow: IosPlannedSwitchWindow.isActive,
+          log: commonPrint.log,
+        ));
       }
     });
     _clashFFI.attachMessagePort(_receiverPort.sendPort.nativePort);
+  }
+
+  /// Ядро приложения ходит в сеть через расширение, поэтому наш же перезапуск
+  /// туннеля или `closeConnections` рвёт его health-check'и, и оно пишет ERROR
+  /// `EOF`. В окне переключения такой лог понижается до warning, чтобы
+  /// `ClashManager.onLog` не показал «Соединение с сервером потеряно».
+  @visibleForTesting
+  static ActionResult filterPlannedSwitchResult(
+    ActionResult result, {
+    required bool inWindow,
+    required void Function(String) log,
+  }) {
+    if (result.method != ActionMethod.message) return result;
+    final downgraded = downgradePlannedSwitchLog(result.data, inWindow: inWindow);
+    if (downgraded == null) return result;
+    final payload = (downgraded['data'] as Map?)?['Payload'];
+    log('[ios-tunnel] core error during planned switch, no toast: '
+        '${redactUrls('$payload')}');
+    return result.copyWith(data: downgraded);
   }
   static ClashLibIos? _instance;
 
@@ -476,11 +502,46 @@ class ClashLibIos extends ClashHandlerInterface {
   @override
   Future<bool> preload() async => true;
 
+  /// Ядро приложения офлайновое, трафик ведёт ядро в расширении, которое читает
+  /// `setup.json` один раз при старте. Поэтому действия, меняющие маршрут налету
+  /// (выбор узла, закрытие соединений), уходят и в расширение, иначе галочка
+  /// переедет, а выход туннеля останется прежним.
+  final IosTunnelForwarder _tunnelForwarder = IosTunnelForwarder(
+    log: commonPrint.log,
+  );
+
   @override
   void sendMessage(String message) {
     final messageChar = message.toNativeUtf8().cast<Char>();
     _clashFFI.invokeAction(messageChar, _receiverPort.sendPort.nativePort);
     malloc.free(messageChar);
+    // Локальный вызов выше остаётся: UI читает группы и задержки из него.
+    // Ответ расширения в `handleResult` не идёт — там ждёт локальный ответ с
+    // тем же id, а чужой закрыл бы его раньше времени.
+    final method = IosTunnelForwarder.forwardedMethodOf(message);
+    if (method != null) {
+      unawaited(_forward(message, method));
+    }
+  }
+
+  Future<void> _forward(String message, String method) async {
+    // Окно открыто и до, и после ответа расширения: `closeConnections` рвёт
+    // соединения ядра приложения, ошибки досыпаются ещё несколько секунд.
+    IosPlannedSwitchWindow.begin();
+    final IosForwardOutcome outcome;
+    try {
+      outcome = await _tunnelForwarder.forward(message);
+    } finally {
+      IosPlannedSwitchWindow.end();
+    }
+    // `AppController.changeProxy` просит проверку адреса сразу после локального
+    // ответа, а расширение могло ещё не переключиться. Повторная просьба
+    // перезапускает дебаунс (600 мс) уже от момента, когда расширение ответило.
+    if (outcome == IosForwardOutcome.sent &&
+        method == 'changeProxy' &&
+        globalState.isInit) {
+      globalState.appController.addCheckIpNumDebounce();
+    }
   }
 
   @override

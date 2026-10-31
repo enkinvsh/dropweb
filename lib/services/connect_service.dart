@@ -365,16 +365,16 @@ class ConnectService {
         );
         return;
       } on TunStartException catch (error) {
-        // Real synchronous core cause: final, never auto-restarted. Surface the
-        // exact cause verbatim (mapped where a pattern truly matches; otherwise
-        // shown raw). The file log already carries the cause from handleStart.
+        // Реальная синхронная причина ядра: окончательная, без авто-рестарта.
+        // В тост идёт короткая фраза по шаблону, иначе общая «не удалось
+        // запустить VPN»; точный текст причины уже в логе (handleStart).
         startStopwatch.stop();
         await StatusBarManager.updateIcon(isConnected: false);
         commonPrint.log(
           '[connect] start failed after ${startStopwatch.elapsedMilliseconds}ms: $error',
         );
         globalState.showNotifier(
-          ErrorMapper.mapError(error.cause) ?? error.cause,
+          ErrorMapper.mapError(error.cause) ?? ErrorMapper.vpnStartFailed,
           kind: M3eToastKind.alert,
         );
         return;
@@ -386,7 +386,7 @@ class ConnectService {
           '${startStopwatch.elapsedMilliseconds}ms: $error',
         );
         globalState.showNotifier(
-          ErrorMapper.mapError(error.toString()) ?? error.toString(),
+          ErrorMapper.mapError(error.toString()) ?? ErrorMapper.vpnStartFailed,
           kind: M3eToastKind.alert,
         );
         return;

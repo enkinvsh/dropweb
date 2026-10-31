@@ -1000,10 +1000,10 @@ class AppLocalizations {
     );
   }
 
-  /// `Couldn't check for updates. Check your connection and try again`
+  /// `Couldn't check for updates`
   String get checkUpdateFailed {
     return Intl.message(
-      'Couldn\'t check for updates. Check your connection and try again',
+      'Couldn\'t check for updates',
       name: 'checkUpdateFailed',
       desc: '',
       args: [],
@@ -2690,6 +2690,16 @@ class AppLocalizations {
     );
   }
 
+  /// `Device limit reached\nFree up a slot with your provider and refresh`
+  String get hwidLimitReached {
+    return Intl.message(
+      'Device limit reached\nFree up a slot with your provider and refresh',
+      name: 'hwidLimitReached',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Personal cabinet`
   String get personalCabinet {
     return Intl.message(
@@ -2815,20 +2825,20 @@ class AppLocalizations {
     );
   }
 
-  /// `dropweb uses Android's VPN permission to create a VPN tunnel on your device. Your network traffic is sent through the servers listed in the subscription or configuration that you added yourself, and those servers' operators handle it under their own policies. dropweb does not inspect, record or upload the contents of your traffic or the sites you visit, and it has no ads or analytics. When you add or refresh a subscription, its provider receives your IP address and, unless you turn it off in Settings, a device identifier (HWID) and the device model. You can disconnect at any time from this screen or your device's VPN settings.`
+  /// `dropweb uses Android's VPN permission to create a VPN tunnel on your device. Your network traffic is sent through the servers listed in the subscription or configuration that you added yourself, and those servers' operators handle it under their own policies. dropweb does not inspect, record or upload the contents of your traffic or the sites you visit, and it has no ads or analytics. When you add or refresh a subscription, its provider receives your IP address, a device identifier (HWID) and the device model. You can disconnect at any time from this screen or your device's VPN settings.`
   String get vpnDisclosureBody {
     return Intl.message(
-      'dropweb uses Android\'s VPN permission to create a VPN tunnel on your device. Your network traffic is sent through the servers listed in the subscription or configuration that you added yourself, and those servers\' operators handle it under their own policies. dropweb does not inspect, record or upload the contents of your traffic or the sites you visit, and it has no ads or analytics. When you add or refresh a subscription, its provider receives your IP address and, unless you turn it off in Settings, a device identifier (HWID) and the device model. You can disconnect at any time from this screen or your device\'s VPN settings.',
+      'dropweb uses Android\'s VPN permission to create a VPN tunnel on your device. Your network traffic is sent through the servers listed in the subscription or configuration that you added yourself, and those servers\' operators handle it under their own policies. dropweb does not inspect, record or upload the contents of your traffic or the sites you visit, and it has no ads or analytics. When you add or refresh a subscription, its provider receives your IP address, a device identifier (HWID) and the device model. You can disconnect at any time from this screen or your device\'s VPN settings.',
       name: 'vpnDisclosureBody',
       desc: '',
       args: [],
     );
   }
 
-  /// `dropweb adds a VPN configuration to your iPhone to create a VPN tunnel on your device. Your network traffic is sent through the servers listed in the subscription or configuration that you added yourself, and those servers' operators handle it under their own policies. dropweb does not inspect, record or upload the contents of your traffic or the sites you visit, and it has no ads or analytics. When you add or refresh a subscription, its provider receives your IP address and, unless you turn it off in Settings, a device identifier (HWID) and the device model. You can disconnect at any time from this screen or your device's VPN settings.`
+  /// `dropweb adds a VPN configuration to your iPhone to create a VPN tunnel on your device. Your network traffic is sent through the servers listed in the subscription or configuration that you added yourself, and those servers' operators handle it under their own policies. dropweb does not inspect, record or upload the contents of your traffic or the sites you visit, and it has no ads or analytics. When you add or refresh a subscription, its provider receives your IP address, a device identifier (HWID) and the device model. You can disconnect at any time from this screen or your device's VPN settings.`
   String get vpnDisclosureBodyIos {
     return Intl.message(
-      'dropweb adds a VPN configuration to your iPhone to create a VPN tunnel on your device. Your network traffic is sent through the servers listed in the subscription or configuration that you added yourself, and those servers\' operators handle it under their own policies. dropweb does not inspect, record or upload the contents of your traffic or the sites you visit, and it has no ads or analytics. When you add or refresh a subscription, its provider receives your IP address and, unless you turn it off in Settings, a device identifier (HWID) and the device model. You can disconnect at any time from this screen or your device\'s VPN settings.',
+      'dropweb adds a VPN configuration to your iPhone to create a VPN tunnel on your device. Your network traffic is sent through the servers listed in the subscription or configuration that you added yourself, and those servers\' operators handle it under their own policies. dropweb does not inspect, record or upload the contents of your traffic or the sites you visit, and it has no ads or analytics. When you add or refresh a subscription, its provider receives your IP address, a device identifier (HWID) and the device model. You can disconnect at any time from this screen or your device\'s VPN settings.',
       name: 'vpnDisclosureBodyIos',
       desc: '',
       args: [],
@@ -2885,20 +2895,20 @@ class AppLocalizations {
     );
   }
 
-  /// `Something went wrong. Please try again.`
+  /// `Something went wrong`
   String get genericErrorMessage {
     return Intl.message(
-      'Something went wrong. Please try again.',
+      'Something went wrong',
       name: 'genericErrorMessage',
       desc: '',
       args: [],
     );
   }
 
-  /// `Scanning a QR code from an image isn't supported on this platform. Use the subscription URL instead.`
+  /// `QR scan from an image isn't supported`
   String get qrScanFromImageUnsupported {
     return Intl.message(
-      'Scanning a QR code from an image isn\'t supported on this platform. Use the subscription URL instead.',
+      'QR scan from an image isn\'t supported',
       name: 'qrScanFromImageUnsupported',
       desc: '',
       args: [],
@@ -3405,6 +3415,11 @@ class AppLocalizations {
     return Intl.message('IP address', name: 'm3eStatIp', desc: '', args: []);
   }
 
+  /// `Country`
+  String get m3eStatCountry {
+    return Intl.message('Country', name: 'm3eStatCountry', desc: '', args: []);
+  }
+
   /// `Traffic`
   String get m3eStatTraffic {
     return Intl.message('Traffic', name: 'm3eStatTraffic', desc: '', args: []);
@@ -3838,10 +3853,10 @@ class AppLocalizations {
     );
   }
 
-  /// `dropweb creates a VPN tunnel using Android's system VPN permission. Your traffic goes through your subscription's servers. dropweb does not see or log what you do online. The subscription provider receives your IP address and, unless disabled in settings, your device ID.`
+  /// `dropweb creates a VPN tunnel using Android's system VPN permission. Your traffic goes through your subscription's servers. dropweb does not see or log what you do online. The subscription provider receives your IP address and device ID.`
   String get m3eDisclosureBody {
     return Intl.message(
-      'dropweb creates a VPN tunnel using Android\'s system VPN permission. Your traffic goes through your subscription\'s servers. dropweb does not see or log what you do online. The subscription provider receives your IP address and, unless disabled in settings, your device ID.',
+      'dropweb creates a VPN tunnel using Android\'s system VPN permission. Your traffic goes through your subscription\'s servers. dropweb does not see or log what you do online. The subscription provider receives your IP address and device ID.',
       name: 'm3eDisclosureBody',
       desc: '',
       args: [],
@@ -4215,6 +4230,317 @@ class AppLocalizations {
     return Intl.message(
       'Choose from gallery',
       name: 'm3eScanGallery',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Before connecting`
+  String get ios27DisclosureTitle {
+    return Intl.message(
+      'Before connecting',
+      name: 'ios27DisclosureTitle',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `dropweb creates a VPN tunnel using a VPN configuration, and your iPhone will ask you to allow adding it. Your traffic goes through your subscription's servers. dropweb does not see or log what you do online. The subscription provider receives your IP address and device ID.`
+  String get ios27DisclosureBody {
+    return Intl.message(
+      'dropweb creates a VPN tunnel using a VPN configuration, and your iPhone will ask you to allow adding it. Your traffic goes through your subscription\'s servers. dropweb does not see or log what you do online. The subscription provider receives your IP address and device ID.',
+      name: 'ios27DisclosureBody',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Privacy Policy`
+  String get ios27DisclosurePolicy {
+    return Intl.message(
+      'Privacy Policy',
+      name: 'ios27DisclosurePolicy',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Connection and country`
+  String get ios27A11yJoy {
+    return Intl.message(
+      'Connection and country',
+      name: 'ios27A11yJoy',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Route: {name}. Open list`
+  String ios27A11yRoute(Object name) {
+    return Intl.message(
+      'Route: $name. Open list',
+      name: 'ios27A11yRoute',
+      desc: '',
+      args: [name],
+    );
+  }
+
+  /// `just now`
+  String get ios27UpdatedJustNow {
+    return Intl.message(
+      'just now',
+      name: 'ios27UpdatedJustNow',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `{count, plural, one{{count} minute ago} other{{count} minutes ago}}`
+  String ios27UpdatedMinutesAgo(num count) {
+    return Intl.plural(
+      count,
+      one: '$count minute ago',
+      other: '$count minutes ago',
+      name: 'ios27UpdatedMinutesAgo',
+      desc: '',
+      args: [count],
+    );
+  }
+
+  /// `{count, plural, one{{count} hour ago} other{{count} hours ago}}`
+  String ios27UpdatedHoursAgo(num count) {
+    return Intl.plural(
+      count,
+      one: '$count hour ago',
+      other: '$count hours ago',
+      name: 'ios27UpdatedHoursAgo',
+      desc: '',
+      args: [count],
+    );
+  }
+
+  /// `{count, plural, one{{count} day ago} other{{count} days ago}}`
+  String ios27UpdatedDaysAgo(num count) {
+    return Intl.plural(
+      count,
+      one: '$count day ago',
+      other: '$count days ago',
+      name: 'ios27UpdatedDaysAgo',
+      desc: '',
+      args: [count],
+    );
+  }
+
+  /// `Colors`
+  String get ios27AppearanceColors {
+    return Intl.message(
+      'Colors',
+      name: 'ios27AppearanceColors',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Provider`
+  String get ios27AppearanceProvider {
+    return Intl.message(
+      'Provider',
+      name: 'ios27AppearanceProvider',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Custom`
+  String get ios27AppearanceOwn {
+    return Intl.message(
+      'Custom',
+      name: 'ios27AppearanceOwn',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Buttons`
+  String get ios27ColorSlotAccent {
+    return Intl.message(
+      'Buttons',
+      name: 'ios27ColorSlotAccent',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Background top`
+  String get ios27ColorSlotOrb1 {
+    return Intl.message(
+      'Background top',
+      name: 'ios27ColorSlotOrb1',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Background bottom`
+  String get ios27ColorSlotOrb2 {
+    return Intl.message(
+      'Background bottom',
+      name: 'ios27ColorSlotOrb2',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Color: {slot}`
+  String ios27ColorSheetLabel(Object slot) {
+    return Intl.message(
+      'Color: $slot',
+      name: 'ios27ColorSheetLabel',
+      desc: '',
+      args: [slot],
+    );
+  }
+
+  /// `Blue`
+  String get ios27PresetBlue {
+    return Intl.message('Blue', name: 'ios27PresetBlue', desc: '', args: []);
+  }
+
+  /// `Purple`
+  String get ios27PresetPurple {
+    return Intl.message(
+      'Purple',
+      name: 'ios27PresetPurple',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Pink`
+  String get ios27PresetPink {
+    return Intl.message('Pink', name: 'ios27PresetPink', desc: '', args: []);
+  }
+
+  /// `Red`
+  String get ios27PresetRed {
+    return Intl.message('Red', name: 'ios27PresetRed', desc: '', args: []);
+  }
+
+  /// `Orange`
+  String get ios27PresetOrange {
+    return Intl.message(
+      'Orange',
+      name: 'ios27PresetOrange',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Yellow`
+  String get ios27PresetYellow {
+    return Intl.message(
+      'Yellow',
+      name: 'ios27PresetYellow',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Green`
+  String get ios27PresetGreen {
+    return Intl.message('Green', name: 'ios27PresetGreen', desc: '', args: []);
+  }
+
+  /// `Graphite`
+  String get ios27PresetGraphite {
+    return Intl.message(
+      'Graphite',
+      name: 'ios27PresetGraphite',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `The QR code camera will open here`
+  String get ios27ToastQr {
+    return Intl.message(
+      'The QR code camera will open here',
+      name: 'ios27ToastQr',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Opens in the browser`
+  String get ios27ToastLink {
+    return Intl.message(
+      'Opens in the browser',
+      name: 'ios27ToastLink',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Glass`
+  String get ios27GlassTitle {
+    return Intl.message('Glass', name: 'ios27GlassTitle', desc: '', args: []);
+  }
+
+  /// `Clear`
+  String get ios27GlassCapClear {
+    return Intl.message(
+      'Clear',
+      name: 'ios27GlassCapClear',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Tinted`
+  String get ios27GlassTinted {
+    return Intl.message('Tinted', name: 'ios27GlassTinted', desc: '', args: []);
+  }
+
+  /// `Clearer`
+  String get ios27GlassClearer {
+    return Intl.message(
+      'Clearer',
+      name: 'ios27GlassClearer',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Standard`
+  String get ios27GlassStandard {
+    return Intl.message(
+      'Standard',
+      name: 'ios27GlassStandard',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Denser`
+  String get ios27GlassDenser {
+    return Intl.message('Denser', name: 'ios27GlassDenser', desc: '', args: []);
+  }
+
+  /// `Themes`
+  String get ios27AppearanceThemes {
+    return Intl.message(
+      'Themes',
+      name: 'ios27AppearanceThemes',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Country`
+  String get ios27StatCountry {
+    return Intl.message(
+      'Country',
+      name: 'ios27StatCountry',
       desc: '',
       args: [],
     );

@@ -290,6 +290,9 @@ _$ThemePropsImpl _$$ThemePropsImplFromJson(Map<String, dynamic> json) =>
           : TextScale.fromJson(json['textScale'] as Map<String, dynamic>),
       m3eOwnColorEnabled: json['m3eOwnColorEnabled'] as bool? ?? false,
       m3eOwnColor: (json['m3eOwnColor'] as num?)?.toInt(),
+      ios27OwnOrb1: (json['ios27OwnOrb1'] as num?)?.toInt(),
+      ios27OwnOrb2: (json['ios27OwnOrb2'] as num?)?.toInt(),
+      ios27GlassLevel: (json['ios27GlassLevel'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$$ThemePropsImplToJson(_$ThemePropsImpl instance) =>
@@ -305,6 +308,9 @@ Map<String, dynamic> _$$ThemePropsImplToJson(_$ThemePropsImpl instance) =>
       'textScale': instance.textScale,
       'm3eOwnColorEnabled': instance.m3eOwnColorEnabled,
       'm3eOwnColor': instance.m3eOwnColor,
+      'ios27OwnOrb1': instance.ios27OwnOrb1,
+      'ios27OwnOrb2': instance.ios27OwnOrb2,
+      'ios27GlassLevel': instance.ios27GlassLevel,
     };
 
 const _$ThemeModeEnumMap = {

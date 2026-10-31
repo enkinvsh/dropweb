@@ -12,6 +12,7 @@ import 'package:dropweb/l10n/l10n.dart';
 import 'package:dropweb/models/config.dart' show AppSettingProps;
 import 'package:dropweb/models/profile.dart';
 import 'package:dropweb/providers/providers.dart';
+import 'package:dropweb/services/hwid_recovery.dart';
 import 'package:dropweb/ui/m3e/home/m3e_actions.dart' show m3eRefreshProfile;
 import 'package:dropweb/ui/m3e/screens/m3e_home.dart';
 import 'package:dropweb/ui/m3e/screens/m3e_subscription_sheet.dart';
@@ -91,12 +92,16 @@ class _Calls {
 
   /// Что бросает обновление при `refreshFails`; по умолчанию ошибка без известной причины.
   Exception refreshError = Exception('нет связи');
+
+  /// Вердикт по лимиту устройств, который вернёт обновление; `null` — как «чисто».
+  HwidVerdict? verdict;
   final List<(String, M3eToastKind)> toasts = [];
 
   M3eSubActions get actions => M3eSubActions(
         refresh: (id) async {
           log.add('refresh:$id');
           if (refreshFails) throw refreshError;
+          return verdict;
         },
         select: (id) => log.add('select:$id'),
         delete: (id) async => log.add('delete:$id'),
@@ -496,6 +501,61 @@ void main() {
       await tester.pump();
       expect(calls.log, ['refresh:p0', 'toast:alert:$reason']);
       expect(reason, isNot(l.m3eToastRefreshFail));
+    });
+
+    // Панель сообщает лимит устройств заголовком: загрузка проходит, но в файле заглушка.
+    // Плашка «Подписка обновлена» после такого нажатия была бы ложью.
+    test('обновить: панель всё ещё держит лимит — без «обновлена», подписка не обновилась',
+        () async {
+      final calls = _Calls()..verdict = HwidVerdict.limited;
+      final container = ProviderContainer(
+        overrides: [
+          ..._fakeStores,
+          m3eSubActionsProvider.overrideWithValue(calls.actions),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final ok = await container.read(m3eSubRefreshProvider.notifier).refresh(
+            'p0',
+            okText: l.m3eToastRefreshed,
+            failText: l.m3eToastRefreshFail,
+          );
+
+      expect(ok, isFalse);
+      expect(calls.toasts, isEmpty);
+      expect(container.read(m3eSubRefreshProvider).failed, contains('p0'));
+      expect(container.read(m3eSubRefreshProvider).updatingId, isNull);
+    });
+
+    test('обновить: лимит снят — одна плашка контроллера, без второй «обновлена»',
+        () async {
+      // Перед этим подписка числилась не обновившейся: панель держала лимит.
+      final calls = _Calls()..verdict = HwidVerdict.limited;
+      final container = ProviderContainer(
+        overrides: [
+          ..._fakeStores,
+          m3eSubActionsProvider.overrideWithValue(calls.actions),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(m3eSubRefreshProvider.notifier).refresh(
+            'p0',
+            okText: l.m3eToastRefreshed,
+            failText: l.m3eToastRefreshFail,
+          );
+      expect(container.read(m3eSubRefreshProvider).failed, contains('p0'));
+
+      calls.verdict = HwidVerdict.recovered;
+      final ok = await container.read(m3eSubRefreshProvider.notifier).refresh(
+            'p0',
+            okText: l.m3eToastRefreshed,
+            failText: l.m3eToastRefreshFail,
+          );
+
+      expect(ok, isTrue);
+      expect(calls.toasts, isEmpty);
+      expect(container.read(m3eSubRefreshProvider).failed, isNot(contains('p0')));
     });
 
     test(

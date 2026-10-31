@@ -3,6 +3,22 @@ import 'dart:async';
 import 'package:dropweb/common/common.dart';
 import 'package:flutter/widgets.dart';
 
+/// Вердикт одной загрузки подписки по лимиту устройств.
+///
+/// Нужен вызывающему, чтобы не рапортовать «Подписка обновлена», когда панель
+/// всё ещё отдаёт заглушку вместо конфига: загрузка прошла, но пользоваться
+/// подпиской нельзя.
+enum HwidVerdict {
+  /// Заголовка лимита нет, и лимит не снимался этой загрузкой.
+  clean,
+
+  /// Заголовка лимита нет, а до этого он был: устройство зарегистрировано.
+  recovered,
+
+  /// Панель по-прежнему отказывает по лимиту (`x-hwid-limit: true`).
+  limited,
+}
+
 /// Recovers a subscription from a panel HWID device-limit block.
 ///
 /// Panels signal the block via the `x-hwid-limit: true` response header on a

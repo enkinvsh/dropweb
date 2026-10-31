@@ -15,5 +15,13 @@ import UIKit
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "IosTunnelPlugin") {
       IosTunnelPlugin.register(with: registrar)
     }
+    // Нативное стекло редизайна и канал Reduce Transparency: по одному registrar на плагин.
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DropwebGlass") {
+      registrar.register(
+        DropwebGlassFactory(messenger: registrar.messenger()), withId: DropwebGlassFactory.viewType)
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DropwebAccessibility") {
+      DropwebAccessibilityPlugin.register(with: registrar)
+    }
   }
 }

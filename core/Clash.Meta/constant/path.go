@@ -53,7 +53,12 @@ var Path = func() *path {
 }()
 
 type path struct {
-	homeDir         string
+	homeDir string
+	// cacheDir переопределяет каталог cache.db. Пусто — cache.db лежит в homeDir.
+	// bbolt берёт на файл эксклюзивный flock до конца процесса; процесс, который
+	// iOS усыпляет, не должен держать его в общем контейнере App Group
+	// (убийство 0xdead10cc), поэтому такой процесс уводит cache.db в свой каталог.
+	cacheDir        string
 	configFile      string
 	allowUnsafePath bool
 	safePaths       []string
@@ -62,6 +67,13 @@ type path struct {
 // SetHomeDir is used to set the configuration path
 func SetHomeDir(root string) {
 	Path.homeDir = root
+}
+
+// SetCacheDir выносит cache.db из homeDir в dir; пустая строка возвращает его
+// в homeDir. Вызывать до первого обращения к cachefile.Cache(): БД открывается
+// один раз за процесс.
+func SetCacheDir(dir string) {
+	Path.cacheDir = dir
 }
 
 // SetConfig is used to set the configuration file
@@ -188,6 +200,9 @@ func (p *path) OldCache() string {
 }
 
 func (p *path) Cache() string {
+	if p.cacheDir != "" {
+		return P.Join(p.cacheDir, "cache.db")
+	}
 	return P.Join(p.homeDir, "cache.db")
 }
 

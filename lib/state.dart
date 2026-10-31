@@ -12,15 +12,21 @@ import 'package:dropweb/clash/clash.dart';
 import 'package:dropweb/common/connect_trace.dart';
 import 'package:dropweb/common/error_mapper.dart';
 import 'package:dropweb/common/ios_config_patch.dart';
+import 'package:dropweb/common/ios_tunnel_signature.dart';
 import 'package:dropweb/common/theme.dart';
 import 'package:dropweb/common/work_mode_patch.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/l10n/l10n.dart';
+import 'package:dropweb/plugins/ios_switch_window.dart';
 import 'package:dropweb/plugins/ios_tunnel.dart';
+import 'package:dropweb/plugins/ios_tunnel_forwarder.dart';
 import 'package:dropweb/plugins/service.dart';
 import 'package:dropweb/providers/providers.dart';
+import 'package:dropweb/services/ios_connect_hwid_gate.dart';
+import 'package:dropweb/ui/ios27/layers/ios27_alert.dart';
 import 'package:dropweb/ui/m3e/widgets/m3e_dialog_skin.dart';
 import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
+import 'package:dropweb/utils/device_info_service.dart';
 import 'package:dropweb/widgets/dialog.dart';
 import 'package:dropweb/widgets/scaffold.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +36,7 @@ import 'package:flutter_js/flutter_js.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_color_utilities/palettes/core_palette.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'common/common.dart';
@@ -38,6 +45,52 @@ import 'controller.dart';
 import 'models/models.dart';
 
 typedef UpdateTasks = List<FutureOr Function()>;
+
+/// Всё, что нужно для запуска расширения PacketTunnel на iOS.
+typedef IosTunnelPayload = ({
+  String init,
+  String setup,
+  String state,
+  String signature,
+  List<String> stillRemote,
+});
+
+/// Шов для тестов [GlobalState.syncIosTunnelConfig]: на хосте нет ни iOS, ни
+/// канала туннеля, ни `AppController`. В проде не задаётся — поведение то же.
+@visibleForTesting
+class IosTunnelSyncHooks {
+  const IosTunnelSyncHooks({
+    required this.buildPayload,
+    required this.restarter,
+    required this.startTunnel,
+    required this.onRestarted,
+    required this.teardown,
+    required this.notify,
+  });
+
+  final Future<IosTunnelPayload> Function() buildPayload;
+  final IosTunnelRestarter Function() restarter;
+  final Future<bool> Function(IosTunnelPayload payload) startTunnel;
+  final void Function() onRestarted;
+  final Future<void> Function() teardown;
+  final void Function(String text) notify;
+}
+
+/// Шов для тестов старта туннеля на iOS ([GlobalState.handleStart]): на хосте
+/// нет ни iOS, ни расширения, ни `AppController`. В проде не задаётся —
+/// поведение то же.
+@visibleForTesting
+class IosStartHooks {
+  const IosStartHooks({
+    required this.gate,
+    required this.startTunnel,
+    required this.notify,
+  });
+
+  final Future<IosHwidGateResult> Function() gate;
+  final Future<bool> Function() startTunnel;
+  final void Function(String text) notify;
+}
 
 /// Per-session random secret for mihomo external-controller API auth.
 /// Regenerated on each app start — prevents localhost API exploitation.
@@ -335,13 +388,48 @@ class GlobalState {
   ///   - handleStart: `true` performed/connected, `false` performed but failed
   ///     (caller should surface an error + roll back the icon), `null` ignored
   ///     because a transition was already in flight (caller must NOT toast).
+  ///     `null` также на iOS, когда проверка HWID отказала до запуска туннеля:
+  ///     пользователя уже уведомили (диалог лимита или тост), второй тост
+  ///     `vpnStartFailed` был бы ложным.
   ///   - handleStop: `true` performed teardown, `false` ignored because a
   ///     transition was already in flight (caller must NOT clear UI state).
+  ///     Исключение: стоп во время проверки HWID перед стартом на iOS —
+  ///     `true`, старт после неё отменяется (туннель ещё не поднимался).
   bool _vpnTransitionInFlight = false;
+
+  /// Идёт проверка HWID перед стартом туннеля на iOS (скачивание подписки).
+  bool _iosHwidGateRunning = false;
+
+  /// Пользователь нажал «стоп», пока шла проверка HWID: туннель после неё не
+  /// поднимаем.
+  bool _iosStartCancelled = false;
+
+  /// Шов для тестов, в проде всегда `null`.
+  @visibleForTesting
+  IosStartHooks? iosStartHooks;
+
+  /// Проверка HWID перед стартом на iOS: подписку, скачанную с другим HWID,
+  /// перескачиваем до запуска туннеля (подробности в [IosConnectHwidGate]).
+  Future<IosHwidGateResult> _runIosHwidGate() {
+    final hooks = iosStartHooks;
+    if (hooks != null) return hooks.gate();
+    return IosConnectHwidGate(
+      sendDeviceHeaders: () async {
+        final prefs = await SharedPreferences.getInstance();
+        return prefs.getBool('sendDeviceHeaders') ?? true;
+      },
+      currentProfile: () => config.currentProfile,
+      resolveUrl: preferences.getProfileUrl,
+      currentHwid: DeviceInfoService().getPersistentHwid,
+      refresh: (profile) => appController.updateProfileByUser(profile),
+      log: commonPrint.log,
+    ).run();
+  }
 
   Future<bool?> handleStart([UpdateTasks? tasks]) async {
     if (_vpnTransitionInFlight) {
       commonPrint.log('handleStart ignored: transition already in flight');
+      _dropIosSyncPendingOnUserAction();
       // Ignored (not failed): a start/stop is already running. Returning null
       // — instead of a bool — stops the caller from rendering a false
       // "VPN Start Failed" toast on a double-tap.
@@ -357,7 +445,8 @@ class GlobalState {
     // would wrongly roll back a valid proxy-only start. Desktop and Android
     // proxy-only starts never block on the ack and behave exactly as before.
     final needsTunAck = Platform.isAndroid && config.vpnProps.enable;
-    final isDesktopPending = system.isDesktop;
+    final isIosStart = Platform.isIOS || iosStartHooks != null;
+    final isDesktopPending = system.isDesktop && !isIosStart;
     // Capture THIS attempt's ack completer. completeTunAck() always completes
     // whatever _tunAck is CURRENT, so during a rapid stop->start a late TUN
     // status could land on the wrong attempt. Awaiting our own captured `myAck`
@@ -382,17 +471,69 @@ class GlobalState {
       // before startVpn so runTime/UI flips to connected immediately. For the
       // ack path startTime is deliberately deferred until the ack succeeds so
       // the UI never shows "connected" before the TUN listener is up.
-      if (!needsTunAck && !isDesktopPending) {
+      if (!needsTunAck && !isDesktopPending && !isIosStart) {
         startTime ??= DateTime.now();
       }
-      if (Platform.isIOS) {
+      if (isIosStart) {
         // Traffic runs in the PacketTunnel extension's own core. The app's
         // core only parses configs and downloads providers, so it never
         // starts listeners.
-        if (!await _startIosTunnel()) {
+        // Туннель поднимается в расширении PacketTunnel до ~30 с, а флаг
+        // isConnecting на iOS никто больше не ставит (needsTunAck — только
+        // Android, isDesktopPending — только десктоп): без него на главной нет
+        // сцен «подключение» и «ошибка запуска». Сбрасывает его общий finally.
+        isConnecting.value = true;
+        // Подписка, скачанная с другим HWID (профиль приехал с чужого телефона
+        // через резервную копию), перед туннелем скачивается заново: панель
+        // решает по HWID этого устройства. Идёт при isConnecting, то есть на
+        // главной «Подключение…». Отказ уже объяснён пользователю, поэтому
+        // возвращаем null: `false` дал бы ложный тост `vpnStartFailed`.
+        _iosStartCancelled = false;
+        _iosHwidGateRunning = true;
+        final IosHwidGateResult gate;
+        try {
+          gate = await _runIosHwidGate();
+        } finally {
+          _iosHwidGateRunning = false;
+        }
+        if (_iosStartCancelled) {
+          commonPrint.log('ios: start cancelled by stop during hwid check');
+          startTime = null;
+          return null;
+        }
+        switch (gate.outcome) {
+          case IosHwidGateOutcome.limited:
+            startTime = null;
+            return null;
+          case IosHwidGateOutcome.unverified:
+            startTime = null;
+            // Сырой текст сетевой ошибки в тост не идёт: нужна короткая фраза.
+            final message = ErrorMapper.mapError(gate.error.toString()) ??
+                appLocalizations.m3eToastRefreshFail;
+            (iosStartHooks?.notify ??
+                (text) => showNotifier(text, kind: M3eToastKind.alert))(
+              message,
+            );
+            return null;
+          case IosHwidGateOutcome.proceed:
+            break;
+        }
+        // Пока расширение поднимает туннель, маршрут приложения меняется
+        // «напрямую → через туннель»: идущие в этот момент замеры задержки и
+        // загрузки провайдеров ядра приложения получают `EOF`/reset. Это
+        // следствие запуска, а не потеря сервера, поэтому такие строки уходят
+        // в лог, а не в тост. Честный провал запуска по-прежнему даёт
+        // `vpnStartFailed` ниже по стеку.
+        final started = await IosPlannedSwitchWindow.around(
+          iosStartHooks?.startTunnel ?? _startIosTunnel,
+        );
+        if (!started) {
           startTime = null;
           return false;
         }
+        // Таймер сеанса считаем от реального момента подключения (ответ
+        // расширения «connected»), а не от нажатия кнопки.
+        startTime ??= DateTime.now();
         unawaited(startUpdateTasks(tasks));
         return true;
       }
@@ -475,7 +616,12 @@ class GlobalState {
             commonPrint
                 .log('service.stopVpn() failed during TUN-ack rollback: $e');
           }
-          showNotifier(ackError, kind: M3eToastKind.alert);
+          // Сырой текст ядра («invalid fd 0», «startTUN error: …») в тост не
+          // идёт: он уже в логе, пользователю нужна короткая фраза.
+          showNotifier(
+            ErrorMapper.mapError(ackError) ?? ErrorMapper.vpnStartFailed,
+            kind: M3eToastKind.alert,
+          );
           return false;
         }
         // Ack succeeded: now it's honest to mark the connection as started.
@@ -500,32 +646,28 @@ class GlobalState {
   /// Hands the extension the same three quickStart JSONs the Android
   /// TileService uses (lib/main.dart), then waits for NEVPNStatus.connected:
   /// startVPNTunnel returns before the extension is up.
-  Future<bool> _startIosTunnel() async {
-    final setup = await getSetupParams(
-      pathConfig: config.patchClashConfig.copyWith.tun(enable: false),
-    );
-    final extension = toIosExtensionConfig(
-      setup.config,
-      fileExists: (path) => File(path).existsSync(),
-    );
-    if (extension.stillRemote.isNotEmpty) {
-      commonPrint.log('ios: providers not downloaded yet, extension will fetch: '
-          '${extension.stillRemote.join(', ')}');
+  Future<bool> _startIosTunnel([IosTunnelPayload? prepared]) async {
+    final payload = prepared ?? await _buildIosTunnelPayload();
+    if (payload.stillRemote.isNotEmpty) {
+      commonPrint
+          .log('ios: providers not downloaded yet, extension will fetch: '
+              '${payload.stillRemote.join(', ')}');
     }
     final tunnel = iosTunnel!;
     try {
       await tunnel.start(
-        init: json.encode(InitParams(
-          homeDir: await appPath.homeDirPath,
-          version: await system.version,
-        )),
-        setup: json.encode(setup.copyWith(config: extension.config)),
-        state: json.encode(getCoreState()),
+        init: payload.init,
+        setup: payload.setup,
+        state: payload.state,
       );
     } on PlatformException catch (e) {
       commonPrint.log('ios: tunnel start failed: ${e.code} ${e.message}');
+      _iosTunnelSignature = null;
       return false;
     }
+    // Запоминаем, с каким конфигом поднято расширение: по этой подписи
+    // [syncIosTunnelConfig] решает, нужен ли перезапуск после смены маршрута.
+    _iosTunnelSignature = payload.signature;
     // NEVPNStatus: 0 invalid, 1 disconnected, 2 connecting, 3 connected.
     // A quick extension failure can go 2 -> 1 between polls, so a lasting
     // 0/1 also counts as failure after a short grace period.
@@ -541,13 +683,204 @@ class GlobalState {
               DateTime.now().difference(startedAt) >
                   const Duration(seconds: 3))) {
         commonPrint.log('ios: tunnel did not come up (status $status)');
+        _iosTunnelSignature = null;
         return false;
       }
       await Future<void>.delayed(const Duration(milliseconds: 300));
     }
     commonPrint.log('ios: tunnel start timed out');
+    _iosTunnelSignature = null;
     await tunnel.stop();
     return false;
+  }
+
+  /// Подпись конфига, с которым поднято расширение в этом сеансе приложения.
+  /// `null` — туннель не запускали отсюда (выключен, либо поднят прошлым
+  /// запуском приложения): сверять не с чем, перезапускать нельзя.
+  String? _iosTunnelSignature;
+
+  /// Три JSON для `quickStart` расширения плюс подпись конфига. Сборка отделена
+  /// от запуска, чтобы после смены маршрута сравнить подпись с прежней и не
+  /// перезапускать туннель зря (на iOS 13–14 разбор конфига в расширении — пик
+  /// памяти рядом с лимитом ~15 МБ).
+  Future<IosTunnelPayload> _buildIosTunnelPayload() async {
+    final setup = await getSetupParams(
+      pathConfig: config.patchClashConfig.copyWith.tun(enable: false),
+    );
+    // Редкие проверки авто-групп — только для расширения: оно работает в фоне.
+    // `getSetupParams` общий с ядром приложения, а там проверки нужны как есть.
+    final extension = toIosExtensionConfig(
+      applyIosHealthCheckPatch(setup.config),
+      fileExists: (path) => File(path).existsSync(),
+    );
+    final setupForExtension = setup.copyWith(config: extension.config);
+    final init = json.encode(InitParams(
+      homeDir: await appPath.homeDirPath,
+      version: await system.version,
+    ));
+    final state = json.encode(getCoreState());
+    return (
+      init: init,
+      setup: json.encode(setupForExtension),
+      state: state,
+      signature: iosTunnelSignature(
+        setup: setupForExtension.toJson(),
+        init: init,
+        state: state,
+      ),
+      stillRemote: extension.stillRemote,
+    );
+  }
+
+  /// Доводит работающий туннель iOS до актуальных настроек маршрута.
+  ///
+  /// Почему нужен. Ядро приложения офлайновое, а расширение PacketTunnel читает
+  /// `setup.json` один раз при старте и за файлами не следит. Без этого вызова
+  /// после смены страны, режима («Авто» ↔ страна), «Весь трафик через VPN» или
+  /// подписки конфиг менялся только в приложении, а трафик шёл по-старому.
+  ///
+  /// Что делает. Собирает свежие JSON и сравнивает подпись с той, с которой
+  /// запущено расширение (выбор узла в подпись не входит — он уходит налету
+  /// через [IosTunnelForwarder]). Не изменилась — ничего. Изменилась — стоп и
+  /// старт тем же [_startIosTunnel], что и при подключении.
+  ///
+  /// Таймер сеанса (`startTime`) НЕ сбрасывается: пользователь не выключал VPN.
+  ///
+  /// Если туннель после остановки не поднялся (`failed`) или пропал сам
+  /// (`notConnected`) — штатный стоп `AppController.updateStatus(false)`:
+  /// иначе `runTimeProvider` оставался ненулевым и главная показывала
+  /// «Подключено» при лежащем туннеле. Тост — только для `failed`.
+  ///
+  /// Вызов во время перезапуска не теряется: ставится флаг, и после
+  /// перезапуска синхронизация повторяется один раз (новые вызовы во время
+  /// повтора снова ставят флаг). Старт/стоп пользователя флаг снимает.
+  ///
+  /// Ничего не делает: не на iOS; VPN выключен или поднят не этим запуском
+  /// приложения; идёт старт/стоп пользователя. Не бросает.
+  Future<void> syncIosTunnelConfig({required String reason}) async {
+    final hooks = iosTunnelSyncHooks;
+    if (!(Platform.isIOS || hooks != null) ||
+        !isStart ||
+        _iosTunnelSignature == null) {
+      return;
+    }
+    if (_vpnTransitionInFlight) {
+      _deferIosSyncIfRestarting(reason);
+      return;
+    }
+    final IosTunnelPayload payload;
+    try {
+      payload = await (hooks?.buildPayload ?? _buildIosTunnelPayload)();
+    } catch (e) {
+      commonPrint.log('[ios-tunnel] sync ($reason): config build failed: $e');
+      return;
+    }
+    if (payload.signature == _iosTunnelSignature) {
+      commonPrint.log('[ios-tunnel] sync ($reason): config unchanged, '
+          'selection goes through changeProxy');
+      return;
+    }
+    // Пока строили конфиг, пользователь мог нажать «стоп».
+    if (!isStart) return;
+    if (_vpnTransitionInFlight) {
+      _deferIosSyncIfRestarting(reason);
+      return;
+    }
+    _vpnTransitionInFlight = true;
+    _iosRestartInFlight = true;
+    _iosSyncPending = false;
+    isConnecting.value = true;
+    commonPrint.log('[ios-tunnel] sync ($reason): config changed, '
+        'restarting tunnel');
+    IosRestartOutcome outcome;
+    // Перезапуск рвёт соединения ядра приложения (они идут через расширение):
+    // их `EOF` — следствие нашего переключения, а не потеря сервера. Честный
+    // провал перезапуска по-прежнему даёт teardown и тост `vpnStartFailed`.
+    IosPlannedSwitchWindow.begin();
+    try {
+      final restarter =
+          hooks?.restarter() ?? IosTunnelRestarter(log: commonPrint.log);
+      final start = hooks?.startTunnel ?? _startIosTunnel;
+      outcome = await restarter.restart(start: () => start(payload));
+    } catch (e) {
+      commonPrint.log('[ios-tunnel] sync ($reason): restart threw: $e');
+      outcome = IosRestartOutcome.failed;
+    } finally {
+      IosPlannedSwitchWindow.end();
+      isConnecting.value = false;
+      _iosRestartInFlight = false;
+      _vpnTransitionInFlight = false;
+    }
+    switch (outcome) {
+      case IosRestartOutcome.restarted:
+        _iosTunnelSignature = payload.signature;
+        // applyProfile/changeProxy уже просили проверку адреса, но тогда
+        // расширение ещё не применило смену: просим ещё раз, теперь по факту.
+        (hooks?.onRestarted ?? appController.addCheckIpNumDebounce)();
+        if (_iosSyncPending && isStart) {
+          _iosSyncPending = false;
+          commonPrint.log('[ios-tunnel] sync ($reason): running deferred sync');
+          await syncIosTunnelConfig(reason: '$reason, deferred');
+        }
+      case IosRestartOutcome.notConnected:
+      case IosRestartOutcome.failed:
+        _iosSyncPending = false;
+        _iosTunnelSignature = null;
+        startTime = null;
+        stopUpdateTasks();
+        // Флаг перехода уже снят, иначе handleStop проигнорировал бы стоп.
+        // Туннель уже лежит, stop внутри холостой: Swift зовёт stopVPNTunnel
+        // у остановленного соединения, это безопасно.
+        try {
+          await (hooks?.teardown ?? () => appController.updateStatus(false))();
+        } catch (e) {
+          commonPrint.log('[ios-tunnel] sync ($reason): teardown failed: $e');
+        }
+        if (outcome == IosRestartOutcome.failed) {
+          (hooks?.notify ??
+              (text) => showNotifier(text, kind: M3eToastKind.alert))(
+            ErrorMapper.vpnStartFailed,
+          );
+        }
+    }
+  }
+
+  /// Шов для тестов, в проде всегда `null`.
+  @visibleForTesting
+  IosTunnelSyncHooks? iosTunnelSyncHooks;
+
+  /// Идёт перезапуск из [syncIosTunnelConfig], а не старт/стоп пользователя.
+  bool _iosRestartInFlight = false;
+
+  /// Во время перезапуска пришла ещё одна синхронизация (например, быстрая
+  /// смена подписки A → B): после перезапуска её надо повторить, иначе туннель
+  /// остаётся на A, а интерфейс показывает B.
+  bool _iosSyncPending = false;
+
+  @visibleForTesting
+  bool get iosSyncPending => _iosSyncPending;
+
+  @visibleForTesting
+  String? get iosTunnelSignatureForTest => _iosTunnelSignature;
+
+  @visibleForTesting
+  set iosTunnelSignatureForTest(String? value) => _iosTunnelSignature = value;
+
+  void _deferIosSyncIfRestarting(String reason) {
+    if (_iosRestartInFlight) {
+      _iosSyncPending = true;
+      commonPrint
+          .log('[ios-tunnel] sync ($reason) deferred: restart in flight');
+      return;
+    }
+    commonPrint.log('[ios-tunnel] sync ($reason) skipped: '
+        'start/stop in flight');
+  }
+
+  /// Старт/стоп пользователя во время перезапуска отменяет отложенный повтор:
+  /// пользователь сам решил судьбу туннеля, перезапускать поверх нельзя.
+  void _dropIosSyncPendingOnUserAction() {
+    if (_iosRestartInFlight) _iosSyncPending = false;
   }
 
   Future updateStartTime() async {
@@ -556,7 +889,16 @@ class GlobalState {
 
   Future<bool> handleStop() async {
     if (_vpnTransitionInFlight) {
+      if (_iosHwidGateRunning) {
+        // Туннель ещё не поднимался, останавливать нечего: помечаем отмену, и
+        // handleStart после проверки HWID не стартует. Без этого стоп
+        // игнорировался бы, а туннель поднялся бы вопреки нажатию.
+        _iosStartCancelled = true;
+        commonPrint.log('handleStop: start cancelled during hwid check');
+        return true;
+      }
       commonPrint.log('handleStop ignored: transition already in flight');
+      _dropIosSyncPendingOnUserAction();
       // Ignored: a start/stop is in flight. Returning false tells the caller
       // not to tear down UI/providers for a stop that never happened.
       return false;
@@ -565,8 +907,13 @@ class GlobalState {
     try {
       startTime = null;
       if (Platform.isIOS) {
+        _iosTunnelSignature = null;
+        // Остановка туннеля так же рвёт соединения ядра приложения: их `EOF`
+        // идёт в лог, а не в тост.
         try {
-          await iosTunnel!.stop().timeout(const Duration(seconds: 5));
+          await IosPlannedSwitchWindow.around(
+            () => iosTunnel!.stop().timeout(const Duration(seconds: 5)),
+          );
         } on TimeoutException {
           commonPrint.log('ios: tunnel stop timed out');
         } on PlatformException catch (e) {
@@ -594,11 +941,18 @@ class GlobalState {
   /// диалогах прежний label-large.
   /// Сообщение без цветов Lumina, если диалог M3E (подробности в `m3eDialogMessageSpan`).
   InlineSpan _dialogMessageSpan(InlineSpan message) =>
-      CommonDialog.defaultUseM3e ? m3eDialogMessageSpan(message) : message;
+      CommonDialog.defaultUseM3e || _ios27Dialogs
+          ? m3eDialogMessageSpan(message)
+          : message;
+
+  /// Диалоги рисуются алертом iOS-редизайна. M3E (Android) имеет приоритет, как в самом
+  /// `CommonDialog`.
+  bool get _ios27Dialogs =>
+      !CommonDialog.defaultUseM3e && CommonDialog.defaultUseIos27;
 
   TextStyle? _dialogMessageStyle(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    return CommonDialog.defaultUseM3e
+    return CommonDialog.defaultUseM3e || _ios27Dialogs
         ? textTheme.bodyMedium
         : textTheme.labelLarge;
   }
@@ -737,18 +1091,28 @@ class GlobalState {
   Future<T?> showCommonDialog<T>({
     required Widget child,
     bool dismissible = true,
-  }) async =>
-      showModal<T>(
-        context: navigatorKey.currentState!.context,
-        configuration: FadeScaleTransitionConfiguration(
-          // На Android затемнение как у диалога M3E и без блюра.
-          barrierColor:
-              CommonDialog.defaultUseM3e ? kM3eDialogBarrierColor : Colors.black38,
-          barrierDismissible: dismissible,
-        ),
+  }) async {
+    if (_ios27Dialogs) {
+      // Алерт iOS: затемнение `--dim` без блюра, въезд пружиной доски; `dismissible: false`
+      // закрывает и тап по затемнению, и системное «назад» (урок 25).
+      return showIos27Alert<T>(
+        navigatorKey.currentState!.context,
         builder: (_) => child,
-        filter: CommonDialog.defaultUseM3e ? null : commonFilter,
+        dismissible: dismissible,
       );
+    }
+    return showModal<T>(
+      context: navigatorKey.currentState!.context,
+      configuration: FadeScaleTransitionConfiguration(
+        // На Android затемнение как у диалога M3E и без блюра.
+        barrierColor:
+            CommonDialog.defaultUseM3e ? kM3eDialogBarrierColor : Colors.black38,
+        barrierDismissible: dismissible,
+      ),
+      builder: (_) => child,
+      filter: CommonDialog.defaultUseM3e ? null : commonFilter,
+    );
+  }
 
   Future<T?> safeRun<T>(
     FutureOr<T> Function() futureFunction, {

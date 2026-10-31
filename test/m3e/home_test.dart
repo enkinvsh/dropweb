@@ -162,18 +162,16 @@ void main() {
           );
           // Переполнение строки сообщается как исключение кадра.
           expect(tester.takeException(), isNull);
-          for (var i = 0; i < 2; i++) {
-            final text = find.descendant(
-              of: find.byKey(M3eCardKeys.statValue(i)),
-              matching: find.byType(RichText),
-            );
-            final paragraph = tester.renderObject<RenderParagraph>(text.last);
-            expect(paragraph.didExceedMaxLines, isFalse,
-                reason: 'значение $i обрезано');
-          }
-          // Длинное объявление раздвигает карточку, но не доезжает до нижнего ряда.
+          final text = find.descendant(
+            of: find.byKey(M3eCardKeys.country),
+            matching: find.byType(RichText),
+          );
+          final paragraph = tester.renderObject<RenderParagraph>(text.last);
+          expect(paragraph.didExceedMaxLines, isFalse,
+              reason: 'страна обрезана');
+          // Длинное объявление раздвигает подвал под карточкой, но не доезжает до нижнего ряда.
           expect(
-            tester.getRect(find.byKey(M3eCardKeys.card)).bottom,
+            tester.getRect(find.byKey(M3eCardKeys.footer)).bottom,
             lessThan(tester.getRect(find.byKey(kM3eJoyKey)).top),
           );
           await _golden(tester, name);
@@ -185,20 +183,6 @@ void main() {
   group('ворота 4: паритет раскладки с layout.json (±4 dp)', () {
     const tolerance = 4.0;
     const named = <String, Key>{
-      'card': M3eCardKeys.card,
-      'card.head': M3eCardKeys.head,
-      'card.plan': M3eCardKeys.plan,
-      'card.line': M3eCardKeys.line,
-      'card.meter': M3eCardKeys.meter,
-      'card.stats': M3eCardKeys.stats,
-      'card.sub': M3eCardKeys.sub,
-      'card.site': M3eCardKeys.site,
-      'card.refresh': M3eCardKeys.refresh,
-      'card.name': M3eCardKeys.name,
-      'card.state': M3eCardKeys.state,
-      'card.dot': M3eCardKeys.dot,
-      'card.timer': M3eCardKeys.timer,
-      'card.why': M3eCardKeys.why,
       'hero': kM3eHeroKey,
       'hero.shape': kM3eHeroShapeKey,
       'joy': kM3eJoyKey,
@@ -256,22 +240,15 @@ void main() {
               expectRect(ours, board, '$tag ${e.key}');
               record(scene, e.key, board, ours);
             }
-            for (final group in const ['stat', 'statValue']) {
-              final refs = elements['card.$group'] as List<dynamic>;
-              // Пинг убран с карточки по решению владельца 2026-10-29: колонок две
-              // вместо трёх равных, поэтому x и w берём свои, а y и h сверяем с доской.
-              for (var i = 0; i < 2; i++) {
-                final key = group == 'stat'
-                    ? M3eCardKeys.stat(i)
-                    : M3eCardKeys.statValue(i);
-                final ours = tester.getRect(find.byKey(key));
-                final full = _rectOf(refs[i]);
-                final board =
-                    Rect.fromLTWH(ours.left, full.top, ours.width, full.height);
-                expectRect(ours, board, '$tag card.$group.$i');
-                record(scene, 'card.$group.$i', board, ours);
-              }
-            }
+            // Внутренности карточки сверены с доской карточек (`card_v4_parity_test.dart`):
+            // владелец 2026-10-30 заменил карточку доски компактной плашкой, поэтому
+            // здесь у карточки только левый край, верх и ширина, а высота своя.
+            final card = tester.getRect(find.byKey(M3eCardKeys.card));
+            final ref = _rectOf(elements['card']);
+            final board =
+                Rect.fromLTWH(ref.left, ref.top, ref.width, card.height);
+            expectRect(card, board, '$tag card');
+            record(scene, 'card', board, card);
           }
         }
       });
@@ -465,7 +442,7 @@ void main() {
       );
       final text = tester.widget<Text>(
         find.descendant(
-          of: find.byKey(M3eCardKeys.site),
+          of: find.byKey(M3eCardKeys.footerText),
           matching: find.byType(Text),
         ),
       );

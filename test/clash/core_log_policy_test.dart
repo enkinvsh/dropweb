@@ -1,3 +1,4 @@
+import 'package:dropweb/common/error_mapper.dart';
 import 'package:dropweb/enum/enum.dart';
 import 'package:dropweb/manager/clash_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -42,5 +43,27 @@ void main() {
       shouldNotifyCoreError('[TUN] default interface lost by monitor'),
       isTrue,
     );
+  });
+
+  test('жалоба на повторный замер задержки при рабочем узле не даёт тост', () {
+    // Первый ответ узла получен, задержка записана — это не потеря связи.
+    const payload =
+        'Germany failed to get the second response from http://cp.cloudflare.com/generate_204: '
+        'Head "http://cp.cloudflare.com/generate_204": EOF';
+    expect(shouldNotifyCoreError(payload), isFalse);
+    expect(coreErrorToastText(payload), isNull);
+    expect(
+      coreErrorToastText('Germany failed to get the second response from x'),
+      isNull,
+    );
+  });
+
+  test('тост ошибки ядра — короткая фраза, сырой текст в него не попадает', () {
+    expect(
+      coreErrorToastText('dial tcp 1.2.3.4:443: i/o timeout'),
+      ErrorMapper.mapError('i/o timeout'),
+    );
+    const unknown = '[panic] recovered: index out of range at hub.go:482';
+    expect(coreErrorToastText(unknown), ErrorMapper.generic);
   });
 }

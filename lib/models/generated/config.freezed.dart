@@ -2234,7 +2234,15 @@ mixin _$ThemeProps {
       throw _privateConstructorUsedError; // Свой цвет новых экранов Android лежит отдельно от primaryColor: заголовок
 // dropweb-theme перезаписывает primaryColor при каждом обновлении профиля.
   bool get m3eOwnColorEnabled => throw _privateConstructorUsedError;
-  int? get m3eOwnColor => throw _privateConstructorUsedError;
+  int? get m3eOwnColor =>
+      throw _privateConstructorUsedError; // «Свои» цвета фона iOS: верхний и нижний орб. Третий слот доски, акцент, общий
+// с Android (`m3eOwnColor`). null = орб провайдера; Android эти поля не читает.
+  int? get ios27OwnOrb1 => throw _privateConstructorUsedError;
+  int? get ios27OwnOrb2 =>
+      throw _privateConstructorUsedError; // Степень прозрачности стекла iOS, 0..100 (ползунок «Стекло», app.js:213). null = как в
+// системе: iOS 26+ рисует родное стекло, iOS 13–25 берут стандарт доски (25). Число
+// записывается, только когда пользователь сам двинул ползунок. Android поле не читает.
+  int? get ios27GlassLevel => throw _privateConstructorUsedError;
 
   /// Serializes this ThemeProps to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -2264,7 +2272,10 @@ abstract class $ThemePropsCopyWith<$Res> {
       bool pureBlack,
       TextScale textScale,
       bool m3eOwnColorEnabled,
-      int? m3eOwnColor});
+      int? m3eOwnColor,
+      int? ios27OwnOrb1,
+      int? ios27OwnOrb2,
+      int? ios27GlassLevel});
 
   $TextScaleCopyWith<$Res> get textScale;
 }
@@ -2295,6 +2306,9 @@ class _$ThemePropsCopyWithImpl<$Res, $Val extends ThemeProps>
     Object? textScale = null,
     Object? m3eOwnColorEnabled = null,
     Object? m3eOwnColor = freezed,
+    Object? ios27OwnOrb1 = freezed,
+    Object? ios27OwnOrb2 = freezed,
+    Object? ios27GlassLevel = freezed,
   }) {
     return _then(_value.copyWith(
       primaryColor: freezed == primaryColor
@@ -2341,6 +2355,18 @@ class _$ThemePropsCopyWithImpl<$Res, $Val extends ThemeProps>
           ? _value.m3eOwnColor
           : m3eOwnColor // ignore: cast_nullable_to_non_nullable
               as int?,
+      ios27OwnOrb1: freezed == ios27OwnOrb1
+          ? _value.ios27OwnOrb1
+          : ios27OwnOrb1 // ignore: cast_nullable_to_non_nullable
+              as int?,
+      ios27OwnOrb2: freezed == ios27OwnOrb2
+          ? _value.ios27OwnOrb2
+          : ios27OwnOrb2 // ignore: cast_nullable_to_non_nullable
+              as int?,
+      ios27GlassLevel: freezed == ios27GlassLevel
+          ? _value.ios27GlassLevel
+          : ios27GlassLevel // ignore: cast_nullable_to_non_nullable
+              as int?,
     ) as $Val);
   }
 
@@ -2375,7 +2401,10 @@ abstract class _$$ThemePropsImplCopyWith<$Res>
       bool pureBlack,
       TextScale textScale,
       bool m3eOwnColorEnabled,
-      int? m3eOwnColor});
+      int? m3eOwnColor,
+      int? ios27OwnOrb1,
+      int? ios27OwnOrb2,
+      int? ios27GlassLevel});
 
   @override
   $TextScaleCopyWith<$Res> get textScale;
@@ -2405,6 +2434,9 @@ class __$$ThemePropsImplCopyWithImpl<$Res>
     Object? textScale = null,
     Object? m3eOwnColorEnabled = null,
     Object? m3eOwnColor = freezed,
+    Object? ios27OwnOrb1 = freezed,
+    Object? ios27OwnOrb2 = freezed,
+    Object? ios27GlassLevel = freezed,
   }) {
     return _then(_$ThemePropsImpl(
       primaryColor: freezed == primaryColor
@@ -2451,6 +2483,18 @@ class __$$ThemePropsImplCopyWithImpl<$Res>
           ? _value.m3eOwnColor
           : m3eOwnColor // ignore: cast_nullable_to_non_nullable
               as int?,
+      ios27OwnOrb1: freezed == ios27OwnOrb1
+          ? _value.ios27OwnOrb1
+          : ios27OwnOrb1 // ignore: cast_nullable_to_non_nullable
+              as int?,
+      ios27OwnOrb2: freezed == ios27OwnOrb2
+          ? _value.ios27OwnOrb2
+          : ios27OwnOrb2 // ignore: cast_nullable_to_non_nullable
+              as int?,
+      ios27GlassLevel: freezed == ios27GlassLevel
+          ? _value.ios27GlassLevel
+          : ios27GlassLevel // ignore: cast_nullable_to_non_nullable
+              as int?,
     ));
   }
 }
@@ -2471,7 +2515,10 @@ class _$ThemePropsImpl implements _ThemeProps {
       this.pureBlack = true,
       this.textScale = const TextScale(),
       this.m3eOwnColorEnabled = false,
-      this.m3eOwnColor})
+      this.m3eOwnColor,
+      this.ios27OwnOrb1,
+      this.ios27OwnOrb2,
+      this.ios27GlassLevel})
       : _primaryColors = primaryColors;
 
   factory _$ThemePropsImpl.fromJson(Map<String, dynamic> json) =>
@@ -2514,10 +2561,21 @@ class _$ThemePropsImpl implements _ThemeProps {
   final bool m3eOwnColorEnabled;
   @override
   final int? m3eOwnColor;
+// «Свои» цвета фона iOS: верхний и нижний орб. Третий слот доски, акцент, общий
+// с Android (`m3eOwnColor`). null = орб провайдера; Android эти поля не читает.
+  @override
+  final int? ios27OwnOrb1;
+  @override
+  final int? ios27OwnOrb2;
+// Степень прозрачности стекла iOS, 0..100 (ползунок «Стекло», app.js:213). null = как в
+// системе: iOS 26+ рисует родное стекло, iOS 13–25 берут стандарт доски (25). Число
+// записывается, только когда пользователь сам двинул ползунок. Android поле не читает.
+  @override
+  final int? ios27GlassLevel;
 
   @override
   String toString() {
-    return 'ThemeProps(primaryColor: $primaryColor, orbColorPrimary: $orbColorPrimary, orbColorSecondary: $orbColorSecondary, orbBlur: $orbBlur, primaryColors: $primaryColors, themeMode: $themeMode, schemeVariant: $schemeVariant, pureBlack: $pureBlack, textScale: $textScale, m3eOwnColorEnabled: $m3eOwnColorEnabled, m3eOwnColor: $m3eOwnColor)';
+    return 'ThemeProps(primaryColor: $primaryColor, orbColorPrimary: $orbColorPrimary, orbColorSecondary: $orbColorSecondary, orbBlur: $orbBlur, primaryColors: $primaryColors, themeMode: $themeMode, schemeVariant: $schemeVariant, pureBlack: $pureBlack, textScale: $textScale, m3eOwnColorEnabled: $m3eOwnColorEnabled, m3eOwnColor: $m3eOwnColor, ios27OwnOrb1: $ios27OwnOrb1, ios27OwnOrb2: $ios27OwnOrb2, ios27GlassLevel: $ios27GlassLevel)';
   }
 
   @override
@@ -2545,7 +2603,13 @@ class _$ThemePropsImpl implements _ThemeProps {
             (identical(other.m3eOwnColorEnabled, m3eOwnColorEnabled) ||
                 other.m3eOwnColorEnabled == m3eOwnColorEnabled) &&
             (identical(other.m3eOwnColor, m3eOwnColor) ||
-                other.m3eOwnColor == m3eOwnColor));
+                other.m3eOwnColor == m3eOwnColor) &&
+            (identical(other.ios27OwnOrb1, ios27OwnOrb1) ||
+                other.ios27OwnOrb1 == ios27OwnOrb1) &&
+            (identical(other.ios27OwnOrb2, ios27OwnOrb2) ||
+                other.ios27OwnOrb2 == ios27OwnOrb2) &&
+            (identical(other.ios27GlassLevel, ios27GlassLevel) ||
+                other.ios27GlassLevel == ios27GlassLevel));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -2562,7 +2626,10 @@ class _$ThemePropsImpl implements _ThemeProps {
       pureBlack,
       textScale,
       m3eOwnColorEnabled,
-      m3eOwnColor);
+      m3eOwnColor,
+      ios27OwnOrb1,
+      ios27OwnOrb2,
+      ios27GlassLevel);
 
   /// Create a copy of ThemeProps
   /// with the given fields replaced by the non-null parameter values.
@@ -2593,7 +2660,10 @@ abstract class _ThemeProps implements ThemeProps {
       final bool pureBlack,
       final TextScale textScale,
       final bool m3eOwnColorEnabled,
-      final int? m3eOwnColor}) = _$ThemePropsImpl;
+      final int? m3eOwnColor,
+      final int? ios27OwnOrb1,
+      final int? ios27OwnOrb2,
+      final int? ios27GlassLevel}) = _$ThemePropsImpl;
 
   factory _ThemeProps.fromJson(Map<String, dynamic> json) =
       _$ThemePropsImpl.fromJson;
@@ -2623,7 +2693,18 @@ abstract class _ThemeProps implements ThemeProps {
   @override
   bool get m3eOwnColorEnabled;
   @override
-  int? get m3eOwnColor;
+  int?
+      get m3eOwnColor; // «Свои» цвета фона iOS: верхний и нижний орб. Третий слот доски, акцент, общий
+// с Android (`m3eOwnColor`). null = орб провайдера; Android эти поля не читает.
+  @override
+  int? get ios27OwnOrb1;
+  @override
+  int?
+      get ios27OwnOrb2; // Степень прозрачности стекла iOS, 0..100 (ползунок «Стекло», app.js:213). null = как в
+// системе: iOS 26+ рисует родное стекло, iOS 13–25 берут стандарт доски (25). Число
+// записывается, только когда пользователь сам двинул ползунок. Android поле не читает.
+  @override
+  int? get ios27GlassLevel;
 
   /// Create a copy of ThemeProps
   /// with the given fields replaced by the non-null parameter values.

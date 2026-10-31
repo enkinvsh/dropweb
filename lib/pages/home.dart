@@ -6,6 +6,10 @@ import 'package:dropweb/pages/home/home_overlays.dart';
 import 'package:dropweb/pages/home/navigation_bar.dart';
 import 'package:dropweb/providers/providers.dart';
 import 'package:dropweb/state.dart';
+import 'package:dropweb/ui/ios27/home/ios27_empty_home.dart';
+import 'package:dropweb/ui/ios27/home/ios27_home.dart';
+import 'package:dropweb/ui/ios27/ios27_switch.dart';
+import 'package:dropweb/ui/ios27/theme/ios27_theme_scope.dart';
 import 'package:dropweb/ui/m3e/home/m3e_actions.dart';
 import 'package:dropweb/ui/m3e/screens/m3e_empty_home.dart';
 import 'package:dropweb/ui/m3e/screens/m3e_home.dart';
@@ -34,6 +38,10 @@ class HomePage extends StatelessWidget {
             // перезапуск не нужен.
             final useM3eHome =
                 Platform.isAndroid && viewMode == ViewMode.mobile;
+            // iOS-главная по тому же правилу: только телефонная раскладка. Подбор вынесен
+            // в `useIos27HomeFor`, потому что `HomePage` в тестах не поднимается.
+            final useIos27Home =
+                useIos27HomeFor(isIOS: Platform.isIOS, viewMode: viewMode);
             final hasProfiles =
                 ref.watch(profilesProvider.select((p) => p.isNotEmpty));
             final index = navigationItems.lastIndexWhere(
@@ -54,7 +62,7 @@ class HomePage extends StatelessWidget {
                   ? ''
                   : navigationLabel(pageLabel),
               sideNavigationBar: sideNavigationBar,
-              fullBleed: useM3eHome,
+              fullBleed: useM3eHome || useIos27Home,
               body: useM3eHome
                   ? M3eThemeScope(
                       child: M3eWidgetStyleSync(
@@ -68,7 +76,13 @@ class HomePage extends StatelessWidget {
                               ),
                       ),
                     )
-                  : child!,
+                  : useIos27Home
+                      ? Ios27ThemeScope(
+                          child: hasProfiles
+                              ? const Ios27Home()
+                              : const Ios27EmptyHome(),
+                        )
+                      : child!,
             );
           },
           child: const _HomePageView(),

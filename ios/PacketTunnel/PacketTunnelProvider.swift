@@ -12,7 +12,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private let coreQueue = DispatchQueue(label: "app.dropweb.tunnel.core")
     private let invokeQueue = DispatchQueue(
         label: "app.dropweb.tunnel.invoke", attributes: .concurrent)
+    /// Только DEBUG: периодический замер памяти для диагностики.
     private var memoryTimer: DispatchSourceTimer?
+    /// Строка в лог только при реальном давлении памяти, без опроса.
+    private var memoryPressure: DispatchSourceMemoryPressure?
 
     override func startTunnel(
         options: [String: NSObject]?,
@@ -55,6 +58,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         coreQueue.async {
             self.memoryTimer?.cancel()
             self.memoryTimer = nil
+            self.memoryPressure?.cancel()
+            self.memoryPressure = nil
             iosStopTun()
             completionHandler()
         }
@@ -141,13 +146,33 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         return (String(parts[0]), mask)
     }
 
-    /// Logs what jetsam counts (phys_footprint) every 5 s: `idevicesyslog | grep dropweb-mem`.
+    /// В релизе нет периодического замера: каждые 5 с `iosMemStats` делает
+    /// stop-the-world `runtime.ReadMemStats` в Go и NSLog — всё время, пока
+    /// поднят VPN, в том числе с выключенным экраном, и будит CPU впустую.
+    /// Вместо этого — источник давления памяти: он молчит, пока iOS не начнёт
+    /// поджимать расширение, и тогда даёт одну строку `dropweb-mem`.
+    /// Разовые строки этапов (launch/core/tun) остаются.
     private func startMemoryLog() {
+        memoryPressure?.cancel()
+        let pressure = DispatchSource.makeMemoryPressureSource(
+            eventMask: [.warning, .critical], queue: coreQueue)
+        pressure.setEventHandler { [weak pressure] in
+            guard let event = pressure?.data else { return }
+            Self.logMemory(event.contains(.critical)
+                ? "pressure-critical" : "pressure-warning")
+        }
+        pressure.resume()
+        memoryPressure = pressure
+        #if DEBUG
+        // Диагностика: что считает jetsam (phys_footprint), каждые 5 с —
+        // `idevicesyslog | grep dropweb-mem`.
+        memoryTimer?.cancel()
         let timer = DispatchSource.makeTimerSource(queue: coreQueue)
         timer.schedule(deadline: .now(), repeating: .seconds(5))
         timer.setEventHandler { Self.logMemory("tick") }
         timer.resume()
         memoryTimer = timer
+        #endif
     }
 
     private static func logMemory(_ stage: String) {

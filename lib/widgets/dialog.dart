@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:dropweb/providers/app.dart';
+import 'package:dropweb/ui/ios27/layers/ios27_alert.dart';
 import 'package:dropweb/ui/m3e/widgets/m3e_dialog_skin.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +18,7 @@ class CommonDialog extends ConsumerWidget {
     this.overrideScroll = false,
     this.backgroundColor,
     this.useM3e,
+    this.useIos27,
   });
   final String title;
 
@@ -34,9 +36,17 @@ class CommonDialog extends ConsumerWidget {
   /// при этом не читал `Platform`.
   final bool? useM3e;
 
+  /// Рисовать диалог алертом iOS-редизайна. `null` — по [defaultUseIos27] (на iOS включено).
+  /// Путь M3E, если он включён, идёт первым.
+  final bool? useIos27;
+
   /// Значение по умолчанию для всех диалогов; `showCommonDialog` берёт отсюда же
   /// затемнение без блюра.
   static bool defaultUseM3e = Platform.isAndroid;
+
+  /// Значение по умолчанию для алерта iOS; `showCommonDialog` берёт отсюда же затемнение и
+  /// маршрут. Тесты на macOS меняют его, как и [defaultUseM3e].
+  static bool defaultUseIos27 = Platform.isIOS;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -50,6 +60,15 @@ class CommonDialog extends ConsumerWidget {
         padding: padding,
         overrideScroll: overrideScroll,
         child: child,
+      );
+    }
+    if (useIos27 ?? defaultUseIos27) {
+      return Ios27AlertSkin(
+        title: title,
+        actions: actions,
+        padding: padding,
+        overrideScroll: overrideScroll,
+        child: child ?? const SizedBox.shrink(),
       );
     }
     final size = ref.watch(viewSizeProvider);

@@ -48,6 +48,7 @@ func handleInitClash(paramsString string) bool {
 	version = params.Version
 	// Always update homeDir to ensure correct path even on re-initialization
 	constant.SetHomeDir(params.HomeDir)
+	applyCacheDir()
 	if !isInit {
 		isInit = true
 		// Bound the Go heap: without a limit the default GOGC=100 lets the heap

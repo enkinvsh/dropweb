@@ -107,20 +107,6 @@ void main() {
   tearDown(() => debugDisableShadows = true);
 
   const homeKeys = <String, (String, Key)>{
-    'card': ('Главная · карточка', M3eCardKeys.card),
-    'card.head': ('Главная · карточка', M3eCardKeys.head),
-    'card.plan': ('Главная · карточка', M3eCardKeys.plan),
-    'card.line': ('Главная · карточка', M3eCardKeys.line),
-    'card.meter': ('Главная · карточка', M3eCardKeys.meter),
-    'card.stats': ('Главная · карточка', M3eCardKeys.stats),
-    'card.sub': ('Главная · карточка', M3eCardKeys.sub),
-    'card.site': ('Главная · карточка', M3eCardKeys.site),
-    'card.refresh': ('Главная · карточка', M3eCardKeys.refresh),
-    'card.name': ('Главная · карточка', M3eCardKeys.name),
-    'card.state': ('Главная · карточка', M3eCardKeys.state),
-    'card.dot': ('Главная · карточка', M3eCardKeys.dot),
-    'card.timer': ('Главная · карточка', M3eCardKeys.timer),
-    'card.why': ('Главная · карточка', M3eCardKeys.why),
     'hero': ('Главная · кнопки', kM3eHeroKey),
     'hero.shape': ('Главная · кнопки', kM3eHeroShapeKey),
     'joy': ('Главная · кнопки', kM3eJoyKey),
@@ -147,25 +133,18 @@ void main() {
             expect(finder, findsOneWidget, reason: '$scene ${e.key}: нет');
             _record(screen, scene, e.key, _rect(ref), tester.getRect(finder));
           }
-          for (final group in const ['stat', 'statValue']) {
-            final refs = elements['card.$group'] as List<dynamic>;
-            // Пинг убран с карточки по решению владельца 2026-10-29: колонок две
-            // вместо трёх равных, поэтому x и w берём свои, а y и h сверяем с доской.
-            for (var i = 0; i < 2; i++) {
-              final key = group == 'stat'
-                  ? M3eCardKeys.stat(i)
-                  : M3eCardKeys.statValue(i);
-              final ours = tester.getRect(find.byKey(key));
-              final board = _rect(refs[i]);
-              _record(
-                'Главная · карточка',
-                scene,
-                'card.$group.$i',
-                Rect.fromLTWH(ours.left, board.top, ours.width, board.height),
-                ours,
-              );
-            }
-          }
+          // Внутренности карточки сверены с доской карточек (`card_v4_parity_test.dart`):
+          // владелец 2026-10-30 заменил карточку доски компактной плашкой, поэтому у карточки
+          // сверяем левый край, верх и ширину, а высота своя.
+          final card = tester.getRect(find.byKey(M3eCardKeys.card));
+          final board = _rect(elements['card']);
+          _record(
+            'Главная · карточка',
+            scene,
+            'card',
+            Rect.fromLTWH(board.left, board.top, board.width, card.height),
+            card,
+          );
         }
       });
     }

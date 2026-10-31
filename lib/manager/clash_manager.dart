@@ -21,12 +21,35 @@ bool shouldFeedCoreLogProvider({required bool openLogs}) => openLogs;
 
 final _icmpRelayError = RegExp('icmp', caseSensitive: false);
 
-/// Core errors from the TUN ICMP relay (e.g. "receive ICMP echo reply:
-/// i/o timeout") are caused by the user's own ping traffic, not by the VPN
-/// server. They stay in the log but must not pop a "server is not
-/// responding" notifier.
+/// Жалоба ядра на повторный запрос замера задержки
+/// (`<узел> failed to get the second response from …`, adapter.go).
+/// Первый ответ узла уже получен и задержка записана, так что замер успешен;
+/// ядро лишь предупреждает, что повторный HEAD по той же keep-alive-связи
+/// не прошёл (медленные и мобильные узлы, провайдеры с подменой ответа).
+/// На большой подписке такая строка летит по одной на каждый узел при каждом
+/// замере, и без фильтра владелец видит ложную «ошибку» при рабочем VPN.
+final _probeNoiseError = RegExp(
+  'failed to get the second response',
+  caseSensitive: false,
+);
+
+/// Ошибки реле ICMP в TUN (например, «receive ICMP echo reply: i/o timeout»)
+/// вызваны собственным пингом пользователя, а не сервером VPN, а жалобы на
+/// повторный замер задержки не означают потерю связи. Обе остаются в логе,
+/// но не должны показывать тост «сервер не отвечает».
 bool shouldNotifyCoreError(String payload) =>
-    !_icmpRelayError.hasMatch(payload);
+    !_icmpRelayError.hasMatch(payload) && !_probeNoiseError.hasMatch(payload);
+
+/// Короткий текст тоста для ошибки ядра или `null`, если тост не нужен.
+///
+/// Сырой текст Go (с именами узлов, адресами и «wrapped»-цепочками) в тост
+/// не попадает никогда: известная ошибка получает короткую фразу из
+/// [ErrorMapper], неизвестная — общую [ErrorMapper.generic]. Подробности
+/// остаются в логе.
+String? coreErrorToastText(String payload) {
+  if (!shouldNotifyCoreError(payload)) return null;
+  return ErrorMapper.mapError(payload) ?? ErrorMapper.generic;
+}
 
 class ClashManager extends ConsumerStatefulWidget {
   const ClashManager({
@@ -130,14 +153,14 @@ class _ClashContainerState extends ConsumerState<ClashManager>
     // the redacted payload only.
     DebugRemote.mirrorCoreLog(log.logLevel, redactedPayload);
 
-    if (log.logLevel == LogLevel.error &&
-        shouldNotifyCoreError(log.payload)) {
-      // Run pattern matching against the original payload so existing
-      // regexes (e.g. `DioException.*connection error`) still match;
-      // fall back to the REDACTED payload, never the raw one, so a
-      // surfaced notifier cannot leak credentials or tokens.
-      final message = ErrorMapper.mapError(log.payload) ?? redactedPayload;
-      globalState.showNotifier(message, kind: M3eToastKind.alert);
+    if (log.logLevel == LogLevel.error) {
+      // Шаблоны ErrorMapper сверяются с исходным payload (например,
+      // `DioException.*connection error`), но в тост уходит только короткая
+      // фраза: ни сырой, ни замаскированный текст ядра там не показывается.
+      final message = coreErrorToastText(log.payload);
+      if (message != null) {
+        globalState.showNotifier(message, kind: M3eToastKind.alert);
+      }
     }
     super.onLog(log);
   }

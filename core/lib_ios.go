@@ -9,6 +9,8 @@ package main
 import "C"
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"sync"
@@ -43,10 +45,33 @@ var (
 	iosTun     *sing_tun.Listener
 )
 
+// iosTunnelProcess истинно в процессе расширения PacketTunnel: iosQuickStart
+// вызывает только оно, приложение ходит в ядро через invokeAction.
+var iosTunnelProcess atomic.Bool
+
 func init() {
 	// Nothing on iOS reads allocation profiles, and the first sampled
 	// allocation maps the profiler's 1.4 MB bucket table.
 	runtime.MemProfileRate = 0
+	privateCacheDir = iosPrivateCacheDir
+}
+
+// iosPrivateCacheDir уводит cache.db ядра приложения из общего контейнера
+// App Group. Приложение засыпает на ходу, а bbolt держит flock до конца
+// процесса: на свежей установке первый же запуск ядра без профиля открывал
+// <group>/dropweb/cache.db, и через секунды RunningBoard убивал Runner с
+// 0xdead10cc. Расширение не усыпляется, пока туннель поднят, и остаётся со
+// своим кэшем в группе. Если Library/Caches недоступен, берём tmp: при
+// невозможности открыть БД кэш просто отключается, замка в группе не будет.
+func iosPrivateCacheDir() string {
+	if iosTunnelProcess.Load() {
+		return ""
+	}
+	base, err := os.UserCacheDir()
+	if err != nil {
+		base = os.TempDir()
+	}
+	return filepath.Join(base, "dropweb")
 }
 
 func nextHandle(action *Action, result ActionResult) bool { return false }
@@ -72,6 +97,8 @@ func iosQuickStartGo(initJSON, setupJSON, stateJSON string) string {
 	// need no watchers (two goroutines and a kqueue each, ~40 per config).
 	resource.DisableFileWatch = true
 	singtun.AdmitConnection = iosAdmitConnection
+	// До handleInitClash: он выбирает каталог cache.db по этому флагу.
+	iosTunnelProcess.Store(true)
 	if !handleInitClash(initJSON) {
 		return "init error"
 	}

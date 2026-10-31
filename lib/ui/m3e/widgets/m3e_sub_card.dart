@@ -12,36 +12,39 @@ import '../m3e_format.dart';
 import '../theme/m3e_flex.dart';
 import '../theme/m3e_theme_scope.dart';
 import '../theme/tokens.g.dart';
-import 'm3e_button.dart';
 import 'm3e_meter.dart';
 import 'm3e_shape.dart';
 
-/// Ключи для сверки раскладки с `test/m3e/ref/layout.json` (имена как в эталоне).
+/// Ключи частей карточки для тестов раскладки.
 abstract final class M3eCardKeys {
   static const card = ValueKey<String>('m3e.card');
   static const head = ValueKey<String>('m3e.card.head');
-  static const plan = ValueKey<String>('m3e.card.plan');
-  static const line = ValueKey<String>('m3e.card.line');
-  static const meter = ValueKey<String>('m3e.card.meter');
-  static const stats = ValueKey<String>('m3e.card.stats');
-  static const sub = ValueKey<String>('m3e.card.sub');
-  static const site = ValueKey<String>('m3e.card.site');
-  static const refresh = ValueKey<String>('m3e.card.refresh');
   static const name = ValueKey<String>('m3e.card.name');
+  static const timer = ValueKey<String>('m3e.card.timer');
+  static const plan = ValueKey<String>('m3e.card.plan');
+  static const meter = ValueKey<String>('m3e.card.meter');
+  static const separator = ValueKey<String>('m3e.card.separator');
+
+  /// Нижняя строка: страна слева, статус или «Обновить» справа.
+  static const bar = ValueKey<String>('m3e.card.bar');
+
+  /// Левая часть нижней строки: флаг и страна, индикатор определения или «—».
+  static const country = ValueKey<String>('m3e.card.country');
+  static const flag = ValueKey<String>('m3e.card.flag');
+
+  /// Слово статуса справа: точка и слово.
   static const state = ValueKey<String>('m3e.card.state');
   static const dot = ValueKey<String>('m3e.card.dot');
-  static const timer = ValueKey<String>('m3e.card.timer');
-  static const why = ValueKey<String>('m3e.card.why');
+  static const refresh = ValueKey<String>('m3e.card.refresh');
 
-  /// Колонка показателя `i` (0 IP, 1 трафик).
-  static ValueKey<String> stat(int i) => ValueKey<String>('m3e.card.stat.$i');
-
-  /// Строка значения показателя `i`.
-  static ValueKey<String> statValue(int i) =>
-      ValueKey<String>('m3e.card.statValue.$i');
+  /// Подвал с объявлением под карточкой.
+  static const footer = ValueKey<String>('m3e.card.footer');
+  static const footerText = ValueKey<String>('m3e.card.footer.text');
 }
 
-/// Точка состояния: нет подключения, идёт подключение (пульс), подключено, ошибка.
+/// Точка состояния: нет подключения, идёт подключение, подключено, ошибка. Всегда стоит
+/// на месте: бесконечное движение на главной жгло батарею (замер iOS-ветки), поэтому
+/// «дыхание» подключения живёт только в кнопке питания и фоне.
 enum M3eDotState { off, busy, on, bad }
 
 /// Данные карточки подписки. Только готовые строки: форматирует вызывающий
@@ -60,8 +63,7 @@ class M3eCardData {
     this.meterTone = M3eMeterTone.normal,
     this.ipFlag,
     required this.ipAddress,
-    this.ipLong = false,
-    required this.trafficText,
+    required this.countryText,
     this.ipLoading = false,
     required this.announce,
     this.showRefresh = false,
@@ -70,11 +72,11 @@ class M3eCardData {
   final String providerName;
   final M3eDotState dot;
 
-  /// Текст состояния («Подключено», «Сервер не отвечает»). Его читает диктор
-  /// как живую область; на экране он виден только при [statusVisible].
+  /// Слово состояния («Подключено», «Сервер не отвечает»). Стоит справа в нижней строке,
+  /// пока страна не определяется и нет «Обновить»; диктор получает его в фразе карточки.
   final String statusText;
 
-  /// `true` только когда тон «ошибка»: красная причина на месте таймера.
+  /// `true`, когда тон «ошибка»: слово статуса и точка красные.
   final bool statusVisible;
 
   /// Время сеанса `m:ss` или `null` без подключения. Вне живой области.
@@ -87,20 +89,23 @@ class M3eCardData {
   final double? meterPercent;
   final M3eMeterTone meterTone;
 
-  /// Флаг-эмодзи рядом с адресом; `null` и адрес «—», когда адреса нет.
+  /// Флаг-эмодзи рядом со страной; `null`, когда адреса или кода страны нет.
   final String? ipFlag;
+
+  /// Внешний адрес как его знает модель (или «—»). Карточка его НЕ рисует и не отдаёт
+  /// диктору: на экране только [countryText]. Поле нужно другим экранам, читающим ту же модель.
   final String ipAddress;
 
-  /// Длинный адрес (IPv6): узкое начертание и кегль по ширине колонки.
-  final bool ipLong;
+  /// Что карточка показывает вместо адреса: короткое название страны, маска адреса
+  /// («94.183.•••.•••», когда кода страны нет) или «—».
+  final String countryText;
 
-  final String trafficText;
-
-  /// Адрес сейчас определяется: на месте значения индикатор загрузки, а не «—».
+  /// Страна определяется: на месте значения индикатор загрузки и «Подключение…», а не «—».
   /// «—» без анимации остаётся, когда проверять нечего (нет сети, VPN выключен без проверки).
   final bool ipLoading;
 
-  /// Объявление провайдера или адрес сайта; `https://…` становятся ссылками.
+  /// Объявление провайдера или адрес сайта; `https://…` становятся ссылками. Рисуется не в
+  /// карточке, а в подвале под ней ([M3eCardFooter]).
   final String announce;
   final bool showRefresh;
 
@@ -118,8 +123,7 @@ class M3eCardData {
       meterTone == other.meterTone &&
       ipFlag == other.ipFlag &&
       ipAddress == other.ipAddress &&
-      ipLong == other.ipLong &&
-      trafficText == other.trafficText &&
+      countryText == other.countryText &&
       ipLoading == other.ipLoading &&
       announce == other.announce &&
       showRefresh == other.showRefresh;
@@ -137,24 +141,51 @@ class M3eCardData {
         meterTone,
         ipFlag,
         ipAddress,
-        ipLong,
-        trafficText,
+        countryText,
         ipLoading,
         announce,
         showRefresh,
       );
 }
 
-/// Карточка подписки главной: `.dr-card` в android.css (107-156), разметка `homeHtml()`.
+/// Цель нажатия «Обновить» (M3: не меньше 48 dp).
+const double _kHitTarget = 48;
+
+/// Фраза карточки для диктора одной строкой: имя, тариф, страна, статус.
 ///
-/// Заливка secondary-container (`home.card`), угол 28. Шапка (точка, имя, таймер или
-/// причина), тариф с полосой, три показателя, под чертой сайт и «Обновить».
+/// Решение владельца 2026-10-30 (карточка №4): страна вместо адреса, адрес целиком в
+/// дерево доступности не попадает. Пока страна определяется, вместо неё «Подключение…»,
+/// а слово статуса не повторяем.
+String m3eCardLabel(AppLocalizations l, M3eCardData data) {
+  final parts = <String>[
+    data.providerName,
+    data.planText,
+    if (data.ipLoading)
+      l.m3eStatusConnecting
+    else if (data.countryText != l.m3eStatNone)
+      '${l.m3eStatCountry}: ${data.countryText}',
+    if (!data.ipLoading) data.statusText,
+  ];
+  return parts
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .map((e) => e.endsWith('.') || e.endsWith('…') ? e : '$e.')
+      .join(' ');
+}
+
+/// Карточка подписки главной: компактная плашка (вариант №4 доски карточек iOS-ветки).
+///
+/// Заливка secondary-container (`home.card`), угол 28. Строки: имя и секундный таймер,
+/// тариф со шкалой квоты, тонкая черта, внизу страна выхода слева и слово статуса или
+/// «Обновить» справа. Объявление провайдера лежит под карточкой — [M3eCardFooter].
+///
+/// Никакого бесконечного движения: точка стоит, таймер — простой текст раз в секунду
+/// (канал [liveTimer]). Единственное движение — конечная смена страны.
 class M3eSubCard extends StatelessWidget {
   const M3eSubCard({
     super.key,
     required this.data,
     this.onRefresh,
-    this.onLink,
     this.liveTimer,
   });
 
@@ -167,15 +198,13 @@ class M3eSubCard extends StatelessWidget {
   /// Нажатие «Обновить»; кнопка видна при [M3eCardData.showRefresh].
   final VoidCallback? onRefresh;
 
-  /// Нажатие на ссылку в объявлении.
-  final void Function(Uri uri)? onLink;
-
   @override
   Widget build(BuildContext context) {
     final colors = M3eColors.of(context);
     final home = colors.home;
     final scheme = colors.scheme;
     final l = AppLocalizations.of(context);
+    final ts = MediaQuery.textScalerOf(context).scale(1);
 
     final planColor = switch (data.planTone) {
       M3ePlanTone.normal => home.ink2,
@@ -188,80 +217,120 @@ class M3eSubCard extends StatelessWidget {
       M3eMeterTone.out => scheme.role('error'),
     };
 
-    return Container(
-      key: M3eCardKeys.card,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: home.card,
-        borderRadius: BorderRadius.circular(M3eShape.extraLarge),
-      ),
-      child: DefaultTextStyle.merge(
-        style: TextStyle(color: home.ink),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _Head(data: data, liveTimer: liveTimer),
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Padding(
-                key: M3eCardKeys.plan,
-                // Тариф на вертикали имени: точка 10 + зазор 16.
-                padding: const EdgeInsets.only(left: 26),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(
-                      key: M3eCardKeys.line,
-                      width: double.infinity,
-                      child: Text(
-                        data.planText,
-                        style: M3eFlex.cardLine(color: planColor),
-                      ),
-                    ),
-                    if (data.meterPercent != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Semantics(
-                          label: l.m3eStatTraffic,
-                          value: '${data.meterPercent!.round()}%',
-                          child: ExcludeSemantics(
-                            child: SizedBox(
-                              key: M3eCardKeys.meter,
-                              height: M3eMeter.height,
-                              child: M3eMeter(
-                                percent: data.meterPercent!,
-                                activeColor: meterColor,
-                                // Трек по токену слился бы с заливкой карточки: тон черты.
-                                trackColor: home.line,
-                              ),
+    // Цель нажатия «Обновить» добираем до 48 dp полями вокруг текста. Строка нижней
+    // панели от этого выше номинальных 22 dp на `half` с каждой стороны; эту прибавку
+    // забираем из отступа под чертой (11) и нижнего поля карточки (14), чтобы карточка
+    // росла только на то, что в них не влезло.
+    final need = data.showRefresh ? math.max(0.0, _kHitTarget - 20 * ts) : 0.0;
+    final slopTop = need / 2;
+    final slopBottom = need / 2;
+    final half = math.max(0.0, (20 * ts + need - 22 * ts) / 2);
+
+    final head = _Head(data: data, liveTimer: liveTimer);
+
+    return Semantics(
+      container: true,
+      // Одна читаемая фраза; видимые тексты из семантики убраны, иначе диктор прочёл бы
+      // всё дважды. «Обновить» остаётся своей кнопкой.
+      explicitChildNodes: true,
+      label: m3eCardLabel(l, data),
+      child: Container(
+        key: M3eCardKeys.card,
+        padding: EdgeInsets.fromLTRB(
+          16,
+          14,
+          16,
+          math.max(0.0, 14 - half),
+        ),
+        decoration: BoxDecoration(
+          color: home.card,
+          borderRadius: BorderRadius.circular(M3eShape.extraLarge),
+        ),
+        child: DefaultTextStyle.merge(
+          style: TextStyle(color: home.ink),
+          child: Stack(
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ExcludeSemantics(child: head),
+                  ExcludeSemantics(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            key: M3eCardKeys.plan,
+                            width: double.infinity,
+                            child: Text(
+                              data.planText,
+                              style: M3eFlex.cardLine(color: planColor),
                             ),
                           ),
-                        ),
+                          if (data.meterPercent != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: SizedBox(
+                                key: M3eCardKeys.meter,
+                                height: M3eMeter.height,
+                                child: M3eMeter(
+                                  percent: data.meterPercent!,
+                                  activeColor: meterColor,
+                                  // Трек по токену слился бы с заливкой карточки: тон черты.
+                                  trackColor: home.line,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                  ],
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(
+                      top: 11,
+                      bottom: math.max(0.0, 11 - half),
+                    ),
+                    child: ColoredBox(
+                      key: M3eCardKeys.separator,
+                      color: home.line,
+                      child: const SizedBox(height: 1, width: double.infinity),
+                    ),
+                  ),
+                  _Bar(
+                    key: M3eCardKeys.bar,
+                    data: data,
+                    slopTop: slopTop,
+                    slopBottom: slopBottom,
+                    onRefresh: onRefresh,
+                  ),
+                ],
+              ),
+              // Живая область для диктора: смена состояния («Подключено») озвучивается
+              // сама, без перечитывания всей карточки. Узел 1x1 ничего не рисует и лежит
+              // поверх, а не в колонке, чтобы не добавлять карточке высоты.
+              Positioned(
+                left: 0,
+                top: 0,
+                child: Semantics(
+                  container: true,
+                  liveRegion: true,
+                  label: data.statusText,
+                  child: const SizedBox(width: 1, height: 1),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: _Stats(data: data, l: l),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: _Sub(
-                data: data,
-                onRefresh: onRefresh,
-                onLink: onLink,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Шапка: имя и таймер
 
 class _Head extends StatelessWidget {
   const _Head({required this.data, this.liveTimer});
@@ -271,596 +340,287 @@ class _Head extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = M3eColors.of(context);
-    final home = colors.home;
-    final scheme = colors.scheme;
-    final dotColor = switch (data.dot) {
-      M3eDotState.off => home.dotOff,
-      M3eDotState.on => home.ok,
-      M3eDotState.bad => scheme.role('error'),
-      M3eDotState.busy => scheme.role('primary'),
-    };
-
-    final state = Row(
-      key: M3eCardKeys.state,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _Dot(
-          key: M3eCardKeys.dot,
-          color: dotColor,
-          pulse: switch (data.dot) {
-            M3eDotState.busy => _DotPulse.busy,
-            M3eDotState.on => _DotPulse.live,
-            _ => _DotPulse.none,
-          },
-        ),
-        const SizedBox(width: 16),
-        Flexible(
-          child: Text(
-            data.providerName,
-            key: M3eCardKeys.name,
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.ellipsis,
-            style: M3eFlex.cardName(color: home.ink),
-          ),
-        ),
-      ],
+    final home = M3eColors.of(context).home;
+    final name = Text(
+      data.providerName,
+      key: M3eCardKeys.name,
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.ellipsis,
+      style: M3eFlex.cardName(color: home.ink),
     );
 
-    Widget? trailing;
-    if (data.statusVisible) {
-      trailing = Semantics(
-        container: true,
-        liveRegion: true,
-        child: Text(
-          data.statusText,
-          key: M3eCardKeys.why,
-          style: M3eFlex.cardWhy(color: scheme.role('error')),
-        ),
-      );
-    } else if (data.timer != null) {
-      // Таймер вне живой области: диктор не должен читать его каждую секунду.
-      final live = liveTimer;
-      trailing = live == null
-          ? _Timer(text: data.timer!, color: home.ink2)
-          : ValueListenableBuilder<String?>(
-              valueListenable: live,
-              builder: (context, text, _) =>
-                  _Timer(text: text ?? data.timer!, color: home.ink2),
-            );
-    }
+    Widget clock(String text) => Text(
+          text,
+          key: M3eCardKeys.timer,
+          maxLines: 1,
+          softWrap: false,
+          style: M3eFlex.cardClock(color: home.ink2),
+        );
 
-    // Высота шапки 22 dp держится только минимумом: масштаб текста приложения доходит
-    // до 1,4 (решение владельца 2026-10-29), строка растёт вместе с текстом, а фиксированные
-    // 22 dp резали верх и низ имени и таймера.
+    Widget row(String? timer) => Row(
+          // Базовая линия, а не центр: имя 17 и таймер 15 стоят на одной строке письма.
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Expanded(child: name),
+            if (timer != null) ...[const SizedBox(width: 12), clock(timer)],
+          ],
+        );
+
+    final live = liveTimer;
+    // Высота шапки 22 dp держится минимумом: строка растёт вместе с текстом приложения.
     return ConstrainedBox(
       key: M3eCardKeys.head,
       constraints: const BoxConstraints(minHeight: 22),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          LayoutBuilder(
-            builder: (context, box) {
-              if (trailing == null) {
-                return Align(alignment: Alignment.centerLeft, child: state);
-              }
-              final scaler = MediaQuery.textScalerOf(context);
-              final trailingStyle =
-                  data.statusVisible ? M3eFlex.cardWhy() : M3eFlex.cardTimer();
-              final trailingText =
-                  data.statusVisible ? data.statusText : (data.timer ?? '');
-              // Имя может уйти в многоточие, но не короче 40 % ширины: меньше уже не имя.
-              final name = math.min(
-                _textWidth(data.providerName, M3eFlex.cardName(), scaler),
-                box.maxWidth * 0.4,
-              );
-              final need = 26 +
-                  name +
-                  12 +
-                  _textWidth(trailingText, trailingStyle, scaler);
-              if (need > box.maxWidth) {
-                // Крупный шрифт приложения: причина или таймер уходят под имя
-                // (на 1,4 «Сервер не отвечает» не помещается рядом), а не вытесняют его.
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    state,
-                    Padding(
-                      padding: const EdgeInsets.only(left: 26),
-                      child: trailing,
-                    ),
-                  ],
-                );
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: state,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  trailing,
-                ],
-              );
-            },
-          ),
-          if (!data.statusVisible)
-            // Состояние для диктора без места на экране (`dr-sr` у `role=status`).
-            Semantics(
-              container: true,
-              liveRegion: true,
-              label: data.statusText,
-              // Узел нулевого размера Flutter отбрасывает из дерева доступности,
-              // поэтому 1x1: ничего не рисует, диктор его видит.
-              child: const SizedBox(width: 1, height: 1),
-            ),
-        ],
-      ),
+      child: data.timer == null
+          ? row(null)
+          : live == null
+              ? row(data.timer)
+              // Таймер идёт, только пока есть сеанс; без VPN канал отдаёт `null`.
+              : ValueListenableBuilder<String?>(
+                  valueListenable: live,
+                  builder: (context, text, _) => row(text ?? data.timer),
+                ),
     );
   }
 }
 
-/// Как точка состояния движется.
-enum _DotPulse {
-  /// Стоит на месте: выключено, ошибка, подписка закрыта.
-  none,
+// ---------------------------------------------------------------------------------------------
+// Нижняя строка
 
-  /// Идёт подключение: точка «дышит» 900 мс туда-обратно (`dr-pulse`).
-  busy,
-
-  /// Подключено: спокойное кольцо расходится от точки раз в 2 с.
-  live,
-}
-
-/// Точка 10 dp. При подключении пульсирует (`dr-pulse`), при включённом VPN от неё
-/// медленно расходится кольцо: экран «живой», но не мигает.
-///
-/// Кольцо живёт на двух токенах канона (`canon/material-3-expressive/learn/
-/// 06-motion-and-feedback.md`): масштаб — геометрия, идёт по emphasized decelerate
-/// (231-261: входящее быстро разгоняется и мягко садится); прозрачность — effects без
-/// перелёта (79-80), затухает линейно. Период 2 с = 2 × `extraLong4`: дольше 1 с у
-/// канона для пульса нет, а короткий период воспринимался бы как тревога.
-class _Dot extends StatefulWidget {
-  const _Dot({super.key, required this.color, required this.pulse});
-
-  final Color color;
-  final _DotPulse pulse;
-
-  @override
-  State<_Dot> createState() => _DotState();
-}
-
-class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
-  static const Duration _busyPeriod = Duration(milliseconds: 900);
-  static const Duration _livePeriod = Duration(milliseconds: 2000);
-
-  /// Кольцо дорастает до 2,6 диаметра точки; дальше оно уже не читается как её часть.
-  static const double _ringGrowth = 1.6;
-  static const double _ringAlpha = 0.35;
-
-  // Создаётся сразу, а не лениво: в режиме «стоит» к контроллеру никто не обращается,
-  // и первое обращение в `dispose` ломало бы поиск `TickerMode` у снятого элемента.
-  late final AnimationController _c;
-
-  @override
-  void initState() {
-    super.initState();
-    _c = AnimationController(
-      vsync: this,
-      duration: _busyPeriod,
-      // Старт с полной точки: первый кадр совпадает с эталоном доски, а не с
-      // началом пульса (прозрачность .3, масштаб .7).
-      value: 1,
-    )..addStatusListener(_loop);
-  }
-
-  // У свежего контроллера «последний сообщённый статус» — dismissed, поэтому первое
-  // `value = 1` в `_sync` приходит сюда как completed. Без режима пульс запускался бы
-  // сам и под «меньше движения».
-  _DotPulse _mode = _DotPulse.none;
-
-  void _loop(AnimationStatus s) {
-    if (_mode != _DotPulse.busy) return;
-    if (s == AnimationStatus.completed) {
-      _c.reverse();
-    } else if (s == AnimationStatus.dismissed) {
-      _c.forward();
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _sync();
-  }
-
-  @override
-  void didUpdateWidget(_Dot old) {
-    super.didUpdateWidget(old);
-    _sync();
-  }
-
-  void _sync() {
-    final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    final mode = reduce ? _DotPulse.none : widget.pulse;
-    if (mode == _mode && (mode == _DotPulse.none || _c.isAnimating)) return;
-    // Режим сбрасываем до остановки: `stop` не шлёт статус, но запуск ниже шлёт.
-    _mode = _DotPulse.none;
-    _c.stop();
-    switch (mode) {
-      case _DotPulse.none:
-        _c.value = 1;
-      case _DotPulse.busy:
-        _c
-          ..duration = _busyPeriod
-          ..value = 1;
-        _mode = mode;
-        _c.reverse();
-      case _DotPulse.live:
-        _c
-          ..duration = _livePeriod
-          ..value = 0;
-        _mode = mode;
-        _c.repeat();
-    }
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  Widget _dot() => Container(
-        width: 10,
-        height: 10,
-        decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    if (_mode == _DotPulse.none) return _dot();
-    return RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (context, _) {
-          if (_mode == _DotPulse.live) {
-            final t = _c.value;
-            final grow = M3eEasing.emphasizedDecelerate.transform(t);
-            return Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                // В нулевой точке цикла кольцо ещё совпадает с точкой: не рисуем, чтобы
-                // кромка сглаживания двух кругов не утолщала контур.
-                if (t > 0)
-                  Transform.scale(
-                    scale: 1 + _ringGrowth * grow,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: widget.color
-                            .withValues(alpha: _ringAlpha * (1 - t)),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                _dot(),
-              ],
-            );
-          }
-          final t = Curves.easeInOut.transform(_c.value);
-          return Opacity(
-            opacity: 0.3 + 0.7 * t,
-            child: Transform.scale(scale: 0.7 + 0.3 * t, child: _dot()),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// Таймер сеанса `m:ss`. Меняются только те символы, что поменялись: цифра уходит вверх
-/// и гаснет, новая поднимается снизу (по-глифовый roll).
-///
-/// Движение: сдвиг — геометрия, пружина `M3eSpringStandard.fastSpatial` (канон 71 и
-/// 79-80: перемещение на spatial; standard вместо expressive, потому что цифры в строке
-/// не должны «подпрыгивать»: перелёт 0,15 % вместо 9,5 %); прозрачность — `fastEffects`
-/// без перелёта. Сдвиг — доли высоты глифа, а не dp: он растёт вместе с масштабом
-/// текста приложения. Под «меньше движения» и под закрытым маршрутом — обычный `Text`.
-class _Timer extends StatelessWidget {
-  const _Timer({required this.text, required this.color});
-
-  final String text;
-  final Color color;
-
-  /// Доля высоты строки, на которую цифра въезжает и выезжает.
-  static const double _shift = 0.4;
-
-  static const Curve _move = M3eSpringCurve(M3eSpringStandard.fastSpatial, 0.2);
-  static const Curve _fade = M3eSpringCurve(M3eSpring.fastEffects, 0.12);
-
-  @override
-  Widget build(BuildContext context) {
-    final style = M3eFlex.cardTimer(color: color);
-    final plain = Text(text, maxLines: 1, softWrap: false, style: style);
-    final still = (MediaQuery.maybeDisableAnimationsOf(context) ?? false) ||
-        !TickerMode.valuesOf(context).enabled;
-    if (still) {
-      return Text(
-        text,
-        key: M3eCardKeys.timer,
-        maxLines: 1,
-        softWrap: false,
-        style: style,
-      );
-    }
-    final chars = text.characters.toList();
-    // Невидимый полный текст задаёт размер и находится по тексту; глифы лежат поверх.
-    return Semantics(
-      label: text,
-      excludeSemantics: true,
-      child: Stack(
-        key: M3eCardKeys.timer,
-        children: [
-          Opacity(opacity: 0, child: plain),
-          Positioned(
-            left: 0,
-            top: 0,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < chars.length; i++)
-                  // Ключ ячейки — позиция с конца: при смене числа цифр («9:59» →
-                  // «10:00») секунды не пересоздаются и не анимируются зря.
-                  _TimerGlyph(
-                    key: ValueKey<int>(chars.length - 1 - i),
-                    char: chars[i],
-                    style: style,
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TimerGlyph extends StatelessWidget {
-  const _TimerGlyph({super.key, required this.char, required this.style});
-
-  final String char;
-  final TextStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    final current = ValueKey<String>(char);
-    return AnimatedSwitcher(
-      duration: M3eDuration.short4,
-      switchInCurve: Curves.linear,
-      switchOutCurve: Curves.linear,
-      transitionBuilder: (child, animation) {
-        final incoming = child.key == current;
-        final fade = animation.drive(CurveTween(curve: _Timer._fade));
-        final move = animation.drive(CurveTween(curve: _Timer._move));
-        return FadeTransition(
-          opacity: fade,
-          child: SlideTransition(
-            position: move.drive(
-              Tween<Offset>(
-                // Новая цифра поднимается снизу, старая уходит вверх.
-                begin: Offset(0, incoming ? _Timer._shift : -_Timer._shift),
-                end: Offset.zero,
-              ),
-            ),
-            child: child,
-          ),
-        );
-      },
-      child: Text(
-        char,
-        key: current,
-        maxLines: 1,
-        softWrap: false,
-        style: style,
-      ),
-    );
-  }
-}
-
-/// Ширина строки [text] стилем [style] с учётом масштаба текста приложения.
-///
-/// Нужна, чтобы выбрать кегль IP до раскладки: `Text` сам ужимать начертание не умеет.
-double _textWidth(String text, TextStyle style, TextScaler scaler) {
-  final painter = TextPainter(
-    text: TextSpan(text: text, style: style),
-    textDirection: TextDirection.ltr,
-    textScaler: scaler,
-    maxLines: 1,
-  )..layout();
-  final width = painter.width;
-  painter.dispose();
-  return width;
-}
-
-/// Диаметр флага рядом с адресом: 18 dp при масштабе 1,0, дальше растёт с текстом,
-/// иначе при 1,4–2,0 флаг превращался в точку рядом с крупными цифрами.
+/// Диаметр флага рядом со страной: 18 dp при масштабе 1,0, дальше растёт с текстом,
+/// иначе при 1,4–2,0 флаг превращался в точку рядом с крупными буквами.
 double _flagSize(TextScaler scaler) => scaler.scale(18);
 
-/// Место под флаг и зазор 6 перед адресом.
-double _flagSlot(TextScaler scaler) => _flagSize(scaler) + 6;
-
-/// Нижняя граница кегля IP: ниже читать трудно, дальше уже многоточие.
-const double _ipMinSize = 9;
-
-/// Стиль IP, помещающийся в [avail] (без места под флаг), или `null`, если не помещается
-/// даже самый мелкий.
-///
-/// Порядок как у доски: обычное начертание (wdth 108, кегль 17), затем узкое (wdth 84)
-/// с кеглем `clamp(12, 10.5cqi - 3.45, 17)` от ширины колонки. Если и он не влез (крупный
-/// шрифт приложения), кегль уменьшается шагом 0,5 до [_ipMinSize]: цифры адреса
-/// важнее, чем красота начертания.
-TextStyle? _fitIpStyle({
-  required String address,
-  required bool ipLong,
-  required double columnWidth,
-  required double avail,
-  required TextScaler scaler,
-  required Color color,
-}) {
-  if (!ipLong) {
-    final normal = M3eFlex.statValue(color: color);
-    if (_textWidth(address, normal, scaler) <= avail) return normal;
-  }
-  final start = ipLong ? (columnWidth * 0.105 - 3.45).clamp(12.0, 17.0) : 17.0;
-  for (var size = start; size >= _ipMinSize; size -= 0.5) {
-    final style = M3eFlex.statValueLong(fontSize: size, color: color);
-    if (_textWidth(address, style, scaler) <= avail) return style;
-  }
-  return null;
-}
-
-class _Stats extends StatelessWidget {
-  const _Stats({required this.data, required this.l});
+class _Bar extends StatelessWidget {
+  const _Bar({
+    super.key,
+    required this.data,
+    required this.slopTop,
+    required this.slopBottom,
+    required this.onRefresh,
+  });
 
   final M3eCardData data;
-  final AppLocalizations l;
+
+  /// Поля над и под строкой, добирающие цель нажатия «Обновить» до 48 dp.
+  final double slopTop;
+  final double slopBottom;
+  final VoidCallback? onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final ts = MediaQuery.textScalerOf(context).scale(1);
+    final Widget? right;
+    if (data.showRefresh) {
+      right = _RefreshAction(
+        key: M3eCardKeys.refresh,
+        slopTop: slopTop,
+        slopBottom: slopBottom,
+        onTap: onRefresh,
+      );
+    } else if (data.ipLoading) {
+      // Пока страна определяется, справа пусто: слово статуса дублировало бы «Подключение…».
+      right = null;
+    } else {
+      right = ExcludeSemantics(child: _StateWord(data: data));
+    }
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: 22 * ts),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        // Wrap вместо Row: на обычном размере страна слева, статус прижат вправо; на крупном
+        // шрифте для обоих не хватает ширины, и статус переходит строкой ниже, а не
+        // сжимает название страны до букв в столбик.
+        child: SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              ExcludeSemantics(child: _Country(data: data)),
+              if (right != null) right,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Контраст не ниже 4,5:1 (WCAG AA для мелкого текста).
+bool _legible(Color fg, Color bg) {
+  double f(double v) =>
+      v <= .03928 ? v / 12.92 : math.pow((v + .055) / 1.055, 2.4).toDouble();
+  double lum(Color c) => .2126 * f(c.r) + .7152 * f(c.g) + .0722 * f(c.b);
+  final a = lum(fg), b = lum(bg);
+  return (math.max(a, b) + .05) / (math.min(a, b) + .05) >= 4.5;
+}
+
+/// Слово статуса с точкой: серое, зелёное при подключении, красное при ошибке.
+class _StateWord extends StatelessWidget {
+  const _StateWord({required this.data});
+
+  final M3eCardData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = M3eColors.of(context);
+    final home = colors.home;
+    final ts = MediaQuery.textScalerOf(context).scale(1);
+    final (dot, raw) = switch (data.dot) {
+      M3eDotState.off || M3eDotState.busy => (home.dotOff, home.ink2),
+      M3eDotState.on => (home.ok, home.ok),
+      M3eDotState.bad => (
+          colors.scheme.role('error'),
+          colors.scheme.role('error'),
+        ),
+    };
+    // Слово 13 sp мелкое: если цвет состояния не набирает 4,5:1 на заливке карточки
+    // (зелёный на светлой, красный на тёмной), слово остаётся основным цветом, а
+    // состояние несёт точка.
+    final text = _legible(raw, home.card) ? raw : home.ink;
+    return Row(
+      key: M3eCardKeys.state,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          key: M3eCardKeys.dot,
+          width: 8 * ts,
+          height: 8 * ts,
+          decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+        ),
+        SizedBox(width: 6 * ts),
+        Text(
+          data.statusText,
+          maxLines: 1,
+          softWrap: false,
+          style: M3eFlex.cardState(color: text),
+        ),
+      ],
+    );
+  }
+}
+
+/// «Обновить»: акцентный текст без подложки, цель нажатия до 48 dp за счёт полей.
+class _RefreshAction extends StatefulWidget {
+  const _RefreshAction({
+    super.key,
+    required this.slopTop,
+    required this.slopBottom,
+    required this.onTap,
+  });
+
+  final double slopTop;
+  final double slopBottom;
+  final VoidCallback? onTap;
+
+  @override
+  State<_RefreshAction> createState() => _RefreshActionState();
+}
+
+class _RefreshActionState extends State<_RefreshAction> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = AppLocalizations.of(context).m3eRefresh;
+    final primary = M3eColors.of(context).scheme.role('primary');
+    return Semantics(
+      button: true,
+      label: label,
+      onTap: widget.onTap,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: widget.onTap,
+        child: Padding(
+          padding:
+              EdgeInsets.only(top: widget.slopTop, bottom: widget.slopBottom),
+          child: Opacity(
+            opacity: _pressed ? .5 : 1,
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              style: M3eFlex.cardAction(color: primary),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Страна: флаг и название, индикатор и «Подключение…» или приглушённое «—» без сети.
+class _Country extends StatelessWidget {
+  const _Country({required this.data});
+
+  final M3eCardData data;
 
   @override
   Widget build(BuildContext context) {
     final home = M3eColors.of(context).home;
-    final scaler = MediaQuery.textScalerOf(context);
-
-    Widget column(
-      int i,
-      String label,
-      Widget value, {
-      double? minWidth,
-      bool loading = false,
-      String? swapKey,
-    }) {
-      final col = Column(
-        key: M3eCardKeys.stat(i),
+    final l = AppLocalizations.of(context);
+    final ts = MediaQuery.textScalerOf(context).scale(1);
+    final Widget content;
+    if (data.ipLoading) {
+      content = Row(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            label,
-            maxLines: 1,
-            softWrap: false,
-            style: M3eFlex.statKey(color: home.ink2),
-          ),
-          const SizedBox(height: 2),
-          // Строка значения не ниже 22 dp и растёт с текстом: фиксированная высота
-          // резала низ цифр при масштабе приложения до 1,4.
-          ConstrainedBox(
-            key: M3eCardKeys.statValue(i),
-            constraints: const BoxConstraints(minHeight: 22),
-            child: swapKey == null
-                ? value
-                : _StatSwap(
-                    loading: loading,
-                    valueKey: swapKey,
-                    child: value,
-                  ),
+          const _CountryLoading(),
+          SizedBox(width: 7 * ts),
+          Flexible(
+            child: Text(
+              l.m3eStatusConnecting,
+              style: M3eFlex.cardLine(color: home.ink2),
+            ),
           ),
         ],
       );
-      if (minWidth == null) return col;
-      // Колонка «Трафик» не уже 72 и по ширине содержимого: `minmax(72px, auto)`;
-      // IP забирает остаток. Пинга на карточке нет (решение владельца 2026-10-29).
-      return ConstrainedBox(
-        constraints: BoxConstraints(minWidth: minWidth),
-        child: IntrinsicWidth(child: col),
+    } else if (data.countryText == l.m3eStatNone) {
+      content = Text(
+        data.countryText,
+        maxLines: 1,
+        softWrap: false,
+        style: M3eFlex.cardLine(color: home.ink2),
+      );
+    } else {
+      final text = Flexible(
+        child: Text(
+          data.countryText,
+          style: M3eFlex.cardCountry(color: home.ink),
+        ),
+      );
+      final flag = data.ipFlag;
+      content = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (flag != null && flag.isNotEmpty) ...[
+            _MiniFlag(
+              key: M3eCardKeys.flag,
+              flag: flag,
+              size: _flagSize(MediaQuery.textScalerOf(context)),
+            ),
+            SizedBox(width: 7 * ts),
+          ],
+          text,
+        ],
       );
     }
-
-    // Значение трафика не режется многоточием: колонка растёт по тексту.
-    Text plain(String text, {Color? color}) => Text(
-          text,
-          maxLines: 1,
-          softWrap: false,
-          style: M3eFlex.statValue(color: color ?? home.ink),
-        );
-
-    final traffic = column(
-      1,
-      l.m3eStatTraffic,
-      plain(data.trafficText),
-      minWidth: 72,
-    );
-
-    // Ряд сменяется колонкой, когда адрес не влезает рядом с трафиком (крупный шрифт,
-    // длинный IPv6): высота карточки меняется пружиной, а не щелчком.
-    final moving = TickerMode.valuesOf(context).enabled &&
-        !(MediaQuery.maybeDisableAnimationsOf(context) ?? false);
-    return _SpringSize(
-      moving: moving,
-      alignment: Alignment.topLeft,
-      child: LayoutBuilder(
-        builder: (context, box) {
-          final width = box.maxWidth;
-          final k = _textWidth(l.m3eStatTraffic, M3eFlex.statKey(), scaler);
-          final v = _textWidth(data.trafficText, M3eFlex.statValue(), scaler);
-          final tW =
-              (k > v ? k : v).ceilToDouble().clamp(72.0, double.infinity);
-          final ipColumn = width - 8 - tW;
-          final slot = data.ipFlag == null ? 0.0 : _flagSlot(scaler);
-          final fits = _fitIpStyle(
-                address: data.ipAddress,
-                ipLong: data.ipLong,
-                columnWidth: ipColumn,
-                avail: ipColumn - slot,
-                scaler: scaler,
-                color: home.ink,
-              ) !=
-              null;
-
-          if (fits) {
-            return Row(
-              key: M3eCardKeys.stats,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, col) => column(
-                      0,
-                      l.m3eStatIp,
-                      _IpValue(data: data, columnWidth: col.maxWidth),
-                      loading: data.ipLoading,
-                      swapKey: '${data.ipFlag}${data.ipAddress}',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                traffic,
-              ],
-            );
-          }
-          // Крупный шрифт: адрес не помещается в одну строку с трафиком даже мелким
-          // кеглем. IP получает всю ширину карточки, трафик идёт под ним.
-          return Column(
-            key: M3eCardKeys.stats,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              column(
-                0,
-                l.m3eStatIp,
-                _IpValue(data: data, columnWidth: width),
-                loading: data.ipLoading,
-                swapKey: '${data.ipFlag}${data.ipAddress}',
-              ),
-              const SizedBox(height: 8),
-              Align(alignment: Alignment.centerLeft, child: traffic),
-            ],
-          );
-        },
+    return KeyedSubtree(
+      key: M3eCardKeys.country,
+      child: _CountrySwap(
+        loading: data.ipLoading,
+        valueKey: '${data.ipFlag}${data.countryText}',
+        child: content,
       ),
     );
   }
@@ -896,7 +656,7 @@ class _SpringSize extends StatelessWidget {
   }
 }
 
-/// Смена значения показателя: загрузка → значение и значение → значение.
+/// Смена значения страны: загрузка → значение и значение → значение.
 ///
 /// Решение владельца 2026-10-29: прочерк на месте адреса заменён индикатором загрузки
 /// M3E, а смена значения идёт по канону `canon/material-3-expressive/learn/
@@ -907,11 +667,11 @@ class _SpringSize extends StatelessWidget {
 ///   треть высоты строки (`defaultSpatial`, стр. 71 и 79-80: перемещение — spatial,
 ///   прозрачность — effects), 350 мс;
 /// - ширина и высота значения меняются тем же `defaultSpatial` через [AnimatedSize], чтобы
-///   флаг и адрес другой длины не щёлкали, а колонка трафика рядом не дёргалась.
+///   флаг и страна другой длины не щёлкали.
 /// Под «меньше движения» остаётся перекрёстное проявление 100 мс без сдвига и без
 /// анимации размера; под закрытым маршрутом (нет тикеров) значение меняется сразу.
-class _StatSwap extends StatelessWidget {
-  const _StatSwap({
+class _CountrySwap extends StatelessWidget {
+  const _CountrySwap({
     required this.loading,
     required this.valueKey,
     required this.child,
@@ -961,8 +721,12 @@ class _StatSwap extends StatelessWidget {
       );
     }
 
+    // По размеру содержимого, а не на всю строку: иначе страна занимала бы строку целиком
+    // и слово статуса уходило под неё.
     return Align(
       alignment: Alignment.centerLeft,
+      widthFactor: 1,
+      heightFactor: 1,
       child: _SpringSize(
         moving: moving,
         alignment: Alignment.centerLeft,
@@ -990,9 +754,7 @@ class _StatSwap extends StatelessWidget {
               if (current != null) current,
             ],
           ),
-          child: loading
-              ? const _StatLoading(key: ValueKey<String>('loading'))
-              : KeyedSubtree(key: currentKey, child: child),
+          child: KeyedSubtree(key: currentKey, child: child),
         ),
       ),
     );
@@ -1014,12 +776,11 @@ const double _loadingActiveSize = 38;
 /// «меньше движения» и под закрытым маршрутом — статичная форма SoftBurst: у пакета свой
 /// `Timer.periodic(650 мс)`, который `TickerMode` не глушит (так же решено в
 /// `m3e_hero_button.dart`, `_Indicator`).
-class _StatLoading extends StatelessWidget {
-  const _StatLoading({super.key});
+class _CountryLoading extends StatelessWidget {
+  const _CountryLoading();
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final color = M3eColors.of(context).scheme.role('primary');
     final box = MediaQuery.textScalerOf(context).scale(_loadingSize);
     final still = (MediaQuery.maybeDisableAnimationsOf(context) ?? false) ||
@@ -1041,62 +802,13 @@ class _StatLoading extends StatelessWidget {
               ),
             ),
           );
-    return Semantics(
-      container: true,
-      label: l.loadingEllipsis,
-      child: ExcludeSemantics(child: shape),
-    );
-  }
-}
-
-class _IpValue extends StatelessWidget {
-  const _IpValue({required this.data, required this.columnWidth});
-
-  final M3eCardData data;
-  final double columnWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    final home = M3eColors.of(context).home;
-    final scaler = MediaQuery.textScalerOf(context);
-    final slot = data.ipFlag == null ? 0.0 : _flagSlot(scaler);
-    // `clamp(12px, 10.5cqi - 3.45px, 17px)`: cqi это ширина колонки IP (контейнер
-    // `.dr-stat:first-child`): 9.5 px строки на 1 px кегля и 31.5 px на флаг с отступом.
-    // Крупный шрифт приложения ужимает адрес дальше (см. [_fitIpStyle]); если не помогло,
-    // остаётся обычный стиль с многоточием: это крайний случай.
-    final style = _fitIpStyle(
-          address: data.ipAddress,
-          ipLong: data.ipLong,
-          columnWidth: columnWidth,
-          avail: columnWidth - slot,
-          scaler: scaler,
-          color: home.ink,
-        ) ??
-        M3eFlex.statValueLong(fontSize: _ipMinSize, color: home.ink);
-    final text = Text(
-      data.ipAddress,
-      maxLines: 1,
-      softWrap: false,
-      overflow: TextOverflow.ellipsis,
-      style: style,
-    );
-    if (data.ipFlag == null) return text;
-    // Ряд по ширине содержимого: иначе рамка значения всегда на всю колонку и
-    // [AnimatedSize] в [_StatSwap] нечему анимировать.
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _MiniFlag(flag: data.ipFlag!, size: _flagSize(scaler)),
-        const SizedBox(width: 6),
-        Flexible(child: text),
-      ],
-    );
+    return ExcludeSemantics(child: shape);
   }
 }
 
 /// Круглый флаг 18 dp (`.dr-mini-flag`): глиф Twemoji крупнее круга, лишнее срезано.
 class _MiniFlag extends StatelessWidget {
-  const _MiniFlag({required this.flag, required this.size});
+  const _MiniFlag({super.key, required this.flag, required this.size});
 
   final String flag;
   final double size;
@@ -1138,65 +850,27 @@ class _MiniFlag extends StatelessWidget {
   }
 }
 
-class _Sub extends StatelessWidget {
-  const _Sub({
-    required this.data,
-    required this.onRefresh,
-    required this.onLink,
-  });
+// ---------------------------------------------------------------------------------------------
+// Подвал с объявлением
 
-  final M3eCardData data;
-  final VoidCallback? onRefresh;
-  final void Function(Uri uri)? onLink;
-
-  @override
-  Widget build(BuildContext context) {
-    final home = M3eColors.of(context).home;
-    final l = AppLocalizations.of(context);
-    return Container(
-      key: M3eCardKeys.sub,
-      constraints: const BoxConstraints(minHeight: 45),
-      padding: const EdgeInsets.only(top: 12),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: home.line)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: _Announce(text: data.announce, onLink: onLink),
-            ),
-          ),
-          if (data.showRefresh) ...[
-            const SizedBox(width: 12),
-            M3eButton(
-              key: M3eCardKeys.refresh,
-              label: l.m3eRefresh,
-              onPressed: onRefresh,
-              size: M3eButtonSize.xs,
-              minWidth: 104,
-              flexFont: true,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Текст сайта или объявления; `http(s)://…` до пробела становятся ссылками (`dr-link`).
-class _Announce extends StatefulWidget {
-  const _Announce({required this.text, required this.onLink});
+/// Подвал под карточкой: объявление провайдера на фоне главной, без подложки.
+///
+/// Текст — `onSurfaceVariant`, ссылки `https?://…` — primary, подчёркнуты и нажимаются
+/// (в магазинных сборках [onLink] равен `null`: ссылки видны, но не нажимаются).
+/// Пустое объявление — подвала нет. Раскладка главной мерит карточку и подвал вместе.
+class M3eCardFooter extends StatefulWidget {
+  const M3eCardFooter({super.key, required this.text, this.onLink});
 
   final String text;
+
+  /// Нажатие на ссылку в объявлении.
   final void Function(Uri uri)? onLink;
 
   @override
-  State<_Announce> createState() => _AnnounceState();
+  State<M3eCardFooter> createState() => _M3eCardFooterState();
 }
 
-class _AnnounceState extends State<_Announce> {
+class _M3eCardFooterState extends State<M3eCardFooter> {
   static final RegExp _url = RegExp(r'https?://\S+');
   final List<TapGestureRecognizer> _taps = [];
 
@@ -1215,17 +889,10 @@ class _AnnounceState extends State<_Announce> {
 
   @override
   Widget build(BuildContext context) {
-    final home = M3eColors.of(context).home;
-    final primary = M3eColors.of(context).scheme.role('primary');
-    // 13/18 wght 400: готового стиля для сайта в M3eFlex нет, берём statKey с весом 400.
-    final base = M3eFlex.statKey(color: home.ink2).copyWith(
-      fontWeight: FontWeight.w400,
-      fontVariations: const [
-        FontVariation('wght', 400),
-        FontVariation('wdth', 100),
-        FontVariation('opsz', 13),
-      ],
-    );
+    if (widget.text.isEmpty) return const SizedBox.shrink();
+    final scheme = M3eColors.of(context).scheme;
+    final primary = scheme.role('primary');
+    final base = M3eFlex.cardFooter(color: scheme.role('onSurfaceVariant'));
     _disposeTaps();
     final spans = <InlineSpan>[];
     var from = 0;
@@ -1235,10 +902,12 @@ class _AnnounceState extends State<_Announce> {
       }
       final url = m.group(0)!;
       final tap = TapGestureRecognizer()
-        ..onTap = () {
-          final uri = Uri.tryParse(url);
-          if (uri != null) widget.onLink?.call(uri);
-        };
+        ..onTap = widget.onLink == null
+            ? null
+            : () {
+                final uri = Uri.tryParse(url);
+                if (uri != null) widget.onLink?.call(uri);
+              };
       _taps.add(tap);
       spans.add(
         TextSpan(
@@ -1246,6 +915,7 @@ class _AnnounceState extends State<_Announce> {
           recognizer: tap,
           style: base.copyWith(
             color: primary,
+            fontWeight: FontWeight.w500,
             decoration: TextDecoration.underline,
             decorationColor: primary,
           ),
@@ -1256,10 +926,14 @@ class _AnnounceState extends State<_Announce> {
     if (from < widget.text.length) {
       spans.add(TextSpan(text: widget.text.substring(from)));
     }
-    return SizedBox(
-      key: M3eCardKeys.site,
-      width: double.infinity,
-      child: Text.rich(TextSpan(children: spans), style: base),
+    return Padding(
+      key: M3eCardKeys.footer,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: SizedBox(
+        key: M3eCardKeys.footerText,
+        width: double.infinity,
+        child: Text.rich(TextSpan(children: spans), style: base),
+      ),
     );
   }
 }

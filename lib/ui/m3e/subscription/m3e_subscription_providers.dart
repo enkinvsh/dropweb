@@ -11,6 +11,7 @@ import 'package:dropweb/common/error_mapper.dart';
 import 'package:dropweb/models/profile.dart';
 import 'package:dropweb/plugins/app.dart';
 import 'package:dropweb/providers/providers.dart';
+import 'package:dropweb/services/hwid_recovery.dart';
 import 'package:dropweb/state.dart';
 import 'package:dropweb/ui/m3e/subscription/m3e_subscription_model.dart';
 import 'package:dropweb/ui/m3e/widgets/m3e_toast_kind.dart';
@@ -58,8 +59,9 @@ class M3eSubActions {
         notify: (text, kind) => globalState.showNotifier(text, kind: kind),
       );
 
-  /// Перезагрузить подписку. Бросает исключение, если не вышло.
-  final Future<void> Function(String profileId) refresh;
+  /// Перезагрузить подписку. Бросает исключение, если не вышло. Возвращает вердикт по
+  /// лимиту устройств; `null` читается как [HwidVerdict.clean] (подмена в тестах).
+  final Future<HwidVerdict?> Function(String profileId) refresh;
 
   /// Сделать подписку текущей.
   final void Function(String profileId) select;
@@ -77,8 +79,9 @@ class M3eSubActions {
 final m3eSubActionsProvider = Provider<M3eSubActions>(M3eSubActions.app);
 
 /// Обновление без модального окна ошибки: о результате сообщает плашка, а не диалог
-/// `showErrorMessage` старого `refreshProfiles`.
-Future<void> _refresh(Ref ref, String id) async {
+/// `showErrorMessage` старого `refreshProfiles`. Нажатие пользователя, поэтому лимит
+/// устройств контроллер показывает заново, даже если эпизод уже идёт.
+Future<HwidVerdict> _refresh(Ref ref, String id) async {
   Profile? profile;
   for (final p in ref.read(profilesProvider)) {
     if (p.id == id) profile = p;
@@ -91,7 +94,7 @@ Future<void> _refresh(Ref ref, String id) async {
   // не воскрешает подписку, удалённую во время загрузки.
   controller.updateProfileById(id, (p) => p.copyWith(isUpdating: true));
   try {
-    await controller.updateProfile(profile);
+    return await controller.updateProfileByUser(profile);
   } catch (e) {
     commonPrint.log('$e');
     controller.updateProfileById(id, (p) => p.copyWith(isUpdating: false));
@@ -129,6 +132,13 @@ class M3eSubRefresh extends Notifier<M3eSubRefreshState> {
   /// Обновляет подписку [id]. Успех: плашка [okText] (check), состояние «не удалось»
   /// снимается. Сбой: плашка [failText] (alert), подписка помечается как не обновившаяся.
   /// Пока идёт обновление, повторное нажатие игнорируется. Возвращает `true` при успехе.
+  ///
+  /// Лимит устройств панель сообщает заголовком, а не ошибкой: загрузка проходит, но в файле
+  /// заглушка без серверов. Это не обновление: подписка помечается как не обновившаяся
+  /// (так же, как при сбое сети, и `false` возвращается тем же способом), а [okText] не
+  /// показывается. Причину (окно лимита или плашка) уже показал контроллер, вторая плашка
+  /// поверх неё была бы шумом. Снятый лимит контроллер празднует своей плашкой «Устройство
+  /// зарегистрировано», поэтому [okText] поверх неё тоже не нужен.
   Future<bool> refresh(
     String id, {
     required String okText,
@@ -140,8 +150,9 @@ class M3eSubRefresh extends Notifier<M3eSubRefreshState> {
       updatingId: id,
       failed: {...state.failed}..remove(id),
     );
+    HwidVerdict? verdict;
     try {
-      await actions.refresh(id);
+      verdict = await actions.refresh(id);
     } catch (e) {
       state = M3eSubRefreshState(failed: {...state.failed, id});
       // Причина важна пользователю (лимит устройств, HWID, токен): тот же маппер, что у
@@ -150,8 +161,14 @@ class M3eSubRefresh extends Notifier<M3eSubRefreshState> {
           ErrorMapper.mapError('$e') ?? failText, M3eToastKind.alert);
       return false;
     }
+    if (verdict == HwidVerdict.limited) {
+      state = M3eSubRefreshState(failed: {...state.failed, id});
+      return false;
+    }
     state = M3eSubRefreshState(failed: state.failed);
-    actions.notify(okText, M3eToastKind.check);
+    if (verdict != HwidVerdict.recovered) {
+      actions.notify(okText, M3eToastKind.check);
+    }
     return true;
   }
 }
